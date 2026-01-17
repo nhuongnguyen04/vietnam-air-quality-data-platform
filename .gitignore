@@ -1,0 +1,27 @@
+# General
+venv/
+logs/
+
+# Python / dbt
+__pycache__/
+*.pyc
+dbt/target/
+dbt/logs/
+dbt/.dbt/
+
+# Airflow
+airflow/logs/
+airflow/*.pid
+
+# Env & secrets
+.env
+*.env.*
+credentials.json
+
+# NiFi
+nifi/*.log
+nifi/state/
+
+# Editor
+.vscode/
+.idea/
