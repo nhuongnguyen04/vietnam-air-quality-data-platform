@@ -1,0 +1,78 @@
+version: 2
+
+sources:
+  - name: aqicn
+    description: "Raw AQICN data from ClickHouse"
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_aqicn_measurements
+        description: "Raw AQICN measurements data from feed API"
+        columns:
+          - name: station_id
+            description: "Station ID from AQICN API (data.idx)"
+            tests:
+              - not_null
+          - name: time_v
+            description: "Unix timestamp of measurement"
+          - name: pollutant
+            description: "Pollutant name (pm25, pm10, o3, etc.)"
+          - name: value
+            description: "Pollutant value as string"
+          - name: station_name
+            description: "Station name with location info"
+          - name: latitude
+            description: "Latitude as string"
+          - name: longitude
+            description: "Longitude as string"
+          - name: ingest_time
+            description: "Timestamp when data was ingested"
+            tests:
+              - not_null
+
+      - name: raw_aqicn_forecast
+        description: "Raw AQICN forecast data from feed API"
+        columns:
+          - name: station_id
+            description: "Station ID from AQICN API"
+            tests:
+              - not_null
+          - name: measurement_time_v
+            description: "Unix timestamp of the measurement this forecast relates to"
+          - name: forecast_type
+            description: "Type of forecast (daily, hourly, etc.)"
+          - name: pollutant
+            description: "Pollutant being forecasted"
+          - name: day
+            description: "Forecast date as string"
+          - name: avg
+            description: "Average forecast value as string"
+          - name: max
+            description: "Maximum forecast value as string"
+          - name: min
+            description: "Minimum forecast value as string"
+          - name: ingest_time
+            description: "Timestamp when data was ingested"
+            tests:
+              - not_null
+
+      - name: raw_aqicn_stations
+        description: "Raw AQICN stations metadata from bounds API"
+        columns:
+          - name: station_id
+            description: "Station ID from AQICN API (uid)"
+            tests:
+              - not_null
+          - name: station_name
+            description: "Station name with location info"
+          - name: latitude
+            description: "Latitude as string"
+          - name: longitude
+            description: "Longitude as string"
+          - name: aqi
+            description: "Current AQI value as string"
+          - name: ingest_time
+            description: "Timestamp when data was ingested"
+            tests:
+              - not_null
+

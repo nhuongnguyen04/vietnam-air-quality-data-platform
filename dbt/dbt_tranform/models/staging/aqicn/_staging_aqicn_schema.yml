@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: stg_aqicn__measurements
+    description: "Staged AQICN measurements data - filtered for Vietnam, deduplicated, and transformed"
+    columns:
+      - name: station_id
+        description: "AQICN station ID"
+        tests:
+          - not_null
+      - name: pollutant
+        description: "Standardized pollutant name"
+        tests:
+          - not_null
+      - name: value
+        description: "Pollutant concentration value (converted to Float64)"
+      - name: measurement_datetime
+        description: "Measurement datetime (parsed from Unix timestamp)"
+      - name: is_vietnam
+        description: "Flag indicating data is from Vietnam"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true]
+      - name: data_quality_score
+        description: "Data quality score based on completeness"
+
+  - name: stg_aqicn__forecast
+    description: "Staged AQICN forecast data - filtered for Vietnam stations, deduplicated, and transformed"
+    columns:
+      - name: station_id
+        description: "AQICN station ID"
+        tests:
+          - not_null
+      - name: pollutant
+        description: "Standardized pollutant name"
+        tests:
+          - not_null
+      - name: forecast_date
+        description: "Forecast date (parsed from day string)"
+        tests:
+          - not_null
+      - name: forecast_avg
+        description: "Average forecast value (converted to Float64)"
+      - name: forecast_lead_days
+        description: "Number of days ahead the forecast predicts"
+
+  - name: stg_aqicn__stations
+    description: "Staged AQICN stations metadata - filtered for Vietnam, deduplicated, and transformed"
+    columns:
+      - name: station_id
+        description: "AQICN station ID"
+        tests:
+          - not_null
+          - unique
+      - name: station_name
+        description: "Station name with location info"
+      - name: latitude
+        description: "Latitude (converted to Float64)"
+      - name: longitude
+        description: "Longitude (converted to Float64)"
+      - name: province
+        description: "Province extracted from station name"
+      - name: city
+        description: "City extracted from station name"
+      - name: is_vietnam
+        description: "Flag indicating station is in Vietnam"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true]
+

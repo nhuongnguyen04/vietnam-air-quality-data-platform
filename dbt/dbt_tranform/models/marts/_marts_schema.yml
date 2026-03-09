@@ -1,0 +1,155 @@
+version: 2
+
+models:
+  - name: mart_air_quality__daily_summary
+    description: "Daily aggregated air quality summary by station"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+      - name: date
+        description: "Date"
+        tests:
+          - not_null
+      - name: avg_aqi
+        description: "Average AQI for the day"
+      - name: max_aqi
+        description: "Maximum AQI for the day"
+      - name: min_aqi
+        description: "Minimum AQI for the day"
+      - name: exceedance_count
+        description: "Number of exceedances for the day"
+
+  - name: mart_air_quality__hourly
+    description: "Hourly air quality data for time series analysis"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+      - name: datetime_hour
+        description: "Hour timestamp"
+        tests:
+          - not_null
+      - name: avg_aqi
+        description: "Average AQI for the hour"
+
+  - name: mart_air_quality__stations
+    description: "Station-level metrics including current AQI and historical averages"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+          - unique
+      - name: current_aqi
+        description: "Current AQI value"
+      - name: avg_aqi_7d
+        description: "7-day average AQI"
+      - name: avg_aqi_30d
+        description: "30-day average AQI"
+      - name: pollution_rank
+        description: "Ranking by pollution level"
+
+  - name: mart_analytics__trends
+    description: "Trend analysis with week-over-week, month-over-month, and year-over-year comparisons"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+      - name: date
+        description: "Date"
+        tests:
+          - not_null
+      - name: wow_change
+        description: "Week-over-week change"
+      - name: mom_change
+        description: "Month-over-month change"
+      - name: yoy_change
+        description: "Year-over-year change"
+
+  - name: mart_analytics__geographic
+    description: "Geographic analysis by city and province"
+    columns:
+      - name: date
+        description: "Date"
+        tests:
+          - not_null
+      - name: province
+        description: "Province name"
+      - name: city
+        description: "City name"
+      - name: avg_aqi
+        description: "Average AQI"
+      - name: station_count
+        description: "Number of stations"
+
+  - name: mart_analytics__forecast_accuracy
+    description: "Forecast accuracy analysis by station and pollutant"
+    columns:
+      - name: station_id
+        description: "Station ID"
+        tests:
+          - not_null
+      - name: pollutant
+        description: "Pollutant name"
+        tests:
+          - not_null
+      - name: forecast_accuracy_score
+        description: "Forecast accuracy score"
+
+  - name: mart_kpis__air_quality_index
+    description: "Core AQI KPIs by time period"
+    columns:
+      - name: period_date
+        description: "Period date"
+        tests:
+          - not_null
+      - name: period_type
+        description: "Period type (day, week, month)"
+        tests:
+          - accepted_values:
+              values: ['day', 'week', 'month']
+      - name: avg_aqi
+        description: "Average AQI"
+      - name: days_exceeding_moderate
+        description: "Days exceeding moderate threshold"
+
+  - name: mart_kpis__pollutant_concentrations
+    description: "Pollutant-specific KPIs with exceedance rates"
+    columns:
+      - name: date
+        description: "Date"
+        tests:
+          - not_null
+      - name: pollutant
+        description: "Pollutant name"
+        tests:
+          - not_null
+      - name: avg_concentration
+        description: "Average concentration"
+      - name: exceedance_rate_who
+        description: "Exceedance rate vs WHO standards"
+      - name: exceedance_rate_epa
+        description: "Exceedance rate vs EPA standards"
+
+  - name: mart_kpis__data_coverage
+    description: "Data quality KPIs including uptime, completeness, and freshness"
+    columns:
+      - name: date
+        description: "Date"
+        tests:
+          - not_null
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+      - name: uptime_pct
+        description: "Station uptime percentage"
+      - name: completeness_pct
+        description: "Data completeness percentage"
+      - name: data_quality_score
+        description: "Overall data quality score"
+

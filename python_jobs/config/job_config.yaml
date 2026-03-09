@@ -1,0 +1,45 @@
+# Job Configuration
+# This file contains configuration for all Python ingestion jobs
+
+# ClickHouse Configuration
+clickhouse:
+  host: "clickhouse"
+  port: 8123
+  database: "airquality"
+  user: "admin"
+  password: "admin"
+
+# API Configuration
+api:
+  openaq_token: ""  # Set via OPENAQ_API_TOKEN environment variable
+  aqicn_token: ""  # Set via AQICN_API_TOKEN environment variable
+
+# Job-specific Configuration
+job:
+  # Rate limiting (requests per second)
+  rate_limit_openaq: 0.8  # ~48 requests/minute (safe under 60/min)
+  rate_limit_aqicn: 1.0
+
+  # Batch settings
+  batch_size: 1000
+  max_workers: 4
+
+  # Time range settings
+  default_hour_range: 1  # hours
+  max_historical_days: 365
+
+  # Retry settings
+  max_retries: 3
+  retry_delay: 5  # seconds
+
+  # Vietnam bounds for AQICN
+  vietnam_bounds:
+    lat_min: 8.5
+    lon_min: 102.0
+    lat_max: 23.5
+    lon_max: 110.0
+
+  # Country code for OpenAQ
+  country_code: "VN"
+  country_id: 56  # Vietnam
+

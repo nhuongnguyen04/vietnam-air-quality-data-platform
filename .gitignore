@@ -25,3 +25,15 @@ nifi/state/
 # Editor
 .vscode/
 .idea/
+
+.agent/
+memory/
+plans/
+knowledge/
+runbooks/
+specs/
+.cursor/
+
+data/
+clickhouse-data/
+*.cfg

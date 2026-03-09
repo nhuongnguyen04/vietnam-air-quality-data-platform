@@ -1,0 +1,105 @@
+version: 2
+
+models:
+  - name: int_unified__measurements
+    description: "Unified measurements combining AQICN and OpenAQ data with standardized schema"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID across sources"
+        tests:
+          - not_null
+      - name: unified_pollutant
+        description: "Standardized pollutant name"
+        tests:
+          - not_null
+      - name: concentration
+        description: "Pollutant concentration value"
+        tests:
+          - not_null
+      - name: measurement_datetime
+        description: "Measurement datetime"
+        tests:
+          - not_null
+      - name: source_system
+        description: "Source system (aqicn or openaq)"
+        tests:
+          - accepted_values:
+              values: ['aqicn', 'openaq']
+
+  - name: int_unified__stations
+    description: "Unified stations/locations combining AQICN and OpenAQ with deduplication by coordinates"
+    columns:
+      - name: unified_location_id
+        description: "Unified location ID"
+        tests:
+          - not_null
+      - name: location_name
+        description: "Location name"
+      - name: latitude
+        description: "Latitude"
+      - name: longitude
+        description: "Longitude"
+      - name: source_system
+        description: "Source system"
+        tests:
+          - accepted_values:
+              values: ['aqicn', 'openaq']
+
+  - name: int_aqi_calculations
+    description: "AQI calculations based on US EPA standards with dominant pollutant identification"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+      - name: unified_pollutant
+        description: "Standardized pollutant name"
+        tests:
+          - not_null
+      - name: aqi_value
+        description: "Calculated AQI value"
+      - name: aqi_category
+        description: "AQI category (Good, Moderate, etc.)"
+      - name: is_dominant_pollutant
+        description: "Flag indicating if this is the dominant pollutant"
+
+  - name: int_forecast_accuracy
+    description: "Forecast accuracy metrics comparing forecasts with actual measurements"
+    columns:
+      - name: station_id
+        description: "Station ID"
+        tests:
+          - not_null
+      - name: pollutant
+        description: "Pollutant name"
+        tests:
+          - not_null
+      - name: forecast_date
+        description: "Forecast date"
+        tests:
+          - not_null
+      - name: absolute_error
+        description: "Absolute error between forecast and actual"
+      - name: mae
+        description: "Mean Absolute Error"
+      - name: rmse
+        description: "Root Mean Square Error"
+
+  - name: int_data_quality
+    description: "Data quality metrics including missing data rates, freshness, and outlier detection"
+    columns:
+      - name: unified_station_id
+        description: "Unified station ID"
+        tests:
+          - not_null
+      - name: measurement_date
+        description: "Measurement date"
+        tests:
+          - not_null
+      - name: missing_data_rate
+        description: "Percentage of missing data"
+      - name: data_freshness_hours
+        description: "Hours since last measurement"
+      - name: overall_data_quality_score
+        description: "Overall data quality score"
+
