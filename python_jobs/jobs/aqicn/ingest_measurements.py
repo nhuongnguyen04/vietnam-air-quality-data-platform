@@ -35,7 +35,7 @@ from common import (
     create_aqicn_limiter
 )
 from models.aqicn_models import (
-    parse_station_ids_from_html,
+    fetch_and_parse_station_ids,
     transform_measurement,
     transform_station_from_feed,
 )
@@ -156,7 +156,6 @@ def process_stations_batch(
 def run_incremental_ingestion(
     client,
     clickhouse_writer,
-    html_path: str,
     max_workers: int = 4
 ) -> Dict[str, Any]:
     """
@@ -165,7 +164,6 @@ def run_incremental_ingestion(
     Args:
         client: AQICN API client
         clickhouse_writer: ClickHouse writer
-        html_path: Path to crawl.html
         max_workers: Number of parallel workers
         
     Returns:
@@ -174,10 +172,10 @@ def run_incremental_ingestion(
     logger = logging.getLogger(__name__)
     
     # Parse station IDs from HTML (no dependency on ClickHouse stations)
-    station_ids = parse_station_ids_from_html(html_path)
+    station_ids = fetch_and_parse_station_ids()
     
     if not station_ids:
-        logger.error("No station IDs found in HTML. Check crawl.html path.")
+        logger.error("No station IDs found in HTML. Check AQICN website.")
         return {"stations": 0, "measurements": 0}
     
     logger.info(f"Processing {len(station_ids)} stations")
@@ -228,7 +226,6 @@ def run_historical_ingestion(
     Args:
         client: AQICN API client
         clickhouse_writer: ClickHouse writer
-        html_path: Path to crawl.html
         days_back: Number of days to backfill (stores daily snapshots)
         max_workers: Number of parallel workers
         
@@ -238,10 +235,10 @@ def run_historical_ingestion(
     logger = logging.getLogger(__name__)
     
     # Parse station IDs from HTML
-    station_ids = parse_station_ids_from_html(html_path)
+    station_ids = fetch_and_parse_station_ids()
     
     if not station_ids:
-        logger.error("No station IDs found in HTML. Check crawl.html path.")
+        logger.error("No station IDs found in HTML. Check AQICN website.")
         return {"stations": 0, "measurements": 0}
     
     logger.info(f"Processing {len(station_ids)} stations for {days_back} days historical")
@@ -314,8 +311,6 @@ def main():
         default=30,
         help="Number of days to backfill for historical mode"
     )
-    parser.add_argument("--html-path", default=DEFAULT_HTML_PATH,
-                        help="Path to crawl.html file")
     parser.add_argument("--max-workers", type=int, default=4, help="Parallel workers")
     parser.add_argument("--log-level", default="INFO", help="Log level")
     
@@ -331,11 +326,6 @@ def main():
             logger.error("AQICN_API_TOKEN not set")
             sys.exit(1)
         
-        # Check HTML file exists
-        if not os.path.exists(args.html_path):
-            logger.error(f"HTML file not found: {args.html_path}")
-            sys.exit(1)
-        
         # Create clients
         aqicn_client = create_aqicn_client(api_token)
         clickhouse_writer = create_clickhouse_writer()
@@ -345,14 +335,12 @@ def main():
             stats = run_incremental_ingestion(
                 aqicn_client,
                 clickhouse_writer,
-                html_path=args.html_path,
                 max_workers=args.max_workers
             )
         else:
             stats = run_historical_ingestion(
                 aqicn_client,
                 clickhouse_writer,
-                html_path=args.html_path,
                 days_back=args.days_back,
                 max_workers=args.max_workers
             )

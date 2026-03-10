@@ -85,10 +85,7 @@ deduplicated as (
 )
 
 select
-    case
-        when primary_location_id = unified_location_id then unified_location_id
-        else primary_location_id
-    end as unified_location_id,
+    unified_location_id,
     source_system,
     source_location_id,
     location_name,
@@ -103,4 +100,3 @@ select
     ingest_time
 from deduplicated
 where primary_location_id = unified_location_id
-

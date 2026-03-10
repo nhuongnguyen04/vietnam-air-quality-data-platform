@@ -16,12 +16,6 @@ models:
         description: "Pollutant concentration value (converted to Float64)"
       - name: measurement_datetime
         description: "Measurement datetime (parsed from Unix timestamp)"
-      - name: is_vietnam
-        description: "Flag indicating data is from Vietnam"
-        tests:
-          - not_null
-          - accepted_values:
-              values: [true]
       - name: data_quality_score
         description: "Data quality score based on completeness"
 
@@ -63,10 +57,4 @@ models:
         description: "Province extracted from station name"
       - name: city
         description: "City extracted from station name"
-      - name: is_vietnam
-        description: "Flag indicating station is in Vietnam"
-        tests:
-          - not_null
-          - accepted_values:
-              values: [true]
 
