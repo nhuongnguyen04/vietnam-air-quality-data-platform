@@ -6,9 +6,11 @@
 <domain>
 ## Phase Boundary
 
-Replace OpenAQ with EPA AirNow, Sensors.Community, and MONRE. AQICN stays as primary. All ingestion additive with zero risk to existing pipeline.
+Replace OpenAQ with OpenWeather Air Pollution API, WAQI/World Air Quality Index, and Sensors.Community. AQICN stays as primary. All ingestion additive with zero risk to existing pipeline.
 
-Scope is exactly the 5 plans from ROADMAP.md: Plans 1.1–1.5 covering AirNow client, Sensors.Community client, MONRE client (discovery-first), OpenAQ decommission, and rate limiter + orchestration optimization.
+EPA AirNow is NOT viable for Vietnam (US/Canada-only network). MONRE is NOT viable for Phase 1 (no public API found, requires government agreement). These two sources are replaced by OpenWeather + WAQI.
+
+Scope is exactly 5 plans: Plans 1.1–1.5 covering OpenWeather client, WAQI client, Sensors.Community client, OpenAQ decommission, and rate limiter + orchestration optimization.
 
 Scope creep is not allowed.
 </domain>
@@ -16,51 +18,67 @@ Scope creep is not allowed.
 <decisions>
 ## Implementation Decisions
 
+### Source Coverage Update (2026-04-01)
+- **EPA AirNow REPLACED:** AirNow API is US/Canada-only — no Vietnam stations. Replaced by OpenWeather Air Pollution API (Plan 1.1) and WAQI/World Air Quality Index (Plan 1.2).
+- **MONRE REPLACED:** No public API found; government agreement required. Replaced by WAQI (already covers Hanoi, HCMC, Da Nang stations).
+- Phase 1 now ships with 4 sources: AQICN (existing) + OpenWeather + WAQI + Sensors.Community.
+
 ### Dedup Strategy (All New Source Tables)
-- **D-01:** All new raw tables (AirNow, Sensors.Community, MONRE) use `ReplacingMergeTree(ingest_time)` engine — dedup on latest ingest_time per ORDER BY key
-- **D-02:** Primary key (ORDER BY) set per source to enable proper dedup: `(station_id, timestamp_utc, parameter)` for AirNow; `(sensor_id, timestamp_utc, parameter)` for Sensors.Community
+- **D-01:** All new raw tables (OpenWeather, WAQI, Sensors.Community) use `ReplacingMergeTree(ingest_time)` engine — dedup on latest ingest_time per ORDER BY key
+- **D-02:** Primary key (ORDER BY) per source: `(station_id, timestamp_utc, parameter)` for OpenWeather; `(station_id, timestamp_utc, parameter)` for WAQI; `(sensor_id, timestamp_utc, parameter)` for Sensors.Community
 - **D-03:** No Python-side dedup check for new sources — ClickHouse handles dedup server-side
 - **D-04:** Resolves CONCERN #7 from Phase 0: eliminates Python dedup race condition for new sources
-- **D-05:** AirNow and Sensors.Community sites/sensors tables: `ReplacingMergeTree(ingest_time)` keyed on site_id/sensor_id
+- **D-05:** Sites/sensors tables: `ReplacingMergeTree(ingest_time)` keyed on station_id/sensor_id
 
 ### Historical Backfill Scope
-- **D-06:** AirNow: backfill 3 months (90 days) from Phase 1 go-live date
-- **D-07:** Sensors.Community: backfill 3 months (90 days) from Phase 1 go-live date
-- **D-08:** MONRE: no backfill until schema is confirmed stable (discovery-first approach)
+- **D-06:** OpenWeather: backfill available via `/history` endpoint from Nov 2020. Backfill 90 days from Phase 1 go-live date via `dag_ingest_historical`.
+- **D-07:** WAQI: historical data available but limited. Backfill 30 days from Phase 1 go-live date (WAQI free tier historical is ~30 days).
+- **D-08:** Sensors.Community: no historical endpoint — real-time polling only. No backfill possible.
 - **D-09:** Backfill runs via `dag_ingest_historical` (existing DAG, modified to accept source parameter)
 - **D-10:** Historical backfill does NOT count toward Phase 1 success criteria — real-time ingestion success does
 
+### OpenWeather Air Pollution API Details
+- **D-11:** API base: `https://api.openweathermap.org/data/2.5`
+- **D-12:** Endpoints: `/air_pollution` (current), `/air_pollution/forecast` (4-day hourly), `/air_pollution/history` (from Nov 2020)
+- **D-13:** Free tier: 60 req/min, 1M calls/month. One API key covers all endpoints.
+- **D-14:** Vietnam polling: Use lat/lon grid (city-level: Hanoi ~21.0°N/105.8°E, HCMC ~10.8°N/106.7°E, Da Nang ~16.1°N/108.2°E) — OpenWeather uses city-centroid polling, not station discovery.
+- **D-15:** Fields: PM2.5, PM10, O₃, NO₂, SO₂, CO, NH₃ + EPA AQI index (`main.aqi`)
+- **D-16:** Store OpenWeather's reported AQI in `aqi_reported` column; canonical AQI computed in Phase 2 dbt
+
+### WAQI / World Air Quality Index Details
+- **D-17:** API base: `https://api.waqi.info/feed/`
+- **D-18:** Vietnam bounding-box query: `/feed/geo:8.4;102.1;23.4;109.5/` — returns ALL stations in Vietnam in one call
+- **D-19:** Free, no billing card. Token via query param `?token=`. Rate limit ~1,000 req/min (server-side).
+- **D-20:** Fields: PM2.5, PM10, O₃, NO₂, SO₂, CO + aqicn-reported AQI
+- **D-21:** Stations are real monitoring locations (Hanoi, HCMC, Da Nang, others) — not estimates
+- **D-22:** Note: aqicn.org = waqi.info = same project (separate from IQAir)
+
 ### Sensors.Community Quality Handling
-- **D-11:** Insert ALL data including outliers — do NOT exclude before insert
-- **D-12:** Add `quality_flag` column: `'implausible'` for PM2.5 outside 0–500 µg/m³; `'outlier'` for values statistically anomalous but within range; `'valid'` for normal readings
-- **D-13:** Log outlier count to ingestion metrics on each run
-- **D-14:** Stations outside Vietnam bounding box (lat 8.4°N–23.4°N, lon 102.1°E–109.5°E) get `quality_flag = 'outlier'` — data inserted but flagged
-- **D-15:** Downstream dbt models (Phase 2) filter on `quality_flag = 'valid'` for canonical calculations
-
-### MONRE Fallback Priority
-- **D-16:** 2-week timebox for MONRE discovery: focused effort from Phase 1 Day 1
-- **D-17:** Discovery scope: confirm access method (API / scraping / manual CSV / data agreement)
-- **D-18:** If access confirmed within 2 weeks: implement `dag_monre_ingest` with daily schedule
-- **D-19:** If access NOT confirmed within 2 weeks: archive Plan 1.3 discovery results; Phase 1 ships complete with 3 sources (AQICN + AirNow + Sensors.Community)
-- **D-20:** Grafana panel shows MONRE status: 'active' / 'discovering' / 'archived' — never 'missing'
-- **D-21:** MONRE never blocks Phase 1 completion
-
-### AirNow Integration Details
-- **D-22:** Vietnam bounding box: lat 8.4°N–23.4°N, lon 102.1°E–109.5°E
-- **D-23:** Store AirNow pre-calculated AQI in `aqi_reported` column; canonical EPA AQI computed in Phase 2 dbt
-- **D-24:** AirNow sites table updated daily via `dag_metadata_update`
+- **D-23:** Insert ALL data including outliers — do NOT exclude before insert
+- **D-24:** Add `quality_flag` column: `'implausible'` for PM2.5 outside 0–500 µg/m³; `'outlier'` for values statistically anomalous but within range; `'valid'` for normal readings
+- **D-25:** Log outlier count to ingestion metrics on each run
+- **D-26:** Stations outside Vietnam bounding box get `quality_flag = 'outlier'` — data inserted but flagged
+- **D-27:** Downstream dbt models (Phase 2) filter on `quality_flag = 'valid'` for canonical calculations
 
 ### Rate Limiter + Orchestration
-- **D-25:** One `TokenBucketRateLimiter` per API key, shared across all DAG tasks using that key
-- **D-26:** All source ingestion tasks in `dag_ingest_hourly` run in parallel (not sequentially)
-- **D-27:** `ingestion.control` updated as final task in all ingestion DAGs
-- **D-28:** Zero HTTP 429 errors across all sources — tenacity retry with exponential backoff (base=2, max=5 retries, max_wait=5min)
+- **D-28:** One `TokenBucketRateLimiter` per API key: `openweather` (~50 req/min safe), `waqi` (~100 req/min safe), `aqicn` (~60 req/min), `sensorscm` (unlimited — no auth)
+- **D-29:** All source ingestion tasks in `dag_ingest_hourly` run in parallel (not sequentially)
+- **D-30:** `ingestion.control` updated as final task in all ingestion DAGs
+- **D-31:** Zero HTTP 429 errors across all sources — tenacity retry with exponential backoff (base=2, max=5 retries, max_wait=5min)
 
 ### OpenAQ Decommission
-- **D-29:** OpenAQ tasks removed from `dag_ingest_hourly`
-- **D-30:** `python_jobs/jobs/openaq/` directory removed
-- **D-31:** OpenAQ raw tables renamed to `raw_openaq_*_archived` (not dropped — rollback safety)
-- **D-32:** `dag_metadata_update` updated to remove OpenAQ metadata ingestion
+- **D-32:** OpenAQ tasks removed from `dag_ingest_hourly`
+- **D-33:** `python_jobs/jobs/openaq/` directory removed
+- **D-34:** OpenAQ raw tables renamed to `raw_openaq_*_archived` (not dropped — rollback safety)
+- **D-35:** `dag_metadata_update` updated to remove OpenAQ metadata ingestion
+
+### Sources Overview (Phase 1)
+| Source | Plan | API | Auth | Vietnam Coverage | Historical |
+|--------|------|-----|------|-----------------|------------|
+| AQICN | existing | aqicn.org | token | Major cities | 3 days |
+| OpenWeather | 1.1 | openweathermap.org | API key | City centroids | From Nov 2020 ✓ |
+| WAQI | 1.2 | api.waqi.info | token | Real stations (Hanoi, HCMC, Da Nang, others) | ~30 days |
+| Sensors.Community | 1.3 | api.luftdaten.info | none | Community sensors | None — real-time only |
 
 </decisions>
 
@@ -120,10 +138,13 @@ The Phase 1 roadmap leaves MONRE access method open. Discovery should cover:
 <specifics>
 ## Specific Ideas
 
-- MONRE Grafana panel: always shows a status — 'active' (data flowing), 'discovering' (in 2-week window), or 'archived' (timebox expired)
-- Sensors.Community: `*/10 * * * *` schedule per Plan 1.2 — 10-minute polling interval
-- AirNow: integrated into `dag_ingest_hourly` (hourly), not separate DAG
+- OpenWeather: `*/10 * * * *` schedule — 10-minute polling for current + forecast endpoints
+- WAQI: `*/10 * * * *` schedule — 10-minute polling (one bounding-box call per run)
+- Sensors.Community: `*/10 * * * *` schedule — 10-minute polling interval
+- All three new sources run in parallel within `dag_ingest_hourly` (not sequentially)
 - Outlier logging: emit metrics/log lines with count of implausible records per run
+- OpenWeather city polling: use 3 city centroids (Hanoi, HCMC, Da Nang) initially; expand to more cities as needed
+- WAQI: bounding-box call returns all Vietnam stations in one response — parse and insert per-station records
 </specifics>
 
 <deferred>

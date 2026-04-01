@@ -131,32 +131,58 @@
 
 ## Phase 1 — Multi-Source Ingestion
 
-**Goal:** Replace OpenAQ with EPA AirNow, Sensors.Community, and MONRE. AQICN stays as primary. All ingestion additive with zero risk to existing pipeline.
+**Goal:** Replace OpenAQ with OpenWeather Air Pollution API, WAQI/World Air Quality Index, and Sensors.Community. AQICN stays as primary. All ingestion additive with zero risk to existing pipeline.
+
+> **Note (2026-04-01):** EPA AirNow is US/Canada-only — no Vietnam coverage. MONRE has no public API. Both replaced by OpenWeather + WAQI per user decision.
 
 **Depends on:** Phase 0
 
-### Plan 1.1 — EPA AirNow Client
+### Plan 1.1 — OpenWeather Air Pollution Client
 
 **Owner:** data engineering
-**Outputs:** `python_jobs/jobs/airnow/ingest_measurements.py`, `raw_airnow_sites`, `raw_airnow_measurements`
+**Outputs:** `python_jobs/jobs/openweather/ingest_measurements.py`, `raw_openweather_measurements`
 
 **Tasks:**
-- Create `python_jobs/jobs/airnow/` module
-- Build `AirNowClient` extending existing `api_client.py`: API base `https://airnowapi.org`, free key, REST JSON, rate limit 1 req/sec
-- Create ClickHouse raw tables: `raw_airnow_sites`, `raw_airnow_measurements` (MergeTree, dedup in Python)
-- Add as parallel task in `dag_ingest_hourly`: `run_airnow_measurements >> run_airnow_sites`
-- Map to Vietnam bounding box: lat 8.4°N–23.4°N, lon 102.1°E–109.5°E via lat/lon queries
-- Store AQI pre-calculated by AirNow in `aqi_reported` column; apply canonical AQI in dbt (Phase 2)
+- Create `python_jobs/jobs/openweather/` module
+- Build `OpenWeatherClient` extending existing `api_client.py`: API base `https://api.openweathermap.org/data/2.5`
+- Create ClickHouse raw table: `raw_openweather_measurements` (`ReplacingMergeTree(ingest_time)`, ORDER BY `(station_id, timestamp_utc, parameter)`)
+- Poll city centroids: Hanoi (21.0°N/105.8°E), HCMC (10.8°N/106.7°E), Da Nang (16.1°N/108.2°E) — expand to more cities as needed
+- Fetch current (`/air_pollution`), forecast (`/air_pollution/forecast`), and historical (`/air_pollution/history`) endpoints
+- Add as parallel task in `dag_ingest_hourly`: `run_openweather_measurements`
+- Store OpenWeather's reported AQI in `aqi_reported` column; canonical EPA AQI computed in Phase 2 dbt
+- Update `ingestion.control` with source `openweather` on each run
 
 **Success criteria:**
-1. `raw_airnow_measurements` populated with >0 rows after first DAG run
-2. All records have `source = 'airnow'` and valid `timestamp_utc`
-3. AirNow DAG task completes in <60s (rate limit: 1 req/sec)
+1. `raw_openweather_measurements` populated with >0 rows after first DAG run
+2. All records have `source = 'openweather'` and valid `timestamp_utc`
+3. DAG task completes in <60s per city (rate limit: 60 req/min)
 4. No HTTP 429 errors in Airflow logs
 
 ---
 
-### Plan 1.2 — Sensors.Community Client
+### Plan 1.2 — WAQI / World Air Quality Index Client
+
+**Owner:** data engineering
+**Outputs:** `python_jobs/jobs/waqi/ingest_measurements.py`, `raw_waqi_measurements`
+
+**Tasks:**
+- Create `python_jobs/jobs/waqi/` module
+- Build `WAQIClient` extending existing `api_client.py`: API base `https://api.waqi.info/feed/`
+- Create ClickHouse raw table: `raw_waqi_measurements` (`ReplacingMergeTree(ingest_time)`, ORDER BY `(station_id, timestamp_utc, parameter)`)
+- Vietnam bounding-box query: `/feed/geo:8.4;102.1;23.4;109.5/` — returns all Vietnam stations in one call
+- Parse per-station data from response: PM2.5, PM10, O₃, NO₂, SO₂, CO, aqicn-reported AQI
+- Add as parallel task in `dag_ingest_hourly`: `run_waqi_measurements`
+- Update `ingestion.control` with source `waqi` on each run
+
+**Success criteria:**
+1. `raw_waqi_measurements` populated with >0 rows after first DAG run
+2. All records have `source = 'waqi'` and valid `timestamp_utc`
+3. DAG task completes in <30s (one bounding-box API call per run)
+4. No HTTP 429 errors in Airflow logs
+
+---
+
+### Plan 1.3 — Sensors.Community Client
 
 **Owner:** data engineering
 **Outputs:** `python_jobs/jobs/sensorscm/ingest_measurements.py`, `raw_sensorscm_measurements`, `dag_sensorscm_poll`
@@ -164,10 +190,10 @@
 **Tasks:**
 - Create `python_jobs/jobs/sensorscm/` module
 - Build `SensorsCMClient` for Luftdaten API (`https://api.luftdaten.info/v1/`), no auth required
-- Create ClickHouse raw table: `raw_sensorscm_measurements` (MergeTree)
+- Create ClickHouse raw table: `raw_sensorscm_measurements` (`ReplacingMergeTree(ingest_time)`, ORDER BY `(sensor_id, timestamp_utc, parameter)`)
 - Filter Vietnam bounding box: `lat_min=8.4&lat_max=23.4&lon_min=102.1&lon_max=109.5`
 - Assign `sensor_quality_tier = 'community'` to all records
-- Flag implausible values: PM2.5 outside 0–500 µg/m³, stations outside Vietnam bbox
+- Flag implausible values: PM2.5 outside 0–500 µg/m³ → `quality_flag = 'implausible'`; stations outside Vietnam bbox → `quality_flag = 'outlier'`
 - Create new DAG `dag_sensorscm_poll` with `*/10 * * * *` schedule
 - Update `ingestion.control` for Sensors.Community on each run
 
@@ -175,32 +201,7 @@
 1. `raw_sensorscm_measurements` populated with >0 rows after first `dag_sensorscm_poll` run
 2. All records have `sensor_quality_tier = 'community'` and valid `timestamp_utc`
 3. DAG runs every 10 minutes with <15 min end-to-end latency from data generation to ClickHouse
-4. `ingestion.control.sensor_comm` lag_seconds < 900 (15 min threshold)
-
----
-
-### Plan 1.3 — MONRE Client (Discovery-First)
-
-**Owner:** data engineering
-**Outputs:** `python_jobs/jobs/monre/ingest_measurements.py`, `raw_monre_measurements`, `dag_monre_ingest`
-
-**Tasks:**
-- Discovery: confirm MONRE access method (API? scraping? manual CSV? data agreement?)
-  - If portal: use Playwright for JS-rendered pages
-  - If FTP/HTTP: write direct fetcher
-  - If manual: document upload process, skip automation
-- Create `python_jobs/jobs/monre/` module with confirmed access method
-- Create `raw_monre_measurements` table (separate raw table, treat as unreliable until schema confirmed)
-- Create `dag_monre_ingest` with daily schedule at 02:00
-- **MONRE is non-blocking**: Phase 1 ships complete if MONRE is inaccessible; continue MONRE discovery in parallel
-- Store raw data as-is (do not normalize until schema is stable)
-- Add dedicated Grafana panel for MONRE with relaxed SLA threshold (24h freshness = warning)
-
-**Success criteria:**
-1. `raw_monre_measurements` populated OR MONRE discovery documented with access method confirmed
-2. If MONRE accessible: `dag_monre_ingest` runs daily with no failures
-3. If MONRE inaccessible: documented access method (API/scraping/manual) with next steps
-4. Grafana panel shows MONRE status as "discovering" or "active" (never "missing")
+4. `ingestion.control.sensorscm` lag_seconds < 900 (15 min threshold)
 
 ---
 
@@ -726,9 +727,9 @@
 
 | Requirement | Phase | Plan(s) | Status |
 |-------------|-------|---------|--------|
-| Multi-source ingestion (AirNow) | 1 | 1.1 | Pending |
-| Multi-source ingestion (Sensors.Community) | 1 | 1.2 | Pending |
-| Multi-source ingestion (MONRE) | 1 | 1.3 | Pending |
+| Multi-source ingestion (OpenWeather Air Pollution) | 1 | 1.1 | Pending |
+| Multi-source ingestion (WAQI / World Air Quality Index) | 1 | 1.2 | Pending |
+| Multi-source ingestion (Sensors.Community) | 1 | 1.3 | Pending |
 | OpenAQ decommission | 1 | 1.4 | Pending |
 | Pipeline optimization (rate limiting, parallel execution) | 1 | 1.5 | Pending |
 | dbt refactor: staging | 2 | 2.1 | Pending |
@@ -757,6 +758,16 @@
 | Baseline codebase audit | 0 | 0.1 | Pending |
 
 **Total: 30 plans | 29 success criteria | 6 phases**
+
+### Phase 1: run compose, test va verified moi truong hoan thien de thuc hien cac phase sau
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 0
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1 to break down)
 
 ---
 
