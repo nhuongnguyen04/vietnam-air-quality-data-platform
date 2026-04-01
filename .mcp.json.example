@@ -11,6 +11,17 @@
         "CLICKHOUSE_PASSWORD": "your_clickhouse_password",
         "CLICKHOUSE_READONLY": "true"
       }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["context7-mcp-server", "--transport", "stdio"],
+      "env": {
+        "CONTEXT7_API_KEY": "your_context7_api_key"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }
