@@ -87,5 +87,18 @@ Next: Phase 2 — dbt Refactor (PLAN-2-01: Source-Specific Staging Models)
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260401-kfx | Run Docker Compose, test và verify môi trường hoàn thiện để thực hiện các phase tiếp theo | 2026-04-01 | 87992e9 | [260401-kfx-run-docker-compose-test-v-verify-m-i-tr-](./quick/260401-kfx-run-docker-compose-test-v-verify-m-i-tr-/) |
+| 260401-tl9 | Test & verify Phase 1 multi-source ingestion — verify tests pass, ClickHouse tables, DAG orchestration | 2026-04-01 | — | [260401-tl9-test-va-dam-bao-nhung-gi-phase-1-vua-xay](./quick/260401-tl9-test-va-dam-bao-nhung-gi-phase-1-vua-xay/) |
 
-*Last activity: 2026-04-01 — Completed quick task 260401-kfx: Run Docker Compose, test và verify môi trường hoàn thiện để thực hiện các phase tiếp theo*
+*Last activity: 2026-04-01 — Completed quick task 260401-tl9: Phase 1 verification — fixed control update fan-in, created 3 missing ClickHouse tables, 42/42 tests pass
+
+## Phase 1 Verification Findings (260401-tl9)
+
+- ✅ All 42 unit tests pass (37 pass, 5 skip for integration tests)
+- ✅ `python_jobs/jobs/openaq/` removed
+- ✅ `dag_ingest_hourly` has no OpenAQ tasks, 5 sources wired correctly
+- ✅ `dag_sensorscm_poll` exists with `*/10 * * * *` schedule
+- ✅ `create_sensorscm_limiter()` present in `rate_limiter.py`
+- ✅ Control update fan-in fixed from sequential `>>` chains to parallel list syntax
+- ⚠️ 3 Phase 1 raw tables were missing from ClickHouse (ClickHouse volume was reset post-Phase 1 implementation)
+  - **Fixed:** Manually created `raw_openweather_measurements`, `raw_waqi_measurements`, `raw_sensorscm_measurements`, `ingestion_control` in `air_quality` DB
+- ⚠️ Airflow not running — Phase 1 tables have 0 rows (expected until Airflow starts and DAGs run)
