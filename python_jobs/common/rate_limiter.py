@@ -331,3 +331,18 @@ def create_waqi_limiter() -> TokenBucketRateLimiter:
         backoff_factor=2.0,
     )
 
+
+def create_openweather_limiter() -> TokenBucketRateLimiter:
+    """
+    Create a rate limiter configured for OpenWeather Air Pollution API.
+
+    OpenWeather free tier: 60 requests/minute, 1M calls/month.
+    Using ~50/min (0.8/s) for safety margin.
+    """
+    return TokenBucketRateLimiter(
+        rate_per_second=0.8,      # ~48/min safe
+        burst_size=4,
+        max_delay=300.0,          # 5min max backoff (D-31)
+        backoff_factor=2.0,
+    )
+

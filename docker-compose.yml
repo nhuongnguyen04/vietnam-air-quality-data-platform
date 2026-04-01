@@ -100,6 +100,7 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENAQ_API_TOKEN=${OPENAQ_API_TOKEN}
       - WAQI_API_TOKEN=${WAQI_API_TOKEN}
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
@@ -165,6 +166,7 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENAQ_API_TOKEN=${OPENAQ_API_TOKEN}
       - WAQI_API_TOKEN=${WAQI_API_TOKEN}
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
@@ -227,6 +229,7 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENAQ_API_TOKEN=${OPENAQ_API_TOKEN}
       - WAQI_API_TOKEN=${WAQI_API_TOKEN}
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
@@ -289,6 +292,7 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENAQ_API_TOKEN=${OPENAQ_API_TOKEN}
       - WAQI_API_TOKEN=${WAQI_API_TOKEN}
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
