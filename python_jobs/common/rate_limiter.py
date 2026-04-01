@@ -346,3 +346,21 @@ def create_openweather_limiter() -> TokenBucketRateLimiter:
         backoff_factor=2.0,
     )
 
+
+def create_sensorscm_limiter() -> TokenBucketRateLimiter:
+    """
+    Create a rate limiter configured for Sensors.Community API.
+
+    Sensors.Community has no authentication and no published rate limits.
+    Using 1.0 req/s (60/min) as a courtesy maximum to avoid overwhelming
+    the community API infrastructure.
+
+    Reference: 01-RESEARCH.md § Sensors.Community — no auth, rate_per_second=1.0
+    """
+    return TokenBucketRateLimiter(
+        rate_per_second=1.0,    # ~60/min courtesy limit
+        burst_size=5,
+        max_delay=300.0,        # 5min max backoff (D-31)
+        backoff_factor=2.0,    # exponential backoff (D-31)
+    )
+
