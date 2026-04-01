@@ -15,7 +15,7 @@ progress:
 
 **Project:** Vietnam Air Quality Data Platform Refactor
 **Milestone:** Refactor & Upgrade
-**Phase:** 00
+**Phase:** 01
 **Plan:** Not started
 **Mode:** YOLO | **Granularity:** Standard
 
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 
 **Core value:** Reliable, near-real-time air quality monitoring for Vietnam — trusted data from multiple sources, cleaned and unified, available to analysts and the public via dashboards and alerts.
 
-**Current focus:** Phase null
+**Current focus:** Phase 01 — context gathered, ready for planning
 
 ---
 
@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 | Phase | Status | Plans | Completed |
 |-------|--------|-------|-----------|
 | 0 — Foundation & Stabilization | 🔵 Wave 1 done | 6 | 2 |
-| 1 — Multi-Source Ingestion | ⬜ Pending | 5 | — |
+| 1 — Multi-Source Ingestion | 🟡 Context done | 5 | — |
 | 2 — dbt Refactor | ⬜ Pending | 5 | — |
 | 3 — Visualization & Monitoring | ⬜ Pending | 5 | — |
 | 4 — OpenMetadata Integration | ⬜ Pending | 4 | — |
@@ -46,9 +46,9 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 
 ## Active Plan
 
-**Wave 1 Complete** — Plans 01 (Audit) and 02 (Docker) done.
+**Phase 1 context done** — ready for planning.
 
-Next: Wave 2 — Plan 03 (CI Pipeline Bootstrap)
+Next: /gsd:plan-phase 1 (with 4 decisions captured)
 
 ---
 
