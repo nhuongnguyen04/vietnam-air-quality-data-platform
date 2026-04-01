@@ -68,6 +68,34 @@ The following were decided by the roadmap itself (no discussion needed):
 
 ---
 
+## Resource Limits Discussion
+
+| Question | Options Presented | Selected |
+|-----------|-----------------|---------|
+| Resource limits scope | Giới hạn chi tiết / Cấu trúc limits / Đủ rồi | Giới hạn chi tiết |
+| Hardware available | Tôi có 15GB RAM khả dụng cho Docker | 15GB |
+| OpenMetadata RAM | Đủ 15GB / Giảm OM / Giảm service khác | Đủ 15GB cho tất cả |
+| Proposed limits | Đồng ý / Điều chỉnh | Điều chỉnh |
+| Adjustment direction | OpenMetadata / ClickHouse / Airflow | Giảm headroom xuống 1-2GB, 13GB cho containers |
+| Final limits | Đồng ý / Giảm OM / Giảm ClickHouse | Đồng ý |
+
+**User's notes:** Giảm xuống một chút, muốn thừa ra 1-2GB RAM tức là sử dụng 13GB, 2GB dự phòng khi full load. OpenMetadata dùng chung postgres vs airflow.
+
+**Final RAM limits (D-17):**
+- ClickHouse: 3GB
+- PostgreSQL: 1GB
+- Airflow scheduler: 512MB
+- Airflow dag-processor: 512MB
+- Airflow triggerer: 512MB
+- OpenMetadata (server + MySQL + Elasticsearch): 4GB total
+- Superset: 1GB
+- Grafana: 512MB
+- Total container pool: ~11GB ✓ (fits in 13GB)
+
+**Minimum hardware (D-19):** 16GB RAM host machine (13GB Docker, 2GB host OS headroom)
+
+---
+
 ## Deferred Ideas
 
 None — discussion stayed within Phase 0 scope.

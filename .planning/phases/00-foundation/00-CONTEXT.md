@@ -43,15 +43,26 @@ Scope is exactly the 5 plans from ROADMAP.md. Scope creep is not allowed.
 
 ### Docker Compose Resource Limits (Plan 0.2)
 - **D-16:** Add `mem_limit` and `cpu_limit` to ALL services (existing + future)
-- **D-17:** Minimum: ClickHouse 4GB, Airflow 2GB, PostgreSQL 1GB
-- **D-18:** Health checks must be added to all services (CONCERNS shows some already have, some don't)
+- **D-17:** RAM limits per service (total pool: ~11GB, leaving 2GB headroom on 13GB):
+  - ClickHouse: 3GB
+  - PostgreSQL: 1GB
+  - Airflow scheduler: 512MB
+  - Airflow dag-processor: 512MB
+  - Airflow triggerer: 512MB
+  - OpenMetadata (server + MySQL + Elasticsearch): 4GB total
+  - Superset: 1GB
+  - Grafana: 512MB
+- **D-18:** Health checks: airflow-webserver already has one (OK); add to scheduler, dag-processor, triggerer
+- **D-19:** Document minimum hardware: 16GB RAM host machine (13GB for containers, 3GB host OS)
+- **D-20:** airflow-webserver: no additional memory limit (current usage is acceptable)
 
 </decisions>
 
 <specifics>
 ## Specific Ideas
 
-No specific external references or "I want it like X" moments — open to standard approaches for all Phase 0 decisions.
+- Hardware constraint: 15GB RAM total on host machine, 13GB allocated to Docker containers with 2GB headroom for OS and host tools
+- OpenMetadata uses shared PostgreSQL with Airflow's existing PostgreSQL (not separate) — confirm this is feasible during Phase 4 planning
 </specifics>
 
 <canonical_refs>
