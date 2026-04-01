@@ -45,6 +45,7 @@ def get_job_env_vars() -> dict:
         'OPENAQ_API_TOKEN': os.environ.get('OPENAQ_API_TOKEN', ''),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
         'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
+        'WAQI_API_TOKEN': os.environ.get('WAQI_API_TOKEN', ''),
     }
 
 
@@ -56,7 +57,7 @@ def build_env_command() -> str:
 
 @dag(
     default_args=default_args,
-    description='Hourly ingestion of air quality measurements from OpenAQ and AQICN',
+    description='Hourly ingestion of air quality measurements from AQICN, Sensors.Community, OpenWeather, and WAQI',
     schedule='0 * * * *',
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
@@ -298,6 +299,39 @@ def dag_ingest_hourly():
         _update(source='openweather', records_ingested=0, success=True)
         print("Updated ingestion_control for openweather")
 
+
+    @task
+    def run_waqi_measurements_ingestion():
+        """Run WAQI / World Air Quality Index measurements ingestion."""
+        import subprocess
+
+        env = os.environ.copy()
+        env.update(get_job_env_vars())
+
+        cmd = f"cd {PYTHON_PATH} && python jobs/waqi/ingest_measurements.py --mode incremental"
+
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error: {result.stderr}")
+            raise Exception(f"Command failed: {cmd}")
+        print("WAQI measurements ingestion completed")
+
+
+    @task
+    def update_waqi_control():
+        """Update ingestion_control for WAQI measurements."""
+        import sys
+        sys.path.insert(0, '/opt/python/jobs')
+        from common.ingestion_control import update_control as _update
+        _update(source='waqi', records_ingested=0, success=True)
+        print("Updated ingestion_control for waqi")
+
     @task
     def log_completion():
         """Log completion message."""
@@ -312,15 +346,17 @@ def dag_ingest_hourly():
     forecast = run_aqicn_forecast_ingestion()
     sensorscm = run_sensorscm_measurements_ingestion()
     openweather = run_openweather_measurements_ingestion()
+    waqi = run_waqi_measurements_ingestion()
     update_aqicn_control = update_aqicn_control()
     update_forecast_control = update_forecast_control()
     update_sensorscm_control = update_sensorscm_control()
     update_openweather_control = update_openweather_control()
+    update_waqi_control = update_waqi_control()
     completion = log_completion()
 
-    # All ingestion tasks run in parallel (D-06)
-    check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather]
-    [aqicn, forecast, sensorscm, openweather] >> update_aqicn_control >> update_forecast_control >> update_sensorscm_control >> update_openweather_control >> completion
+    # All 5 sources run in parallel (D-06)
+    check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather, waqi]
+    [aqicn, forecast, sensorscm, openweather, waqi] >> update_aqicn_control >> update_forecast_control >> update_sensorscm_control >> update_openweather_control >> update_waqi_control >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()
