@@ -102,4 +102,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state (sources, data coverage, user feedback)
 
 ---
-*Last updated: 2026-04-01 — Phase 01 complete: test infrastructure stubs in place (29 pytest fixtures/stubs, pytest.ini, Wave 1 source validators ready)*
+*Last updated: 2026-04-01 — Phase 01 complete: OpenWeather + WAQI + Sensors.Community ingestion live; OpenAQ decommissioned; 5-source parallel fan-in DAG; dag_sensorscm_poll (*/10); 36 tests (30 pass, 6 skip). Phase 02 dbt Refactor ready.*
