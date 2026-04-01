@@ -44,6 +44,7 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'OPENAQ_API_TOKEN': os.environ.get('OPENAQ_API_TOKEN', ''),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
+        'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
     }
 
 
@@ -236,6 +237,68 @@ def dag_ingest_hourly():
         print("Updated ingestion_control for aqicn_forecast")
 
     @task
+    def run_sensorscm_measurements_ingestion():
+        """Run Sensors.Community measurements ingestion."""
+        import subprocess
+
+        env = os.environ.copy()
+        env.update(get_job_env_vars())
+
+        cmd = f"cd {PYTHON_PATH} && python jobs/sensorscm/ingest_measurements.py --mode incremental"
+
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error: {result.stderr}")
+            raise Exception(f"Command failed: {cmd}")
+        print("Sensors.Community measurements ingestion completed")
+
+    @task
+    def update_sensorscm_control():
+        """Update ingestion_control for Sensors.Community measurements."""
+        import sys
+        sys.path.insert(0, '/opt/python/jobs')
+        from common.ingestion_control import update_control as _update
+        _update(source='sensorscm', records_ingested=0, success=True)
+        print("Updated ingestion_control for sensorscm")
+
+    @task
+    def run_openweather_measurements_ingestion():
+        """Run OpenWeather measurements ingestion."""
+        import subprocess
+
+        env = os.environ.copy()
+        env.update(get_job_env_vars())
+
+        cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_measurements.py --mode incremental"
+
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error: {result.stderr}")
+            raise Exception(f"Command failed: {cmd}")
+        print("OpenWeather measurements ingestion completed")
+
+    @task
+    def update_openweather_control():
+        """Update ingestion_control for OpenWeather measurements."""
+        import sys
+        sys.path.insert(0, '/opt/python/jobs')
+        from common.ingestion_control import update_control as _update
+        _update(source='openweather', records_ingested=0, success=True)
+        print("Updated ingestion_control for openweather")
+
+    @task
     def log_completion():
         """Log completion message."""
         print("Hourly ingestion completed")
@@ -247,13 +310,17 @@ def dag_ingest_hourly():
     # openaq = run_openaq_measurements_ingestion()  # DISABLED for 0.4 baseline
     aqicn = run_aqicn_measurements_ingestion()
     forecast = run_aqicn_forecast_ingestion()
+    sensorscm = run_sensorscm_measurements_ingestion()
+    openweather = run_openweather_measurements_ingestion()
     update_aqicn_control = update_aqicn_control()
     update_forecast_control = update_forecast_control()
+    update_sensorscm_control = update_sensorscm_control()
+    update_openweather_control = update_openweather_control()
     completion = log_completion()
 
-    # [openaq, aqicn, forecast] — DISABLED openaq for Plan 0.4 baseline
-    check_clickhouse >> metadata >> [aqicn, forecast]
-    [aqicn, forecast] >> update_aqicn_control >> update_forecast_control >> completion
+    # All ingestion tasks run in parallel (D-06)
+    check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather]
+    [aqicn, forecast, sensorscm, openweather] >> update_aqicn_control >> update_forecast_control >> update_sensorscm_control >> update_openweather_control >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()
