@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-01T12:50:23.850Z"
+last_updated: "2026-04-01T12:53:19.265Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 | Phase | Status | Plans | Completed |
 |-------|--------|-------|-----------|
 | 0 — Foundation & Stabilization | 🔵 Wave 1 done | 6 | 2 |
-| 1 — Multi-Source Ingestion | 🟡 Wave 0 done (PLAN-0-00) | 5 | 1 of 5 |
+| 1 — Multi-Source Ingestion | 🟡 Wave 0 done (PLAN-0-00, PLAN-1-01, PLAN-1-02, PLAN-1-03) | 5 | 4 of 5 |
 | 2 — dbt Refactor | ⬜ Pending | 5 | — |
 | 3 — Visualization & Monitoring | ⬜ Pending | 5 | — |
 | 4 — OpenMetadata Integration | ⬜ Pending | 4 | — |
@@ -46,18 +46,18 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 
 ## Active Plan
 
-**PLAN-0-00 complete** — test infrastructure stubs created.
+**PLAN-1-03 complete** — Sensors.Community client implemented; api.sensor.community/v1/feeds/ returns 404 (service unavailable)
 
-Next: PLAN-1-01 (OpenWeather Air Pollution Client) — Wave 1 starts
+Next: PLAN-1-04 (OpenAQ Decommission)
 
 ---
 
 ## Recent Commits
 
-- `085dd8b` — docs(00): add SUMMARY.md for plans 01 and 02
-- `ea7c4a1` — feat(00-audit): add codebase AUDIT.md and fix DB name fallback
-- `07ea6e6` — feat(docker): add mem limits and healthchecks to all services
-- `6f27455` — docs: add ecosystem research
+- `8345fb3` — feat(1-03): add Sensors.Community client for Vietnam bbox ingestion
+- `93d014d` — feat(waqi): add WAQI tasks to dag_ingest_hourly and wire into parallel fan-in
+- `8f682ce` — feat(1-01): add raw_openweather_measurements table, DAG task, and integration tests
+- `434bc5e` — feat(1-01): add openweather_models.py and ingest_measurements.py ingestion job
 
 ---
 
