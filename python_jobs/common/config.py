@@ -44,13 +44,17 @@ class APIConfig:
     """API configuration."""
     openaq_token: Optional[str] = None
     aqicn_token: Optional[str] = None
-    
+    openweather_token: Optional[str] = None
+    waqi_token: Optional[str] = None
+
     @classmethod
     def from_env(cls) -> "APIConfig":
         """Create config from environment variables."""
         return cls(
             openaq_token=os.environ.get("OPENAQ_API_TOKEN"),
-            aqicn_token=os.environ.get("AQICN_API_TOKEN")
+            aqicn_token=os.environ.get("AQICN_API_TOKEN"),
+            openweather_token=os.environ.get("OPENWEATHER_API_TOKEN"),
+            waqi_token=os.environ.get("WAQI_API_TOKEN"),
         )
 
 

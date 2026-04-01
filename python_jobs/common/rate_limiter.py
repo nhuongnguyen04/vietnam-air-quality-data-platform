@@ -308,12 +308,26 @@ def create_openaq_limiter() -> TokenBucketRateLimiter:
 def create_aqicn_limiter() -> TokenBucketRateLimiter:
     """
     Create a rate limiter configured for AQICN API.
-    
+
     Using conservative defaults - adjust based on API token tier.
     """
     return TokenBucketRateLimiter(
         rate_per_second=1.0,     # 60/min
         burst_size=5,
         max_delay=60.0
+    )
+
+
+def create_waqi_limiter() -> TokenBucketRateLimiter:
+    """
+    Create a rate limiter configured for WAQI / World Air Quality Index API.
+
+    WAQI server-side rate limit ~1000 req/min; using ~60/min (1.0/s) safe margin.
+    """
+    return TokenBucketRateLimiter(
+        rate_per_second=1.0,    # ~60/min safe
+        burst_size=5,
+        max_delay=300.0,        # 5min max backoff
+        backoff_factor=2.0,
     )
 
