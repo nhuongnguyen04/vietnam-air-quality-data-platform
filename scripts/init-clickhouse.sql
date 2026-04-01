@@ -3,97 +3,35 @@ CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DB};
 
 USE ${CLICKHOUSE_DB};
 
--- Raw table cho OpenAQ Measurements (append-only, MergeTree)
--- Chỉ lưu dữ liệu measurement-specific, không lưu metadata đã có trong master tables
--- Master tables: raw_openaq_locations, raw_openaq_parameters, raw_openaq_sensors
--- 
--- LƯU Ý: Deduplication được xử lý trong Python jobs (check duplicate trước khi insert)
--- Unique key dựa trên dữ liệu thật: (location_id, sensor_id, parameter_id, period_datetime_from_utc, period_datetime_to_utc)
--- ingest_time chỉ là metadata về lịch sử ingest, không dùng để deduplicate
-CREATE TABLE IF NOT EXISTS raw_openaq_measurements
-(
-    -- Metadata fields (lịch sử ingest)
-    source          LowCardinality(String) DEFAULT 'openaq',
-    ingest_time     DateTime DEFAULT now(),  -- Metadata: thời gian ingest (không dùng để deduplicate)
-    ingest_batch_id String,
-    ingest_date     Date MATERIALIZED toDate(ingest_time),
-    
-    -- Foreign keys (tham chiếu đến các bảng master)
-    location_id     UInt32,                          -- FK → raw_openaq_locations
-    sensor_id       UInt32,                          -- FK → raw_openaq_sensors
-    parameter_id    UInt32,                          -- FK → raw_openaq_parameters
-    
-    -- Core measurement data (chỉ lưu giá trị measurement, không lưu parameter metadata)
-    value           Float32,
-    
-    -- Period/Time information (thông tin về period của measurement này)
-    period_label    LowCardinality(String),          -- period.label (e.g., "raw")
-    period_interval String,                          -- period.interval (e.g., "01:00:00")
-    period_datetime_from_utc DateTime,               -- period.datetimeFrom.utc (part of unique key)
-    period_datetime_from_local String,              -- period.datetimeFrom.local (keep as string for timezone info)
-    period_datetime_to_utc DateTime,                -- period.datetimeTo.utc (part of unique key)
-    period_datetime_to_local String,                -- period.datetimeTo.local
-    
-    -- Coverage information (coverage của measurement period này, khác với sensor coverage tổng thể)
-    coverage_expected_count UInt32,                  -- coverage.expectedCount
-    coverage_expected_interval String,              -- coverage.expectedInterval
-    coverage_observed_count UInt32,                  -- coverage.observedCount
-    coverage_observed_interval String,               -- coverage.observedInterval
-    coverage_percent_complete Float32,               -- coverage.percentComplete
-    coverage_percent_coverage Float32,               -- coverage.percentCoverage
-    coverage_datetime_from_utc DateTime,            -- coverage.datetimeFrom.utc
-    coverage_datetime_to_utc DateTime,               -- coverage.datetimeTo.utc
-    
-    -- Flag information
-    flag_has_flags  Bool,                            -- flagInfo.hasFlags
-    
-    -- Coordinates tại thời điểm measurement (có thể khác location coordinates do mobile sensors)
-    latitude        Nullable(Float64),               -- coordinates.latitude
-    longitude       Nullable(Float64),               -- coordinates.longitude
-    
-    -- Summary
-    summary         Nullable(String),                -- summary
-    
-    -- Full JSON payload for audit/debugging
-    raw_payload     String CODEC(ZSTD(1))
-)
-ENGINE = MergeTree()  -- Append-only: deduplication được xử lý trong Python jobs
-PARTITION BY toYYYYMM(ingest_date)
-ORDER BY (location_id, sensor_id, parameter_id, period_datetime_from_utc, period_datetime_to_utc)
-SETTINGS index_granularity = 8192;
+-- ============================================
+-- OpenAQ Decommission (Plan 1.04)
+-- D-07 / D-34: Rename OpenAQ tables to raw_openaq_*_archived (NOT DROP)
+-- D-34: Retain data for rollback safety
+-- To restore: RENAME TABLE raw_openaq_*_archived TO raw_openaq_*
+-- ============================================
 
--- Locations metadata table
--- Dùng ReplacingMergeTree để tự động deduplicate dựa trên location_id
-CREATE TABLE IF NOT EXISTS raw_openaq_locations
-(
-    source LowCardinality(String) DEFAULT 'openaq',
-    ingest_time DateTime DEFAULT now(),
-    ingest_batch_id String,
-    ingest_date Date MATERIALIZED toDate(ingest_time),
-    location_id UInt32,
-    name String,
-    locality Nullable(String),
-    timezone String,
-    country_id UInt32,
-    country_code String,
-    country_name String,
-    owner_id UInt32,
-    owner_name String,
-    provider_id UInt32,
-    provider_name String,
-    is_mobile Bool,
-    is_monitor Bool,
-    latitude Float64,
-    longitude Float64,
-    raw_sensors String,
-    datetime_first Nullable(String),  -- Cho phép NULL
-    datetime_last Nullable(String),    -- Cho phép NULL
-    raw_payload String CODEC(ZSTD(1))
-)
-ENGINE = ReplacingMergeTree(ingest_time)
-PARTITION BY toYYYYMM(ingest_date)
-ORDER BY (location_id)
-SETTINGS index_granularity = 8192;
+-- DISABLED (Plan 1.04): raw_openaq_measurements table
+-- Original CREATE TABLE body preserved in git history.
+-- Table was renamed to raw_openaq_measurements_archived via RENAME TABLE below.
+
+-- DISABLED (Plan 1.04): raw_openaq_locations table
+-- Table was renamed to raw_openaq_locations_archived via RENAME TABLE below.
+
+-- DISABLED (Plan 1.04): raw_openaq_parameters table
+-- Table was renamed to raw_openaq_parameters_archived via RENAME TABLE below.
+
+-- DISABLED (Plan 1.04): raw_openaq_sensors table
+-- Table was renamed to raw_openaq_sensors_archived via RENAME TABLE below.
+
+
+-- ============================================
+-- RENAME OpenAQ tables to archived (Plan 1.04)
+-- D-07 / D-34: Data preserved for rollback safety
+-- ============================================
+RENAME TABLE raw_openaq_measurements TO raw_openaq_measurements_archived;
+RENAME TABLE raw_openaq_locations TO raw_openaq_locations_archived;
+RENAME TABLE raw_openaq_parameters TO raw_openaq_parameters_archived;
+RENAME TABLE raw_openaq_sensors TO raw_openaq_sensors_archived;
 
 
 -- AQICN Measurements table (từ feed API)
@@ -214,61 +152,11 @@ PARTITION BY toYYYYMM(ingest_date)
 ORDER BY (station_id, ingest_date, ingest_time)
 SETTINGS index_granularity = 8192, allow_nullable_key = 1;
 
--- Parameters metadata table (master data)
--- Dùng ReplacingMergeTree để tự động deduplicate dựa trên parameter_id
-CREATE TABLE IF NOT EXISTS raw_openaq_parameters
-(
-    source LowCardinality(String) DEFAULT 'openaq',
-    ingest_time DateTime DEFAULT now(),
-    ingest_batch_id String,
-    ingest_date Date MATERIALIZED toDate(ingest_time),
-    parameter_id UInt32,
-    name String,
-    display_name Nullable(String),
-    units String,
-    description Nullable(String),
-    raw_payload String CODEC(ZSTD(1))
-)
-ENGINE = ReplacingMergeTree(ingest_time)
-PARTITION BY toYYYYMM(ingest_date)
-ORDER BY (parameter_id)
-SETTINGS index_granularity = 8192;
+-- DISABLED (Plan 1.04): raw_openaq_parameters table
+-- Table was renamed to raw_openaq_parameters_archived via RENAME TABLE above.
 
--- Sensors metadata table (master data)
--- Dùng ReplacingMergeTree để tự động deduplicate dựa trên sensor_id
--- Dữ liệu từ API endpoint: /v3/locations/{locations_id}/sensors
-CREATE TABLE IF NOT EXISTS raw_openaq_sensors
-(
-    source LowCardinality(String) DEFAULT 'openaq',
-    ingest_time DateTime DEFAULT now(),
-    ingest_batch_id String,
-    ingest_date Date MATERIALIZED toDate(ingest_time),
-    
-    -- Primary key
-    sensor_id UInt32,                                    -- id từ API response
-    
-    -- Foreign keys
-    location_id UInt32,                                  -- FK → raw_openaq_locations
-    parameter_id UInt32,                                 -- FK → raw_openaq_parameters (từ parameter.id)
-    
-    -- Sensor basic info
-    name String,                                         -- name từ API (e.g., "pm25 µg/m³")
-    
-    -- Datetime information
-    datetime_first_utc Nullable(DateTime),              -- datetimeFirst.utc
-    datetime_first_local Nullable(String),              -- datetimeFirst.local (keep as string for timezone)
-    datetime_last_utc Nullable(DateTime),               -- datetimeLast.utc
-    datetime_last_local Nullable(String),               -- datetimeLast.local (keep as string for timezone)
-    
-    -- Coverage information
-    coverage_expected_count Nullable(UInt32),           -- coverage.expectedCount
-    coverage_expected_interval Nullable(String),        -- coverage.expectedInterval
-    coverage_observed_count Nullable(UInt32),           -- coverage.observedCount
-    coverage_observed_interval Nullable(String),        -- coverage.observedInterval
-    coverage_percent_complete Nullable(Float32),        -- coverage.percentComplete
-    coverage_percent_coverage Nullable(Float32),       -- coverage.percentCoverage
-    coverage_datetime_from_utc Nullable(DateTime),      -- coverage.datetimeFrom.utc
-    coverage_datetime_to_utc Nullable(DateTime),       -- coverage.datetimeTo.utc
+-- DISABLED (Plan 1.04): raw_openaq_sensors table
+-- Table was renamed to raw_openaq_sensors_archived via RENAME TABLE above.
     
     -- Latest measurement info
     latest_datetime_utc Nullable(DateTime),            -- latest.datetime.utc
