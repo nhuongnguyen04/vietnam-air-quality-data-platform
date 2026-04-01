@@ -302,15 +302,20 @@ def dag_ingest_hourly():
     update_waqi_control = update_waqi_control()
     completion = log_completion()
 
-    # All 5 sources run in parallel (D-06)
+    # Fan-out: all 5 sources run in parallel after metadata (D-06)
     check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather, waqi]
-    [aqicn, forecast, sensorscm, openweather, waqi] >> [
-        update_aqicn_control,
-        update_forecast_control,
-        update_sensorscm_control,
-        update_openweather_control,
-        update_waqi_control,
-    ] >> completion
+
+    # Fan-in per source, then fan-in to completion
+    # Airflow 3: list >> list not supported; chain each source to its control task
+    aqicn >> update_aqicn_control
+    forecast >> update_forecast_control
+    sensorscm >> update_sensorscm_control
+    openweather >> update_openweather_control
+    waqi >> update_waqi_control
+
+    # Fan-in all control updates to completion
+    [update_aqicn_control, update_forecast_control, update_sensorscm_control,
+     update_openweather_control, update_waqi_control] >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()
