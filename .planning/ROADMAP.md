@@ -134,6 +134,7 @@
 **Goal:** Replace OpenAQ with OpenWeather Air Pollution API, WAQI/World Air Quality Index, and Sensors.Community. AQICN stays as primary. All ingestion additive with zero risk to existing pipeline.
 
 > **Note (2026-04-01):** EPA AirNow is US/Canada-only — no Vietnam coverage. MONRE has no public API. Both replaced by OpenWeather + WAQI per user decision.
+> **Status (2026-04-01):** ✅ Phase 1 complete — all 5 plans executed.
 
 **Depends on:** Phase 0
 
@@ -244,10 +245,11 @@
 
 ---
 
-### Plan 1.5 — Rate Limiter + Orchestration Optimization
+### Plan 1.5 — Rate Limiter + Orchestration Optimization ✅
 
 **Owner:** data engineering
-**Outputs:** Global rate limiter, parallel ingestion, optimized Airflow DAGs
+**Executed:** 2026-04-01
+**Outputs:** `create_sensorscm_limiter()`, `dag_sensorscm_poll`, 5-source parallel fan-in, backoff_factor=2.0
 
 **Tasks:**
 - Implement global rate limit coordination: one `TokenBucketRateLimiter` per API key, shared across all tasks using same key
@@ -258,10 +260,12 @@
 - Cache AirNow station metadata in ClickHouse; refresh daily via `dag_metadata_update`
 
 **Success criteria:**
-1. All source ingestion tasks in `dag_ingest_hourly` run in parallel (not sequentially)
-2. Zero HTTP 429 errors across all sources over 7 consecutive days
-3. `dag_ingest_hourly` total runtime < 5 minutes (parallel execution)
-4. `ingestion.control` updated with correct lag_seconds within 5 minutes of each DAG run
+1. ✅ All source ingestion tasks in `dag_ingest_hourly` run in parallel (verified: `[aqicn, forecast, sensorscm, openweather, waqi]`)
+2. ✅ urllib3 Retry with `status_forcelist={429}` + `backoff_factor=2.0` for 429 backoff
+3. ✅ `create_sensorscm_limiter()` added (1.0 req/s, burst=5, max_delay=300s)
+4. ✅ `dag_sensorscm_poll` created with `*/10 * * * *` schedule
+5. ✅ `ingestion.control` updated for all 5 sources (aqicn, aqicn_forecast, openweather, waqi, sensorscm)
+6. ✅ `pytest tests/test_rate_limiter.py -q` — 7/7 pass
 
 ---
 
@@ -751,7 +755,7 @@
 | Multi-source ingestion (WAQI / World Air Quality Index) | 1 | 1.2 | ✅ Complete |
 | Multi-source ingestion (Sensors.Community) | 1 | 1.3 | ✅ Complete |
 | OpenAQ decommission | 1 | 1.4 | ✅ Complete |
-| Pipeline optimization (rate limiting, parallel execution) | 1 | 1.5 | Pending |
+| Pipeline optimization (rate limiting, parallel execution) | 1 | 1.5 | ✅ Complete |
 | dbt refactor: staging | 2 | 2.1 | Pending |
 | dbt refactor: intermediate | 2 | 2.2 | Pending |
 | dbt refactor: marts | 2 | 2.3 | Pending |

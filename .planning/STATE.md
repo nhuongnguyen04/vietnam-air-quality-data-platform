@@ -36,7 +36,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 | Phase | Status | Plans | Completed |
 |-------|--------|-------|-----------|
 | 0 — Foundation & Stabilization | ✅ Complete | 6 | 6 |
-| 1 — Multi-Source Ingestion | 🟡 Wave 1 + 2 done | 5 | 5 of 5 |
+| 1 — Multi-Source Ingestion | ✅ Complete | 5 | 5 of 5 |
 | 2 — dbt Refactor | ⬜ Pending | 5 | — |
 | 3 — Visualization & Monitoring | ⬜ Pending | 5 | — |
 | 4 — OpenMetadata Integration | ⬜ Pending | 4 | — |
@@ -46,9 +46,17 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 
 ## Active Plan
 
-**PLAN-1-04 complete** — OpenAQ decommissioned (Wave 2 done)
+**Phase 1 — Multi-Source Ingestion: COMPLETE** ✅
 
-Next: PLAN-1-05 (Rate Limiter + Orchestration Optimization)
+| Plan | Status |
+|------|--------|
+| PLAN-1-01 (OpenWeather) | ✅ |
+| PLAN-1-02 (WAQI) | ✅ |
+| PLAN-1-03 (Sensors.Community) | ✅ |
+| PLAN-1-04 (OpenAQ Decommission) | ✅ |
+| PLAN-1-05 (Rate Limiter + Orchestration) | ✅ |
+
+Next: Phase 2 — dbt Refactor (PLAN-2-01: Source-Specific Staging Models)
 
 ---
 
