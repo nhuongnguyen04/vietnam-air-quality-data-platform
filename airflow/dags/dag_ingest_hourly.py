@@ -41,7 +41,7 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
         'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
         'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin'),
-        'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'airquality'),
+        'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'OPENAQ_API_TOKEN': os.environ.get('OPENAQ_API_TOKEN', ''),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
     }
