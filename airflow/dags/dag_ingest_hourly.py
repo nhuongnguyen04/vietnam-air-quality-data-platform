@@ -2,10 +2,10 @@
 Hourly Ingestion DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
 
 This DAG runs hourly to ingest the latest measurements from:
-- OpenAQ API (measurements for Vietnam sensors)
 - AQICN API (measurements for Vietnam stations)
-
-The DAG checks for metadata updates periodically and runs the ingestion jobs.
+- OpenWeather Air Pollution API
+- WAQI / World Air Quality Index
+- Sensors.Community
 
 Schedule: Hourly (every hour at minute 0)
 """
@@ -42,7 +42,6 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
         'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin'),
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
-        'OPENAQ_API_TOKEN': os.environ.get('OPENAQ_API_TOKEN', ''),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
         'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
         'WAQI_API_TOKEN': os.environ.get('WAQI_API_TOKEN', ''),
@@ -91,89 +90,39 @@ def dag_ingest_hourly():
     def ensure_metadata():
         """
         Ensure metadata exists in ClickHouse. If not, run metadata ingestion.
-        
+
         This task always succeeds so that downstream measurement/forecast
         tasks are never skipped (unlike the previous @task.branch approach).
+
+        Note: External metadata ingestion removed (Plan 1.04). AQICN stations are
+        populated automatically during measurement/forecast ingestion.
         """
         import requests
-        import subprocess
-        
+
         clickhouse_host = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
         clickhouse_port = os.environ.get('CLICKHOUSE_PORT', '8123')
         clickhouse_user = os.environ.get('CLICKHOUSE_USER', 'admin')
         clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin')
-        
+
         url = f"http://{clickhouse_host}:{clickhouse_port}/?user={clickhouse_user}&password={clickhouse_password}"
-        
-        metadata_exists = False
-        
+
         try:
-            # Check if openaq_locations table has data
-            # Note: AQICN stations check removed — stations are now populated
-            # during measurement/forecast ingestion via feed API
-            query = "SELECT count(*) FROM raw_openaq_locations"
+            # Check if AQICN stations table has data
+            # Note: External metadata ingestion removed (Plan 1.04)
+            query = "SELECT count(*) FROM raw_aqicn_stations"
             response = requests.get(f"{url}&query={query}", timeout=10)
             if response.status_code == 200:
                 count = int(response.text.strip())
                 if count > 0:
-                    metadata_exists = True
-                    
+                    print(f"Metadata exists ({count} AQICN stations), proceeding to measurements ingestion")
+                    return
+
         except Exception as e:
             print(f"Error checking metadata: {e}")
-        
-        if metadata_exists:
-            print("Metadata exists, proceeding to measurements ingestion")
-            return
-        
-        # Metadata missing — run metadata ingestion
-        print("Metadata missing, running metadata ingestion first")
-        
-        env = os.environ.copy()
-        env.update(get_job_env_vars())
-        
-        commands = [
-            f"cd {PYTHON_PATH} && python jobs/openaq/ingest_parameters.py --mode rewrite",
-            f"cd {PYTHON_PATH} && python jobs/openaq/ingest_locations.py --mode rewrite",
-            f"cd {PYTHON_PATH} && python jobs/openaq/ingest_sensors.py --mode rewrite",
-            # NOTE: AQICN stations are now updated automatically during
-            # measurement/forecast ingestion via feed API + crawl.html
-        ]
-        
-        for cmd in commands:
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                env=env,
-                capture_output=True,
-                text=True
-            )
-            if result.returncode != 0:
-                print(f"Error running: {cmd}")
-                print(f"stderr: {result.stderr}")
-                raise Exception(f"Command failed: {cmd}")
-            print(f"Completed: {cmd}")
 
-    # @task
-    # def run_openaq_measurements_ingestion():
-    #     """Run OpenAQ measurements ingestion. DISABLED for Plan 0.4 AQICN-only baseline."""
-    #     import subprocess
-    #
-    #     env = os.environ.copy()
-    #     env.update(get_job_env_vars())
-    #
-    #     cmd = f"cd {PYTHON_PATH} && python jobs/openaq/ingest_measurements.py --mode incremental"
-    #
-    #     result = subprocess.run(
-    #         cmd,
-    #         shell=True,
-    #         env=env,
-    #         capture_output=True,
-    #         text=True
-    #     )
-    #     if result.returncode != 0:
-    #         print(f"Error: {result.stderr}")
-    #         raise Exception(f"Command failed: {cmd}")
-    #     print(f"OpenAQ measurements ingestion completed")
+        # No metadata — proceed anyway; AQICN stations will be populated
+        # automatically during first measurement/forecast ingestion run
+        print("Metadata check complete; AQICN stations will be populated on first ingestion")
 
     @task
     def run_aqicn_measurements_ingestion():
@@ -341,7 +290,6 @@ def dag_ingest_hourly():
     check_clickhouse = check_clickhouse_connection()
     metadata = ensure_metadata()
 
-    # openaq = run_openaq_measurements_ingestion()  # DISABLED for 0.4 baseline
     aqicn = run_aqicn_measurements_ingestion()
     forecast = run_aqicn_forecast_ingestion()
     sensorscm = run_sensorscm_measurements_ingestion()
