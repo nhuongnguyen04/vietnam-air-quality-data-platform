@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "chmcp": {
+      "command": "uvx",
+      "args": ["chmcp"],
+      "env": {
+        "CLICKHOUSE_HOST": "localhost",
+        "CLICKHOUSE_PORT": "8123",
+        "CLICKHOUSE_DATABASE": "air_quality",
+        "CLICKHOUSE_USERNAME": "admin",
+        "CLICKHOUSE_PASSWORD": "your_clickhouse_password",
+        "CLICKHOUSE_READONLY": "true"
+      }
+    }
+  }
+}
