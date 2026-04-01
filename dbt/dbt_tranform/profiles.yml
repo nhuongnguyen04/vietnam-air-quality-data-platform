@@ -31,3 +31,17 @@ dbt_tranform:
       retry_count: 3
       retry_timeout: 60
       compression: lz4
+
+    ci:
+      type: clickhouse
+      host: "127.0.0.1"
+      port: 8123
+      user: "default"
+      password: ""
+      database: "default"
+      schema: "default"
+      threads: 2
+      timeout: 300
+      retry_count: 3
+      compression: lz4
+
