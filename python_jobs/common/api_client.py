@@ -43,7 +43,7 @@ class APIClient:
         token: Optional[str] = None,
         timeout: int = 30,
         max_retries: int = 5,
-        backoff_factor: float = 1.5,
+        backoff_factor: float = 2.0,  # base=2 exponential backoff (D-31)
         rate_limiter: Optional[Callable] = None,
         headers: Optional[Dict[str, str]] = None,
         auth_header_name: Optional[str] = "Authorization",
