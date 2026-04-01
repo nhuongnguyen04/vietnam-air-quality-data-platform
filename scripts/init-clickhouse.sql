@@ -303,6 +303,137 @@ ENGINE = ReplacingMergeTree(updated_at)
 ORDER BY source
 SETTINGS index_granularity = 8192;
 
+-- ============================================
+-- WAQI / World Air Quality Index Measurements (Plan 1.02)
+-- Source: api.waqi.info/feed/geo:bbox (one call for all Vietnam stations)
+-- Vietnam bbox: geo:8.4;102.1;23.4;109.5
+-- D-01: ReplacingMergeTree(ingest_time), server-side dedup
+-- D-02: No Python-side dedup
+-- ============================================
+CREATE TABLE IF NOT EXISTS raw_waqi_measurements
+(
+    source              LowCardinality(String) DEFAULT 'waqi',
+    ingest_time        DateTime DEFAULT now(),
+    ingest_batch_id    String,
+    ingest_date        Date MATERIALIZED toDate(ingest_time),
+
+    station_id         String,                    -- waqi:{city_slug}
+    city_name          String,
+    latitude           Float64,
+    longitude          Float64,
+
+    timestamp_utc      DateTime,
+    parameter          LowCardinality(String),    -- pm25, pm10, o3, no2, so2, co
+    value              Float32,
+    aqi_reported       UInt16,                   -- WAQI's AQI value
+    dominant_pollutant LowCardinality(String),     -- Dominant pollutant string
+    quality_flag       LowCardinality(String) DEFAULT 'valid',  -- valid | implausible
+
+    raw_payload        String CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (station_id, timestamp_utc, parameter)
+SETTINGS index_granularity = 8192;
+
+-- NOTE: WAQI historical data is limited (~30 days). Backfill via dag_ingest_historical --source waqi.
+
+-- ============================================
+-- Sensors.Community Measurements (Plan 1.03)
+-- Source: api.sensor.community/v1/feeds/
+-- Vietnam bbox: lat=16.0, latDelta=7.5, lng=105.0, lngDelta=7.0
+-- D-05: Insert ALL data; quality_flag = valid/implausible/outlier
+-- D-29: ReplacingMergeTree(ingest_time), server-side dedup
+-- D-23, D-26: quality_flag logic applied during ingestion
+-- ============================================
+CREATE TABLE IF NOT EXISTS raw_sensorscm_measurements
+(
+    source              LowCardinality(String) DEFAULT 'sensorscm',
+    ingest_time         DateTime DEFAULT now(),
+    ingest_batch_id     String,
+    ingest_date         Date MATERIALIZED toDate(ingest_time),
+
+    sensor_id           UInt32,
+    station_id          UInt32,                    -- id from API (reused as station_id)
+
+    latitude            Float64,
+    longitude           Float64,
+
+    timestamp_utc       Nullable(DateTime),
+    parameter           LowCardinality(String),    -- pm10, pm25, temperature, humidity
+    value               Float32,
+    unit                String DEFAULT 'µg/m³',
+
+    sensor_type         LowCardinality(String),    -- SDS011, PMS5003, etc.
+    quality_flag        LowCardinality(String),     -- valid | implausible | outlier (D-05, D-23, D-26)
+
+    raw_payload         String CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (station_id, timestamp_utc, parameter)
+SETTINGS index_granularity = 8192;
+
+-- Sensors/sensor metadata
+-- Stores per-sensor metadata (sensor_type, location) deduplicated on sensor_id
+CREATE TABLE IF NOT EXISTS raw_sensorscm_sensors
+(
+    source              LowCardinality(String) DEFAULT 'sensorscm',
+    ingest_time         DateTime DEFAULT now(),
+    ingest_batch_id     String,
+    ingest_date         Date MATERIALIZED toDate(ingest_time),
+
+    sensor_id           UInt32,
+    station_id          UInt32,
+    latitude            Float64,
+    longitude           Float64,
+    sensor_type         LowCardinality(String),
+    is_indoor          Bool DEFAULT false,
+
+    raw_payload         String CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (sensor_id)
+SETTINGS index_granularity = 8192;
+
+-- NOTE: Sensors.Community has NO historical backfill (D-24).
+-- Real-time polling only. dag_sensorscm_poll (*/10 * * * *) added in PLAN-1-05.
+
+-- ============================================
+-- OpenWeather Air Pollution Measurements (Plan 1.01)
+-- Source: OpenWeather Air Pollution API (city-centroid polling)
+-- D-01: ReplacingMergeTree(ingest_time), server-side dedup
+-- D-02: No Python-side dedup
+-- ============================================
+CREATE TABLE IF NOT EXISTS raw_openweather_measurements
+(
+    source              LowCardinality(String) DEFAULT 'openweather',
+    ingest_time        DateTime DEFAULT now(),
+    ingest_batch_id    String,
+    ingest_date        Date MATERIALIZED toDate(ingest_time),
+
+    station_id         String,                    -- openweather:{city}:{lat}:{lon}
+    city_name          String,
+    latitude           Float64,
+    longitude          Float64,
+
+    timestamp_utc      DateTime,
+    parameter          LowCardinality(String),    -- pm25, pm10, o3, no2, so2, co, nh3, no
+    value              Float32,
+    aqi_reported       UInt8,                     -- OpenWeather's own AQI (1-5); canonical AQI in Phase 2 dbt (D-16)
+    quality_flag       LowCardinality(String) DEFAULT 'valid',  -- valid | implausible
+
+    raw_payload        String CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (station_id, timestamp_utc, parameter)
+SETTINGS index_granularity = 8192;
+
+-- Note: OpenWeather historical backfill available from Nov 2020 via /air_pollution/history
+-- Run dag_ingest_historical with --source openweather --start-date 2026-01-01 --end-date 2026-03-31
+
 -- Optional: tạo user nếu cần (default đã có)
 -- CREATE USER IF NOT EXISTS ${CLICKHOUSE_USER} IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_PASSWORD}';
 -- GRANT ALL ON ${CLICKHOUSE_DB}.* TO ${CLICKHOUSE_USER};
