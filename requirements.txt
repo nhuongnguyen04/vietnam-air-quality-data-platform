@@ -3,6 +3,9 @@ dbt-clickhouse==1.9.5
 sqlfluff==3.5.0
 sqlfluff-templater-dbt==3.5.0
 
+# Linting
+ruff==0.11.0
+
 # Database connectors for sync scripts
 clickhouse-connect==0.9.2
 psycopg2-binary==2.9.11

@@ -1,0 +1,21 @@
+# .sqlfluff — SQL linter config for Vietnam Air Quality Data Platform
+# Lints both raw SQL and dbt Jinja SQL files
+
+[sqlfluff]
+dialect = clickhouse
+templater = dbt
+indentation = 4
+
+[sqlfluff:rules]
+capitalisation_policy = consistent
+consistent_column_aliases = True
+
+[sqlfluff:rules:aliasing.length]
+min_alias_length = 2
+
+[sqlfluff:rules:capitalisation.keywords]
+force = True
+
+[sqlfluff:templater:dbt]
+project_dir = dbt/dbt_tranform
+profiles_dir = dbt/dbt_tranform

@@ -1,0 +1,48 @@
+# docker-compose.test.yml — Minimal CI test stack
+# Used by .github/workflows/ci.yml for dbt integration tests
+# Does NOT include Airflow, Superset, Grafana, or OpenMetadata
+
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.12
+    container_name: ci-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_DB=air_quality
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=admin123456
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    tmpfs:
+      - /var/lib/clickhouse
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  init-schema:
+    image: clickhouse/clickhouse-server:25.12
+    container_name: ci-init-schema
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    entrypoint: ["bash", "-c"]
+    command: |
+      sleep 5 && \
+      clickhouse-client --host clickhouse --user admin --password admin123456 --query "CREATE DATABASE IF NOT EXISTS air_quality" && \
+      clickhouse-client --host clickhouse --user admin --password admin123456 --query "CREATE TABLE IF NOT EXISTS air_quality.raw_aqicn_measurements (source LowCardinality(String) DEFAULT 'aqicn', ingest_time DateTime DEFAULT now(), ingest_batch_id String, ingest_date Date MATERIALIZED toDate(ingest_time), station_id String, time_s Nullable(String), time_tz Nullable(String), time_v Nullable(String), time_iso Nullable(String), aqi Nullable(String), dominentpol Nullable(String), pollutant LowCardinality(String), value Nullable(String), attributions Nullable(String), debug_sync Nullable(String), raw_payload String CODEC(ZSTD(1))) ENGINE = MergeTree() PARTITION BY toYYYYMM(ingest_date) ORDER BY (station_id, time_v, pollutant, ingest_time) SETTINGS index_granularity = 8192, allow_nullable_key = 1" && \
+      clickhouse-client --host clickhouse --user admin --password admin123456 --query "CREATE TABLE IF NOT EXISTS air_quality.raw_aqicn_stations (source LowCardinality(String) DEFAULT 'aqicn', ingest_time DateTime DEFAULT now(), ingest_batch_id String, ingest_date Date MATERIALIZED toDate(ingest_time), station_id String, station_name Nullable(String), latitude Nullable(String), longitude Nullable(String), station_time Nullable(String), aqi Nullable(String), city_url Nullable(String), city_location Nullable(String), raw_payload String CODEC(ZSTD(1))) ENGINE = ReplacingMergeTree(ingest_time) PARTITION BY toYYYYMM(ingest_date) ORDER BY (station_id, ingest_date, ingest_time) SETTINGS index_granularity = 8192, allow_nullable_key = 1"
+    restart: "no"
+
+networks:
+  default:
+    name: air-quality-network
