@@ -748,9 +748,9 @@
 |-------------|-------|---------|--------|
 | Multi-source ingestion: test infrastructure | 1 | 0.00 | ✅ Complete |
 | Multi-source ingestion (OpenWeather Air Pollution) | 1 | 1.1 | ✅ Complete |
-| Multi-source ingestion (WAQI / World Air Quality Index) | 1 | 1.2 | Pending |
+| Multi-source ingestion (WAQI / World Air Quality Index) | 1 | 1.2 | ✅ Complete |
 | Multi-source ingestion (Sensors.Community) | 1 | 1.3 | ✅ Complete |
-| OpenAQ decommission | 1 | 1.4 | Pending |
+| OpenAQ decommission | 1 | 1.4 | ✅ Complete |
 | Pipeline optimization (rate limiting, parallel execution) | 1 | 1.5 | Pending |
 | dbt refactor: staging | 2 | 2.1 | Pending |
 | dbt refactor: intermediate | 2 | 2.2 | Pending |
