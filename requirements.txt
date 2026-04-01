@@ -20,3 +20,6 @@ requests
 # Python jobs dependencies
 python-json-logger==2.0.7
 pydantic
+
+# Testing
+pytest

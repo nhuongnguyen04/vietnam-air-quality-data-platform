@@ -11,7 +11,7 @@
 | # | Phase | Goal | Plans | Success Criteria |
 |---|-------|------|-------|-----------------|
 | 0 | Foundation & Stabilization | Stabilize brownfield baseline before adding new components | 5 | 5 |
-| 1 | Multi-Source Ingestion | Replace OpenAQ; add AirNow, Sensors.Community, MONRE | 5 | 5 |
+| 1 | Multi-Source Ingestion | Replace OpenAQ; add AirNow, Sensors.Community, MONRE | 6 | 6 |
 | 2 | dbt Refactor | Multi-source canonical mart layer | 5 | 5 |
 | 3 | Visualization & Monitoring | Superset + Grafana deployment | 5 | 5 |
 | 4 | OpenMetadata Integration | Data catalog + lineage + data quality | 4 | 4 |
@@ -136,6 +136,25 @@
 > **Note (2026-04-01):** EPA AirNow is US/Canada-only — no Vietnam coverage. MONRE has no public API. Both replaced by OpenWeather + WAQI per user decision.
 
 **Depends on:** Phase 0
+
+### Plan 0.00 — Test Infrastructure Stubs ✅
+
+**Owner:** data engineering
+**Executed:** 2026-04-01
+**Outputs:** `tests/conftest.py`, `tests/test_openweather.py`, `tests/test_waqi.py`, `tests/test_sensorscm.py`, `tests/test_decommission.py`, `tests/test_rate_limiter.py`, `pytest.ini`
+
+**Tasks:**
+- Create `tests/conftest.py` with shared fixtures: `mock_clickhouse_client`, `mock_clickhouse_writer`, `mock_rate_limiter`, `env_vars`, `sample_openweather_response`, `sample_waqi_response`, `sample_sensorscm_response`
+- Create test stubs for OpenWeather (5), WAQI (5), Sensors.Community (7), OpenAQ decommission (5), rate limiter/orchestration (7)
+- Add `pytest.ini` at repo root with `testpaths = tests`
+- Add `pytest` to `requirements.txt`
+
+**Success criteria:**
+1. ✅ `pytest tests/ --collect-only` produces zero errors — 29 tests collected
+2. ✅ `pytest tests/ -q --tb=short` runs to completion — all 29 pass (placeholders expected)
+3. ✅ All fixtures use real `python_jobs.common.*` classes where modules exist
+
+---
 
 ### Plan 1.1 — OpenWeather Air Pollution Client
 
@@ -727,6 +746,7 @@
 
 | Requirement | Phase | Plan(s) | Status |
 |-------------|-------|---------|--------|
+| Multi-source ingestion: test infrastructure | 1 | 0.00 | ✅ Complete |
 | Multi-source ingestion (OpenWeather Air Pollution) | 1 | 1.1 | Pending |
 | Multi-source ingestion (WAQI / World Air Quality Index) | 1 | 1.2 | Pending |
 | Multi-source ingestion (Sensors.Community) | 1 | 1.3 | Pending |
