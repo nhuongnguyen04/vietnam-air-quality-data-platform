@@ -151,27 +151,27 @@ def dag_ingest_hourly():
                 raise Exception(f"Command failed: {cmd}")
             print(f"Completed: {cmd}")
 
-    @task
-    def run_openaq_measurements_ingestion():
-        """Run OpenAQ measurements ingestion."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(get_job_env_vars())
-        
-        cmd = f"cd {PYTHON_PATH} && python jobs/openaq/ingest_measurements.py --mode incremental"
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
-        print(f"OpenAQ measurements ingestion completed")
+    # @task
+    # def run_openaq_measurements_ingestion():
+    #     """Run OpenAQ measurements ingestion. DISABLED for Plan 0.4 AQICN-only baseline."""
+    #     import subprocess
+    #
+    #     env = os.environ.copy()
+    #     env.update(get_job_env_vars())
+    #
+    #     cmd = f"cd {PYTHON_PATH} && python jobs/openaq/ingest_measurements.py --mode incremental"
+    #
+    #     result = subprocess.run(
+    #         cmd,
+    #         shell=True,
+    #         env=env,
+    #         capture_output=True,
+    #         text=True
+    #     )
+    #     if result.returncode != 0:
+    #         print(f"Error: {result.stderr}")
+    #         raise Exception(f"Command failed: {cmd}")
+    #     print(f"OpenAQ measurements ingestion completed")
 
     @task
     def run_aqicn_measurements_ingestion():
@@ -226,13 +226,14 @@ def dag_ingest_hourly():
     check_clickhouse = check_clickhouse_connection()
     metadata = ensure_metadata()
 
-    openaq = run_openaq_measurements_ingestion()
+    # openaq = run_openaq_measurements_ingestion()  # DISABLED for 0.4 baseline
     aqicn = run_aqicn_measurements_ingestion()
     forecast = run_aqicn_forecast_ingestion()
 
     completion = log_completion()
 
-    check_clickhouse >> metadata >> [openaq, aqicn, forecast] >> completion
+    # [openaq, aqicn, forecast] — DISABLED openaq for Plan 0.4 baseline
+    check_clickhouse >> metadata >> [aqicn, forecast] >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()
