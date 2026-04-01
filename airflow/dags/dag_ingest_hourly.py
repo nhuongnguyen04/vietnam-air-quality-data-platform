@@ -304,7 +304,13 @@ def dag_ingest_hourly():
 
     # All 5 sources run in parallel (D-06)
     check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather, waqi]
-    [aqicn, forecast, sensorscm, openweather, waqi] >> update_aqicn_control >> update_forecast_control >> update_sensorscm_control >> update_openweather_control >> update_waqi_control >> completion
+    [aqicn, forecast, sensorscm, openweather, waqi] >> [
+        update_aqicn_control,
+        update_forecast_control,
+        update_sensorscm_control,
+        update_openweather_control,
+        update_waqi_control,
+    ] >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()
