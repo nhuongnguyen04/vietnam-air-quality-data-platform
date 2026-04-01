@@ -136,4 +136,5 @@ None — discussion stayed within Phase 1 scope.
 ---
 
 *Phase: 01-multi-source-ingestion*
+*Context directory: .planning/phases/01-multi-source-ingestion/*
 *Context gathered: 2026-04-01*
