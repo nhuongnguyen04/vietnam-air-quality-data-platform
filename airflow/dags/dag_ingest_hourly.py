@@ -218,22 +218,42 @@ def dag_ingest_hourly():
         print(f"AQICN forecast ingestion completed")
 
     @task
+    def update_aqicn_control():
+        """Update ingestion_control for AQICN measurements."""
+        import sys
+        sys.path.insert(0, '/opt/python/jobs')
+        from common.ingestion_control import update_control as _update
+        _update(source='aqicn', records_ingested=0, success=True)
+        print("Updated ingestion_control for aqicn")
+
+    @task
+    def update_forecast_control():
+        """Update ingestion_control for AQICN forecast."""
+        import sys
+        sys.path.insert(0, '/opt/python/jobs')
+        from common.ingestion_control import update_control as _update
+        _update(source='aqicn_forecast', records_ingested=0, success=True)
+        print("Updated ingestion_control for aqicn_forecast")
+
+    @task
     def log_completion():
         """Log completion message."""
         print("Hourly ingestion completed")
 
-    # Define task dependencies — linear, no branching
+    # Define task dependencies
     check_clickhouse = check_clickhouse_connection()
     metadata = ensure_metadata()
 
     # openaq = run_openaq_measurements_ingestion()  # DISABLED for 0.4 baseline
     aqicn = run_aqicn_measurements_ingestion()
     forecast = run_aqicn_forecast_ingestion()
-
+    update_aqicn_control = update_aqicn_control()
+    update_forecast_control = update_forecast_control()
     completion = log_completion()
 
     # [openaq, aqicn, forecast] — DISABLED openaq for Plan 0.4 baseline
-    check_clickhouse >> metadata >> [aqicn, forecast] >> completion
+    check_clickhouse >> metadata >> [aqicn, forecast]
+    [aqicn, forecast] >> update_aqicn_control >> update_forecast_control >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()

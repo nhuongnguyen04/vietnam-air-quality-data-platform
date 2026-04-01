@@ -307,6 +307,15 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
         return stats
 
     @task
+    def update_transform_control():
+        """Update ingestion_control for dbt transformation run."""
+        import sys
+        sys.path.insert(0, '/opt/python/jobs')
+        from common.ingestion_control import update_control as _update
+        _update(source='dbt_transform', records_ingested=0, success=True)
+        print("Updated ingestion_control for dbt_transform")
+
+    @task
     def log_completion():
         """Log completion message."""
         print("dbt transformation completed")
@@ -321,8 +330,9 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
     marts = dbt_run_marts()
     test = dbt_test()
     stats = log_dbt_stats()
+    update_transform_control = update_transform_control()
     completion = log_completion()
 
-    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> stats >> completion
+    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> stats >> update_transform_control >> completion
 
 dag_transform = dag_transform()

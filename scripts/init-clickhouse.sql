@@ -284,6 +284,25 @@ PARTITION BY toYYYYMM(ingest_date)
 ORDER BY (sensor_id)
 SETTINGS index_granularity = 8192;
 
+-- ============================================
+-- Ingestion Control Table (Plan 0.5)
+-- Tracks run metadata for each data source
+-- Consumed by Grafana freshness dashboards (Phase 3.4) and alerting (Phase 5.2)
+-- ============================================
+CREATE TABLE IF NOT EXISTS ingestion_control
+(
+    source              LowCardinality(String),
+    last_run           DateTime DEFAULT now(),
+    last_success       DateTime,
+    records_ingested   UInt64 DEFAULT 0,
+    lag_seconds        Int64 DEFAULT 0,
+    error_message      String DEFAULT '',
+    updated_at         DateTime DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY source
+SETTINGS index_granularity = 8192;
+
 -- Optional: tạo user nếu cần (default đã có)
 -- CREATE USER IF NOT EXISTS ${CLICKHOUSE_USER} IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_PASSWORD}';
 -- GRANT ALL ON ${CLICKHOUSE_DB}.* TO ${CLICKHOUSE_USER};
