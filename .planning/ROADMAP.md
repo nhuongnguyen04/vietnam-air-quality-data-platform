@@ -747,7 +747,7 @@
 | Requirement | Phase | Plan(s) | Status |
 |-------------|-------|---------|--------|
 | Multi-source ingestion: test infrastructure | 1 | 0.00 | ✅ Complete |
-| Multi-source ingestion (OpenWeather Air Pollution) | 1 | 1.1 | Pending |
+| Multi-source ingestion (OpenWeather Air Pollution) | 1 | 1.1 | ✅ Complete |
 | Multi-source ingestion (WAQI / World Air Quality Index) | 1 | 1.2 | Pending |
 | Multi-source ingestion (Sensors.Community) | 1 | 1.3 | ✅ Complete |
 | OpenAQ decommission | 1 | 1.4 | Pending |

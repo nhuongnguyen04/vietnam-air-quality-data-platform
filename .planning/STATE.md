@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-04-01T12:53:19.265Z"
+status: active
+last_updated: "2026-04-01T13:30:00Z"
 progress:
-  total_phases: 1
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 30
+  completed_plans: 4
 ---
 
 # State — Vietnam Air Quality Data Platform Refactor
@@ -35,8 +35,8 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 
 | Phase | Status | Plans | Completed |
 |-------|--------|-------|-----------|
-| 0 — Foundation & Stabilization | 🔵 Wave 1 done | 6 | 2 |
-| 1 — Multi-Source Ingestion | 🟡 Wave 0 done (PLAN-0-00, PLAN-1-01, PLAN-1-02, PLAN-1-03) | 5 | 4 of 5 |
+| 0 — Foundation & Stabilization | ✅ Complete | 6 | 6 |
+| 1 — Multi-Source Ingestion | 🟡 Wave 1 done | 5 | 4 of 5 |
 | 2 — dbt Refactor | ⬜ Pending | 5 | — |
 | 3 — Visualization & Monitoring | ⬜ Pending | 5 | — |
 | 4 — OpenMetadata Integration | ⬜ Pending | 4 | — |
@@ -46,18 +46,18 @@ See: `.planning/PROJECT.md` (updated 2026-04-01 after initialization)
 
 ## Active Plan
 
-**PLAN-1-03 complete** — Sensors.Community client implemented; api.sensor.community/v1/feeds/ returns 404 (service unavailable)
+**PLAN-1-01 complete** — OpenWeather Air Pollution API Client implemented
 
-Next: PLAN-1-04 (OpenAQ Decommission)
+Next: PLAN-1-04 (OpenAQ Decommission) + PLAN-1-05 (Rate Limiter + Orchestration Optimization)
 
 ---
 
 ## Recent Commits
 
-- `8345fb3` — feat(1-03): add Sensors.Community client for Vietnam bbox ingestion
-- `93d014d` — feat(waqi): add WAQI tasks to dag_ingest_hourly and wire into parallel fan-in
 - `8f682ce` — feat(1-01): add raw_openweather_measurements table, DAG task, and integration tests
 - `434bc5e` — feat(1-01): add openweather_models.py and ingest_measurements.py ingestion job
+- `1a92e50` — feat(1-01): add OPENWEATHER_API_TOKEN to all Airflow services and create_openweather_limiter
+- `8345fb3` — feat(1-03): add Sensors.Community client for Vietnam bbox ingestion
 
 ---
 
@@ -69,7 +69,7 @@ Next: PLAN-1-04 (OpenAQ Decommission)
 - **YOLO mode:** Auto-approve plan checks, verifier, and roadmap approval
 
 ---
-*Last updated: 2026-04-01 after Phase 0 context session*
+*Last updated: 2026-04-01 after PLAN-1-01 completion*
 
 ---
 
