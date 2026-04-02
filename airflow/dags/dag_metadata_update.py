@@ -3,8 +3,7 @@ Metadata Update DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
 
 This DAG runs daily to refresh metadata:
 - AQICN stations (air quality stations in Vietnam)
-
-Note: External metadata ingestion removed (Plan 1.04).
+- Sensors.Community sensor metadata (Vietnam sensors from data.json)
 
 Schedule: Daily at 01:00
 """
@@ -89,12 +88,12 @@ def dag_metadata_update():
     def refresh_aqicn_stations():
         """Refresh AQICN stations."""
         import subprocess
-        
+
         env = os.environ.copy()
         env.update(get_job_env_vars())
-        
+
         cmd = f"cd {PYTHON_PATH} && python jobs/aqicn/ingest_stations.py --mode rewrite"
-        
+
         result = subprocess.run(
             cmd,
             shell=True,
@@ -107,6 +106,29 @@ def dag_metadata_update():
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
         print(f"AQICN stations refresh completed")
+
+    @task
+    def refresh_sensorscm_sensors():
+        """Refresh Sensors.Community sensor metadata for Vietnam."""
+        import subprocess
+
+        env = os.environ.copy()
+        env.update(get_job_env_vars())
+
+        cmd = f"cd {PYTHON_PATH} && python jobs/sensorscm/ingest_sensors.py --mode rewrite"
+
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if result.returncode != 0:
+            print(f"Error: {result.stderr}")
+            raise Exception(f"Command failed: {cmd}")
+        print(f"Sensors.Community sensors refresh completed")
 
     @task
     def log_metadata_stats():
@@ -131,6 +153,14 @@ def dag_metadata_update():
                 if len(lines) > 1:
                     stats['aqicn_stations'] = int(lines[1].strip())
 
+            # Get Sensors.Community sensors count
+            query = "SELECT count(*) FROM raw_sensorscm_sensors"
+            response = requests.get(f"{url}&query={query}", timeout=30)
+            if response.status_code == 200:
+                lines = response.text.strip().split('\n')
+                if len(lines) > 1:
+                    stats['sensorscm_sensors'] = int(lines[1].strip())
+
             print(f"Metadata statistics: {stats}")
 
         except Exception as e:
@@ -145,12 +175,16 @@ def dag_metadata_update():
 
     # Define task dependencies
     check_clickhouse = check_clickhouse_connection()
-    refresh_stations = refresh_aqicn_stations()
+    refresh_aqicn = refresh_aqicn_stations()
+    refresh_sensorscm = refresh_sensorscm_sensors()
     log_stats = log_metadata_stats()
     log_done = log_completion()
 
-    # AQICN metadata chain (Plan 1.04: external metadata ingestion removed)
-    check_clickhouse >> refresh_stations >> log_stats >> log_done
+    # Metadata chains: AQICN + Sensors.Community run in parallel
+    check_clickhouse >> [refresh_aqicn, refresh_sensorscm]
+    refresh_aqicn >> log_stats
+    refresh_sensorscm >> log_stats
+    log_stats >> log_done
 
 
 dag_metadata_update = dag_metadata_update()

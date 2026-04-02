@@ -76,13 +76,13 @@ def run_station_ingestion(
 ) -> Dict[str, Any]:
     """
     Run station ingestion job.
-    
+
     Args:
         client: AQICN API client
         clickhouse_writer: ClickHouse writer
         max_workers: Number of parallel workers
         mode: Ingestion mode (rewrite or append)
-        
+
     Returns:
         Statistics dictionary
     """

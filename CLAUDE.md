@@ -251,7 +251,25 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - `.env` — production-style defaults checked into source control (with placeholder tokens).
 - `.env.dev` — local development overrides (also checked in, but contains dev-specific values).
 - **Never commit actual secrets** to `.env`; use secrets management in deployed environments.
-## 7. `.gitignore` Patterns
+## 7. Git Conventions
+### Commit Message Rules
+- **KHÔNG sử dụng `Co-Authored-By`** trong commit message. Mọi commit đều là của developer, không ghi nhận AI.
+- Sử dụng tiếng Việt cho commit message.
+- Theo format **Conventional Commits**: `<type>: <mô tả ngắn gọn>`
+  - `feat:` — tính năng mới
+  - `fix:` — sửa lỗi
+  - `refactor:` — tái cấu trúc code
+  - `docs:` — cập nhật tài liệu
+  - `chore:` — công việc bảo trì (deps, config, CI)
+  - `test:` — thêm hoặc sửa test
+  - `style:` — thay đổi format, không ảnh hưởng logic
+- Commit message ngắn gọn, rõ ràng, tập trung vào **what** và **why**.
+- Mỗi commit nên là một đơn vị thay đổi logic (atomic commit).
+### Branch Naming
+- `feature/<tên-tính-năng>` — nhánh phát triển tính năng
+- `fix/<tên-lỗi>` — nhánh sửa lỗi
+- `chore/<mô-tả>` — nhánh bảo trì
+## 8. `.gitignore` Patterns
 ### Key Exclusion Rules
 - All `venv/` directories are excluded recursively.
 - All `__pycache__/` directories are excluded.

@@ -50,7 +50,10 @@ def update_control(
     client = get_clickhouse_client()
 
     now = last_run or datetime.now(timezone.utc)
-    last_success = now if success else None
+    # Sentinel value for "never succeeded" — clickhouse_connect 0.9.2 crashes
+    # when a datetime column contains bare Python None.
+    NEVER_SUCCEEDED = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    last_success = now if success else NEVER_SUCCEEDED
     lag_seconds = 0 if success else -1
 
     client.insert(

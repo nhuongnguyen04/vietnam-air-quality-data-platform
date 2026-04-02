@@ -24,18 +24,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from common.api_client import APIClient
 from common.clickhouse_writer import create_clickhouse_writer
 from common.ingestion_control import update_control
-from models.sensorscm_models import (
-    VIETNAM_BBOX_CENTER,
-    transform_sensorscm_response,
-)
+from models.sensorscm_models import transform_sensorscm_response
 
 
 def create_sensorscm_client() -> APIClient:
     """Create a configured Sensors.Community API client (no auth required)."""
     return APIClient(
-        base_url="https://api.sensor.community",
+        base_url="https://data.sensor.community",
         token=None,
-        timeout=30,
+        timeout=60,
         max_retries=5,
         backoff_factor=2.0,
         auth_header_name=None,
@@ -44,24 +41,20 @@ def create_sensorscm_client() -> APIClient:
 
 def fetch_vietnam_sensors() -> List[Dict[str, Any]]:
     """
-    Fetch all sensor readings within the Vietnam bounding box.
+    Fetch all sensor readings for Vietnam from data.sensor.community.
 
-    API: GET /v1/feeds/?lat=16.0&latDelta=7.5&lng=105.0&lngDelta=7.0
+    API: GET https://data.sensor.community/static/v2/data.json
+    Returns all sensors globally; Vietnam records filtered by country='VN'.
+    No pagination — single call returns all.
 
     Returns:
-        List of station records (no pagination — single call returns all).
+        List of sensor records (one per measurement row in data.json).
     """
     logger = logging.getLogger(__name__)
 
     client = create_sensorscm_client()
     try:
-        params = {
-            "lat": VIETNAM_BBOX_CENTER["lat"],
-            "latDelta": VIETNAM_BBOX_CENTER["latDelta"],
-            "lng": VIETNAM_BBOX_CENTER["lng"],
-            "lngDelta": VIETNAM_BBOX_CENTER["lngDelta"],
-        }
-        response = client.get("/v1/feeds/", params=params)
+        response = client.get("/static/v2/data.json")
 
         if not isinstance(response, list):
             logger.warning(
@@ -70,8 +63,18 @@ def fetch_vietnam_sensors() -> List[Dict[str, Any]]:
             )
             return []
 
-        logger.info("Sensors.Community: %d stations returned", len(response))
-        return response
+        # Filter to Vietnam only
+        vietnam_records = [
+            r for r in response
+            if r.get("location", {}).get("country") == "VN"
+        ]
+
+        logger.info(
+            "Sensors.Community: %d total records, %d from Vietnam",
+            len(response),
+            len(vietnam_records),
+        )
+        return vietnam_records
     finally:
         client.close()
 

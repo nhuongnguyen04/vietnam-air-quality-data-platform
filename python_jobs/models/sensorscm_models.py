@@ -1,8 +1,7 @@
 """
 Sensors.Community (Luftdaten) data models.
 
-API base: https://api.sensor.community/v1/feeds/
-Vietnam bbox: lat=16.0, latDelta=7.5, lng=105.0, lngDelta=7.0
+API base: https://data.sensor.community/static/v2/data.json (VN filtered by country='VN')
 Fields: P1 → PM10, P2 → PM2.5, temperature, humidity
 
 Quality flags per D-23, D-26:
@@ -93,82 +92,107 @@ def map_parameter(api_value_type: str) -> Optional[str]:
     return PARAMETER_MAP.get(api_value_type)
 
 
-def transform_sensor_reading(station: Dict[str, Any]) -> List[Dict[str, Any]]:
+def transform_sensor_reading(record: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Transform a single Sensors.Community station record into measurement records.
+    Transform a single Sensors.Community sensor reading into measurement records.
 
-    API response shape:
+    data.json response shape (new format):
     {
       "id": 12345,
-      "sensor": {"id": 67890, "sensor_type": {"name": "SDS011"}, "pin": "1"},
-      "location": {"latitude": 10.8231, "longitude": 106.6297, "country": "VN"},
-      "data": [{"sensordatavalues": [{"value_type": "P2", "value": 28.7}],
-                "timestamp": "2026-04-01T10:30:00"}]
+      "timestamp": "2026-04-02 02:52:16",
+      "location": {
+        "id": 30138,
+        "latitude": "20.964",
+        "longitude": "105.83",
+        "altitude": "6.8",
+        "country": "VN",
+        "exact_location": 0,
+        "indoor": 1
+      },
+      "sensor": {
+        "id": 44434,
+        "pin": "1",
+        "sensor_type": {"id": 14, "name": "SDS011", "manufacturer": "Nova Fitness"}
+      },
+      "sensordatavalues": [
+        {"id": 66949859574, "value": "137.43", "value_type": "P1"},
+        {"id": 66949859576, "value": "67.90", "value_type": "P2"}
+      ]
     }
 
     Returns one record per sensordatavalue entry.
     """
     records = []
 
-    sensor_id = station.get("sensor", {}).get("id")
+    sensor_id = record.get("sensor", {}).get("id")
     if not sensor_id:
-        logger.warning("Station missing sensor.id, skipping")
+        logger.warning("Record missing sensor.id, skipping")
         return records
 
-    sensor_type = station.get("sensor", {}).get("sensor_type", {}).get("name", "unknown")
-    location = station.get("location", {})
-    lat = location.get("latitude")
-    lon = location.get("longitude")
+    sensor_type = record.get("sensor", {}).get("sensor_type", {}).get("name", "unknown")
+    location = record.get("location", {})
 
-    data_entries = station.get("data", [])
-    for entry in data_entries:
-        timestamp_str = entry.get("timestamp")
+    # lat/lon can be strings or floats in data.json
+    lat_raw = location.get("latitude")
+    lon_raw = location.get("longitude")
+    try:
+        lat = float(lat_raw) if lat_raw is not None else None
+    except (ValueError, TypeError):
+        lat = None
+    try:
+        lon = float(lon_raw) if lon_raw is not None else None
+    except (ValueError, TypeError):
+        lon = None
+
+    # Timestamp at record root (new format) — not nested under "data"
+    timestamp_str = record.get("timestamp")
+    try:
+        timestamp_utc = datetime.fromisoformat(
+            timestamp_str.replace("Z", "+00:00")
+        ) if timestamp_str else datetime.now(timezone.utc)
+    except Exception:
+        timestamp_utc = datetime.now(timezone.utc)
+
+    # sensordatavalues at record root (new format)
+    sensordatavalues = record.get("sensordatavalues", [])
+    for sv in sensordatavalues:
+        value_type = sv.get("value_type")
+        value_str = sv.get("value")
+
+        if value_type is None or value_str is None:
+            continue
+
         try:
-            timestamp_utc = datetime.fromisoformat(
-                timestamp_str.replace("Z", "+00:00")
-            ) if timestamp_str else datetime.now(timezone.utc)
-        except Exception:
-            timestamp_utc = datetime.now(timezone.utc)
+            value = float(value_str)
+        except (ValueError, TypeError):
+            logger.warning("Non-numeric value for %s: %s", value_type, value_str)
+            continue
 
-        sensordatavalues = entry.get("sensordatavalues", [])
-        for sv in sensordatavalues:
-            value_type = sv.get("value_type")
-            value_str = sv.get("value")
+        parameter = map_parameter(value_type)
+        if parameter is None:
+            # Unknown value type, skip
+            continue
 
-            if value_type is None or value_str is None:
-                continue
+        quality_flag = assign_quality_flag(parameter, value, lat, lon)
 
-            try:
-                value = float(value_str)
-            except (ValueError, TypeError):
-                logger.warning(f"Non-numeric value for {value_type}: {value_str}")
-                continue
-
-            parameter = map_parameter(value_type)
-            if parameter is None:
-                # Unknown value type, skip
-                continue
-
-            quality_flag = assign_quality_flag(parameter, value, lat, lon)
-
-            record = {
-                "sensor_id": sensor_id,
-                "station_id": sensor_id,
-                "latitude": lat,
-                "longitude": lon,
-                "timestamp_utc": timestamp_utc,
-                "parameter": parameter,
-                "value": value,
-                "unit": (
-                    "µg/m³" if parameter in ("pm10", "pm25")
-                    else "°C" if parameter == "temperature"
-                    else "%"
-                ),
-                "sensor_type": sensor_type,
-                "quality_flag": quality_flag,
-                "raw_payload": str(station),
-            }
-            records.append(record)
+        record_out = {
+            "sensor_id": sensor_id,
+            "station_id": sensor_id,
+            "latitude": lat,
+            "longitude": lon,
+            "timestamp_utc": timestamp_utc,
+            "parameter": parameter,
+            "value": value,
+            "unit": (
+                "µg/m³" if parameter in ("pm10", "pm25")
+                else "°C" if parameter == "temperature"
+                else "%"
+            ),
+            "sensor_type": sensor_type,
+            "quality_flag": quality_flag,
+            "raw_payload": str(record),
+        }
+        records.append(record_out)
 
     return records
 
