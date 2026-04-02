@@ -2,10 +2,12 @@
 Hourly Ingestion DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
 
 This DAG runs hourly to ingest the latest measurements from:
-- AQICN API (measurements for Vietnam stations)
+- AQICN / World Air Quality Index (api.waqi.info — primary source)
 - OpenWeather Air Pollution API
-- WAQI / World Air Quality Index
 - Sensors.Community
+
+Note: AQICN and WAQI are the same API (api.waqi.info). The pipeline uses AQICN
+as the canonical source; do NOT add WAQI as a separate ingestion source.
 
 Schedule: Hourly (every hour at minute 0)
 """
@@ -44,7 +46,6 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
         'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
-        'WAQI_API_TOKEN': os.environ.get('WAQI_API_TOKEN', ''),
     }
 
 
@@ -56,7 +57,7 @@ def build_env_command() -> str:
 
 @dag(
     default_args=default_args,
-    description='Hourly ingestion of air quality measurements from AQICN, Sensors.Community, OpenWeather, and WAQI',
+    description='Hourly ingestion of air quality measurements from AQICN, Sensors.Community, and OpenWeather',
     schedule='0 * * * *',
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
@@ -250,38 +251,6 @@ def dag_ingest_hourly():
 
 
     @task
-    def run_waqi_measurements_ingestion():
-        """Run WAQI / World Air Quality Index measurements ingestion."""
-        import subprocess
-
-        env = os.environ.copy()
-        env.update(get_job_env_vars())
-
-        cmd = f"cd {PYTHON_PATH} && python jobs/waqi/ingest_measurements.py --mode incremental"
-
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
-        print("WAQI measurements ingestion completed")
-
-
-    @task
-    def update_waqi_control():
-        """Update ingestion_control for WAQI measurements."""
-        import sys
-        sys.path.insert(0, '/opt/python/jobs')
-        from common.ingestion_control import update_control as _update
-        _update(source='waqi', records_ingested=0, success=True)
-        print("Updated ingestion_control for waqi")
-
-    @task
     def log_completion():
         """Log completion message."""
         print("Hourly ingestion completed")
@@ -294,28 +263,24 @@ def dag_ingest_hourly():
     forecast = run_aqicn_forecast_ingestion()
     sensorscm = run_sensorscm_measurements_ingestion()
     openweather = run_openweather_measurements_ingestion()
-    waqi = run_waqi_measurements_ingestion()
     update_aqicn_control = update_aqicn_control()
     update_forecast_control = update_forecast_control()
     update_sensorscm_control = update_sensorscm_control()
     update_openweather_control = update_openweather_control()
-    update_waqi_control = update_waqi_control()
     completion = log_completion()
 
-    # Fan-out: all 5 sources run in parallel after metadata (D-06)
-    check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather, waqi]
+    # Fan-out: all 4 sources run in parallel after metadata
+    check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather]
 
     # Fan-in per source, then fan-in to completion
-    # Airflow 3: list >> list not supported; chain each source to its control task
     aqicn >> update_aqicn_control
     forecast >> update_forecast_control
     sensorscm >> update_sensorscm_control
     openweather >> update_openweather_control
-    waqi >> update_waqi_control
 
     # Fan-in all control updates to completion
     [update_aqicn_control, update_forecast_control, update_sensorscm_control,
-     update_openweather_control, update_waqi_control] >> completion
+     update_openweather_control] >> completion
 
 
 dag_ingest_hourly = dag_ingest_hourly()

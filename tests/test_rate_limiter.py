@@ -47,17 +47,9 @@ def test_openweather_limiter_factory():
         f"Expected rate_per_second~0.8, got {limiter.rate_per_second}"
 
 
-def test_waqi_limiter_factory():
-    """create_waqi_limiter() returns correct rate (D-28)."""
-    from python_jobs.common.rate_limiter import create_waqi_limiter
-
-    limiter = create_waqi_limiter()
-    assert limiter.rate_per_second == 1.0, \
-        f"Expected rate_per_second=1.0, got {limiter.rate_per_second}"
-
 
 def test_parallel_ingestion_pattern():
-    """All 5 source tasks run in parallel in dag_ingest_hourly (D-29)."""
+    """All 4 source tasks run in parallel in dag_ingest_hourly."""
     dag_path = os.path.join(
         os.path.dirname(__file__), '..',
         'airflow', 'dags', 'dag_ingest_hourly.py'
@@ -65,16 +57,15 @@ def test_parallel_ingestion_pattern():
     with open(dag_path) as f:
         content = f.read()
 
-    # Verify parallel fan-in: >> [aqicn, ..., waqi] (order may vary)
+    # Verify parallel fan-in: >> [aqicn, forecast, sensorscm, openweather]
     fan_in_found = (
         "[aqicn," in content and
         "forecast" in content and
         "openweather" in content and
-        "waqi]" in content and
         "sensorscm" in content
     )
     assert fan_in_found, \
-        "Parallel fan-in pattern with all 5 sources not found in dag_ingest_hourly"
+        "Parallel fan-in pattern with all 4 sources not found in dag_ingest_hourly"
 
     # Verify fan-in trigger pattern
     assert "check_clickhouse >> metadata >> [" in content, \
@@ -98,10 +89,10 @@ def test_dag_sensorscm_poll_exists():
 
 
 def test_control_table_update_per_source():
-    """ingestion.control is updated for each of the 5 sources."""
+    """ingestion.control is updated for each of the 4 sources."""
     from python_jobs.common.ingestion_control import update_control
 
-    sources = ["aqicn", "aqicn_forecast", "openweather", "waqi", "sensorscm"]
+    sources = ["aqicn", "aqicn_forecast", "openweather", "sensorscm"]
     dag_path = os.path.join(os.path.dirname(__file__), '..', 'airflow', 'dags', 'dag_ingest_hourly.py')
     with open(dag_path) as f:
         content = f.read()

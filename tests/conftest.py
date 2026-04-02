@@ -65,7 +65,6 @@ def env_vars():
         "OPENAQ_API_TOKEN": "test_openaq_token",
         "AQICN_API_TOKEN": "test_aqicn_token",
         "OPENWEATHER_API_TOKEN": "test_openweather_token",
-        "WAQI_API_TOKEN": "test_waqi_token",
         "PYTHON_JOBS_DIR": "/opt/python/jobs",
     }
 
@@ -91,31 +90,6 @@ def sample_openweather_response():
                 "dt": 1743500000
             }
         ]
-    }
-
-
-@pytest.fixture
-def sample_waqi_response():
-    """Return a mock WAQI bounding-box API response."""
-    return {
-        "status": "ok",
-        "data": {
-            "city": {
-                "name": "Hanoi, Vietnam",
-                "geo": [105.8, 21.0],
-                "url": "vietnam/hanoi"
-            },
-            "iaqi": {
-                "pm25": {"v": 68.5},
-                "pm10": {"v": 112.0},
-                "o3": {"v": 32.0},
-                "no2": {"v": 45.0},
-                "so2": {"v": 12.0},
-                "co": {"v": 0.8}
-            },
-            "dominentpol": "pm25",
-            "time": "2026-04-01T10:00:00+07:00"
-        }
     }
 
 

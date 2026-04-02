@@ -191,40 +191,8 @@ ENGINE = ReplacingMergeTree(updated_at)
 ORDER BY source
 SETTINGS index_granularity = 8192;
 
--- ============================================
--- WAQI / World Air Quality Index Measurements (Plan 1.02)
--- Source: api.waqi.info/feed/geo:bbox (one call for all Vietnam stations)
--- Vietnam bbox: geo:8.4;102.1;23.4;109.5
--- D-01: ReplacingMergeTree(ingest_time), server-side dedup
--- D-02: No Python-side dedup
--- ============================================
-CREATE TABLE IF NOT EXISTS raw_waqi_measurements
-(
-    source              LowCardinality(String) DEFAULT 'waqi',
-    ingest_time        DateTime DEFAULT now(),
-    ingest_batch_id    String,
-    ingest_date        Date MATERIALIZED toDate(ingest_time),
-
-    station_id         String,                    -- waqi:{city_slug}
-    city_name          String,
-    latitude           Float64,
-    longitude          Float64,
-
-    timestamp_utc      DateTime,
-    parameter          LowCardinality(String),    -- pm25, pm10, o3, no2, so2, co
-    value              Float32,
-    aqi_reported       UInt16,                   -- WAQI's AQI value
-    dominant_pollutant LowCardinality(String),     -- Dominant pollutant string
-    quality_flag       LowCardinality(String) DEFAULT 'valid',  -- valid | implausible
-
-    raw_payload        String CODEC(ZSTD(1))
-)
-ENGINE = ReplacingMergeTree(ingest_time)
-PARTITION BY toYYYYMM(ingest_date)
-ORDER BY (station_id, timestamp_utc, parameter)
-SETTINGS index_granularity = 8192;
-
--- NOTE: WAQI historical data is limited (~30 days). Backfill via dag_ingest_historical --source waqi.
+-- NOTE: WAQI and AQICN are the same API (api.waqi.info). Only AQICN ingestion
+-- is active; raw_waqi_measurements table has been removed (dead data source).
 
 -- ============================================
 -- Sensors.Community Measurements (Plan 1.03)

@@ -98,7 +98,6 @@ services:
       # Python Jobs directory
       - PYTHON_JOBS_DIR=/opt/python/jobs/
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
-      - WAQI_API_TOKEN=${WAQI_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
@@ -163,7 +162,6 @@ services:
       # Python Jobs directory
       - PYTHON_JOBS_DIR=/opt/python/jobs
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
-      - WAQI_API_TOKEN=${WAQI_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
@@ -225,7 +223,6 @@ services:
       # Python Jobs directory
       - PYTHON_JOBS_DIR=/opt/python/jobs
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
-      - WAQI_API_TOKEN=${WAQI_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
@@ -287,7 +284,6 @@ services:
       # Python Jobs directory
       - PYTHON_JOBS_DIR=/opt/python/jobs
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
-      - WAQI_API_TOKEN=${WAQI_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
       airflow-permissions:
