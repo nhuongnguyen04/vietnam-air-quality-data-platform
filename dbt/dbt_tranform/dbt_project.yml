@@ -33,6 +33,8 @@ models:
     # Staging models - views for performance
     staging:
       +materialized: view
+      +groups:
+        - source_aqicn
     
     # Intermediate models - views
     intermediate:
@@ -41,3 +43,5 @@ models:
     # Marts - tables for analytics
     marts:
       +materialized: table
+      +groups:
+        - mart_air_quality

@@ -1,0 +1,7 @@
+pollutant_key,display_name,unit,epa_aqi_bp_lo,epa_aqi_bp_hi,conc_bp_lo,conc_bp_hi,health_effects
+pm25,PM2.5,µg/m³,0,50,0.0,12.0,Sensitive groups should limit prolonged outdoor exertion
+pm10,PM10,µg/m³,0,50,0,54,May cause breathing difficulties for sensitive individuals
+o3,Ozone (8hr),ppb,0,50,0,54,Asthmatics at risk during high ozone periods
+no2,Nitrogen Dioxide,ppb,0,50,0,53,Can inflame airways, reduces lung function
+co,Carbon Monoxide,ppm,0,50,0,4.4,Can cause harmful health effects
+so2,Sulfur Dioxide,ppb,0,50,0,35,Can inflame respiratory system

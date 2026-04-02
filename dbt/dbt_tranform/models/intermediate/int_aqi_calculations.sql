@@ -1,59 +1,54 @@
-{{ config(materialized='view') }}
+{{ config(materialized='view', meta = {"event_time": "timestamp_utc"}) }}
 
-with measurements as (
+with joined as (
     select
         m.*,
-        p.units
+        p.epa_aqi_bp_lo  AS bp_lo,
+        p.epa_aqi_bp_hi  AS bp_hi,
+        p.conc_bp_lo     AS conc_lo,
+        p.conc_bp_hi     AS conc_hi
     from {{ ref('int_unified__measurements') }} m
-    left join {{ ref('stg_openaq__parameters') }} p 
-        on m.unified_pollutant = p.parameter_key
+    inner join {{ ref('stg_pollutants__parameters') }} p
+        on m.parameter = p.pollutant_key
 ),
-
-aqi_calculated as (
+calculated as (
     select
-        *,
-        {{ calculate_aqi('unified_pollutant', 'concentration') }} as aqi_value,
-        {{ get_aqi_category('aqi_value') }} as aqi_category
-    from measurements
-    where unified_pollutant in ('pm25', 'pm10', 'o3', 'no2', 'co', 'so2')
+        source,
+        station_id,
+        timestamp_utc,
+        parameter,
+        value,
+        unit,
+        quality_flag,
+        case
+            when bp_hi is not null and conc_hi != conc_lo then
+                ((value - conc_lo) / (conc_hi - conc_lo)) * (bp_hi - bp_lo) + bp_lo
+            else null
+        end as aqi_value,
+        'epa_canonical' as aqi_calculation_method,
+        ingest_time
+    from joined
+    where parameter in ('pm25', 'pm10', 'o3', 'no2', 'co', 'so2')
 ),
-
 with_dominant as (
     select
         *,
-        max(aqi_value) over (
-            partition by unified_station_id, measurement_datetime
-        ) as max_aqi_per_measurement
-    from aqi_calculated
-),
-
-final as (
-    select
-        source_system,
-        unified_station_id,
-        source_station_id,
-        location_id,
-        unified_pollutant,
-        source_pollutant,
-        concentration,
-        units,
-        measurement_datetime,
-        measurement_datetime_iso,
-        latitude,
-        longitude,
-        province,
-        city,
-        location_type,
-        aqi_value,
-        aqi_category,
-        case
-            when aqi_value = max_aqi_per_measurement then true
-            else false
-        end as is_dominant_pollutant,
-        data_quality_score,
-        ingest_time
-    from with_dominant
+        argMaxIf(parameter, aqi_value) over (
+            partition by station_id, toStartOfHour(timestamp_utc)
+        ) as dominant_pollutant
+    from calculated
 )
-
-select * from final
-
+select
+    source,
+    station_id,
+    timestamp_utc,
+    parameter,
+    value,
+    unit,
+    quality_flag,
+    aqi_value,
+    {{ get_aqi_category('aqi_value') }} as aqi_category,
+    case when parameter = dominant_pollutant then true else false end as is_dominant_pollutant,
+    aqi_calculation_method,
+    ingest_time
+from with_dominant

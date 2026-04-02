@@ -4,6 +4,13 @@ CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DB};
 USE ${CLICKHOUSE_DB};
 
 -- ============================================
+-- Phase 2.4: Drop stale tables
+-- D-05: raw_waqi_measurements was never created (WAQI == AQICN same API)
+-- D-05: raw_waqi_measurements dropped to avoid confusion
+-- ============================================
+DROP TABLE IF EXISTS raw_waqi_measurements;
+
+-- ============================================
 -- OpenAQ Decommission (Plan 1.04)
 -- D-07 / D-34: Rename OpenAQ tables to raw_openaq_*_archived (NOT DROP)
 -- D-34: Retain data for rollback safety
@@ -293,3 +300,240 @@ SETTINGS index_granularity = 8192;
 -- Optional: tạo user nếu cần (default đã có)
 -- CREATE USER IF NOT EXISTS ${CLICKHOUSE_USER} IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_PASSWORD}';
 -- GRANT ALL ON ${CLICKHOUSE_DB}.* TO ${CLICKHOUSE_USER};
+
+-- ============================================
+-- Mart Tables (dbt-managed — here for schema visibility)
+-- Phase 2.4: Created by dbt run --select +fct_hourly_aqi
+-- Do NOT edit manually — dbt owns these tables
+-- ============================================
+
+-- dim_locations: Station dimension with ReplacingMergeTree
+CREATE TABLE IF NOT EXISTS dim_locations
+(
+    station_id              String,
+    source                 LowCardinality(String),
+    station_name           String,
+    latitude               Float64,
+    longitude              Float64,
+    city                   String,
+    province               String,
+    location_type          String,
+    sensor_quality_tier    LowCardinality(String),
+    is_active              Bool,
+    first_seen             DateTime,
+    last_seen              DateTime,
+    location_version       DateTime
+)
+ENGINE = ReplacingMergeTree(location_version)
+ORDER BY station_id
+PARTITION BY toYYYYMM(last_seen)
+TTL last_seen + INTERVAL 365 DAY;
+
+-- dim_time: Time dimension (seed-loaded)
+CREATE TABLE IF NOT EXISTS dim_time
+(
+    datetime_hour          DateTime,
+    date                   Date,
+    day_of_week            String,
+    hour_of_day            UInt8,
+    is_weekend             Bool,
+    month                  UInt8,
+    year                   UInt16,
+    vietnam_tz_offset      String
+)
+ENGINE = ReplacingMergeTree()
+ORDER BY datetime_hour;
+
+-- dim_pollutants: Pollutant dimension with EPA breakpoint data
+CREATE TABLE IF NOT EXISTS dim_pollutants
+(
+    pollutant_key           String,
+    display_name            String,
+    unit                   String,
+    epa_aqi_bp_lo          Float64,
+    epa_aqi_bp_hi          Float64,
+    conc_bp_lo             Float64,
+    conc_bp_hi             Float64,
+    health_effects         String
+)
+ENGINE = ReplacingMergeTree()
+ORDER BY pollutant_key;
+
+-- fct_hourly_aqi: Hourly fact with AggregatingMergeTree
+-- NOTE: Requires microbatch incremental run. Initial build: dbt run --full-refresh
+-- Query layer: fct_hourly_aqi_final (not this table directly)
+CREATE TABLE IF NOT EXISTS fct_hourly_aqi
+(
+    datetime_hour              DateTime,
+    station_id                 String,
+    pollutant                  String,
+    avg_value                  AggregateFunction(avg, Float64),
+    avg_aqi                   AggregateFunction(avg, Float64),
+    measurement_count          AggregateFunction(count),
+    max_value                  AggregateFunction(max, Float64),
+    min_value                  AggregateFunction(min, Float64),
+    exceedance_count_150       AggregateFunction(countIf, Float64),
+    exceedance_count_200       AggregateFunction(countIf, Float64),
+    invalid_count              AggregateFunction(countIf, Float64),
+    avg_aqi_reported          AggregateFunction(avg, Float64),
+    dominant_pollutant_state  AggregateFunction(argMax, String, Float64),
+    sensor_quality_tier        LowCardinality(String),
+    source                    LowCardinality(String)
+)
+ENGINE = AggregatingMergeTree()
+ORDER BY (datetime_hour, station_id, pollutant)
+PARTITION BY toYYYYMM(datetime_hour)
+TTL datetime_hour + INTERVAL 90 DAY;
+
+-- fct_hourly_aqi_final: Query layer view for fct_hourly_aqi
+CREATE VIEW IF NOT EXISTS fct_hourly_aqi_final AS
+SELECT
+    datetime_hour,
+    station_id,
+    pollutant,
+    round(avgMerge(avg_value), 2)                                    AS avg_value,
+    round(avgMerge(avg_aqi), 2)                                      AS normalized_aqi,
+    countMerge(measurement_count)                                     AS measurement_count,
+    round(maxMerge(max_value), 2)                                     AS max_value,
+    round(minMerge(min_value), 2)                                     AS min_value,
+    countMerge(exceedance_count_150)                                   AS exceedance_count_150,
+    countMerge(exceedance_count_200)                                   AS exceedance_count_200,
+    countMerge(invalid_count)                                         AS invalid_count,
+    round(avgMerge(avg_aqi_reported), 2)                              AS avg_aqi_reported,
+    finalizeAggregation(dominant_pollutant_state)                     AS dominant_pollutant,
+    sensor_quality_tier,
+    source
+FROM fct_hourly_aqi
+GROUP BY datetime_hour, station_id, pollutant, sensor_quality_tier, source;
+
+-- fct_daily_aqi_summary: Daily fact with AggregatingMergeTree
+CREATE TABLE IF NOT EXISTS fct_daily_aqi_summary
+(
+    date                    Date,
+    station_id              String,
+    avg_aqi_state          AggregateFunction(avg, Float64),
+    avg_value_state         AggregateFunction(avg, Float64),
+    min_aqi_state          AggregateFunction(min, Float64),
+    max_aqi_state          AggregateFunction(max, Float64),
+    hourly_count_state      AggregateFunction(count),
+    exceedance_count_150_state AggregateFunction(sum, UInt64),
+    exceedance_count_200_state AggregateFunction(sum, UInt64),
+    dominant_pollutant_state AggregateFunction(argMax, String, Float64),
+    sensor_quality_tier     LowCardinality(String),
+    source                 LowCardinality(String)
+)
+ENGINE = AggregatingMergeTree()
+ORDER BY (date, station_id)
+PARTITION BY toYYYYMM(date);
+
+-- fct_daily_aqi_summary_final: Query layer view
+CREATE VIEW IF NOT EXISTS fct_daily_aqi_summary_final AS
+SELECT
+    date,
+    station_id,
+    round(avgMerge(avg_aqi_state), 2)                          AS avg_aqi,
+    round(avgMerge(avg_value_state), 2)                         AS avg_value,
+    round(minMerge(min_aqi_state), 2)                           AS min_aqi,
+    round(maxMerge(max_aqi_state), 2)                           AS max_aqi,
+    countMerge(hourly_count_state)                              AS hourly_count,
+    countMerge(exceedance_count_150_state)                      AS exceedance_count_150,
+    countMerge(exceedance_count_200_state)                      AS exceedance_count_200,
+    finalizeAggregation(dominant_pollutant_state)                AS dominant_pollutant,
+    sensor_quality_tier,
+    source
+FROM fct_daily_aqi_summary
+GROUP BY date, station_id, sensor_quality_tier, source;
+
+-- fact_aqi_alerts: AQI threshold breach events
+CREATE TABLE IF NOT EXISTS fact_aqi_alerts
+(
+    station_id              String,
+    datetime_hour           DateTime,
+    threshold_breached      String,
+    normalized_aqi          Float64,
+    dominant_pollutant      String,
+    source                 LowCardinality(String),
+    sensor_quality_tier    LowCardinality(String),
+    created_at             DateTime
+)
+ENGINE = AggregatingMergeTree()
+ORDER BY (station_id, datetime_hour, threshold_breached);
+
+-- fact_aqi_alerts_final: Query layer view
+CREATE VIEW IF NOT EXISTS fact_aqi_alerts_final AS
+SELECT * FROM fact_aqi_alerts;
+
+-- mart_air_quality__dashboard: Pre-joined dashboard mart
+CREATE TABLE IF NOT EXISTS mart_air_quality__dashboard
+(
+    date                    Date,
+    station_id              String,
+    station_name            String,
+    latitude                Float64,
+    longitude               Float64,
+    city                    String,
+    province                String,
+    source                 LowCardinality(String),
+    sensor_quality_tier    LowCardinality(String),
+    avg_aqi                Float64,
+    min_aqi                Float64,
+    max_aqi                Float64,
+    hourly_count            UInt64,
+    exceedance_count_150    UInt64,
+    exceedance_count_200    UInt64,
+    dominant_pollutant       String
+)
+ENGINE = AggregatingMergeTree()
+ORDER BY (date, station_id)
+PARTITION BY toYYYYMM(date)
+TTL date + INTERVAL 90 DAY;
+
+-- ============================================
+-- ClickHouse Native Materialized Views (Phase 2.4)
+-- Pre-aggregated views for fast dashboard queries
+-- Updated automatically on raw table INSERT
+-- ============================================
+
+-- mv_hourly_station_aqi: Pre-aggregated hourly AQI by station
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_hourly_station_aqi
+ENGINE = SummingMergeTree()
+ORDER BY (datetime_hour, station_id)
+PARTITION BY toYYYYMM(datetime_hour)
+AS
+SELECT
+    toStartOfHour(timestamp_utc)                              AS datetime_hour,
+    station_id,
+    source,
+    parameter                                                 AS pollutant,
+    avg(value)                                                AS avg_value,
+    count()                                                   AS measurement_count,
+    max(value)                                                AS max_value,
+    min(value)                                                AS min_value,
+    now()                                                     AS updated_at
+FROM (
+    SELECT station_id, timestamp_utc, source, parameter, value FROM raw_aqicn_measurements
+    UNION ALL
+    SELECT concat('OPENWEATHER_', upper(city_name)), timestamp_utc, 'openweather', parameter, value FROM raw_openweather_measurements
+    UNION ALL
+    SELECT concat('SENSORSCM_', toString(sensor_id)), timestamp_utc, 'sensorscm', parameter, value FROM raw_sensorscm_measurements
+)
+WHERE timestamp_utc IS NOT NULL AND value IS NOT NULL
+GROUP BY datetime_hour, station_id, source, pollutant;
+
+-- mv_daily_station_summary: Pre-aggregated daily summary
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_daily_station_summary
+ENGINE = SummingMergeTree()
+ORDER BY (date, station_id)
+PARTITION BY toYYYYMM(date)
+AS
+SELECT
+    toDate(datetime_hour)                                    AS date,
+    station_id,
+    source,
+    avg(avg_value)                                           AS avg_aqi,
+    max(max_value)                                            AS max_aqi,
+    min(min_value)                                           AS min_aqi,
+    sum(measurement_count)                                     AS total_measurements,
+    now()                                                     AS updated_at
+FROM mv_hourly_station_aqi
+GROUP BY date, station_id, source;

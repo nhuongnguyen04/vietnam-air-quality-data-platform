@@ -2,69 +2,107 @@ version: 2
 
 models:
   - name: int_unified__measurements
-    description: "Unified measurements combining AQICN and OpenAQ data with standardized schema"
+    description: "Unified measurements combining AQICN, OpenWeather, and Sensors.Community with standardized canonical schema"
     columns:
-      - name: unified_station_id
-        description: "Unified station ID across sources"
+      - name: station_id
+        description: "Source-prefixed station ID (AQICN_*, OPENWEATHER_*, SENSORSCM_*)"
         tests:
           - not_null
-      - name: unified_pollutant
+      - name: timestamp_utc
+        description: "Measurement timestamp in UTC"
+        tests:
+          - not_null
+      - name: parameter
         description: "Standardized pollutant name"
         tests:
           - not_null
-      - name: concentration
+      - name: value
         description: "Pollutant concentration value"
         tests:
           - not_null
-      - name: measurement_datetime
-        description: "Measurement datetime"
-        tests:
-          - not_null
-      - name: source_system
-        description: "Source system (aqicn or openaq)"
+      - name: unit
+        description: "Unit of measurement"
+      - name: quality_flag
+        description: "Data quality flag"
+      - name: aqi_reported
+        description: "AQI as reported by source (Nullable — Sensors.Community has no AQI)"
+      - name: source
+        description: "Source: aqicn | openweather | sensorscm"
         tests:
           - accepted_values:
-              values: ['aqicn', 'openaq']
+              values: ['aqicn', 'openweather', 'sensorscm']
+      - name: ingest_time
+        description: "Ingestion timestamp"
 
   - name: int_unified__stations
-    description: "Unified stations/locations combining AQICN and OpenAQ with deduplication by coordinates"
+    description: "Unified station/location dimension — deduped across 3 sources with sensor_quality_tier"
     columns:
-      - name: unified_location_id
-        description: "Unified location ID"
+      - name: station_id
+        description: "Source-prefixed station ID"
         tests:
           - not_null
-      - name: location_name
-        description: "Location name"
+      - name: source
+        description: "Source: aqicn | openweather | sensorscm"
+        tests:
+          - accepted_values:
+              values: ['aqicn', 'openweather', 'sensorscm']
+      - name: station_name
+        description: "Station name"
       - name: latitude
         description: "Latitude"
       - name: longitude
         description: "Longitude"
-      - name: source_system
-        description: "Source system"
-        tests:
-          - accepted_values:
-              values: ['aqicn', 'openaq']
+      - name: province
+        description: "Province"
+      - name: city
+        description: "City"
+      - name: location_type
+        description: "Location type: KTTV, KCN, Chi cục BVMT, city_centroid, Other"
+      - name: sensor_quality_tier
+        description: "Sensor quality tier: research (AQICN) | city_centroid (OpenWeather) | community (Sensors.Community)"
+      - name: is_active
+        description: "Whether station is active"
+      - name: first_seen
+        description: "First seen timestamp"
+      - name: last_seen
+        description: "Last seen timestamp"
 
   - name: int_aqi_calculations
-    description: "AQI calculations based on US EPA standards with dominant pollutant identification"
+    description: "AQI calculations based on US EPA canonical formula with dominant pollutant identification"
     columns:
-      - name: unified_station_id
-        description: "Unified station ID"
+      - name: source
+        description: "Source system"
+      - name: station_id
+        description: "Source-prefixed station ID"
         tests:
           - not_null
-      - name: unified_pollutant
+      - name: timestamp_utc
+        description: "Measurement timestamp in UTC"
+        tests:
+          - not_null
+      - name: parameter
         description: "Standardized pollutant name"
         tests:
           - not_null
+      - name: value
+        description: "Pollutant concentration value"
+      - name: unit
+        description: "Unit of measurement"
+      - name: quality_flag
+        description: "Data quality flag"
       - name: aqi_value
-        description: "Calculated AQI value"
+        description: "Calculated AQI value using EPA breakpoints"
       - name: aqi_category
-        description: "AQI category (Good, Moderate, etc.)"
+        description: "AQI category (Good, Moderate, Unhealthy for Sensitive Groups, Unhealthy, Very Unhealthy, Hazardous)"
       - name: is_dominant_pollutant
-        description: "Flag indicating if this is the dominant pollutant"
+        description: "Flag indicating if this is the dominant pollutant for the station-hour"
+      - name: aqi_calculation_method
+        description: "Calculation method: 'epa_canonical'"
+      - name: ingest_time
+        description: "Ingestion timestamp"
 
   - name: int_forecast_accuracy
-    description: "Forecast accuracy metrics comparing forecasts with actual measurements"
+    description: "Forecast accuracy metrics comparing AQICN forecasts with actual measurements"
     columns:
       - name: station_id
         description: "Station ID"
@@ -89,7 +127,7 @@ models:
     description: "Data quality metrics including missing data rates, freshness, and outlier detection"
     columns:
       - name: unified_station_id
-        description: "Unified station ID"
+        description: "Station ID"
         tests:
           - not_null
       - name: measurement_date
@@ -102,4 +140,3 @@ models:
         description: "Hours since last measurement"
       - name: overall_data_quality_score
         description: "Overall data quality score"
-

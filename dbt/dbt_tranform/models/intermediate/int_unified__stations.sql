@@ -2,101 +2,53 @@
 
 with aqicn_stations as (
     select
-        'aqicn' as source_system,
-        location_key as unified_location_id,
-        station_id as source_location_id,
-        station_name as location_name,
+        concat('AQICN_', station_id)   AS station_id,
+        'aqicn'                        AS source,
+        station_name,
         latitude,
         longitude,
         province,
         city,
         location_type,
-        aqi as current_aqi,
-        station_datetime as last_update,
-        ingest_time
+        'research'                      AS sensor_quality_tier,
+        true                           AS is_active,
+        min(ingest_time)               AS first_seen,
+        max(ingest_time)               AS last_seen
     from {{ ref('stg_aqicn__stations') }}
+    group by 1, 2, 3, 4, 5, 6, 7, 8
 ),
-
-openaq_locations as (
+openweather_stations as (
     select
-        'openaq' as source_system,
-        location_key as unified_location_id,
-        toString(location_id) as source_location_id,
-        location_name,
+        concat('OPENWEATHER_', upper(city_name))  AS station_id,
+        'openweather'                             AS source,
+        city_name                                 AS station_name,
         latitude,
         longitude,
-        province,
-        city,
-        case
-            when is_mobile then 'Mobile'
-            when is_monitor then 'Monitor'
-            else 'Other'
-        end as location_type,
-        null as current_aqi,
-        {{ parse_iso_timestamp('datetime_last') }} as last_update,
-        ingest_time
-    from {{ ref('stg_openaq__locations') }}
+        city_name                                 AS province,
+        city_name                                 AS city,
+        'city_centroid'                           AS location_type,
+        'city_centroid'                           AS sensor_quality_tier,
+        true                                      AS is_active,
+        min(ingest_time)                          AS first_seen,
+        max(ingest_time)                          AS last_seen
+    from {{ ref('stg_openweather__measurements') }}
+    group by 1, 2, 3, 4, 5, 6, 7, 8
 ),
-
-all_locations as (
-    select * from aqicn_stations
-    union all
-    select * from openaq_locations
-),
-
--- Deduplicate by coordinates (stations within 1km of each other)
-with_distance as (
+sensorscm_stations as (
     select
-        *,
-        arrayJoin(
-            arrayMap(
-                x -> (x, greatCircleDistance(longitude, latitude, x.longitude, x.latitude)),
-                arrayFilter(x -> x.unified_location_id != unified_location_id, all_locations)
-            )
-        ) as nearby_station
-    from all_locations
-),
-
-deduplicated as (
-    select
-        unified_location_id,
-        min(unified_location_id) over (
-            partition by 
-                round(latitude, 2),
-                round(longitude, 2)
-        ) as primary_location_id,
-        source_system,
-        source_location_id,
-        location_name,
+        concat('SENSORSCM_', toString(sensor_id))  AS station_id,
+        'sensorscm'                                AS source,
         latitude,
         longitude,
-        province,
-        city,
-        location_type,
-        current_aqi,
-        last_update,
-        ingest_time,
-        arrayDistinct(groupArray(source_system) over (
-            partition by 
-                round(latitude, 2),
-                round(longitude, 2)
-        )) as source_systems
-    from all_locations
+        'community'                                AS sensor_quality_tier,
+        true                                       AS is_active,
+        min(ingest_time)                           AS first_seen,
+        max(ingest_time)                           AS last_seen
+    from {{ ref('stg_sensorscm__measurements') }}
+    group by 1, 2, 3, 4, 5, 6, 7
 )
-
-select
-    unified_location_id,
-    source_system,
-    source_location_id,
-    location_name,
-    latitude,
-    longitude,
-    province,
-    city,
-    location_type,
-    current_aqi,
-    last_update,
-    source_systems,
-    ingest_time
-from deduplicated
-where primary_location_id = unified_location_id
+select * from aqicn_stations
+union all
+select * from openweather_stations
+union all
+select * from sensorscm_stations

@@ -17,8 +17,8 @@ actuals as (
     select
         station_id,
         pollutant,
-        measurement_datetime,
-        toDate(measurement_datetime) as measurement_date,
+        timestamp_utc,
+        toDate(timestamp_utc) as measurement_date,
         value as actual_value
     from {{ ref('stg_aqicn__measurements') }}
     where value is not null
@@ -38,7 +38,7 @@ matched as (
         a.measurement_datetime as actual_measurement_time,
         abs(f.forecast_avg - a.actual_value) as absolute_error,
         case
-            when a.actual_value > 0 
+            when a.actual_value > 0
             then abs(f.forecast_avg - a.actual_value) / a.actual_value * 100
             else null
         end as percentage_error
@@ -80,4 +80,3 @@ accuracy_metrics as (
 )
 
 select * from accuracy_metrics
-

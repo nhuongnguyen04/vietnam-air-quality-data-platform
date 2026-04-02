@@ -1,155 +1,140 @@
 version: 2
 
 models:
-  - name: mart_air_quality__daily_summary
-    description: "Daily aggregated air quality summary by station"
+  - name: fct_hourly_aqi
+    description: "Hourly fact table with AggregatingMergeTree; query via fct_hourly_aqi_final"
     columns:
-      - name: unified_station_id
-        description: "Unified station ID"
-        tests:
-          - not_null
-      - name: date
-        description: "Date"
-        tests:
-          - not_null
-      - name: avg_aqi
-        description: "Average AQI for the day"
-      - name: max_aqi
-        description: "Maximum AQI for the day"
-      - name: min_aqi
-        description: "Minimum AQI for the day"
-      - name: exceedance_count
-        description: "Number of exceedances for the day"
-
-  - name: mart_air_quality__hourly
-    description: "Hourly air quality data for time series analysis"
-    columns:
-      - name: unified_station_id
-        description: "Unified station ID"
-        tests:
-          - not_null
       - name: datetime_hour
-        description: "Hour timestamp"
+        description: "Top of hour timestamp (UTC)"
         tests:
           - not_null
-      - name: avg_aqi
-        description: "Average AQI for the hour"
+      - name: station_id
+        description: "Source-prefixed station ID"
+        tests:
+          - not_null
+      - name: pollutant
+        description: "Pollutant name"
+        tests:
+          - not_null
 
-  - name: mart_air_quality__stations
-    description: "Station-level metrics including current AQI and historical averages"
+  - name: fct_hourly_aqi_final
+    description: "Query layer view for fct_hourly_aqi; exposes normalized_aqi using -Merge functions"
     columns:
-      - name: unified_station_id
-        description: "Unified station ID"
-        tests:
-          - not_null
-          - unique
-      - name: current_aqi
-        description: "Current AQI value"
-      - name: avg_aqi_7d
-        description: "7-day average AQI"
-      - name: avg_aqi_30d
-        description: "30-day average AQI"
-      - name: pollution_rank
-        description: "Ranking by pollution level"
+      - name: normalized_aqi
+        description: "Normalized AQI using EPA canonical breakpoints"
+      - name: dominant_pollutant
+        description: "Dominant pollutant for this station-hour"
+      - name: exceedance_count_150
+        description: "Count of readings above AQI 150"
+      - name: exceedance_count_200
+        description: "Count of readings above AQI 200"
 
-  - name: mart_analytics__trends
-    description: "Trend analysis with week-over-week, month-over-month, and year-over-year comparisons"
-    columns:
-      - name: unified_station_id
-        description: "Unified station ID"
-        tests:
-          - not_null
-      - name: date
-        description: "Date"
-        tests:
-          - not_null
-      - name: wow_change
-        description: "Week-over-week change"
-      - name: mom_change
-        description: "Month-over-month change"
-      - name: yoy_change
-        description: "Year-over-year change"
-
-  - name: mart_analytics__geographic
-    description: "Geographic analysis by city and province"
+  - name: fct_daily_aqi_summary
+    description: "Daily fact summary with AggregatingMergeTree; query via fct_daily_aqi_summary_final"
     columns:
       - name: date
         description: "Date"
         tests:
           - not_null
-      - name: province
-        description: "Province name"
-      - name: city
-        description: "City name"
-      - name: avg_aqi
-        description: "Average AQI"
-      - name: station_count
-        description: "Number of stations"
+      - name: station_id
+        description: "Station ID"
+        tests:
+          - not_null
 
-  - name: mart_analytics__forecast_accuracy
-    description: "Forecast accuracy analysis by station and pollutant"
+  - name: fct_daily_aqi_summary_final
+    description: "Query layer view for fct_daily_aqi_summary"
+    columns:
+      - name: avg_aqi
+        description: "Daily average AQI"
+      - name: dominant_pollutant
+        description: "Dominant pollutant for the day"
+
+  - name: fact_aqi_alerts
+    description: "AQI threshold breach events (normalized_aqi > 150 and > 200)"
     columns:
       - name: station_id
         description: "Station ID"
         tests:
           - not_null
-      - name: pollutant
-        description: "Pollutant name"
+      - name: datetime_hour
+        description: "Hour of breach"
         tests:
           - not_null
-      - name: forecast_accuracy_score
-        description: "Forecast accuracy score"
+      - name: threshold_breached
+        description: "Threshold breached: '150' or '200'"
+      - name: normalized_aqi
+        description: "AQI value at breach time"
 
-  - name: mart_kpis__air_quality_index
-    description: "Core AQI KPIs by time period"
+  - name: fact_aqi_alerts_final
+    description: "Query layer view for fact_aqi_alerts"
+
+  - name: dim_locations
+    description: "Station dimension: deduped across all sources with sensor_quality_tier"
     columns:
-      - name: period_date
-        description: "Period date"
+      - name: station_id
+        description: "Source-prefixed station ID"
         tests:
           - not_null
-      - name: period_type
-        description: "Period type (day, week, month)"
+          - unique
+      - name: source
+        description: "Source: aqicn | openweather | sensorscm"
+      - name: station_name
+        description: "Station name"
+      - name: latitude
+        description: "Latitude"
+      - name: longitude
+        description: "Longitude"
+      - name: city
+        description: "City"
+      - name: province
+        description: "Province"
+      - name: location_type
+        description: "Location type"
+      - name: sensor_quality_tier
+        description: "Sensor quality tier: research | city_centroid | community"
+      - name: is_active
+        description: "Whether station is active"
+
+      - name: datetime_hour
+        description: "Top of hour timestamp"
         tests:
-          - accepted_values:
-              values: ['day', 'week', 'month']
+          - not_null
+      - name: date
+        description: "Date portion"
+      - name: hour_of_day
+        description: "Hour 0-23"
+      - name: is_weekend
+        description: "Whether day is weekend"
+
+  - name: dim_pollutants
+    description: "Pollutant dimension: EPA AQI breakpoint data for 6 primary pollutants"
+    columns:
+      - name: pollutant_key
+        description: "Pollutant key (pm25, pm10, o3, no2, co, so2)"
+        tests:
+          - not_null
+          - unique
+      - name: epa_aqi_bp_lo
+        description: "EPA AQI breakpoint low"
+      - name: epa_aqi_bp_hi
+        description: "EPA AQI breakpoint high"
+
+  - name: mart_air_quality__dashboard
+    description: "Pre-joined dashboard mart: daily AQI + station metadata for Superset"
+    columns:
+      - name: date
+        description: "Date"
+      - name: station_id
+        description: "Station ID"
       - name: avg_aqi
-        description: "Average AQI"
-      - name: days_exceeding_moderate
-        description: "Days exceeding moderate threshold"
+        description: "Average AQI for the day"
+      - name: dominant_pollutant
+        description: "Dominant pollutant"
 
-  - name: mart_kpis__pollutant_concentrations
-    description: "Pollutant-specific KPIs with exceedance rates"
+  - name: mart_air_quality__alerts
+    description: "Alert view: threshold breach events (wrapper around fact_aqi_alerts_final)"
     columns:
-      - name: date
-        description: "Date"
-        tests:
-          - not_null
-      - name: pollutant
-        description: "Pollutant name"
-        tests:
-          - not_null
-      - name: avg_concentration
-        description: "Average concentration"
-      - name: exceedance_rate_who
-        description: "Exceedance rate vs WHO standards"
-      - name: exceedance_rate_epa
-        description: "Exceedance rate vs EPA standards"
-
-  - name: mart_kpis__data_coverage
-    description: "Data quality KPIs including uptime, completeness, and freshness"
-    columns:
-      - name: date
-        description: "Date"
-        tests:
-          - not_null
-      - name: unified_station_id
-        description: "Unified station ID"
-        tests:
-          - not_null
-      - name: uptime_pct
-        description: "Station uptime percentage"
-      - name: completeness_pct
-        description: "Data completeness percentage"
-      - name: data_quality_score
-        description: "Overall data quality score"
-
+      - name: station_id
+        description: "Station ID"
+      - name: threshold_breached
+        description: "Threshold: '150' or '200'"

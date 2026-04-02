@@ -4,47 +4,28 @@ with aqicn_quality as (
     select
         station_id as unified_station_id,
         'aqicn' as source_system,
-        toDate(measurement_datetime) as measurement_date,
+        toDate(timestamp_utc) as measurement_date,
         count(*) as total_measurements,
         count(value) as non_null_measurements,
         count(*) - count(value) as missing_measurements,
-        count(distinct pollutant) as unique_pollutants,
-        min(measurement_datetime) as earliest_measurement,
-        max(measurement_datetime) as latest_measurement,
-        dateDiff('hour', max(measurement_datetime), now()) as data_freshness_hours,
-        avg(data_quality_score) as avg_data_quality_score
+        count(distinct parameter) as unique_pollutants,
+        min(timestamp_utc) as earliest_measurement,
+        max(timestamp_utc) as latest_measurement,
+        dateDiff('hour', max(timestamp_utc), now()) as data_freshness_hours,
+        case when value is not null then 100 else 0 end as avg_data_quality_score
     from {{ ref('stg_aqicn__measurements') }}
-    group by station_id, toDate(measurement_datetime)
-),
-
-openaq_quality as (
-    select
-        concat('OPENAQ_', toString(location_id)) as unified_station_id,
-        'openaq' as source_system,
-        toDate(period_datetime_from_utc) as measurement_date,
-        count(*) as total_measurements,
-        count(value) as non_null_measurements,
-        count(*) - count(value) as missing_measurements,
-        count(distinct parameter_id) as unique_pollutants,
-        min(period_datetime_from_utc) as earliest_measurement,
-        max(period_datetime_from_utc) as latest_measurement,
-        dateDiff('hour', max(period_datetime_from_utc), now()) as data_freshness_hours,
-        avg(data_quality_score) as avg_data_quality_score
-    from {{ ref('stg_openaq__measurements') }}
-    group by location_id, toDate(period_datetime_from_utc)
+    group by station_id, toDate(timestamp_utc)
 ),
 
 combined as (
     select * from aqicn_quality
-    union all
-    select * from openaq_quality
 ),
 
 with_outliers as (
     select
         *,
         case
-            when total_measurements > 0 
+            when total_measurements > 0
             then (missing_measurements::Float64 / total_measurements) * 100
             else 100
         end as missing_data_rate,
@@ -80,4 +61,3 @@ select
     is_outlier,
     (avg_data_quality_score * 0.5 + freshness_score * 0.3 + (100 - missing_data_rate) * 0.2) as overall_data_quality_score
 from with_outliers
-

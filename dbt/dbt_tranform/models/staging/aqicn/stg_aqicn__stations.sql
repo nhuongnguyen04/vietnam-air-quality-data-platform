@@ -20,25 +20,18 @@ deduplicated as (
 
 transformed as (
     select
-        -- Metadata
         source,
         ingest_time,
         ingest_batch_id,
-        
-        -- Station info
         station_id,
         ifNull(station_name, '') as station_name,
         city_url,
         city_location,
-        
-        -- Location coordinates (convert from string to float)
         toFloat64OrNull(latitude) as latitude,
         toFloat64OrNull(longitude) as longitude,
-        
-        -- Location hierarchy (extract from station_name)
         splitByString('/', ifNull(station_name, ''))[1] as province,
         case
-            when position(ifNull(station_name, ''), '/') > 0 
+            when position(ifNull(station_name, ''), '/') > 0
             then trim(both ' ' from replace(splitByString('/', ifNull(station_name, ''))[2], ', Vietnam', ''))
             else ifNull(station_name, '')
         end as city,
@@ -48,22 +41,13 @@ transformed as (
             when position(ifNull(station_name, ''), 'Chi cục') > 0 then 'Chi cục BVMT'
             else 'Other'
         end as location_type,
-        
-        -- Time information
         {{ parse_iso_timestamp('station_time') }} as station_datetime,
         station_time as station_time_str,
-        
-        -- AQI
         toInt32OrNull(aqi) as aqi,
-        
-        -- Flags
         true as is_vietnam,
-        
-        -- Location key (unique identifier for location)
         concat('AQICN_', station_id) as location_key,
-        
+        'research' as sensor_quality_tier,
         raw_payload
-        
     from deduplicated
 )
 

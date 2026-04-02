@@ -1,0 +1,58 @@
+version: 2
+
+sources:
+  - name: openweather
+    description: "OpenWeather Air Pollution API — city-centroid air quality data. Source: api.openweathermap.org/data/2.5/air_pollution. Covers Hanoi, HCMC, Da Nang."
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_openweather_measurements
+        description: "Raw OpenWeather air pollution readings — pm25, pm10, o3, no2, so2, co, nh3, no"
+        columns:
+          - name: station_id
+            description: "Station ID in format openweather:{city}:{lat}:{lon}"
+            tests:
+              - not_null
+          - name: city_name
+            description: "City name (Hanoi, Ho Chi Minh City, Da Nang)"
+            tests:
+              - not_null
+          - name: timestamp_utc
+            description: "Measurement timestamp in UTC"
+            tests:
+              - not_null
+          - name: parameter
+            description: "Pollutant parameter (pm25, pm10, o3, no2, so2, co, nh3, no)"
+          - name: value
+            description: "Pollutant concentration value"
+          - name: aqi_reported
+            description: "OpenWeather AQI on 1-5 scale (1=good, 5=very poor)"
+          - name: quality_flag
+            description: "Data quality flag: valid | implausible"
+
+  - name: sensorscm
+    description: "Sensors.Community (Luftdaten) — community sensor network data. Source: api.luftdaten.info/v1/. Vietnam bounding box filtered."
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_sensorscm_measurements
+        description: "Raw Sensors.Community measurement readings — pm10, pm25, temperature, humidity, pressure"
+        columns:
+          - name: sensor_id
+            description: "Unique sensor ID (UInt32)"
+            tests:
+              - not_null
+          - name: station_id
+            description: "Station ID matching sensor_id"
+            tests:
+              - not_null
+          - name: timestamp_utc
+            description: "Measurement timestamp in UTC"
+            tests:
+              - not_null
+          - name: parameter
+            description: "Sensor measurement type (pm10, pm25, temperature, humidity, pressure)"
+          - name: value
+            description: "Sensor measurement value"
+          - name: quality_flag
+            description: "Data quality flag: valid | implausible | outlier"
