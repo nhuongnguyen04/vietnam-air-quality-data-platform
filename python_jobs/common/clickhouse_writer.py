@@ -255,6 +255,7 @@ class ClickHouseWriter:
                         raise
         
         logger.info(f"Successfully wrote {total_written} records to {table}")
+        return total_written
 
     def truncate_table(self, table: str) -> bool:
         """
@@ -301,8 +302,6 @@ class ClickHouseWriter:
 
         self.truncate_table(table)
         return self.write_batch(table, records, source)
-        
-        return total_written
     
     def write_with_deduplication(
         self,
