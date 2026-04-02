@@ -1,3 +1,7 @@
+# GSD Planning
+.planning/
+.claude/
+
 # General
 venv/
 logs/
