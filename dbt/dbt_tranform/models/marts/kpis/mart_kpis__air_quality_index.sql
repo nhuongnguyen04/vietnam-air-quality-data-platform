@@ -1,119 +1,97 @@
 {{ config(materialized='table') }}
 
-with daily_summary as (
+-- AQI KPIs at day/week/month granularity.
+-- All aggregates resolved in a single layer to avoid nested aggregate errors.
+with daily_raw as (
     select
         date,
         unified_station_id,
-        avg_aqi as daily_avg_aqi,
-        max_aqi,
-        min_aqi,
-        exceedance_count
+        avg_aqi,
+        max_aqi                                          AS max_aqi,
+        min_aqi                                          AS min_aqi,
+        if(avg_aqi > 100, 1, 0)                        AS exceeds_moderate,
+        if(avg_aqi > 150, 1, 0)                        AS exceeds_sensitive,
+        if(avg_aqi > 200, 1, 0)                        AS exceeds_unhealthy,
+        if(avg_aqi > 300, 1, 0)                        AS exceeds_very_unhealthy,
+        if(avg_aqi <= 50, 1, 0)                        AS is_good,
+        if(avg_aqi > 50 and avg_aqi <= 100, 1, 0)    AS is_moderate,
+        if(avg_aqi > 100 and avg_aqi <= 150, 1, 0)   AS is_sensitive,
+        if(avg_aqi > 150 and avg_aqi <= 200, 1, 0)   AS is_unhealthy,
+        if(avg_aqi > 200 and avg_aqi <= 300, 1, 0)   AS is_very_unhealthy,
+        if(avg_aqi > 300, 1, 0)                        AS is_hazardous
     from {{ ref('mart_air_quality__daily_summary') }}
 ),
 
 daily_kpis as (
     select
-        date,
+        date AS period_start,
         'day' as period_type,
-        avg(daily_avg_aqi) as avg_aqi,
-        max(max_aqi) as max_aqi,
-        min(min_aqi) as min_aqi,
-        countIf(daily_avg_aqi > 100) as days_exceeding_moderate,
-        countIf(daily_avg_aqi > 150) as days_exceeding_unhealthy_sensitive,
-        countIf(daily_avg_aqi > 200) as days_exceeding_unhealthy,
-        countIf(daily_avg_aqi > 300) as days_exceeding_very_unhealthy,
-        sum(exceedance_count) as total_exceedance_count,
-        count(distinct unified_station_id) as station_count
-    from daily_summary
+        round(avg(avg_aqi), 2)                                        AS avg_aqi,
+        max(max_aqi)                                                    AS max_aqi,
+        min(min_aqi)                                                    AS min_aqi,
+        sum(exceeds_moderate)                                          AS days_exceeding_moderate,
+        sum(exceeds_sensitive)                                          AS days_exceeding_unhealthy_sensitive,
+        sum(exceeds_unhealthy)                                          AS days_exceeding_unhealthy,
+        sum(exceeds_very_unhealthy)                                     AS days_exceeding_very_unhealthy,
+        count(distinct unified_station_id)                              AS station_count,
+        -- AQI category distribution percentages
+        round(100.0 * sum(is_good) / count(*), 1)                          AS pct_good,
+        round(100.0 * sum(is_moderate) / count(*), 1)                    AS pct_moderate,
+        round(100.0 * sum(is_sensitive) / count(*), 1)                   AS pct_unhealthy_sensitive,
+        round(100.0 * sum(is_unhealthy) / count(*), 1)                   AS pct_unhealthy,
+        round(100.0 * sum(is_very_unhealthy) / count(*), 1)             AS pct_very_unhealthy,
+        round(100.0 * sum(is_hazardous) / count(*), 1)                  AS pct_hazardous
+    from daily_raw
     group by date
 ),
 
 weekly_kpis as (
     select
-        toStartOfWeek(date) as week_start,
+        toStartOfWeek(date)                                                    AS period_start,
         'week' as period_type,
-        avg(daily_avg_aqi) as avg_aqi,
-        max(max_aqi) as max_aqi,
-        min(min_aqi) as min_aqi,
-        countIf(daily_avg_aqi > 100) as days_exceeding_moderate,
-        countIf(daily_avg_aqi > 150) as days_exceeding_unhealthy_sensitive,
-        countIf(daily_avg_aqi > 200) as days_exceeding_unhealthy,
-        countIf(daily_avg_aqi > 300) as days_exceeding_very_unhealthy,
-        sum(exceedance_count) as total_exceedance_count,
-        count(distinct unified_station_id) as station_count
-    from daily_summary
+        round(avg(avg_aqi), 2)                                                  AS avg_aqi,
+        max(max_aqi)                                                            AS max_aqi,
+        min(min_aqi)                                                            AS min_aqi,
+        sum(exceeds_moderate)                                                   AS days_exceeding_moderate,
+        sum(exceeds_sensitive)                                                  AS days_exceeding_unhealthy_sensitive,
+        sum(exceeds_unhealthy)                                                  AS days_exceeding_unhealthy,
+        sum(exceeds_very_unhealthy)                                             AS days_exceeding_very_unhealthy,
+        count(distinct unified_station_id)                                      AS station_count,
+        null::Nullable(Float64)                                                 AS pct_good,
+        null::Nullable(Float64)                                                 AS pct_moderate,
+        null::Nullable(Float64)                                                 AS pct_unhealthy_sensitive,
+        null::Nullable(Float64)                                                 AS pct_unhealthy,
+        null::Nullable(Float64)                                                 AS pct_very_unhealthy,
+        null::Nullable(Float64)                                                 AS pct_hazardous
+    from daily_raw
     group by toStartOfWeek(date)
 ),
 
 monthly_kpis as (
     select
-        toStartOfMonth(date) as month_start,
+        toStartOfMonth(date)                                                     AS period_start,
         'month' as period_type,
-        avg(daily_avg_aqi) as avg_aqi,
-        max(max_aqi) as max_aqi,
-        min(min_aqi) as min_aqi,
-        countIf(daily_avg_aqi > 100) as days_exceeding_moderate,
-        countIf(daily_avg_aqi > 150) as days_exceeding_unhealthy_sensitive,
-        countIf(daily_avg_aqi > 200) as days_exceeding_unhealthy,
-        countIf(daily_avg_aqi > 300) as days_exceeding_very_unhealthy,
-        sum(exceedance_count) as total_exceedance_count,
-        count(distinct unified_station_id) as station_count
-    from daily_summary
+        round(avg(avg_aqi), 2)                                                   AS avg_aqi,
+        max(max_aqi)                                                             AS max_aqi,
+        min(min_aqi)                                                             AS min_aqi,
+        sum(exceeds_moderate)                                                    AS days_exceeding_moderate,
+        sum(exceeds_sensitive)                                                    AS days_exceeding_unhealthy_sensitive,
+        sum(exceeds_unhealthy)                                                   AS days_exceeding_unhealthy,
+        sum(exceeds_very_unhealthy)                                             AS days_exceeding_very_unhealthy,
+        count(distinct unified_station_id)                                      AS station_count,
+        null::Nullable(Float64)                                                  AS pct_good,
+        null::Nullable(Float64)                                                  AS pct_moderate,
+        null::Nullable(Float64)                                                  AS pct_unhealthy_sensitive,
+        null::Nullable(Float64)                                                  AS pct_unhealthy,
+        null::Nullable(Float64)                                                  AS pct_very_unhealthy,
+        null::Nullable(Float64)                                                  AS pct_hazardous
+    from daily_raw
     group by toStartOfMonth(date)
-),
-
-aqi_distribution as (
-    select
-        date,
-        countIf(daily_avg_aqi <= 50) as count_good,
-        countIf(daily_avg_aqi > 50 and daily_avg_aqi <= 100) as count_moderate,
-        countIf(daily_avg_aqi > 100 and daily_avg_aqi <= 150) as count_unhealthy_sensitive,
-        countIf(daily_avg_aqi > 150 and daily_avg_aqi <= 200) as count_unhealthy,
-        countIf(daily_avg_aqi > 200 and daily_avg_aqi <= 300) as count_very_unhealthy,
-        countIf(daily_avg_aqi > 300) as count_hazardous,
-        count(*) as total_days
-    from daily_summary
-    group by date
-),
-
-with_distribution_pct as (
-    select
-        d.*,
-        (d.count_good::Float64 / d.total_days) * 100 as pct_good,
-        (d.count_moderate::Float64 / d.total_days) * 100 as pct_moderate,
-        (d.count_unhealthy_sensitive::Float64 / d.total_days) * 100 as pct_unhealthy_sensitive,
-        (d.count_unhealthy::Float64 / d.total_days) * 100 as pct_unhealthy,
-        (d.count_very_unhealthy::Float64 / d.total_days) * 100 as pct_very_unhealthy,
-        (d.count_hazardous::Float64 / d.total_days) * 100 as pct_hazardous
-    from aqi_distribution d
 )
 
 select
-    date as period_date,
-    'day' as period_type,
-    k.avg_aqi,
-    k.max_aqi,
-    k.min_aqi,
-    k.days_exceeding_moderate,
-    k.days_exceeding_unhealthy_sensitive,
-    k.days_exceeding_unhealthy,
-    k.days_exceeding_very_unhealthy,
-    k.total_exceedance_count,
-    k.station_count,
-    d.pct_good,
-    d.pct_moderate,
-    d.pct_unhealthy_sensitive,
-    d.pct_unhealthy,
-    d.pct_very_unhealthy,
-    d.pct_hazardous
-from daily_kpis k
-left join with_distribution_pct d on k.date = d.date
-
-union all
-
-select
-    week_start as period_date,
-    'week' as period_type,
+    period_start                                                             AS period_date,
+    period_type,
     avg_aqi,
     max_aqi,
     min_aqi,
@@ -121,21 +99,41 @@ select
     days_exceeding_unhealthy_sensitive,
     days_exceeding_unhealthy,
     days_exceeding_very_unhealthy,
-    total_exceedance_count,
     station_count,
-    null as pct_good,
-    null as pct_moderate,
-    null as pct_unhealthy_sensitive,
-    null as pct_unhealthy,
-    null as pct_very_unhealthy,
-    null as pct_hazardous
+    pct_good,
+    pct_moderate,
+    pct_unhealthy_sensitive,
+    pct_unhealthy,
+    pct_very_unhealthy,
+    pct_hazardous
+from daily_kpis
+
+union all
+
+select
+    period_start                                                             AS period_date,
+    period_type,
+    avg_aqi,
+    max_aqi,
+    min_aqi,
+    days_exceeding_moderate,
+    days_exceeding_unhealthy_sensitive,
+    days_exceeding_unhealthy,
+    days_exceeding_very_unhealthy,
+    station_count,
+    pct_good,
+    pct_moderate,
+    pct_unhealthy_sensitive,
+    pct_unhealthy,
+    pct_very_unhealthy,
+    pct_hazardous
 from weekly_kpis
 
 union all
 
 select
-    month_start as period_date,
-    'month' as period_type,
+    period_start                                                             AS period_date,
+    period_type,
     avg_aqi,
     max_aqi,
     min_aqi,
@@ -143,13 +141,11 @@ select
     days_exceeding_unhealthy_sensitive,
     days_exceeding_unhealthy,
     days_exceeding_very_unhealthy,
-    total_exceedance_count,
     station_count,
-    null as pct_good,
-    null as pct_moderate,
-    null as pct_unhealthy_sensitive,
-    null as pct_unhealthy,
-    null as pct_very_unhealthy,
-    null as pct_hazardous
+    pct_good,
+    pct_moderate,
+    pct_unhealthy_sensitive,
+    pct_unhealthy,
+    pct_very_unhealthy,
+    pct_hazardous
 from monthly_kpis
-

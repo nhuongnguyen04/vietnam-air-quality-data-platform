@@ -12,7 +12,7 @@ with aqicn_quality as (
         min(timestamp_utc) as earliest_measurement,
         max(timestamp_utc) as latest_measurement,
         dateDiff('hour', max(timestamp_utc), now()) as data_freshness_hours,
-        case when value is not null then 100 else 0 end as avg_data_quality_score
+        if(count(value) > 0, 100, 0) as avg_data_quality_score
     from {{ ref('stg_aqicn__measurements') }}
     group by station_id, toDate(timestamp_utc)
 ),

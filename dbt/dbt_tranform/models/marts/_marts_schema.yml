@@ -3,6 +3,11 @@ version: 2
 models:
   - name: fct_hourly_aqi
     description: "Hourly fact table with AggregatingMergeTree; query via fct_hourly_aqi_final"
+    config:
+      column_name_equivalence:
+        datetime_hour: datetime_hour
+        station_id: station_id
+        pollutant: pollutant
     columns:
       - name: datetime_hour
         description: "Top of hour timestamp (UTC)"
@@ -94,17 +99,6 @@ models:
         description: "Sensor quality tier: research | city_centroid | community"
       - name: is_active
         description: "Whether station is active"
-
-      - name: datetime_hour
-        description: "Top of hour timestamp"
-        tests:
-          - not_null
-      - name: date
-        description: "Date portion"
-      - name: hour_of_day
-        description: "Hour 0-23"
-      - name: is_weekend
-        description: "Whether day is weekend"
 
   - name: dim_pollutants
     description: "Pollutant dimension: EPA AQI breakpoint data for 6 primary pollutants"

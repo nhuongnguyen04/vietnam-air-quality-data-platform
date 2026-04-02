@@ -1,0 +1,36 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Python
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+venv
+.pytest_cache
+.ruff_cache
+.sqlfluff
+
+# Docker / Compose
+.env*
+! .env.example
+docker-compose*.yml
+Dockerfile
+
+# Local data
+clickhouse-data
+logs
+airflow/logs
+airflow/data/postgres
+
+# Documentation / Metadata
+.claude
+.cursor
+.planning
+CLAUDE.md
+README.md
+
+# Web/Crawl artifacts
+crawl.html

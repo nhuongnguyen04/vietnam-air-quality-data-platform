@@ -49,25 +49,40 @@ def transform_city_response(
     city_name: str,
     lat: float,
     lon: float,
+    is_forecast: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Transform OpenWeather /air_pollution or /air_pollution/forecast response
     for a single city into a list of measurement records.
 
-    Returns one record per pollutant per timestamp.
+    Args:
+        response: API JSON response
+        city_name: City display name
+        lat: Latitude
+        lon: Longitude
+        is_forecast: If True, adds forecast_horizon_hours field; records go to
+                     raw_openweather_forecast table. If False, records are
+                     current observations for raw_openweather_measurements.
     """
     records = []
     items = response.get("list", [])
+    now = datetime.now(timezone.utc)
 
     for item in items:
         dt = item.get("dt")
         if dt:
             timestamp_utc = datetime.fromtimestamp(dt, tz=timezone.utc)
         else:
-            timestamp_utc = datetime.now(timezone.utc)
+            timestamp_utc = now
 
         aqi_reported = item.get("main", {}).get("aqi")
         components = item.get("components", {})
+
+        # Compute forecast horizon (hours ahead of now) for forecast records
+        forecast_horizon_hours: int | None = None
+        if is_forecast:
+            delta = timestamp_utc - now
+            forecast_horizon_hours = max(1, int(delta.total_seconds() / 3600))
 
         for api_name, canonical_name in PARAMETER_MAP.items():
             value = components.get(api_name)
@@ -76,7 +91,7 @@ def transform_city_response(
 
             quality_flag = assign_quality_flag(canonical_name, value)
 
-            record = {
+            record: Dict[str, Any] = {
                 "station_id": f"openweather:{city_name}:{lat}:{lon}",
                 "city_name": city_name,
                 "latitude": lat,
@@ -88,6 +103,10 @@ def transform_city_response(
                 "quality_flag": quality_flag,
                 "raw_payload": str(item),
             }
+
+            if is_forecast:
+                record["forecast_horizon_hours"] = forecast_horizon_hours
+
             records.append(record)
 
     return records
@@ -102,5 +121,6 @@ def transform_history_response(
     """
     Transform OpenWeather /air_pollution/history response.
     Same as transform_city_response but extracts from 'list' array.
+    Historical data = past observations (is_forecast=False).
     """
-    return transform_city_response(response, city_name, lat, lon)
+    return transform_city_response(response, city_name, lat, lon, is_forecast=False)

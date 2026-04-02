@@ -17,7 +17,7 @@ import sys
 import logging
 import argparse
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -50,18 +50,18 @@ def fetch_city_data(
     city_name: str,
     lat: float,
     lon: float,
-) -> List[Dict[str, Any]]:
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Fetch current + forecast data for one city.
 
-    Calls:
-      GET /air_pollution?lat={lat}&lon={lon}&appid={token}
-      GET /air_pollution/forecast?lat={lat}&lon={lon}&appid={token}
-
-    Returns a combined list of measurement records.
+    Returns:
+        A 2-tuple of (current_records, forecast_records).
+        Current records -> raw_openweather_measurements (timestamps <= now).
+        Forecast records -> raw_openweather_forecast (timestamps always future-dated).
     """
     logger = logging.getLogger(__name__)
-    all_records = []
+    current_records = []
+    forecast_records = []
 
     # 1. Current conditions
     try:
@@ -69,25 +69,25 @@ def fetch_city_data(
             "/air_pollution",
             params={"lat": lat, "lon": lon, "appid": client.token}
         )
-        records = transform_city_response(resp, city_name, lat, lon)
-        all_records.extend(records)
+        records = transform_city_response(resp, city_name, lat, lon, is_forecast=False)
+        current_records.extend(records)
         logger.info(f"[{city_name}] current: {len(records)} records")
     except Exception as e:
         logger.warning(f"[{city_name}] current fetch failed: {e}")
 
-    # 2. Forecast (4-day hourly)
+    # 2. Forecast (4-day hourly) -> raw_openweather_forecast
     try:
         resp = client.get(
             "/air_pollution/forecast",
             params={"lat": lat, "lon": lon, "appid": client.token}
         )
-        records = transform_city_response(resp, city_name, lat, lon)
-        all_records.extend(records)
+        records = transform_city_response(resp, city_name, lat, lon, is_forecast=True)
+        forecast_records.extend(records)
         logger.info(f"[{city_name}] forecast: {len(records)} records")
     except Exception as e:
         logger.warning(f"[{city_name}] forecast fetch failed: {e}")
 
-    return all_records
+    return current_records, forecast_records
 
 
 def fetch_historical_data(
@@ -129,22 +129,29 @@ def fetch_historical_data(
 
 
 def run_incremental(writer, client) -> int:
-    """Fetch + write current and forecast data for all cities. Returns row count."""
+    """Fetch + write current (measurements) and forecast data for all cities. Returns row count."""
     logger = logging.getLogger(__name__)
-    all_records = []
+    all_measurements = []
+    all_forecasts = []
 
     for city_name, coords in VIETNAM_CITIES.items():
         lat, lon = coords["lat"], coords["lon"]
-        records = fetch_city_data(client, city_name, lat, lon)
-        all_records.extend(records)
+        current_records, forecast_records = fetch_city_data(client, city_name, lat, lon)
+        all_measurements.extend(current_records)
+        all_forecasts.extend(forecast_records)
 
-    if all_records:
-        writer.write_batch("raw_openweather_measurements", all_records, source="openweather")
-        logger.info(f"Wrote {len(all_records)} openweather measurements")
-    else:
+    if all_measurements:
+        writer.write_batch("raw_openweather_measurements", all_measurements, source="openweather")
+        logger.info(f"Wrote {len(all_measurements)} openweather measurements")
+
+    if all_forecasts:
+        writer.write_batch("raw_openweather_forecast", all_forecasts, source="openweather")
+        logger.info(f"Wrote {len(all_forecasts)} openweather forecasts")
+
+    if not all_measurements and not all_forecasts:
         logger.warning("No openweather records collected")
 
-    return len(all_records)
+    return len(all_measurements) + len(all_forecasts)
 
 
 def run_historical(writer, client, start_date: datetime, end_date: datetime) -> int:

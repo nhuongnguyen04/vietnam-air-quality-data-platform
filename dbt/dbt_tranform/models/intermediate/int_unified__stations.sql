@@ -19,7 +19,7 @@ with aqicn_stations as (
 ),
 openweather_stations as (
     select
-        concat('OPENWEATHER_', upper(city_name))  AS station_id,
+        station_id,                                -- raw format: openweather:Da Nang:16.1:108.2
         'openweather'                             AS source,
         city_name                                 AS station_name,
         latitude,
@@ -38,14 +38,18 @@ sensorscm_stations as (
     select
         concat('SENSORSCM_', toString(sensor_id))  AS station_id,
         'sensorscm'                                AS source,
+        concat('SENSORSCM_', toString(sensor_id))  AS station_name,
         latitude,
         longitude,
+        ''                                          AS province,
+        ''                                          AS city,
+        'community'                                AS location_type,
         'community'                                AS sensor_quality_tier,
         true                                       AS is_active,
         min(ingest_time)                           AS first_seen,
         max(ingest_time)                           AS last_seen
     from {{ ref('stg_sensorscm__measurements') }}
-    group by 1, 2, 3, 4, 5, 6, 7
+    group by 1, 2, 3, 4, 5, 6, 7, 8, 9
 )
 select * from aqicn_stations
 union all
