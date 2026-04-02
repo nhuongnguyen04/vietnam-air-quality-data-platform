@@ -37,23 +37,9 @@ services:
   # ============================================
   # Airflow 3.1 Services
   # ============================================
-  airflow-permissions:
-    image: busybox:1.36
-    container_name: airflow-permissions1
-    user: "0:0"
-    command:
-      - sh
-      - -c
-      - |
-        mkdir -p /opt/airflow/logs/dag_processor /opt/airflow/logs/dag_processor_manager /opt/airflow/logs/scheduler /opt/airflow/logs/triggerer
-        chown -R 50000:0 /opt/airflow/logs
-        chmod -R g+rwX /opt/airflow/logs
-        mkdir -p /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/dbt_tranform/dbt_packages
-        chown -R 50000:0 /opt/dbt/dbt_tranform
-        chmod -R g+rwX /opt/dbt/dbt_tranform
-    volumes:
-      - ./airflow/logs:/opt/airflow/logs
-      - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+  # Note: airflow-permissions service removed — bind mounts (./logs, ./dbt) preserve
+  # host user ownership, so no init container needed. entrypoint.sh creates subdirs at
+  # container startup (dag_processor, scheduler, triggerer, etc.).
 
   airflow-webserver:
     build:
@@ -100,8 +86,6 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
-      airflow-permissions:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       airflow-scheduler:
@@ -164,8 +148,6 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
-      airflow-permissions:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     mem_limit: 512m
@@ -225,8 +207,6 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
-      airflow-permissions:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     mem_limit: 512m
@@ -286,8 +266,6 @@ services:
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
     depends_on:
-      airflow-permissions:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     mem_limit: 512m
