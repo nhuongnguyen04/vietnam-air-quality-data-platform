@@ -45,17 +45,12 @@ services:
       - sh
       - -c
       - |
-        AIRFLOW_UID=${AIRFLOW_UID:-1000}
-        AIRFLOW_GID=${AIRFLOW_GID:-1000}
         mkdir -p /opt/airflow/logs/dag_processor /opt/airflow/logs/dag_processor_manager /opt/airflow/logs/scheduler /opt/airflow/logs/triggerer
-        chown -R ${AIRFLOW_UID}:${AIRFLOW_GID} /opt/airflow/logs
+        chown -R 50000:0 /opt/airflow/logs
         chmod -R g+rwX /opt/airflow/logs
         mkdir -p /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/dbt_tranform/dbt_packages
-        chown -R ${AIRFLOW_UID}:${AIRFLOW_GID} /opt/dbt/dbt_tranform
+        chown -R 50000:0 /opt/dbt/dbt_tranform
         chmod -R g+rwX /opt/dbt/dbt_tranform
-    environment:
-      - AIRFLOW_UID=${AIRFLOW_UID:-1000}
-      - AIRFLOW_GID=${AIRFLOW_GID:-1000}
     volumes:
       - ./airflow/logs:/opt/airflow/logs
       - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
@@ -66,7 +61,6 @@ services:
       dockerfile: airflow/Dockerfile
     container_name: airflow-webserver1
     restart: unless-stopped
-    user: "${AIRFLOW_UID:-1000}:${AIRFLOW_GID:-1000}"
     command: api-server
     group_add:
       - "1001"
@@ -105,9 +99,6 @@ services:
       - PYTHON_JOBS_DIR=/opt/python/jobs/
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
-      # UID/GID for volume ownership 
-      - AIRFLOW_UID=${AIRFLOW_UID:-1000}
-      - AIRFLOW_GID=${AIRFLOW_GID:-1000}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
@@ -136,7 +127,6 @@ services:
       dockerfile: airflow/Dockerfile
     container_name: airflow-scheduler1
     restart: unless-stopped
-    user: "${AIRFLOW_UID:-1000}:${AIRFLOW_GID:-1000}"
     command: scheduler
     group_add:
       - "1001"
@@ -173,9 +163,6 @@ services:
       - PYTHON_JOBS_DIR=/opt/python/jobs
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
-      # UID/GID for volume ownership (matches host user)
-      - AIRFLOW_UID=${AIRFLOW_UID:-1000}
-      - AIRFLOW_GID=${AIRFLOW_GID:-1000}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
@@ -201,7 +188,6 @@ services:
       dockerfile: airflow/Dockerfile
     container_name: airflow-dag-processor1
     restart: unless-stopped
-    user: "${AIRFLOW_UID:-1000}:${AIRFLOW_GID:-1000}"
     command: dag-processor
     group_add:
       - "1001"
@@ -238,9 +224,6 @@ services:
       - PYTHON_JOBS_DIR=/opt/python/jobs
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
-      # UID/GID for volume ownership (matches host user)
-      - AIRFLOW_UID=${AIRFLOW_UID:-1000}
-      - AIRFLOW_GID=${AIRFLOW_GID:-1000}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
@@ -266,7 +249,6 @@ services:
       dockerfile: airflow/Dockerfile
     container_name: airflow-triggerer1
     restart: unless-stopped
-    user: "${AIRFLOW_UID:-1000}:${AIRFLOW_GID:-1000}"
     command: triggerer
     group_add:
       - "1001"
@@ -303,9 +285,6 @@ services:
       - PYTHON_JOBS_DIR=/opt/python/jobs
       - AQICN_API_TOKEN=${AQICN_API_TOKEN}
       - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
-      # UID/GID for volume ownership
-      - AIRFLOW_UID=${AIRFLOW_UID:-1000}
-      - AIRFLOW_GID=${AIRFLOW_GID:-1000}
     depends_on:
       airflow-permissions:
         condition: service_completed_successfully
