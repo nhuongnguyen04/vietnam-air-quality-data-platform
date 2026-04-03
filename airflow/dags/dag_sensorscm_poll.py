@@ -1,10 +1,10 @@
 """
 Sensors.Community Poll DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
 
-Polls https://api.sensor.community/v1/feeds/ every 10 minutes for Vietnam bbox
+Polls https://api.sensor.community/v1/feeds/ every 5 minutes for Vietnam bbox
 and stores readings in ClickHouse.
 
-Schedule: Every 10 minutes (*/10 * * * *)
+Schedule: Every 5 minutes (*/5 * * * *)
 
 This DAG runs independently from dag_ingest_hourly. Both may write to
 raw_sensorscm_measurements; ReplacingMergeTree handles dedup server-side (D-01).
@@ -44,16 +44,16 @@ def get_job_env_vars() -> dict:
 
 @dag(
     default_args=default_args,
-    description='Poll Sensors.Community API every 10 minutes for Vietnam air quality data',
-    schedule='*/10 * * * *',     # Every 10 minutes (D-29)
+    description='Poll Sensors.Community API every 5 minutes for Vietnam air quality data',
+    schedule='*/5 * * * *',     # Every 5 minutes — increased from 10 min for better real-time data
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=5,
-    tags=['ingestion', 'sensorscm', '10min', 'air-quality'],
+    tags=['ingestion', 'sensorscm', '5min', 'air-quality'],
 )
 def dag_sensorscm_poll():
-    """Poll Sensors.Community every 10 minutes."""
+    """Poll Sensors.Community every 5 minutes."""
 
     @task
     def check_clickhouse_connection():
@@ -98,7 +98,7 @@ def dag_sensorscm_poll():
 
     @task
     def update_sensorscm_control():
-        """Update ingestion_control for Sensors.Community (10-min poll)."""
+        """Update ingestion_control for Sensors.Community (5-min poll)."""
         import sys
         sys.path.insert(0, '/opt/python/jobs')
         from common.ingestion_control import update_control as _update

@@ -6,7 +6,7 @@ This DAG runs after hourly ingestion to transform raw data into analytics-ready 
 - dbt seed: Load seed data (if any)
 - dbt run: Execute staging, intermediate, and marts models
 
-Schedule: Hourly (after ingestion completes)
+Schedule: Every hour at minute 45 — runs after ingestion (15-min cycle) completes
 """
 
 from datetime import datetime, timedelta
@@ -48,8 +48,8 @@ def build_env_command() -> str:
 
 @dag(
     default_args=default_args,
-    description='dbt transformation for air quality data',
-    schedule='30 * * * *',  # Hourly at minute 30 (after ingestion at minute 0)
+    description='dbt transformation for air quality data — runs hourly at minute 45 after ingestion completes',
+    schedule='45 * * * *',  # Every hour at minute 45 (after 15-min ingestion cycle)
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
@@ -57,7 +57,7 @@ def build_env_command() -> str:
     tags=['transform', 'dbt', 'hourly', 'air-quality'],
 )
 def dag_transform():
-    """dbt transformation DAG using Airflow 3 TaskFlow API."""
+    """dbt transformation DAG — runs hourly at minute 45."""
 
     @task
     def check_clickhouse_connection():

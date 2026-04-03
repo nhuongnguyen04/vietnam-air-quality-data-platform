@@ -9,7 +9,7 @@ This DAG runs hourly to ingest the latest measurements from:
 Note: AQICN and WAQI are the same API (api.waqi.info). The pipeline uses AQICN
 as the canonical source; do NOT add WAQI as a separate ingestion source.
 
-Schedule: Hourly (every hour at minute 0)
+Schedule: Every 15 minutes (*/15 * * * *) — increased from hourly for near-real-time air quality data
 """
 
 from datetime import datetime, timedelta
@@ -57,16 +57,16 @@ def build_env_command() -> str:
 
 @dag(
     default_args=default_args,
-    description='Hourly ingestion of air quality measurements from AQICN, Sensors.Community, and OpenWeather',
-    schedule='0 * * * *',
+    description='Ingestion of air quality measurements from AQICN, Sensors.Community, and OpenWeather every 15 minutes',
+    schedule='*/15 * * * *',
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=10,
-    tags=['ingestion', 'hourly', 'air-quality'],
+    tags=['ingestion', '15min', 'air-quality'],
 )
 def dag_ingest_hourly():
-    """Hourly ingestion DAG using Airflow 3 TaskFlow API."""
+    """15-minute ingestion DAG using Airflow 3 TaskFlow API."""
 
     @task
     def check_clickhouse_connection():
