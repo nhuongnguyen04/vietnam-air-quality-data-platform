@@ -1,3 +1,4 @@
 {{ config(materialized='view') }}
 
-select * from {{ ref('fct_hourly_aqi_final') }}
+-- Thin wrapper: exposes fct_hourly_aqi for mart and analytics models.
+select * from {{ ref('fct_hourly_aqi') }}

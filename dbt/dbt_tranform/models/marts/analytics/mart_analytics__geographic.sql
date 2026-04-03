@@ -1,7 +1,7 @@
 {{ config(materialized='table') }}
 
 -- Geographic air quality analytics: province and city level aggregations
--- Join fct_daily_aqi_summary_final with dim_locations for province/city hierarchy
+-- Join mart_air_quality__daily_summary with dim_locations for province/city hierarchy
 with daily_station as (
     select
         d.date,

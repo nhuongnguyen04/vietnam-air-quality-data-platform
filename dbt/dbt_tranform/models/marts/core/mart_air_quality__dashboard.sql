@@ -1,25 +1,26 @@
 {{ config(
     materialized='table',
-    engine='AggregatingMergeTree',
+    engine='ReplacingMergeTree',
     order_by=['date', 'station_id'],
     partition_by='toYYYYMM(date)'
 ) }}
 
--- Two-step: subquery aggregates from fct_daily_aqi_summary,
--- outer query joins with dim_locations for station metadata
--- finalizeAggregation called after GROUP BY (in subquery)
+-- Reads from fct_daily_aqi_summary_state (AMT) via *Merge() functions.
+-- Outer query joins with dim_locations for station metadata.
+-- Replaced AggregatingMergeTree with ReplacingMergeTree since
+-- fct_daily_aqi_summary_state already handles aggregation internally.
 with daily_agg as (
     select
         d.date,
         d.station_id,
         round(avgMerge(d.avg_aqi_state), 2)              AS avg_aqi,
-        round(minMerge(d.min_aqi_state), 2)                AS min_aqi,
+        round(minMerge(d.min_aqi_state), 2)               AS min_aqi,
         round(maxMerge(d.max_aqi_state), 2)               AS max_aqi,
-        countMerge(d.hourly_count_state)                   AS hourly_count,
-        sumMerge(d.exceedance_count_150_state)           AS exceedance_count_150,
-        sumMerge(d.exceedance_count_200_state)           AS exceedance_count_200,
+        sumMerge(d.hourly_count_state)                    AS hourly_count,
+        sumMerge(d.exceedance_count_150_state)             AS exceedance_count_150,
+        sumMerge(d.exceedance_count_200_state)             AS exceedance_count_200,
         argMaxMerge(d.dominant_pollutant_state)            AS dominant_pollutant
-    from {{ ref('fct_daily_aqi_summary') }} d
+    from {{ ref('fct_daily_aqi_summary_state') }} d
     group by d.date, d.station_id
 )
 select

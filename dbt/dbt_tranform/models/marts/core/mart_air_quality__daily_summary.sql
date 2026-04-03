@@ -1,8 +1,8 @@
 {{ config(materialized='view') }}
 
--- Thin wrapper: exposes fct_daily_aqi_summary_final for mart and KPI models
+-- Thin wrapper: exposes fct_daily_aqi_summary for mart and KPI models
 -- that expect the old mart_air_quality__daily_summary column names.
--- Rename station_id → unified_station_id for backward compatibility.
+-- Rename station_id -> unified_station_id for backward compatibility.
 select
     date,
     station_id                                                      AS unified_station_id,
@@ -15,4 +15,4 @@ select
     dominant_pollutant,
     sensor_quality_tier,
     source
-from {{ ref('fct_daily_aqi_summary_final') }}
+from {{ ref('fct_daily_aqi_summary') }}

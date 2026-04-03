@@ -1,26 +1,22 @@
-{{ config(
-    materialized='table',
-    engine='AggregatingMergeTree',
-    order_by=['date', 'station_id'],
-    partition_by='toYYYYMM(date)'
-) }}
+{{ config(materialized='view') }}
 
+-- Public query layer for fct_daily_aqi_summary_state.
+-- Reads from fct_hourly_aqi (public view) to compute daily summaries.
+-- any() picks a representative value for per-station columns (constant within each group).
 select
-    toDate(datetime_hour)                                        AS date,
+    toDate(datetime_hour)                                    AS date,
     station_id,
-    avgState(normalized_aqi)                                     AS avg_aqi_state,
-    avgState(avg_value)                                           AS avg_value_state,
-    minState(normalized_aqi)                                      AS min_aqi_state,
-    maxState(normalized_aqi)                                      AS max_aqi_state,
-    countState()                                                  AS hourly_count_state,
-    sumState(exceedance_count_150)                                AS exceedance_count_150_state,
-    sumState(exceedance_count_200)                                AS exceedance_count_200_state,
-    argMaxState(dominant_pollutant, normalized_aqi)              AS dominant_pollutant_state,
-    sensor_quality_tier,
-    source
-from {{ ref('fct_hourly_aqi_final') }}
+    round(avg(normalized_aqi), 2)                           AS avg_aqi,
+    round(avg(avg_value), 2)                                 AS avg_value,
+    round(min(min_value), 2)                                  AS min_aqi,
+    round(max(max_value), 2)                                  AS max_aqi,
+    count(*)                                                    AS hourly_count,
+    sum(exceedance_count_150)                                   AS exceedance_count_150,
+    sum(exceedance_count_200)                                   AS exceedance_count_200,
+    any(pollutant)                                             AS dominant_pollutant,
+    any(sensor_quality_tier)                                     AS sensor_quality_tier,
+    any(source)                                                  AS source
+from {{ ref('fct_hourly_aqi') }}
 group by
     toDate(datetime_hour),
-    station_id,
-    sensor_quality_tier,
-    source
+    station_id

@@ -2,12 +2,7 @@ version: 2
 
 models:
   - name: fct_hourly_aqi
-    description: "Hourly fact table with AggregatingMergeTree; query via fct_hourly_aqi_final"
-    config:
-      column_name_equivalence:
-        datetime_hour: datetime_hour
-        station_id: station_id
-        pollutant: pollutant
+    description: "Public query view for hourly AQI data. Reads binary aggregate state from fct_hourly_aqi_state via *Merge() functions. This is the intended table for dashboards (Superset/Grafana)."
     columns:
       - name: datetime_hour
         description: "Top of hour timestamp (UTC)"
@@ -21,38 +16,107 @@ models:
         description: "Pollutant name"
         tests:
           - not_null
-
-  - name: fct_hourly_aqi_final
-    description: "Query layer view for fct_hourly_aqi; exposes normalized_aqi using -Merge functions"
-    columns:
       - name: normalized_aqi
         description: "Normalized AQI using EPA canonical breakpoints"
+      - name: avg_value
+        description: "Average measurement value for the hour"
+      - name: max_value
+        description: "Maximum measurement value for the hour"
+      - name: min_value
+        description: "Minimum measurement value for the hour"
       - name: dominant_pollutant
-        description: "Dominant pollutant for this station-hour"
+        description: "Dominant pollutant for this station-hour (highest AQI)"
       - name: exceedance_count_150
-        description: "Count of readings above AQI 150"
+        description: "Count of readings above AQI 150 in the hour"
       - name: exceedance_count_200
-        description: "Count of readings above AQI 200"
+        description: "Count of readings above AQI 200 in the hour"
+      - name: avg_aqi_reported
+        description: "Average AQI as reported by the source"
+      - name: sensor_quality_tier
+        description: "Sensor quality tier: research | city_centroid | community"
+      - name: source
+        description: "Data source: aqicn | openweather | sensorscm"
+
+  - name: fct_hourly_aqi_state
+    description: "Internal AggregatingMergeTree storage for hourly AQI. Stores binary aggregate state via *State() functions. NOT intended for direct SELECT -- use fct_hourly_aqi view instead."
+    config:
+      column_name_equivalence:
+        datetime_hour: datetime_hour
+        station_id: station_id
+        pollutant: pollutant
+    columns:
+      - name: datetime_hour
+        description: "Top of hour timestamp (UTC)"
+      - name: station_id
+        description: "Source-prefixed station ID"
+      - name: pollutant
+        description: "Pollutant name"
+      - name: avg_value
+        description: "Binary aggregate state (avgState) -- use fct_hourly_aqi view"
+      - name: avg_aqi
+        description: "Binary aggregate state (avgState) -- use fct_hourly_aqi view"
+      - name: measurement_count
+        description: "Binary aggregate state (countState) -- use fct_hourly_aqi view"
+      - name: dominant_pollutant_state
+        description: "Binary aggregate state (argMaxState) -- use fct_hourly_aqi view"
+      - name: avg_aqi_reported
+        description: "Binary aggregate state (avgState) -- use fct_hourly_aqi view"
 
   - name: fct_daily_aqi_summary
-    description: "Daily fact summary with AggregatingMergeTree; query via fct_daily_aqi_summary_final"
+    description: "Public query view for daily AQI summary. Reads from fct_hourly_aqi via *Merge() functions. This is the intended table for dashboards."
     columns:
       - name: date
-        description: "Date"
+        description: "Date (UTC)"
         tests:
           - not_null
       - name: station_id
         description: "Station ID"
         tests:
           - not_null
-
-  - name: fct_daily_aqi_summary_final
-    description: "Query layer view for fct_daily_aqi_summary"
-    columns:
       - name: avg_aqi
         description: "Daily average AQI"
+      - name: avg_value
+        description: "Daily average measurement value"
+      - name: min_aqi
+        description: "Daily minimum AQI"
+      - name: max_aqi
+        description: "Daily maximum AQI"
       - name: dominant_pollutant
-        description: "Dominant pollutant for the day"
+        description: "Dominant pollutant for the day (highest AQI)"
+      - name: hourly_count
+        description: "Number of hourly readings for the day"
+      - name: exceedance_count_150
+        description: "Number of hours with AQI > 150"
+      - name: exceedance_count_200
+        description: "Number of hours with AQI > 200"
+      - name: sensor_quality_tier
+        description: "Sensor quality tier: research | city_centroid | community"
+      - name: source
+        description: "Data source: aqicn | openweather | sensorscm"
+
+  - name: fct_daily_aqi_summary_state
+    description: "Internal AggregatingMergeTree storage for daily AQI. Stores binary aggregate state via *State() functions. NOT intended for direct SELECT -- use fct_daily_aqi_summary view instead."
+    columns:
+      - name: date
+        description: "Date (UTC)"
+      - name: station_id
+        description: "Station ID"
+      - name: avg_aqi_state
+        description: "Binary aggregate state (avgState) -- use fct_daily_aqi_summary view"
+      - name: avg_value_state
+        description: "Binary aggregate state (avgState) -- use fct_daily_aqi_summary view"
+      - name: min_aqi_state
+        description: "Binary aggregate state (minState) -- use fct_daily_aqi_summary view"
+      - name: max_aqi_state
+        description: "Binary aggregate state (maxState) -- use fct_daily_aqi_summary view"
+      - name: hourly_count_state
+        description: "Binary aggregate state (countState) -- use fct_daily_aqi_summary view"
+      - name: exceedance_count_150_state
+        description: "Binary aggregate state (sumState) -- use fct_daily_aqi_summary view"
+      - name: exceedance_count_200_state
+        description: "Binary aggregate state (sumState) -- use fct_daily_aqi_summary view"
+      - name: dominant_pollutant_state
+        description: "Binary aggregate state (argMaxState) -- use fct_daily_aqi_summary view"
 
   - name: fact_aqi_alerts
     description: "AQI threshold breach events (normalized_aqi > 150 and > 200)"
@@ -114,16 +178,38 @@ models:
         description: "EPA AQI breakpoint high"
 
   - name: mart_air_quality__dashboard
-    description: "Pre-joined dashboard mart: daily AQI + station metadata for Superset"
+    description: "Pre-joined dashboard mart: daily AQI + station metadata for Superset. Reads from fct_daily_aqi_summary_state via *Merge() functions and joins with dim_locations."
     columns:
       - name: date
-        description: "Date"
+        description: "Date (UTC)"
       - name: station_id
         description: "Station ID"
+      - name: station_name
+        description: "Station display name"
+      - name: latitude
+        description: "Latitude"
+      - name: longitude
+        description: "Longitude"
+      - name: city
+        description: "City"
+      - name: province
+        description: "Province"
       - name: avg_aqi
         description: "Average AQI for the day"
+      - name: min_aqi
+        description: "Minimum AQI for the day"
+      - name: max_aqi
+        description: "Maximum AQI for the day"
       - name: dominant_pollutant
         description: "Dominant pollutant"
+      - name: hourly_count
+        description: "Number of hourly readings"
+      - name: exceedance_count_150
+        description: "Hours with AQI > 150"
+      - name: exceedance_count_200
+        description: "Hours with AQI > 200"
+      - name: sensor_quality_tier
+        description: "Sensor quality tier"
 
   - name: mart_air_quality__alerts
     description: "Alert view: threshold breach events (wrapper around fact_aqi_alerts_final)"

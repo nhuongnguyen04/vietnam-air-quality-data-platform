@@ -1,7 +1,7 @@
 {{ config(materialized='table') }}
 
 -- Pollutant concentration KPIs against WHO/EPA standards.
--- Aggregates from fct_hourly_aqi_final which has pollutant-level data.
+-- Aggregates from fct_hourly_aqi (public view) which has pollutant-level data.
 with pollutant_daily as (
     select
         toDate(datetime_hour)                    AS date,
@@ -10,7 +10,7 @@ with pollutant_daily as (
         max(normalized_aqi)                      AS max_aqi,
         min(normalized_aqi)                      AS min_aqi,
         count(*)                                 AS reading_count
-    from {{ ref('fct_hourly_aqi_final') }}
+    from {{ ref('fct_hourly_aqi') }}
     where pollutant in ('pm25', 'pm10', 'o3', 'no2', 'co', 'so2')
     group by toDate(datetime_hour), pollutant
 ),

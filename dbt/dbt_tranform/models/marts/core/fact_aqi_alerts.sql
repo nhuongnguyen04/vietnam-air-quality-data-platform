@@ -14,7 +14,7 @@ with alerts_150 as (
         source,
         sensor_quality_tier,
         now()                                                        AS created_at
-    from {{ ref('fct_hourly_aqi_final') }}
+    from {{ ref('fct_hourly_aqi') }}
     where normalized_aqi > 150
 ),
 alerts_200 as (
@@ -27,7 +27,7 @@ alerts_200 as (
         source,
         sensor_quality_tier,
         now()                                                        AS created_at
-    from {{ ref('fct_hourly_aqi_final') }}
+    from {{ ref('fct_hourly_aqi') }}
     where normalized_aqi > 200
 )
 select
