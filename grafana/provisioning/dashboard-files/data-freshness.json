@@ -46,7 +46,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
@@ -54,8 +54,8 @@
                 "value": 3600
               },
               {
-                "color": "green",
-                "value": 0
+                "color": "red",
+                "value": 10800
               }
             ]
           },
@@ -487,7 +487,7 @@
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  source,\n  count(DISTINCT station_id) AS active_stations_vietnam\nFROM ingestion_control\nGROUP BY source",
+          "rawSql": "SELECT\n  source,\n  count(DISTINCT station_id) AS active_stations_vietnam\nFROM dim_locations\nWHERE latitude BETWEEN 8 AND 24\n  AND longitude BETWEEN 102 AND 110\nGROUP BY source\nORDER BY active_stations_vietnam DESC",
           "refId": "A",
           "rollingWindow": 10,
           "source": "metric",
