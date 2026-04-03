@@ -264,7 +264,7 @@ def dag_ingest_hourly():
         poke_interval=30,
         reset_dag_run=True,  # Allow re-triggering even if previous run is running
         allowed_states=['success'],  # Only trigger if ingestion succeeded
-        failed_states=['failed', 'upstream_failed'],
+        failed_states=['failed'],  # upstream_failed removed in Airflow 3.x (DagRunState enum)
     )
 
     # Define task dependencies
