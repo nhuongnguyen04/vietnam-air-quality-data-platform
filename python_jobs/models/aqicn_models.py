@@ -237,6 +237,7 @@ def transform_measurement(
     # Common fields for all pollutant records
     # NOTE: Station info (name, lat, lon, url, location) is NOT stored here.
     # It is stored in raw_aqicn_stations via transform_station_from_feed().
+    # Staging model JOINs with raw_aqicn_stations to get station metadata.
     base_record = {
         "station_id": station_id,
         "time_s": time_info.get("s"),

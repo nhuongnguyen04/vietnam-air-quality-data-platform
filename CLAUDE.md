@@ -341,6 +341,10 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 <!-- GSD:architecture-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
+## Developer Preferences
+
+- **Ngôn ngữ giao tiếp**: Tiếng Việt cho tất cả các cuộc trò chuyện với developer. Mọi phản hồi, commit message, tài liệu, và giao tiếp đều sử dụng tiếng Việt.
+
 ## GSD Workflow Enforcement
 
 Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.

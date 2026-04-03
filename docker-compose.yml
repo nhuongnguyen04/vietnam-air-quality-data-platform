@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   clickhouse:
@@ -45,6 +45,7 @@ services:
     build:
       context: .
       dockerfile: airflow/Dockerfile
+    image: my-airflow-custom:latest
     container_name: airflow-webserver1
     restart: unless-stopped
     command: api-server
@@ -111,6 +112,7 @@ services:
     build:
       context: .
       dockerfile: airflow/Dockerfile
+    image: my-airflow-custom:latest
     container_name: airflow-scheduler1
     restart: unless-stopped
     command: scheduler
@@ -172,6 +174,7 @@ services:
     build:
       context: .
       dockerfile: airflow/Dockerfile
+    image: my-airflow-custom:latest
     container_name: airflow-dag-processor1
     restart: unless-stopped
     command: dag-processor
@@ -233,6 +236,7 @@ services:
     build:
       context: .
       dockerfile: airflow/Dockerfile
+    image: my-airflow-custom:latest
     container_name: airflow-triggerer1
     restart: unless-stopped
     command: triggerer
@@ -323,8 +327,11 @@ services:
     build:
       context: .
       dockerfile: airflow/Dockerfile
+    image: my-airflow-custom:latest
     user: root
     container_name: airflow-init
+    environment:
+      - AIRFLOW_SKIP_DB_MIGRATE=true
     volumes:
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/dags:/opt/airflow/dags

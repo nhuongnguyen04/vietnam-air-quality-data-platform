@@ -21,29 +21,8 @@ Runs every hour to ingest the latest measurements from:
 4. Run AQICN measurements ingestion  
 5. Run AQICN forecast ingestion
 
-### 2. `dag_ingest_historical.py` - Historical Data Ingestion DAG
 
-One-time historical data backfill. Must be manually triggered with configuration parameters.
-
-**Schedule**: Manual trigger only
-
-**Configuration Parameters** (via DAG run conf):
-- `start_date`: Start date for backfill (YYYY-MM-DD), default: 30 days ago
-- `end_date`: End date for backfill (YYYY-MM-DD), default: today
-- `days_back`: Number of days to backfill (alternative to start_date/end_date)
-
-**Tasks**:
-1. Configure dates from DAG run conf
-2. Check ClickHouse connection
-3. Ingest OpenAQ parameters (one-time)
-4. Ingest OpenAQ locations (one-time)
-5. Ingest OpenAQ sensors (one-time)
-6. Ingest AQICN stations (one-time)
-7. Backfill OpenAQ measurements
-8. Backfill AQICN measurements
-9. Backfill AQICN forecasts
-
-### 3. `dag_metadata_update.py` - Metadata Update DAG
+### 2. `dag_metadata_update.py` - Metadata Update DAG
 
 Daily refresh of metadata from OpenAQ and AQICN APIs.
 
@@ -57,7 +36,7 @@ Daily refresh of metadata from OpenAQ and AQICN APIs.
 5. Refresh AQICN stations
 6. Log metadata statistics
 
-### 4. `dag_transform.py` - dbt Transformation DAG
+### 3. `dag_transform.py` - dbt Transformation DAG
 
 Runs dbt models to transform raw data into analytics-ready models.
 

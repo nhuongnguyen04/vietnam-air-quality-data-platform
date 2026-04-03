@@ -11,7 +11,6 @@ clickhouse-connect>=0.10.0
 psycopg2-binary==2.9.11
 
 # Airflow dependencies
-apache-airflow==3.1.7
 apache-airflow-providers-http
 apache-airflow-providers-sqlite
 apache-airflow-providers-postgres

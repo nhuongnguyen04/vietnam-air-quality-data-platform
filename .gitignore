@@ -1,6 +1,7 @@
 # GSD Planning
 .planning/
 .claude/
+.agents/
 
 # General
 venv/
@@ -22,6 +23,7 @@ airflow/*.pid
 .mcp.json
 *.env.*
 credentials.json
+*.json
 
 # NiFi
 nifi/*.log

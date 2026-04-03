@@ -2,10 +2,15 @@
 set -e
 
 # Initialize or migrate Airflow database automatically
-echo "Migrating Airflow database..."
-if ! airflow db migrate; then
-    echo "Migration failed, trying fresh database init..."
-    airflow db init
+# Skip if requested or if running as root (usually for permission setup)
+if [ "${AIRFLOW_SKIP_DB_MIGRATE:-false}" != "true" ] && [ "$(id -u)" != "0" ]; then
+    echo "Migrating Airflow database..."
+    if ! airflow db migrate; then
+        echo "Migration failed, trying fresh database init..."
+        airflow db init
+    fi
+else
+    echo "Skipping Airflow database migration (root user or skipped by config)."
 fi
 
 # Create necessary directories
