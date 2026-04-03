@@ -1,0 +1,24 @@
+# Grafana ClickHouse Datasource Provisioning
+# Plugin: grafana-clickhouse-datasource (D-15)
+# Protocol: HTTP (not native) — port 8123 (Pitfall 4 fix)
+# Database: airquality (matches CLICKHOUSE_DB=air_quality)
+# NOTE: ${CLICKHOUSE_USER} and ${CLICKHOUSE_PASSWORD} are substituted by
+# Grafana's env var expansion at container startup (not docker-compose env var).
+apiVersion: 1
+datasources:
+  - name: ClickHouse AirQuality
+    uid: clickhouse-airquality
+    type: grafana-clickhouse-datasource
+    access: proxy
+    url: http://clickhouse:8123
+    database: air_quality
+    editable: false
+    isDefault: true
+    jsonData:
+      username: ${CLICKHOUSE_USER}
+      port: 8123
+      protocol: http
+      timeout: 30
+    secureJsonData:
+      password: ${CLICKHOUSE_PASSWORD}
+    orgId: 1

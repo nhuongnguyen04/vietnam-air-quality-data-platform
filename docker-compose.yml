@@ -342,11 +342,120 @@ services:
       chmod -R 775 /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins &&
       echo 'Permissions setup complete.'"
 
+  # ============================================
+  # Grafana — Operational Dashboards (Phase 3.3)
+  # ============================================
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - TELEGRAM_WEBHOOK_URL=https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - air-quality-network
 
 # ============================================
-# Networks
+# Superset — Analytics Dashboards (Plan 3.1)
+# ============================================
+  superset:
+    image: apache/superset:4.1.0
+    container_name: superset
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset/superset_config.py:/etc/pythonpath/superset/superset_config.py:ro
+      - ./superset/dashboards:/app/dashboards:ro
+    environment:
+      - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - SUPERSET_GUEST_TOKEN_SECRET=${SUPERSET_GUEST_TOKEN_SECRET}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    mem_limit: 1g
+    cpus: '1'
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - air-quality-network
+
+  superset-init:
+    image: apache/superset:4.1.0
+    container_name: superset-init
+    restart: "no"
+    command: ["bash", "/bootstrap/superset-init.sh"]
+    volumes:
+      - ./superset/superset_config.py:/etc/pythonpath/superset/superset_config.py:ro
+      - ./superset/superset-init.sh:/bootstrap/superset-init.sh:ro
+      - ./superset/dashboards:/app/dashboards:ro
+    environment:
+      - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
+      - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER:-admin}
+      - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD:-admin}
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+    depends_on:
+      superset:
+        condition: service_healthy
+    networks:
+      - air-quality-network
+
+# ============================================
+# Networks & Volumes
 # ============================================
 networks:
   default:
     name: air-quality-network
+
+volumes:
+  grafana-data:
 

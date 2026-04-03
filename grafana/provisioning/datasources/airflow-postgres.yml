@@ -1,0 +1,18 @@
+# Grafana PostgreSQL Datasource — Airflow Metadata
+# Queries: dag_run, task_instance (Airflow PostgreSQL backend)
+apiVersion: 1
+datasources:
+  - name: Airflow Metadata
+    uid: airflow-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: airflow
+    user: airflow
+    editable: false
+    jsonData:
+      sslmode: disable
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: airflow
+    orgId: 1

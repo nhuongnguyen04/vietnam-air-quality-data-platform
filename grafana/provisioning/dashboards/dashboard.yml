@@ -1,0 +1,15 @@
+# Grafana Dashboard Provider — File-based provisioning
+# Dashboards located at: /etc/grafana/dashboards (mapped from grafana/provisioning/dashboard-files/)
+apiVersion: 1
+providers:
+  - name: 'Air Quality Dashboards'
+    orgId: 1
+    folder: 'Air Quality'
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: true
