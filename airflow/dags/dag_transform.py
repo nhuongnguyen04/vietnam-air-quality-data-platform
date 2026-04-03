@@ -1,18 +1,16 @@
 """
 dbt Transformation DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
 
-This DAG waits for dag_ingest_hourly to complete, then transforms raw data into
-analytics-ready models:
+This DAG runs after hourly ingestion to transform raw data into analytics-ready models:
 - dbt deps: Install required dbt packages
 - dbt seed: Load seed data (if any)
 - dbt run: Execute staging, intermediate, and marts models
 
-Schedule: Every hour at minute 45 — waits for dag_ingest_hourly to finish first
+Schedule: Triggered by dag_ingest_hourly via TriggerDagRunOperator — runs after each ingestion cycle completes
 """
 
 from datetime import datetime, timedelta
 from airflow.sdk import dag, task
-from airflow.sensors.external_task import ExternalTaskSensor
 import os
 
 # Default arguments
@@ -50,36 +48,16 @@ def build_env_command() -> str:
 
 @dag(
     default_args=default_args,
-    description='dbt transformation for air quality data — runs hourly at minute 45 after ingestion completes',
-    schedule='45 * * * *',  # Every hour at minute 45 (after 15-min ingestion cycle)
+    description='dbt transformation for air quality data — triggered by dag_ingest_hourly after each cycle',
+    schedule=None,  # Triggered by dag_ingest_hourly via TriggerDagRunOperator
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=10,
-    tags=['transform', 'dbt', 'hourly', 'air-quality'],
+    tags=['transform', 'dbt', 'triggered', 'air-quality'],
 )
 def dag_transform():
-    """dbt transformation DAG — waits for dag_ingest_hourly, then runs dbt."""
-
-    @task
-    def wait_for_ingestion(**context):
-        """Wait for dag_ingest_hourly to complete using ExternalTaskSensor.
-
-        This ensures dbt transformation only runs after all ingestion tasks
-        (AQICN, OpenWeather, Sensors.Community) have finished.
-        """
-        from airflow.sensors.external_task import ExternalTaskSensor
-
-        sensor = ExternalTaskSensor(
-            task_id='wait_for_ingestion',
-            external_dag_id='dag_ingest_hourly',
-            external_task_id=None,  # Wait for entire DAG to complete
-            execution_delta=timedelta(minutes=15),  # Wait for ingestion run 15 min before transform
-            mode='reschedule',
-            timeout=60 * 60,  # 1 hour max wait
-            poke_interval=60,  # Check every 60 seconds
-        )
-        sensor.execute(context)
+    """dbt transformation DAG — triggered by dag_ingest_hourly after each cycle."""
 
     @task
     def check_clickhouse_connection():
@@ -343,7 +321,6 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
         print("dbt transformation completed")
 
     # Define task dependencies
-    wait = wait_for_ingestion()
     check_clickhouse = check_clickhouse_connection()
     check_dbt = check_dbt_ready()
     deps = dbt_deps()
@@ -356,7 +333,6 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
     update_transform_control = update_transform_control()
     completion = log_completion()
 
-    # Sensor waits for dag_ingest_hourly to finish, then pipeline runs
-    wait >> check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> stats >> update_transform_control >> completion
+    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> stats >> update_transform_control >> completion
 
 dag_transform = dag_transform()

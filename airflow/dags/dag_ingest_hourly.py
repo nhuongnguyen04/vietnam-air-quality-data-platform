@@ -14,6 +14,7 @@ Schedule: Every 15 minutes (*/15 * * * *) — increased from hourly for near-rea
 
 from datetime import datetime, timedelta
 from airflow.decorators import dag, task
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 import os
 
 # Default arguments
@@ -57,16 +58,16 @@ def build_env_command() -> str:
 
 @dag(
     default_args=default_args,
-    description='Ingestion of air quality measurements from AQICN, Sensors.Community, and OpenWeather every 15 minutes',
+    description='Ingestion of air quality measurements from AQICN, Sensors.Community, and OpenWeather every 15 minutes — triggers dag_transform on completion',
     schedule='*/15 * * * *',
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=10,
-    tags=['ingestion', '15min', 'air-quality'],
+    tags=['ingestion', '15min', 'triggers-transform', 'air-quality'],
 )
 def dag_ingest_hourly():
-    """15-minute ingestion DAG using Airflow 3 TaskFlow API."""
+    """15-minute ingestion DAG using Airflow 3 TaskFlow API — triggers dag_transform on completion."""
 
     @task
     def check_clickhouse_connection():
@@ -255,6 +256,17 @@ def dag_ingest_hourly():
         """Log completion message."""
         print("Hourly ingestion completed")
 
+    # Trigger dag_transform after ingestion completes
+    trigger_transform = TriggerDagRunOperator(
+        task_id='trigger_transform',
+        trigger_dag_id='dag_transform',
+        wait_for_completion=False,  # Don't wait for dag_transform to finish
+        poke_interval=30,
+        reset_dag_run=True,  # Allow re-triggering even if previous run is running
+        allowed_states=['success'],  # Only trigger if ingestion succeeded
+        failed_states=['failed', 'upstream_failed'],
+    )
+
     # Define task dependencies
     check_clickhouse = check_clickhouse_connection()
     metadata = ensure_metadata()
@@ -281,6 +293,9 @@ def dag_ingest_hourly():
     # Fan-in all control updates to completion
     [update_aqicn_control, update_forecast_control, update_sensorscm_control,
      update_openweather_control] >> completion
+
+    # Trigger dag_transform after ingestion completes
+    completion >> trigger_transform
 
 
 dag_ingest_hourly = dag_ingest_hourly()
