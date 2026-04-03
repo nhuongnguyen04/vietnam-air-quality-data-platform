@@ -21,7 +21,7 @@ airflow/*.pid
 # Env & secrets
 .env
 .mcp.json
-*.env.*
+.env
 credentials.json
 *.json
 
