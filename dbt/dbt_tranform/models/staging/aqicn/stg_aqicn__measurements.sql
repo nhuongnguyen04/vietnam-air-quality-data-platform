@@ -9,11 +9,12 @@ with measurements as (
 stations as (
     select
         station_id,
-        station_name,
-        city_location,
-        latitude,
-        longitude
+        argMax(station_name, ingest_time)   as station_name,
+        argMax(city_location, ingest_time)  as city_location,
+        argMax(latitude, ingest_time)       as latitude,
+        argMax(longitude, ingest_time)      as longitude
     from {{ source('aqicn', 'raw_aqicn_stations') }}
+    group by station_id
 ),
 joined as (
     select
@@ -23,7 +24,7 @@ joined as (
         s.latitude        as latitude_join,
         s.longitude       as longitude_join
     from measurements m
-    left join stations s on m.station_id = s.station_id
+    inner join stations s on m.station_id = s.station_id
 ),
 filtered as (
     select * from joined
@@ -62,7 +63,7 @@ canonical as (
         case
             when {{ standardize_pollutant_name('pollutant') }} in ('pm25', 'pm10') then 'µg/m³'
             when {{ standardize_pollutant_name('pollutant') }} in ('o3', 'no2', 'so2') then 'ppb'
-            when {{ standardize_pollutant_name('pollutant') }} = 'co' then 'ppm'
+            when {{ standardize_pollutant_name('pollutant') }} = 'co' then 'µg/m³'
             else 'unknown'
         end                                                                 AS unit,
         'valid'                                                             AS quality_flag,
@@ -70,5 +71,8 @@ canonical as (
         ingest_time,
         raw_payload
     from filtered
+    where
+        time_v IS NOT NULL
+        and time_v != '0'
 )
 select * from canonical

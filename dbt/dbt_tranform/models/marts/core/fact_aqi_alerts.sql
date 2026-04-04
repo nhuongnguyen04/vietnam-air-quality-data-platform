@@ -1,6 +1,7 @@
 {{ config(
-    materialized='table',
-    engine='AggregatingMergeTree',
+    materialized='incremental',
+    unique_key='station_id || datetime_hour || threshold_breached',
+    engine='MergeTree',
     order_by=['station_id', 'datetime_hour', 'threshold_breached']
 ) }}
 

@@ -17,7 +17,7 @@ select
     case
         when lower(parameter) in ('pm25', 'pm2.5', 'pm2_5', 'pm10', 'pm_10') then 'µg/m³'
         when lower(parameter) in ('o3', 'ozone', 'no2', 'nitrogen_dioxide', 'so2', 'sulfur_dioxide', 'nh3', 'no') then 'ppb'
-        when lower(parameter) = 'co' then 'ppm'
+        when lower(parameter) = 'co' then 'µg/m³'
         else 'unknown'
     end                                                  AS unit,
     quality_flag,
