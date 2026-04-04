@@ -459,7 +459,9 @@ services:
       interval: 10s
 
   superset-init:
-    image: apache/superset:4.0.1
+    build:
+      context: .
+      dockerfile: superset/Dockerfile
     container_name: superset-init
     restart: "no"
     command: ["/bootstrap/superset-init.sh"] # Bỏ bash, gọi trực tiếp file script
@@ -472,6 +474,8 @@ services:
       - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER:-admin}
       - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD:-admin}
     depends_on:
+      clickhouse:
+        condition: service_healthy
       superset:
         condition: service_healthy
     networks:
