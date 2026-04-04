@@ -10,52 +10,51 @@
 
 -- Internal storage table: stores binary aggregate state via *State() functions.
 -- NOT intended for direct SELECT -- use fct_hourly_aqi view instead.
--- dim_locations provides sensor_quality_tier and source per station_id.
--- Use COALESCE on dim_locations LEFT JOIN so unmatched stations still get processed.
 -- NULL values in int_aqi_calculations are excluded from aggregate functions.
-with location_tier as (
-    select
-        station_id,
-        sensor_quality_tier,
-        source
+-- Uses ifNull(..., 0) for Nullable columns in aggregates to avoid CAST(NULL, Float64) error.
+with location_attrs as (
+    select station_id,
+           any(sensor_quality_tier) as sensor_quality_tier,
+           any(source) as source
     from {{ ref('dim_locations') }}
+    group by station_id
 ),
 source_hint as (
-    select distinct
-        station_id,
-        source
+    select station_id, any(source) as source
     from {{ ref('int_aqi_calculations') }}
+    group by station_id
 )
 select
-    CAST(toStartOfHour(m.timestamp_utc), 'DateTime')           AS datetime_hour,
-    m.station_id                                                AS station_id,
-    m.parameter                                                 AS pollutant,
-    avgState(m.value)                                            AS avg_value,
-    avgState(m.aqi_value)                                        AS avg_aqi,
-    countState()                                                  AS measurement_count,
-    maxState(m.value)                                             AS max_value,
-    minState(m.value)                                             AS min_value,
-    countStateIf(if(m.aqi_value > 150, 1, 0))                  AS exceedance_count_150,
-    countStateIf(if(m.aqi_value > 200, 1, 0))                  AS exceedance_count_200,
-    countStateIf(if(m.quality_flag != 'valid', 1, 0))          AS invalid_count,
-    avgState(CAST(m.aqi_reported, 'Float64'))                  AS avg_aqi_reported,
-    argMaxState(m.parameter, m.aqi_value)                      AS dominant_pollutant_state,
-    coalesce(lt.sensor_quality_tier, sh.source)               AS sensor_quality_tier,
-    coalesce(lt.source, sh.source)                              AS source
+    CAST(toStartOfHour(m.timestamp_utc), 'DateTime')          AS datetime_hour,
+    m.station_id                                               AS station_id,
+    m.parameter                                                AS pollutant,
+    avgState(m.value)                                           AS avg_value,
+    avgState(m.aqi_value)                                       AS avg_aqi,
+    countState()                                                AS measurement_count,
+    maxState(m.value)                                           AS max_value,
+    minState(m.value)                                           AS min_value,
+    countStateIf(if(m.aqi_value > 150, 1, 0))                 AS exceedance_count_150,
+    countStateIf(if(m.aqi_value > 200, 1, 0))                 AS exceedance_count_200,
+    countStateIf(if(m.quality_flag != 'valid', 1, 0))         AS invalid_count,
+    -- aqi_reported is Nullable(Int32): ifNull avoids CAST(NULL, Float64) error
+    avgState(CAST(ifNull(m.aqi_reported, 0), 'Float64'))       AS avg_aqi_reported,
+    argMaxState(m.parameter, m.aqi_value)                     AS dominant_pollutant_state,
+    ifNull(la.sensor_quality_tier, sh.source)               AS sensor_quality_tier,
+    ifNull(la.source, sh.source)                               AS source
 from {{ ref('int_aqi_calculations') }} m
-where m.timestamp_utc IS NOT NULL
-left join location_tier lt on m.station_id = lt.station_id
+left join location_attrs la on m.station_id = la.station_id
 left join source_hint sh on m.station_id = sh.station_id
-{% if is_incremental() %}
--- 2-hour lookback to capture late-arriving data for already-merged partitions
-where CAST(toStartOfHour(m.timestamp_utc), 'DateTime') >= (
-    select max(datetime_hour) - INTERVAL 2 HOUR from {{ this }}
-)
-{% endif %}
+where
+    m.timestamp_utc IS NOT NULL
+    {% if is_incremental() %}
+    and CAST(toStartOfHour(m.timestamp_utc), 'DateTime') >= (
+        select max(datetime_hour) - INTERVAL 2 HOUR
+        from {{ this }}
+    )
+    {% endif %}
 group by
     CAST(toStartOfHour(m.timestamp_utc), 'DateTime'),
     m.station_id,
     m.parameter,
-    lt.sensor_quality_tier,
-    lt.source,
-    sh.source
+    ifNull(la.sensor_quality_tier, sh.source),
+    ifNull(la.source, sh.source)
