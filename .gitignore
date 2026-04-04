@@ -13,6 +13,7 @@ __pycache__/
 dbt/target/
 dbt/logs/
 dbt/.dbt/
+.pytest_cache/
 
 # Airflow
 airflow/logs/
@@ -44,3 +45,5 @@ specs/
 data/
 clickhouse-data/
 *.cfg
+
+.playwright-mcp/

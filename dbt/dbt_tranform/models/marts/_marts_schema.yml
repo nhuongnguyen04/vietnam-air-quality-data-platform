@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: fct_hourly_aqi
-    description: "Public query view for hourly AQI data. Reads binary aggregate state from fct_hourly_aqi_state via *Merge() functions. This is the intended table for dashboards (Superset/Grafana)."
+    description: "Public query view for hourly AQI data. Reads binary aggregate state from fct_hourly_aqi_state via *Merge() functions. This is the intended table for dashboards (Streamlit/Grafana)."
     columns:
       - name: datetime_hour
         description: "Top of hour timestamp (UTC)"
@@ -178,7 +178,7 @@ models:
         description: "EPA AQI breakpoint high"
 
   - name: mart_air_quality__dashboard
-    description: "Pre-joined dashboard mart: daily AQI + station metadata for Superset. Reads from fct_daily_aqi_summary_state via *Merge() functions and joins with dim_locations."
+    description: "Pre-joined dashboard mart: daily AQI + station metadata for Streamlit dashboard. Reads from fct_daily_aqi_summary_state via *Merge() functions and joins with dim_locations."
     columns:
       - name: date
         description: "Date (UTC)"

@@ -1,6 +1,6 @@
 # docker-compose.test.yml — Minimal CI test stack
 # Used by .github/workflows/ci.yml for dbt integration tests
-# Does NOT include Airflow, Superset, Grafana, or OpenMetadata
+# Does NOT include Airflow, Streamlit, Grafana, or OpenMetadata
 
 version: '3.8'
 

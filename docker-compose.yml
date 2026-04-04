@@ -349,88 +349,6 @@ services:
       '
     networks:
     - air-quality-network
-  superset:
-    build:
-      context: .
-      dockerfile: superset/Dockerfile
-    container_name: superset
-    restart: unless-stopped
-    ports:
-    - 8088:8088
-    volumes:
-    - ./superset/superset_config.py:/etc/pythonpath/superset/superset_config.py:ro
-    - ./superset/dashboards:/app/dashboards:ro
-    - superset-data:/app/superset_home
-    environment:
-    - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
-    - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY:-$(openssl rand -base64 42)}
-    - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-    - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
-    - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-    - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-    - CLICKHOUSE_DB=${CLICKHOUSE_DB}
-    - SUPERSET_GUEST_TOKEN_SECRET=${SUPERSET_GUEST_TOKEN_SECRET}
-    - RATELIMIT_ENABLED=False
-    - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    mem_limit: 1.5g
-    cpus: '1'
-    healthcheck:
-      test:
-      - CMD
-      - curl
-      - --fail
-      - http://localhost:8088/health
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '3'
-    networks:
-    - air-quality-network
-  redis:
-    image: redis:7-alpine
-    container_name: superset-redis
-    restart: unless-stopped
-    networks:
-    - air-quality-network
-    healthcheck:
-      test:
-      - CMD
-      - redis-cli
-      - ping
-      interval: 10s
-  superset-init:
-    build:
-      context: .
-      dockerfile: superset/Dockerfile
-    container_name: superset-init
-    restart: 'no'
-    command:
-    - /bootstrap/superset-init.sh
-    volumes:
-    - ./superset/superset_config.py:/etc/pythonpath/superset/superset_config.py:ro
-    - ./superset/superset-init.sh:/bootstrap/superset-init.sh:ro
-    environment:
-    - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
-    - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
-    - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER:-admin}
-    - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD:-admin}
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-      superset:
-        condition: service_healthy
-    networks:
-    - air-quality-network
   dashboard:
     build:
       context: .
@@ -518,5 +436,4 @@ networks:
   air-quality-network:
     external: true
 volumes:
-  superset-data: null
   grafana-data: null

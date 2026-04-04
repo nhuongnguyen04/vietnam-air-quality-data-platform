@@ -1,8 +1,8 @@
 # Nền tảng Phân tích Chất lượng Không khí Việt Nam
 
-Pipeline Data Engineering end-to-end: OpenAQ + AQICN → Python → ClickHouse → dbt → Superset
+Pipeline Data Engineering end-to-end: AQICN + Sensors.Community + OpenWeather → Python → ClickHouse → dbt → Streamlit
 
-**Stack**: Python (Requests), ClickHouse, dbt, Apache Airflow, Prometheus + Grafana, Superset  
+**Stack**: Python (Requests), ClickHouse, dbt, Apache Airflow, Streamlit, Prometheus + Grafana  
 **Deployment**: Docker Compose
 
 ## Cấu trúc repository
@@ -33,14 +33,14 @@ The Docker Compose stack allocates the following resources per service:
 | Airflow Triggerer | 512MB | 1 |
 | **Phase 0 Total** | **~6GB** | **5** |
 
-Future phases (Superset, Grafana, OpenMetadata) add approximately 5.5GB more, for a fully deployed stack of approximately 11.5GB.
+Future phases (Grafana, OpenMetadata) add approximately 3.5GB more, for a fully deployed stack of approximately 9.5GB.
 
 
 ---
 
 ## Streamlit Analytics Dashboard (Phase 3.2)
 
-Real-time AQI analytics dashboard for Vietnam — replaces Superset for thesis defense demo.
+Real-time AQI analytics dashboard for Vietnam — Streamlit-based analytics (Phase 3.2).
 
 ### Running Locally
 

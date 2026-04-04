@@ -12,7 +12,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 ### Constraints
 
 - **Tech stack**: Python, ClickHouse, dbt, Airflow, Docker Compose — existing, no wholesale replacement
-- **New additions**: Streamlit (analytics dashboard, Phase 3.2), Grafana (infrastructure monitoring, Phase 3.3), Superset (legacy — not deployed), OpenMetadata (metadata catalog)
+- **New additions**: Streamlit (analytics dashboard, Phase 3.2), Grafana (infrastructure monitoring, Phase 3.3), OpenMetadata (metadata catalog)
 - **Near-real-time**: Target <15 min ingestion latency if sources and API rate limits permit; fall back to hourly if unstable
 - **Vietnam focus**: All sources must have measurable Vietnam data coverage
 - **API costs**: Prefer free-tier APIs; AQICN token already exists
@@ -343,7 +343,6 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | postgres | 5432 | Airflow metadata |
 | **dashboard** (Streamlit) | **8501** | **Analytics dashboard — real-time AQI visualization (Phase 3.2)** |
 | **grafana** | **3000** | **Infrastructure monitoring dashboards (Phase 3.3)** |
-| superset | 8088 | Legacy analytics (Phase 3.1 — not deployed) |
 ### Network
 - All services on `air-quality-network`
 - Services reference each other by container name
