@@ -8,7 +8,6 @@ Author: Air Quality Data Platform
 """
 
 import os
-from flask_appbuilder.security.manager import AUTH_DB
 from datetime import timedelta
 from superset.config import *
 
@@ -19,13 +18,24 @@ CLICKHOUSE_HOST = os.environ.get("CLICKHOUSE_HOST", "clickhouse")
 CLICKHOUSE_PORT = os.environ.get("CLICKHOUSE_PORT", "8123")
 CLICKHOUSE_DB = os.environ.get("CLICKHOUSE_DB", "air_quality")
 
+# --- Authentication (SQLite metadata DB — Flask-AppBuilder) ---
+# Flask-AppBuilder yêu cầu SQLite/PostgreSQL, KHÔNG hỗ trợ ClickHouse.
+# Dùng SQLite tại /app/superset_home/superset.db (mounted volume).
+# AUTH_DB = Flask session-based auth (mặc định của Superset).
+SUPERSET_HOME = os.environ.get("SUPERSET_HOME", "/app/superset_home")
+SQLALCHEMY_DATABASE_URI = f"sqlite:///{SUPERSET_HOME}/superset.db"
+AUTH_TYPE = AUTH_DB  # noqa: F821 — imported by superset.config import *
+
+# --- Cookie Security ---
+# Gán lại sau superset.config import — tránh bị override bởi base image defaults
+SESSION_COOKIE_SECURE = False   # HTTP deployment
+
+# --- ClickHouse Connection (chỉ cho analytical queries, không phải metadata) ---
+# Đặt dưới dạng custom engine URL để Superset có thể tạo database connection khi người dùng add ClickHouse
 CLICKHOUSE_URI = (
     f"clickhouse+http://{CLICKHOUSE_USER}:{CLICKHOUSE_PASSWORD}"
     f"@{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/{CLICKHOUSE_DB}"
 )
-
-SQLALCHEMY_DATABASE_URI = CLICKHOUSE_URI
-SQLALCHEMY_EXTRAS = {"connect_args": {"connect_timeout": 30}}
 
 # --- Metadata Caching (Performance Improvement) ---
 # Tăng tốc độ load schema, danh sách table từ ClickHouse
@@ -45,7 +55,7 @@ LOG_FORMAT = '%(asctime)s:%(levelname)s:%(name)s:%(message)s'
 
 # --- Session Security Settings ---
 SESSION_COOKIE_HTTPONLY = True  # Ngăn chặn XSS truy cập cookie
-SESSION_COOKIE_SECURE = True    # Chỉ gửi cookie qua HTTPS
+SESSION_COOKIE_SECURE = False   # False vì Superset chạy qua HTTP (không phải HTTPS trong môi trường dev)
 SESSION_COOKIE_SAMESITE = 'Lax'
 PERMANENT_SESSION_LIFETIME = timedelta(days=1)
 

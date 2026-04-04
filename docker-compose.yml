@@ -418,7 +418,8 @@ services:
       - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
       # FIX LỖI SECRET_KEY: Tạo một chuỗi ngẫu nhiên bằng lệnh: openssl rand -base64 42
       - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY:-$(openssl rand -base64 42)}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      # Luôn dùng Docker service name 'clickhouse' — không dùng ${CLICKHOUSE_HOST} từ .env (vì .env có thể là localhost)
+      - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
