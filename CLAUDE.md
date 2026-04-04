@@ -3,16 +3,16 @@
 
 **Vietnam Air Quality Data Platform — Refactor & Upgrade**
 
-A comprehensive data engineering platform that ingests, transforms, and visualizes air quality data for Vietnam from multiple external sources (AQICN, Sensors.Community, OpenWeather, and government/MONRE data), stores it in ClickHouse, and exposes it through Superset dashboards, Grafana monitoring, and automated reports with alerting.
+A comprehensive data engineering platform that ingests, transforms, and visualizes air quality data for Vietnam from multiple external sources (AQICN, Sensors.Community, OpenWeather, and government/MONRE data), stores it in ClickHouse, and exposes it through Streamlit dashboards (Phase 3.2), Grafana monitoring (Phase 3.3), and automated reports with alerting.
 
 **This is a brownfield project.** The existing codebase already has OpenAQ ingestion, ClickHouse storage, dbt transformations, and Airflow orchestration. This refactor replaces the data source layer, modernizes the entire pipeline, and adds visualization + metadata management.
 
-**Core Value:** Reliable, near-real-time air quality monitoring for Vietnam — trusted data from multiple sources, cleaned and unified, available to analysts and the public via dashboards and alerts.
+**Core Value:** Reliable, near-real-time air quality monitoring for Vietnam — trusted data from multiple sources, cleaned and unified, available to analysts and the public via Streamlit dashboards and alerts.
 
 ### Constraints
 
 - **Tech stack**: Python, ClickHouse, dbt, Airflow, Docker Compose — existing, no wholesale replacement
-- **New additions**: Superset, Grafana, OpenMetadata — to be containerized alongside existing services
+- **New additions**: Streamlit (analytics dashboard, Phase 3.2), Grafana (infrastructure monitoring, Phase 3.3), Superset (legacy — not deployed), OpenMetadata (metadata catalog)
 - **Near-real-time**: Target <15 min ingestion latency if sources and API rate limits permit; fall back to hourly if unstable
 - **Vietnam focus**: All sources must have measurable Vietnam data coverage
 - **API costs**: Prefer free-tier APIs; AQICN token already exists
@@ -44,12 +44,15 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | `requests` | (pinned via Airflow deps) | HTTP client for API ingestion |
 | `python-json-logger` | 2.0.7 | JSON-structured logging for Python jobs |
 | `pydantic` | (latest) | Data validation & config modeling |
+| `streamlit` | 1.56.0 | Analytics dashboard (Phase 3.2) |
+| `plotly` | 5.18.0 | Charts and visualizations |
 ### Airflow Dockerfile (`airflow/Dockerfile`)
 - **Base image**: `apache/airflow:3.1.7`
 - Installs all packages from `requirements.txt`
 - Explicitly adds `apache-airflow-providers-http`, `apache-airflow-providers-sqlite`, `apache-airflow-providers-postgres` at build time
 - Copies `dbt/dbt_tranform` into `/opt/dbt/dbt_tranform`
 ### Python Jobs (`python_jobs/`)
+| `dashboard` | `app.py` | Streamlit analytics dashboard (Phase 3.2); connects to ClickHouse, renders 5 pages: Overview, Pollutants, Source Comparison, Forecast, Alerts |
 | Module | File | Purpose |
 |--------|------|---------|
 | `common` | `api_client.py` | Generic `APIClient` with retry/backoff; factory function `create_aqicn_client()` (api.waqi.info); `create_openaq_client()` (deprecated, OpenAQ removed) |
@@ -103,10 +106,11 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 ### Deployment
 | Tool | Role |
 |------|------|
-| Docker Compose (`docker-compose.yml`) | Defines all 7 services; version 3.8 |
+| Docker Compose (`docker-compose.yml`) | Defines all services; version 3.8 |
 | `airflow/Dockerfile` | Builds custom Airflow image from `apache/airflow:3.1.7` |
 | `airflow/config/entrypoint.sh` | Custom entrypoint: runs `airflow db migrate/init`, creates log directories, handles Airflow 3.x command mapping (`webserver` → `api-server`) |
 | `airflow/config/setup_connections.py` | Python script to create Airflow connections programmatically |
+| `python_jobs/dashboard/Dockerfile` | Streamlit dashboard image — `python:3.11-slim`, installs from `python_jobs/dashboard/requirements.txt` |
 ## Environment & Configuration
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -145,6 +149,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - Python ingestion jobs live in `/python_jobs/jobs/<source>/` (e.g., `python_jobs/jobs/aqicn/`, `python_jobs/jobs/sensorscm/`, `python_jobs/jobs/openweather/`).
 - Shared utilities live in `python_jobs/common/` (e.g., `api_client.py`, `rate_limiter.py`, `clickhouse_writer.py`, `config.py`, `logging_config.py`).
 - Models live in `python_jobs/models/` (e.g., `aqicn_models.py`, `sensorscm_models.py`, `openweather_models.py`).
+- **Dashboard**: Streamlit analytics in `python_jobs/dashboard/` — `app.py` là entry point, pages trong `pages/`.
 - Every package directory must contain an `__init__.py` file.
 ### CLI Arguments
 - `--mode`: `incremental` (default for hourly runs), `historical` (for backfills), or `rewrite` (for metadata refresh).
@@ -222,6 +227,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | clickhouse | `wget --spider -q localhost:8123/ping` | 10s | 5s | 5 |
 | postgres | `pg_isready -U airflow` | 10s | 5s | 5 |
 | airflow-webserver | `curl --fail http://localhost:8080/api/v2/monitor/health` | 30s | 10s | 5 |
+| dashboard | `curl --fail http://localhost:8501/_stcore/health` | 30s | 10s | 5 |
 ### Logging
 ### Airflow Dockerfile (`airflow/Dockerfile`)
 - **Base image**: `apache/airflow:3.1.7`
@@ -335,6 +341,9 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | airflow-dag-processor | — | DAG file parsing |
 | airflow-triggerer | — | Deferred task execution |
 | postgres | 5432 | Airflow metadata |
+| **dashboard** (Streamlit) | **8501** | **Analytics dashboard — real-time AQI visualization (Phase 3.2)** |
+| **grafana** | **3000** | **Infrastructure monitoring dashboards (Phase 3.3)** |
+| superset | 8088 | Legacy analytics (Phase 3.1 — not deployed) |
 ### Network
 - All services on `air-quality-network`
 - Services reference each other by container name
