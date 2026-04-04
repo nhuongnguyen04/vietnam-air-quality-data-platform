@@ -31,6 +31,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - air-quality-network
 
   # ============================================
   # Airflow 3.1 Services
@@ -105,6 +107,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - air-quality-network
 
   airflow-scheduler:
     build:
@@ -167,6 +171,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - air-quality-network
 
   airflow-dag-processor:
     build:
@@ -229,6 +235,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - air-quality-network
 
   airflow-triggerer:
     build:
@@ -291,6 +299,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - air-quality-network
 
   # PostgreSQL for Airflow metadata
   postgres:
@@ -317,6 +327,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - air-quality-network
 
   # ============================================
   # Airflow Init Tool - Handles permissions
@@ -339,56 +351,60 @@ services:
       chown -R 50000:0 /opt/airflow/logs &&
       chmod -R 775 /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins &&
       echo 'Permissions setup complete.'"
-
-  # ============================================
-  # Grafana — Operational Dashboards (Phase 3.3)
-  # ============================================
-  grafana:
-    image: grafana/grafana:11.4.0
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
-      - grafana-data:/var/lib/grafana
-    environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_SECURITY_ALLOW_EMBEDDING=true
-      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
-      - TELEGRAM_WEBHOOK_URL=https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    mem_limit: 512m
-    cpus: '0.5'
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
     networks:
       - air-quality-network
+
+#   # ============================================
+#   # Grafana — Operational Dashboards (Phase 3.3)
+#   # ============================================
+#   grafana:
+#     image: grafana/grafana:11.3.1
+#     container_name: grafana
+#     restart: unless-stopped
+#     ports:
+#       - "3000:3000"
+#     volumes:
+#       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+#       - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+#       - grafana-data:/var/lib/grafana
+#     environment:
+#       - GF_AUTH_ANONYMOUS_ENABLED=true
+#       - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+#       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+#       - GF_SECURITY_ALLOW_EMBEDDING=true
+#       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+#       - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+#       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+#       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+#       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+#       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+#       - TELEGRAM_WEBHOOK_URL=https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage
+#       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+#     depends_on:
+#       clickhouse:
+#         condition: service_healthy
+#     mem_limit: 512m
+#     cpus: '0.5'
+#     healthcheck:
+#       test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+#       interval: 30s
+#       timeout: 5s
+#       retries: 5
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: "10m"
+#         max-file: "3"
+#     networks:
+#       - air-quality-network
 
 # ============================================
 # Superset — Analytics Dashboards (Plan 3.1)
 # ============================================
   superset:
-    image: apache/superset:4.1.0
+    build:
+      context: .
+      dockerfile: superset/Dockerfile
     container_name: superset
     restart: unless-stopped
     ports:
@@ -396,25 +412,33 @@ services:
     volumes:
       - ./superset/superset_config.py:/etc/pythonpath/superset/superset_config.py:ro
       - ./superset/dashboards:/app/dashboards:ro
+      # Cần mount folder để lưu database SQLite nội bộ của Superset nếu không dùng Postgres/MySQL rời
+      - superset-data:/app/superset_home 
     environment:
       - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
+      # FIX LỖI SECRET_KEY: Tạo một chuỗi ngẫu nhiên bằng lệnh: openssl rand -base64 42
+      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY:-$(openssl rand -base64 42)}
       - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
       - SUPERSET_GUEST_TOKEN_SECRET=${SUPERSET_GUEST_TOKEN_SECRET}
+      - RATELIMIT_ENABLED=False # Tắt cho internal deployment như yêu cầu
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       clickhouse:
         condition: service_healthy
-    mem_limit: 1g
+      redis:
+        condition: service_healthy
+    mem_limit: 1.5g # Tăng nhẹ để gánh cache metadata
     cpus: '1'
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8088/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -423,39 +447,43 @@ services:
     networks:
       - air-quality-network
 
+  # Thêm Redis để hỗ trợ Caching Metadata đã viết trong config
+  redis:
+    image: redis:7-alpine
+    container_name: superset-redis
+    restart: unless-stopped
+    networks:
+      - air-quality-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+
   superset-init:
-    image: apache/superset:4.1.0
+    image: apache/superset:4.0.1
     container_name: superset-init
     restart: "no"
-    command: ["bash", "/bootstrap/superset-init.sh"]
+    command: ["/bootstrap/superset-init.sh"] # Bỏ bash, gọi trực tiếp file script
     volumes:
       - ./superset/superset_config.py:/etc/pythonpath/superset/superset_config.py:ro
       - ./superset/superset-init.sh:/bootstrap/superset-init.sh:ro
-      - ./superset/dashboards:/app/dashboards:ro
     environment:
       - SUPERSET_CONFIG_PATH=/etc/pythonpath/superset/superset_config.py
+      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
       - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER:-admin}
       - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD:-admin}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
     depends_on:
       superset:
         condition: service_healthy
     networks:
       - air-quality-network
-
 # ============================================
 # Networks & Volumes
 # ============================================
 networks:
-  default:
-    name: air-quality-network
   air-quality-network:
     external: true
 
 volumes:
-  grafana-data:
+  # grafana-data:
+  superset-data:
 
