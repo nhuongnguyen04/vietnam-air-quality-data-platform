@@ -12,18 +12,25 @@ with forecasts as (
         forecast_lead_days
     from {{ ref('stg_aqicn__forecast') }}
     where forecast_date is not null
+      and forecast_date >= today() - interval 90 day   -- LIMIT temporal scope to avoid OOM
 ),
 
 -- Pre-materialized daily actuals (see int_daily_actuals__aqicn)
 -- This avoids ClickHouse correlated subquery limitation in JOINs
+--
+-- NOTE: station_id in actuals has "AQICN_" prefix (from stg_aqicn__measurements)
+--       but forecast station_id is plain number (from raw_aqicn_forecast).
+--       Strip prefix here so JOIN keys match.
 actuals as (
     select
-        station_id,
+        replaceOne(station_id, 'AQICN_', '') AS station_id,
         pollutant,
         measurement_date,
         avg_value,
         max_value
     from {{ ref('int_daily_actuals__aqicn') }}
+    where measurement_date >= today() - interval 90 day
+      and pollutant in ('pm10', 'pm25')   -- only pollutants present in forecast data
 ),
 
 matched as (
