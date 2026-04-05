@@ -42,6 +42,7 @@ groups:
             datasourceUid: airflow-postgres
             model:
               interval: 1m
+              maxDataPoints: 300
               rawSql: |
                 SELECT state, dag_id, MAX(end_date) as last_run
                 FROM dag_run
@@ -80,6 +81,7 @@ groups:
             datasourceUid: clickhouse-airquality
             model:
               interval: 1m
+              maxDataPoints: 300
               rawSql: |
                 SELECT 1 AS clickhouse_up
         noDataState: Alerting
