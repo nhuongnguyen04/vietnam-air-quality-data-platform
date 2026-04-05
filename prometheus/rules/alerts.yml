@@ -1,0 +1,105 @@
+groups:
+  - name: air_quality_infrastructure
+    interval: 30s
+    rules:
+
+      # ── Service uptime ──────────────────────────────────────────────
+      - alert: ClickHouseDown
+        expr: up{job="clickhouse"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: data-ops
+        annotations:
+          summary: "ClickHouse unreachable"
+          description: "Prometheus cannot reach ClickHouse at {{ $labels.instance }}"
+
+      - alert: PostgreSQLExporterDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: data-ops
+        annotations:
+          summary: "postgres_exporter down"
+
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          team: data-ops
+        annotations:
+          summary: "node_exporter unreachable"
+
+      # ── Container health (cAdvisor) ────────────────────────────────
+      - alert: ContainerRestartLoop
+        expr: increase(container_restart_count[5m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+          team: data-ops
+        annotations:
+          summary: "Container {{ $labels.container_label_com_docker_compose_service }} restarted >3x in 5m"
+
+      - alert: ContainerOOMKilled
+        expr: increase(container_memory_working_set_bytes{container_label_com_docker_compose_service=~".+"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: data-ops
+        annotations:
+          summary: "Container OOMKilled: {{ $labels.container_label_com_docker_compose_service }}"
+
+      # ── Resource exhaustion ─────────────────────────────────────────
+      - alert: HostMemoryHigh
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: data-ops
+        annotations:
+          summary: "Host memory >90% used"
+
+      - alert: HostDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: data-ops
+        annotations:
+          summary: "Host root disk <10% free"
+
+      # ── PostgreSQL / Airflow health ──────────────────────────────
+      - alert: AirflowDAGFailures
+        expr: sum(increase(airflow_dag_run_count{state="failed"}[30m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: data-ops
+        annotations:
+          summary: "{{ $value }} DAG run failures in last 30m"
+
+      - alert: AirflowNoRecentSuccess
+        expr: |
+          (time() - airflow_dag_run_count_seconds_ago{state="success"})
+          > 7200
+        for: 10m
+        labels:
+          severity: warning
+          team: data-ops
+        annotations:
+          summary: "No successful DAG run in >2 hours"
+
+      # ── ClickHouse performance ────────────────────────────────────
+      - alert: ClickHouseHighQueryLatency
+        expr: |
+          rate(clickhouse_query_duration_seconds_sum[5m])
+          / rate(clickhouse_query_duration_seconds_count[5m])
+          > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: data-ops
+        annotations:
+          summary: "ClickHouse avg query latency >10s"

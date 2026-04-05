@@ -1,0 +1,27 @@
+queries:
+  # airflow_dag_run_count: DAG run counts by state in last 1 hour
+  - metric_name: airflow_dag_run_count
+    query: |
+      SELECT
+        state,
+        COUNT(*) AS count,
+        EXTRACT(EPOCH FROM (NOW() - MAX(end_date))) AS seconds_ago
+      FROM dag_run
+      WHERE end_date >= NOW() - INTERVAL '1 hour'
+      GROUP BY state
+    labels:
+      source: airflow
+
+  # airflow_task_duration_seconds: average task duration by dag and state
+  - metric_name: airflow_task_duration_seconds
+    query: |
+      SELECT
+        dag_id,
+        state,
+        AVG(duration) AS avg_duration
+      FROM task_instance
+      WHERE end_date >= NOW() - INTERVAL '1 hour'
+        AND duration IS NOT NULL
+      GROUP BY dag_id, state
+    labels:
+      source: airflow
