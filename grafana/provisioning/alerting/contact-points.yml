@@ -21,8 +21,8 @@ contactPoints:
       - uid: telegram-critical
         type: telegram
         settings:
-          bottoken: BOT_TOKEN_PLACEHOLDER
-          chatid: CHAT_ID_PLACEHOLDER
+          bottoken: ${TELEGRAM_BOT_TOKEN}
+          chatid: ${TELEGRAM_CHAT_ID}
           parse: Markdown
           message: |
             {{ if .Labels.alertname }}{{ .Labels.alertname }}{{ else }}Air Quality Alert{{ end }}
