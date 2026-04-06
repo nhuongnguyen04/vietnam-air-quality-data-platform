@@ -29,6 +29,7 @@ groups:
             datasourceUid: airflow-postgres
             model:
               type: sql
+              format: table
               interval: 1m
               maxDataPoints: 300
               rawSql: |
