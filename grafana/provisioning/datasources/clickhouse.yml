@@ -15,9 +15,10 @@ datasources:
     editable: false
     isDefault: true
     jsonData:
-      username: ${CLICKHOUSE_USER}
+      host: clickhouse
       port: 8123
       protocol: http
+      username: ${CLICKHOUSE_USER}
       timeout: 30
     secureJsonData:
       password: ${CLICKHOUSE_PASSWORD}
