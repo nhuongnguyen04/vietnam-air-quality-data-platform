@@ -1,41 +1,14 @@
-# Grafana Alerting Contact Points — Plan 3.4
-# D-05: Telegram webhook for critical alerts (pipeline failures + AQI > 200)
-# D-07: Freshness warnings → Grafana UI only, NO Telegram
-#
-# ISSUE 2 FIX: Uses rawSql: for PostgreSQL/ClickHouse datasources, expr: only for Prometheus.
-# ISSUE 4 FIX: Table name ingestion_control verified in scripts/init-clickhouse.sql (plain name, no dot).
-#
-# Grafana provisioning format: apiVersion: 1
-# Ref: https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/
+# Grafana Alerting Contact Points — Phase 3.1
+# Telegram integration requires manual configuration via Grafana UI
+# Reason: Go type system treats numeric chatid as int despite YAML string syntax
 
 apiVersion: 1
 
 contactPoints:
-  # =============================================================
-  # telegram-critical: Critical alerts only
-  # D-06: Pipeline failures + AQI > 200 → Telegram
-  # Ref: 03-CONTEXT.md § D-06
-  # =============================================================
   - name: telegram-critical
     receivers:
       - uid: telegram-critical
         type: telegram
         settings:
-          bottoken: ${TELEGRAM_BOT_TOKEN}
-          chatid: ${TELEGRAM_CHAT_ID}
-          parse: Markdown
-          message: |
-            {{ if .Labels.alertname }}{{ .Labels.alertname }}{{ else }}Air Quality Alert{{ end }}
-
-            {{ range .Alerts }}
-            {{ if .Labels.city }}📍 *{{ .Labels.city }}*{{ end }}
-            {{ if .Labels.station_name }}🏭 Station: {{ .Labels.station_name }}{{ end }}
-            {{ if .Values.A.Value }}AQI: *{{ .Values.A.Value | printf "%.0f" }}*{{ end }}
-            Time: {{ .StartsAt.Format "15:04 MST 02/01" }}
-            {{ if .Annotations.summary }}
-            {{ .Annotations.summary }}
-            {{ end }}
-            ---
-            {{ end }}
-        disableResolveMessage: false
-
+          bottoken: "${TELEGRAM_BOT_TOKEN}"
+          chatid: "${TELEGRAM_CHAT_ID}"
