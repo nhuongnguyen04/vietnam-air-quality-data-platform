@@ -43,7 +43,7 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
         'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
         'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-        'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin'),
+        'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
         'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
@@ -104,7 +104,7 @@ def dag_ingest_hourly():
         clickhouse_host = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
         clickhouse_port = os.environ.get('CLICKHOUSE_PORT', '8123')
         clickhouse_user = os.environ.get('CLICKHOUSE_USER', 'admin')
-        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin')
+        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
 
         url = f"http://{clickhouse_host}:{clickhouse_port}/?user={clickhouse_user}&password={clickhouse_password}"
 

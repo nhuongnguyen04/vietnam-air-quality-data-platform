@@ -33,8 +33,8 @@ DBT_ENV_VARS = {
     'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
     'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
     'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-    'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin'),
-    'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'airquality'),
+    'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
+    'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
     'DBT_LOG_PATH': '/tmp/dbt_logs',
     'DBT_TARGET_PATH': '/tmp/dbt_target',
     'DBT_PACKAGES_INSTALL_PATH': '/tmp/dbt_packages',
@@ -67,7 +67,7 @@ def dag_transform():
         clickhouse_host = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
         clickhouse_port = os.environ.get('CLICKHOUSE_PORT', '8123')
         clickhouse_user = os.environ.get('CLICKHOUSE_USER', 'admin')
-        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin')
+        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
         
         url = f"http://{clickhouse_host}:{clickhouse_port}/ping"
         
@@ -267,8 +267,8 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
         clickhouse_host = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
         clickhouse_port = os.environ.get('CLICKHOUSE_PORT', '8123')
         clickhouse_user = os.environ.get('CLICKHOUSE_USER', 'admin')
-        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin')
-        clickhouse_db = os.environ.get('CLICKHOUSE_DB', 'airquality')
+        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
+        clickhouse_db = os.environ.get('CLICKHOUSE_DB', 'air_quality')
         
         url = f"http://{clickhouse_host}:{clickhouse_port}/?user={clickhouse_user}&password={clickhouse_password}"
         

@@ -35,7 +35,7 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
         'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
         'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-        'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin'),
+        'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'AQICN_API_TOKEN': os.environ.get('AQICN_API_TOKEN', ''),
         # Note: Sensors.Community requires no API token

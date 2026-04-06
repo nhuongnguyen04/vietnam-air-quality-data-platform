@@ -2,6 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Build context is repo root (.) — copy requirements + code from python_jobs/dashboard
 COPY python_jobs/dashboard/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
