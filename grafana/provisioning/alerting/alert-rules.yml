@@ -3,20 +3,9 @@
 # D-06: Critical alerts → Telegram (pipeline failures + AQI > 200)
 # D-07: Operational warnings → Grafana only, NO Telegram
 #
-# Pitfall 6 FIX: for: 5m on all rules + group_wait: 30m for 30-min deduplication
-# ISSUE 2 FIX: rawSql: for PostgreSQL/ClickHouse datasources; NEVER expr: (that's Prometheus-only)
-# ISSUE 4 FIX: Table name ingestion_control verified in scripts/init-clickhouse.sql (plain name, no dot)
-#
-# Grafana provisioning format: apiVersion: 1
-# Alert condition routing:
-#   - condition: B → refId B = reduced/aggregated value (required for reduce step)
-#   - queryType: reduce → reduces multiple rows to a scalar
-#
-# NOTE: Do NOT put refId inside model: — refId is already at data item level.
-# Including refId inside model causes duplicate key → nil map panic in Grafana 11.4.
-# Grafana 11.x: model JSON must be valid with maxDataPoints.
-#
-# Ref: https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/
+# Grafana 11.x provisioning format: apiVersion: 1
+# All expression data items MUST have a model: block with type + maxDataPoints
+# to avoid "assignment to entry in nil map" panic.
 
 apiVersion: 1
 
@@ -28,8 +17,6 @@ groups:
 
       # =============================================================
       # Rule 1: DAG Failure — CRITICAL → Telegram #data-ops
-      # Datasource: airflow-postgres (PostgreSQL)
-      # refId A = raw SQL query → refId B = reduce → condition: B
       # =============================================================
       - uid: dag-failure-critical
         title: DAG Failure — Critical
@@ -50,15 +37,18 @@ groups:
                   AND state IN ('failed', 'up_for_retry')
                 GROUP BY state, dag_id
           - refId: B
-            queryType: reduce
-            reducer: last
-            expression: A
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              maxDataPoints: 300
+              reducer: last
+              expression: A
         noDataState: OK
         execErrState: Error
         for: 5m
         annotations:
           summary: "DAG {{ $labels.dag_id }} failed — immediate attention required"
-          description: "DAG {{ $labels.dag_id }} entered {{ $labels.state }} state at {{ $values.B.Value }}"
+          description: "DAG {{ $labels.dag_id }} entered {{ $labels.state }} state"
         labels:
           severity: critical
           team: data-ops
@@ -66,9 +56,6 @@ groups:
 
       # =============================================================
       # Rule 2: ClickHouse Down — CRITICAL → Telegram #data-ops
-      # Datasource: clickhouse-airquality (ClickHouse)
-      # noDataState: Alerting → fires when no data returned (ClickHouse unreachable)
-      # condition: A → query returns scalar (no reduce step needed)
       # =============================================================
       - uid: clickhouse-down-critical
         title: ClickHouse Database Down
@@ -96,9 +83,7 @@ groups:
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Rule 3: AQI Critical (>200 Very Unhealthy) — CRITICAL → Telegram #air-quality
-      # Datasource: clickhouse-airquality (ClickHouse)
-      # refId A = query → refId C = reduce → condition: C
+      # Rule 3: AQI Critical (>200 Very Unhealthy) — CRITICAL → Telegram
       # =============================================================
       - uid: aqi-critical-200
         title: AQI Critical (>200 Very Unhealthy)
@@ -111,6 +96,7 @@ groups:
             datasourceUid: clickhouse-airquality
             model:
               interval: 1m
+              maxDataPoints: 300
               rawSql: |
                 SELECT MAX(normalized_aqi) AS max_aqi,
                        argMax(station_name, normalized_aqi) AS station,
@@ -119,16 +105,18 @@ groups:
                 WHERE timestamp_utc >= NOW() - INTERVAL 1 HOUR
                 HAVING MAX(normalized_aqi) > 200
           - refId: C
-            queryType: reduce
-            reducer: last
-            expression: A
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              maxDataPoints: 300
+              reducer: last
+              expression: A
         noDataState: OK
         execErrState: Error
         for: 5m
         annotations:
           summary: "AQI exceeded 200 (Very Unhealthy) at {{ $labels.city }}"
           description: |
-            AQI: {{ $values.A.Value | printf "%.0f" }}
             Station: {{ $labels.station }}
             City: {{ $labels.city }}
         labels:
@@ -137,9 +125,7 @@ groups:
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Rule 4: Data Freshness Warning (>3h old) — WARNING → Grafana only, NO Telegram
-      # Datasource: clickhouse-airquality (ClickHouse)
-      # noDataState: OK → no data = fresh = OK (table empty = no problems)
+      # Rule 4: Data Freshness Warning (>3h old) — WARNING → Grafana only
       # =============================================================
       - uid: data-freshness-warning
         title: Data Freshness Warning (>3h old)
@@ -152,17 +138,21 @@ groups:
             datasourceUid: clickhouse-airquality
             model:
               interval: 1m
+              maxDataPoints: 300
               rawSql: |
                 SELECT source,
                        MAX(lag_seconds) AS max_lag,
                        MAX(last_success) AS last_data_time
                 FROM ingestion_control
                 GROUP BY source
-                HAVING MAX(lag_seconds) > 10800  -- 3 hours in seconds
+                HAVING MAX(lag_seconds) > 10800
           - refId: C
-            queryType: reduce
-            reducer: last
-            expression: A
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              maxDataPoints: 300
+              reducer: last
+              expression: A
         noDataState: OK
         execErrState: OK
         for: 5m
@@ -170,18 +160,12 @@ groups:
           summary: "Data from {{ $labels.source }} is >3h old — check pipeline"
           description: |
             Source: {{ $labels.source }}
-            Lag: {{ $values.A.Value | printf "%.0f" }}s
-            Last data: {{ $labels.last_data_time }}
         labels:
           severity: warning
           team: data-ops
-        # D-07: Freshness warnings → Grafana UI only, NO Telegram
-        # No contactPoints: defaults to Grafana's internal notification system
 
       # =============================================================
-      # Rule 5: Station Stale (>2h no data) — WARNING → Grafana only, NO Telegram
-      # Datasource: clickhouse-airquality (ClickHouse)
-      # noDataState: OK → no stale stations = OK
+      # Rule 5: Station Stale (>2h no data) — WARNING → Grafana only
       # =============================================================
       - uid: station-stale-warning
         title: Station Stale (>2h no data)
@@ -194,6 +178,7 @@ groups:
             datasourceUid: clickhouse-airquality
             model:
               interval: 1m
+              maxDataPoints: 300
               rawSql: |
                 SELECT station_id, city, source,
                        MAX(timestamp_utc) AS last_seen
@@ -201,9 +186,12 @@ groups:
                 GROUP BY station_id, city, source
                 HAVING MAX(timestamp_utc) < NOW() - INTERVAL 2 HOUR
           - refId: C
-            queryType: reduce
-            reducer: last
-            expression: A
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              maxDataPoints: 300
+              reducer: last
+              expression: A
         noDataState: OK
         execErrState: OK
         for: 5m
@@ -213,9 +201,6 @@ groups:
             Station: {{ $labels.station_id }}
             City: {{ $labels.city }}
             Source: {{ $labels.source }}
-            Last seen: {{ $labels.last_seen }}
         labels:
           severity: warning
           team: data-ops
-        # D-07: Station stale warnings → Grafana UI only, NO Telegram
-        # No contactPoints: defaults to Grafana's internal notification system

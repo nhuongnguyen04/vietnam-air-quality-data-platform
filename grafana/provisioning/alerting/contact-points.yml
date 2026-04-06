@@ -1,6 +1,9 @@
 # Grafana Alerting Contact Points — Phase 3.1
-# Telegram integration requires manual configuration via Grafana UI
-# Reason: Go type system treats numeric chatid as int despite YAML string syntax
+# IMPORTANT: chatid MUST be a string, not a number.
+# Grafana's env-var substitution resolves ${VAR} before YAML parsing.
+# A numeric chat ID like 5602934306 becomes a YAML integer, causing:
+#   "json: cannot unmarshal number into Go struct field Config.chatid of type string"
+# Solution: Use explicit string quoting to force YAML string type.
 
 apiVersion: 1
 
@@ -10,5 +13,5 @@ contactPoints:
       - uid: telegram-critical
         type: telegram
         settings:
-          bottoken: "${TELEGRAM_BOT_TOKEN}"
-          chatid: "${TELEGRAM_CHAT_ID}"
+          bottoken: ${TELEGRAM_BOT_TOKEN}
+          chatid: '5602934306'
