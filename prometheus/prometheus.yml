@@ -34,12 +34,12 @@ scrape_configs:
         target_label: instance
         replacement: 'postgres:5432/airflow'
 
-  # ── ClickHouse built-in /metrics (port 9123) ───────────────────────
-  # Note: Requires ClickHouse config with <prometheus><endpoint>9123</endpoint></endpoint></prometheus>
-  # If ClickHouse /metrics is not available, this target will show as 'down' — this is OK, the other 4 targets will be up
+  # ── ClickHouse built-in /metrics (port 9363) ───────────────────────
+  # ClickHouse IP resolved separately — this target is 'down' due to WSL2 DNS limitations
+  # Known limitation: clickhouse target requires manual network fix or alternative exporter
   - job_name: 'clickhouse'
     static_configs:
-      - targets: ['clickhouse:9123']
+      - targets: ['clickhouse:9363']
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
