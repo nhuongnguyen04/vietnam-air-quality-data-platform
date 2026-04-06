@@ -91,6 +91,8 @@ services:
         condition: service_started
       airflow-triggerer:
         condition: service_started
+    mem_limit: 512m
+    cpus: '1'
     healthcheck:
       test:
       - CMD
@@ -478,6 +480,8 @@ services:
     - /:/rootfs:ro
     ports:
     - 9100:9100
+    mem_limit: 128m
+    cpus: '0.25'
     networks:
     - air-quality-network
   cadvisor:
@@ -487,7 +491,7 @@ services:
     command:
     - '--housekeeping_interval=30s'
     - '--docker_only=true'
-    - '--disable_metrics=percpu,sched,tcp,udp,diskstats,hwcard_bus,textfile'
+    - '--disable_metrics=percpu,sched,tcp,udp,hwcard_bus,textfile'
     volumes:
     - /:/rootfs:ro
     - /var/run:/var/run:ro
@@ -496,6 +500,8 @@ services:
     - /dev/disk/:/dev/disk:ro
     ports:
     - 8080:8080
+    mem_limit: 256m
+    cpus: '0.25'
     networks:
     - air-quality-network
   postgres-exporter:
@@ -513,6 +519,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    mem_limit: 256m
+    cpus: '0.25'
     networks:
     - air-quality-network
 networks:
