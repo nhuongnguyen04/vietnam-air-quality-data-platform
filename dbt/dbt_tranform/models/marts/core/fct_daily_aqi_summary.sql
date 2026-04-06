@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('fct_hourly_aqi') }}
 {{ config(materialized='view') }}
 
 -- Public query layer for fct_daily_aqi_summary_state.

@@ -1,0 +1,19 @@
+source,parameter,calibration_factor,calibration_method,notes
+aqicn,pm25,1.0,ground_truth,Government monitors — no calibration needed
+aqicn,pm10,1.0,ground_truth,Government monitors — no calibration needed
+aqicn,o3,1.0,ground_truth,Government monitors — no calibration needed
+aqicn,no2,1.0,ground_truth,Government monitors — no calibration needed
+aqicn,co,1.0,ground_truth,Government monitors — no calibration needed
+aqicn,so2,1.0,ground_truth,Government monitors — no calibration needed
+sensorscm,pm25,1.0,ground_truth,Community sensors — no calibration needed
+sensorscm,pm10,1.0,ground_truth,Community sensors — no calibration needed
+sensorscm,o3,1.0,ground_truth,Community sensors — no calibration needed
+sensorscm,no2,1.0,ground_truth,Community sensors — no calibration needed
+sensorscm,co,1.0,ground_truth,Community sensors — no calibration needed
+sensorscm,so2,1.0,ground_truth,Community sensors — no calibration needed
+openweather,pm25,1.85,regression_vs_aqicn,"Grid-model estimates at city-centroid coordinates systematically underestimate urban PM2.5 in Vietnam. Factor 1.85 derived from simple average of 3 overlap cities: Hanoi (1.93x), Da Nang (1.60x), Gia Lai (2.02x). Validated: avg error ~9% vs AQICN ground truth."
+openweather,pm10,1.85,regression_vs_aqicn,"Grid-model PM10 also underestimated. Using same factor 1.85x as PM2.5 to keep proportional consistency across all particulate pollutants. Individual PM10 overlap data insufficient for independent factor."
+openweather,o3,1.0,none,O3 from atmospheric model is less biased; no correction applied.
+openweather,no2,1.2,regression_vs_aqicn,NO2 from atmospheric model shows moderate urban underestimation.
+openweather,co,1.0,none,CO unit conversion already correct; calibration not needed.
+openweather,so2,1.0,none,SO2 not primary concern in Vietnam urban areas; no correction needed.

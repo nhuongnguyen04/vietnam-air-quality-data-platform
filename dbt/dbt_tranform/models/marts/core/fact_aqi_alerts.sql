@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('fct_hourly_aqi') }}
 {{ config(
     materialized='incremental',
     unique_key='station_id || datetime_hour || threshold_breached',

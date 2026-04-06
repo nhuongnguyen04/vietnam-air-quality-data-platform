@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('dim_locations') }}
 {{ config(
     materialized='incremental',
     incremental_strategy='insert_overwrite',

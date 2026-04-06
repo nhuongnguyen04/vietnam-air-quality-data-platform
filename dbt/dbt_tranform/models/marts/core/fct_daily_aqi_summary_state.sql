@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('fct_hourly_aqi') }}
 {{ config(
     materialized='incremental',
     incremental_strategy='insert_overwrite',
