@@ -1,3 +1,6 @@
+-- depends_on: {{ ref('stg_aqicn__stations') }}
+-- depends_on: {{ ref('stg_openweather__measurements') }}
+-- depends_on: {{ ref('stg_sensorscm__measurements') }}
 {{ config(materialized='view') }}
 
 with aqicn_stations as (

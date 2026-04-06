@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('source_calibration') }}
 {{ config(materialized='view') }}
 
 -- Source calibration factors for AQI calculation.

@@ -59,11 +59,15 @@ canonical as (
         end                                                                 AS timestamp_utc,
 
         {{ standardize_pollutant_name('pollutant') }}                    AS parameter,
-        toFloat64OrNull(value)                                             AS value,
+        -- CO from AQICN arrives in mg/m³. Convert to ppm: ppm = mg/m³ / 1.145.
+        -- All other pollutants (PM, O3, NO2, SO2) are already in µg/m³ — correct for EPA.
+        if({{ standardize_pollutant_name('pollutant') }} = 'co',
+           toFloat64OrNull(value) / 1.145,
+           toFloat64OrNull(value))                                       AS value,
         case
             when {{ standardize_pollutant_name('pollutant') }} in ('pm25', 'pm10') then 'µg/m³'
             when {{ standardize_pollutant_name('pollutant') }} in ('o3', 'no2', 'so2') then 'ppb'
-            when {{ standardize_pollutant_name('pollutant') }} = 'co' then 'µg/m³'
+            when {{ standardize_pollutant_name('pollutant') }} = 'co' then 'ppm'
             else 'unknown'
         end                                                                 AS unit,
         'valid'                                                             AS quality_flag,

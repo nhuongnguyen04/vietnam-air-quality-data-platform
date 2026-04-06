@@ -1,7 +1,7 @@
 -- depends_on: {{ ref('dim_locations') }}
 {{ config(
     materialized='incremental',
-    incremental_strategy='insert_overwrite',
+    incremental_strategy='append',
     on_schema_change='sync_all_columns',
     engine='AggregatingMergeTree',
     order_by=['datetime_hour', 'station_id', 'pollutant'],

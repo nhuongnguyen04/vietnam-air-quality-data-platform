@@ -1,68 +1,85 @@
 {{ config(materialized='view') }}
 
--- AQI calculation using EPA canonical formula.
--- Handles unit conversion: OpenWeather CO is in µg/m³, must be converted to ppm for EPA breakpoints.
--- EPA CO breakpoints are in ppm: 0-4.4 (AQI 0-50), 4.4-9.4 (51-100), 9.4-12.4 (101-150),
---   12.4-15.4 (151-200), 15.4-30.4 (201-300), 30.4-50.4 (301-400), 50.4-100 (401-500).
--- Conversion: 1 ppm CO = 1000 µg/m³.
-with joined as (
+-- AQI calculation using US EPA piecewise breakpoint formula via macros.
+--
+-- The old version used a generic single-bracket formula seeded from pollutants.csv
+-- (which only had 1 breakpoint row per pollutant). For PM2.5 = 84 µg/m³ this
+-- yielded AQI 350 instead of the correct ~150 because:
+--   WRONG: ((84 - 0) / (12.0 - 0)) × (50 - 0) + 0 = 350
+--   RIGHT: 84 falls in the 55.5-150.4 bracket → ~150
+--
+-- This version calls the pollutant-specific macros from macros/calculate_aqi.sql.
+-- Calibration factor is applied before AQI computation via LEFT JOIN.
+-- CO unit conversion (mg/m³ → ppm) is already done in stg_aqicn__measurements.
+--
+-- NOTE: All columns must be explicitly aliased to avoid ambiguity between
+--       the 'unit' column in stg_pollutants__parameters and m.unit from
+--       int_unified__measurements.
+with calibration as (
+    select source, parameter, calibration_factor
+    from {{ ref('stg_source_calibration') }}
+),
+measurements as (
     select
-        m.source,
-        m.station_id,
-        m.timestamp_utc,
-        m.parameter,
-        m.value,                                       -- raw value (µg/m³ for CO)
-        m.unit,
-        m.quality_flag,
-        m.aqi_reported,
-        m.ingest_time,
-        p.epa_aqi_bp_lo  AS bp_lo,
-        p.epa_aqi_bp_hi  AS bp_hi,
-        p.conc_bp_lo     AS conc_lo,
-        p.conc_bp_hi     AS conc_hi,
-        -- Convert µg/m³ to ppm for CO before AQI calculation (breakpoints in ppm)
-        if(m.parameter = 'co' and m.unit = 'µg/m³',
-           m.value / 1000.0,
-           m.value) AS value_for_aqi
+        m.source                                       AS data_source,
+        m.station_id                                   AS station_id,
+        m.timestamp_utc                               AS timestamp_utc,
+        m.parameter                                   AS param_name,
+        m.value                                       AS raw_value,
+        m.unit                                        AS measurement_unit,
+        m.quality_flag                                AS quality_flag,
+        m.aqi_reported                                AS aqi_reported,
+        m.ingest_time                                 AS ingest_time,
+        coalesce(c.calibration_factor, 1.0) * m.value AS calibrated_value
     from {{ ref('int_unified__measurements') }} m
-    inner join {{ ref('stg_pollutants__parameters') }} p
-        on m.parameter = p.pollutant_key
+    left join calibration c
+        on c.source = m.source and c.parameter = m.parameter
 ),
 calculated as (
     select
-        source,
+        data_source,
         station_id,
-        toStartOfHour(timestamp_utc) AS hour_key,
+        toStartOfHour(timestamp_utc)                   AS hour_key,
+        timestamp_utc,
+        param_name                                      AS parameter,
+        raw_value,
+        measurement_unit                                AS unit,
+        quality_flag,
+        aqi_reported,
+        ingest_time,
+        calibrated_value,
+
+        -- Call the pollutant-specific AQI macro.
+        -- Macro expands to ClickHouse CASE WHEN; column refs (param_name, calibrated_value)
+        -- are evaluated per row in the table scan — fully valid ClickHouse syntax.
+        {{ calculate_aqi('param_name', 'calibrated_value') }} AS aqi_value
+    from measurements
+),
+with_max as (
+    select
+        data_source,
+        station_id,
+        hour_key,
         timestamp_utc,
         parameter,
-        value,
+        raw_value                                       AS value,
         unit,
         quality_flag,
         aqi_reported,
         ingest_time,
-        case
-            when bp_hi is not null and conc_hi != conc_lo then
-                ((value_for_aqi - conc_lo) / (conc_hi - conc_lo)) * (bp_hi - bp_lo) + bp_lo
-            else null
-        end AS aqi_value
-    from joined
-    where parameter in ('pm25', 'pm10', 'o3', 'no2', 'co', 'so2')
-),
-with_max as (
-    select
-        c.*,
-        c.aqi_value,
-        max(c.aqi_value) over (
-            partition by c.station_id, toStartOfHour(c.timestamp_utc)
-        ) AS max_aqi_in_hour,
+        calibrated_value                               AS value_for_aqi,
+        aqi_value,
+        max(aqi_value) over (
+            partition by station_id, toStartOfHour(timestamp_utc)
+        )                                              AS max_aqi_in_hour,
         row_number() over (
-            partition by c.station_id, toStartOfHour(c.timestamp_utc)
-            order by c.aqi_value desc nulls last
-        ) AS pollutant_rank
-    from calculated c
+            partition by station_id, toStartOfHour(timestamp_utc)
+            order by aqi_value desc nulls last
+        )                                              AS pollutant_rank
+    from calculated
 )
 select
-    source,
+    data_source                                              AS source,
     station_id,
     timestamp_utc,
     parameter,
@@ -71,8 +88,8 @@ select
     quality_flag,
     aqi_reported,
     aqi_value,
-    {{ get_aqi_category('aqi_value') }} AS aqi_category,
-    if(pollutant_rank = 1, true, false) AS is_dominant_pollutant,
-    'epa_canonical'                       AS aqi_calculation_method,
+    {{ get_aqi_category('aqi_value') }}                     AS aqi_category,
+    if(pollutant_rank = 1, true, false)                     AS is_dominant_pollutant,
+    'epa_piecewise'                                          AS aqi_calculation_method,
     ingest_time
 from with_max

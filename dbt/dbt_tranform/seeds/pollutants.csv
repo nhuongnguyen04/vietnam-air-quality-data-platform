@@ -1,7 +1,41 @@
 pollutant_key,display_name,unit,epa_aqi_bp_lo,epa_aqi_bp_hi,conc_bp_lo,conc_bp_hi,health_effects
 pm25,PM2.5,µg/m³,0,50,0,12.0,Sensitive groups should limit prolonged outdoor exertion
-pm10,PM10,µg/m³,0,50,0,54,May cause breathing difficulties for sensitive individuals
-o3,Ozone (8hr),ppb,0,50,0,54,Asthmatics at risk during high ozone periods
-no2,Nitrogen Dioxide,ppb,0,50,0,53,"Can inflame airways, reduces lung function"
-co,Carbon Monoxide,ppm,0,50,0,4.4,Can cause harmful health effects
-so2,Sulfur Dioxide,ppb,0,50,0,35,Can inflame respiratory system
+pm25,PM2.5,µg/m³,51,100,12.1,35.4,Members of sensitive groups may experience more serious health effects
+pm25,PM2.5,µg/m³,101,150,35.5,55.4,Members of sensitive groups may experience more serious health effects
+pm25,PM2.5,µg/m³,151,200,55.5,150.4,Everyone may begin to experience health effects
+pm25,PM2.5,µg/m³,201,300,150.5,250.4,Health alert: everyone may experience more serious health effects
+pm25,PM2.5,µg/m³,301,400,250.5,350.4,Health warnings of emergency conditions
+pm25,PM2.5,µg/m³,401,500,350.5,500.4,Health alert: everyone may experience more serious health effects
+pm10,PM10,µg/m³,0,50,0,54,Sensitive groups should limit prolonged outdoor exertion
+pm10,PM10,µg/m³,51,100,55,154,Members of sensitive groups may experience more serious health effects
+pm10,PM10,µg/m³,101,150,155,254,Members of sensitive groups may experience more serious health effects
+pm10,PM10,µg/m³,151,200,255,354,Everyone may begin to experience health effects
+pm10,PM10,µg/m³,201,300,355,424,Health alert: everyone may experience more serious health effects
+pm10,PM10,µg/m³,301,400,425,504,Health warnings of emergency conditions
+pm10,PM10,µg/m³,401,500,505,604,Health alert: everyone may experience more serious health effects
+o3,Ozone (8hr),ppb,0,50,0,54,Sensitive groups should limit prolonged outdoor exertion
+o3,Ozone (8hr),ppb,51,100,55,70,Members of sensitive groups may experience more serious health effects
+o3,Ozone (8hr),ppb,101,150,71,85,Members of sensitive groups may experience more serious health effects
+o3,Ozone (8hr),ppb,151,200,86,105,Everyone may begin to experience health effects
+o3,Ozone (8hr),ppb,201,300,106,200,Health alert: everyone may experience more serious health effects
+no2,Nitrogen Dioxide,ppb,0,50,0,53,Sensitive groups should limit prolonged outdoor exertion
+no2,Nitrogen Dioxide,ppb,51,100,54,100,Members of sensitive groups may experience more serious health effects
+no2,Nitrogen Dioxide,ppb,101,150,101,360,Members of sensitive groups may experience more serious health effects
+no2,Nitrogen Dioxide,ppb,151,200,361,649,Everyone may begin to experience health effects
+no2,Nitrogen Dioxide,ppb,201,300,650,1249,Health alert: everyone may experience more serious health effects
+no2,Nitrogen Dioxide,ppb,301,400,1250,1649,Health warnings of emergency conditions
+no2,Nitrogen Dioxide,ppb,401,500,1650,2049,Health alert: everyone may experience more serious health effects
+co,Carbon Monoxide,ppm,0,50,0,4.4,Sensitive groups should limit prolonged outdoor exertion
+co,Carbon Monoxide,ppm,51,100,4.5,9.4,Members of sensitive groups may experience more serious health effects
+co,Carbon Monoxide,ppm,101,150,9.5,12.4,Members of sensitive groups may experience more serious health effects
+co,Carbon Monoxide,ppm,151,200,12.5,15.4,Everyone may begin to experience health effects
+co,Carbon Monoxide,ppm,201,300,15.5,30.4,Health alert: everyone may experience more serious health effects
+co,Carbon Monoxide,ppm,301,400,30.5,40.4,Health warnings of emergency conditions
+co,Carbon Monoxide,ppm,401,500,40.5,50.4,Health alert: everyone may experience more serious health effects
+so2,Sulfur Dioxide,ppb,0,50,0,35,Sensitive groups should limit prolonged outdoor exertion
+so2,Sulfur Dioxide,ppb,51,100,36,75,Members of sensitive groups may experience more serious health effects
+so2,Sulfur Dioxide,ppb,101,150,76,185,Members of sensitive groups may experience more serious health effects
+so2,Sulfur Dioxide,ppb,151,200,186,304,Everyone may begin to experience health effects
+so2,Sulfur Dioxide,ppb,201,300,305,604,Health alert: everyone may experience more serious health effects
+so2,Sulfur Dioxide,ppb,301,400,605,804,Health warnings of emergency conditions
+so2,Sulfur Dioxide,ppb,401,500,805,1004,Health alert: everyone may experience more serious health effects

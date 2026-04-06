@@ -97,7 +97,7 @@ models:
       - name: is_dominant_pollutant
         description: "Flag indicating if this is the dominant pollutant for the station-hour"
       - name: aqi_calculation_method
-        description: "Calculation method: 'epa_canonical'"
+        description: "Calculation method: 'epa_piecewise' (7-bracket US EPA formula; replaces the broken single-bracket generic formula that caused AQI 300-400+ for normal PM2.5 levels)"
       - name: ingest_time
         description: "Ingestion timestamp"
 

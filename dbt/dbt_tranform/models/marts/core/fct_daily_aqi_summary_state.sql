@@ -1,7 +1,7 @@
 -- depends_on: {{ ref('fct_hourly_aqi') }}
 {{ config(
     materialized='incremental',
-    incremental_strategy='insert_overwrite',
+    incremental_strategy='append',
     on_schema_change='sync_all_columns',
     engine='AggregatingMergeTree',
     order_by=['date', 'station_id'],
@@ -18,22 +18,43 @@
 {% set min_date = "1=1" %}
 {% endif %}
 
-WITH daily_agg AS (
+WITH hourly_station_aqi AS (
+    -- First, find the max AQI across all pollutants for each station and hour.
+    -- This represents the "station's AQI" at that hour.
+    SELECT
+        datetime_hour,
+        station_id,
+        max(normalized_aqi)                      AS hour_aqi,
+        argMax(pollutant, normalized_aqi)        AS dominant_pollutant,
+        any(sensor_quality_tier)                 AS sensor_quality_tier,
+        any(source)                              AS source,
+        sum(measurement_count)                   AS measurement_count,
+        sum(exceedance_count_150)                AS exceedance_count_150,
+        sum(exceedance_count_200)                AS exceedance_count_200,
+        max(max_value)                           AS max_val,
+        min(min_value)                           AS min_val,
+        avg(avg_value)                           AS mean_val
+    FROM {{ ref('fct_hourly_aqi') }}
+    WHERE {{ min_date }}
+    GROUP BY
+        datetime_hour,
+        station_id
+),
+daily_agg AS (
     SELECT
         toDate(datetime_hour)                    AS date,
         station_id,
-        avg(normalized_aqi)                      AS avg_aqi,
-        avg(avg_value)                           AS avg_value,
-        min(min_value)                           AS min_aqi,
-        max(max_value)                           AS max_aqi,
+        avg(hour_aqi)                            AS avg_aqi,
+        avg(mean_val)                            AS avg_value,
+        min(hour_aqi)                            AS min_aqi,
+        max(hour_aqi)                            AS max_aqi,
         sum(measurement_count)                   AS hourly_count,
         sum(exceedance_count_150)                AS exceedance_count_150,
         sum(exceedance_count_200)                AS exceedance_count_200,
-        argMax(pollutant, normalized_aqi)        AS dominant_pollutant,
+        argMax(dominant_pollutant, hour_aqi)     AS dominant_pollutant,
         sensor_quality_tier,
         source
-    FROM {{ ref('fct_hourly_aqi') }}
-    WHERE {{ min_date }}
+    FROM hourly_station_aqi
     GROUP BY
         toDate(datetime_hour),
         station_id,

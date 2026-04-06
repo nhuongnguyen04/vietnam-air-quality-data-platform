@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('fct_daily_aqi_summary_state') }}
 {{ config(
     materialized='table',
     engine='ReplacingMergeTree',

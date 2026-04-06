@@ -1,5 +1,6 @@
 {{ config(materialized='view') }}
 
+-- depends_on: {{ ref('fact_aqi_alerts') }}
 select
     station_id,
     datetime_hour,
