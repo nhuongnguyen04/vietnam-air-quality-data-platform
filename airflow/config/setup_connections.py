@@ -52,7 +52,7 @@ def create_connections():
     for conn_params in connections_to_create:
         conn_id = conn_params['conn_id']
         
-        if conn_id in existing_conns:
+        if conn_id in existing_conn_ids:
             print(f"Connection '{conn_id}' already exists. Skipping...")
             continue
         

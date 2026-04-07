@@ -30,7 +30,7 @@ All services run via Docker Compose on the `air-quality-network` network.
 | Grafana | 3000 | Operational monitoring + alerting |
 | Prometheus | 9090 | Metrics collection |
 | Node Exporter | 9100 | Host-level metrics |
-| cAdvisor | 8080 | Container metrics |
+| cAdvisor | 8088 | Container metrics |
 | PostgreSQL Exporter | 9187 | PostgreSQL metrics for Prometheus |
 
 ## Hardware Requirements
