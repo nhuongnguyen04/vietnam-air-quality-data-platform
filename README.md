@@ -128,4 +128,63 @@ docker compose logs -f airflow-scheduler
 # - Airflow: http://localhost:8090
 # - Prometheus: http://localhost:9090
 # - ClickHouse: http://localhost:8123
+# - OpenMetadata: http://localhost:8585
 ```
+
+## OpenMetadata Integration (Phase 4)
+
+OpenMetadata 1.12.4 cung cấp data catalog, dbt lineage graph, và data quality governance.
+
+### Access
+- **URL:** http://localhost:8585
+- **Credentials:** `admin@open-metadata.org` / `admin`
+- **OM Bundled Airflow:** http://localhost:8080 (admin / admin)
+
+### Architecture
+- **OM Server:** `openmetadata/server:1.12.4` — catalog UI + API (port 8585)
+- **OM Ingestion:** `openmetadata/ingestion:1.12.4` — pipeline runner (port 8080)
+- **PostgreSQL:** dùng chung với Airflow metadata (database: `openmetadata_db`)
+- **Elasticsearch:** `docker.elastic.co/elasticsearch/elasticsearch:7.16.3` — search index
+
+### Services Connected
+| Service | Connector | Schedule |
+|---------|----------|----------|
+| ClickHouse (air_quality) | OM ClickHouse connector | Hourly |
+| dbt lineage | OM dbt connector | Hourly |
+| Airflow DAGs | OM Airflow connector | Manual |
+
+### Key Catalog Entities
+- **Databases:** `air_quality` (ClickHouse)
+- **Schemas:** `air_quality`
+- **Tables:** 20+ (raw_* + stg_* + int_* + fct_* + mart_*)
+- **Pipelines:** 3+ (dag_ingest_hourly, dag_transform, dag_openmetadata_curation)
+- **Glossary:** AirQuality (7 terms: AQI, PM2.5, PM10, O₃, NO₂, SO₂, CO)
+
+### Catalog Curation
+Curation tự động qua `dag_openmetadata_curation` (chạy `35 * * * *`):
+- Owners, tags, tier assignments cho tất cả mart + raw tables
+- Glossary terms setup
+- OM ClickHouse connector owners/tags limitation được workaround qua REST API
+
+### Data Quality
+- **Source of truth:** dbt tests (46 tests, Plan 2.3)
+- OM đọc kết quả từ `target/run_results.json` qua dbt ingestion pipeline
+- Quality dashboard trong OM hiển thị pass/fail status cho mỗi test
+
+### Environment Variables
+```bash
+OPENMETADATA_URL=http://openmetadata:8585/api
+OM_ADMIN_USER=admin@open-metadata.org
+OM_ADMIN_PASSWORD=admin
+POSTGRES_OM_DB=openmetadata_db
+POSTGRES_OM_USER=openmetadata_user
+POSTGRES_OM_PASSWORD=openmetadata_password
+CLICKHOUSE_OM_READER_USER=om_reader
+CLICKHOUSE_OM_READER_PASSWORD=om_reader_secure_pass
+```
+
+### Troubleshooting
+- **OM server không lên:** Kiểm tra `docker compose ps openmetadata` — healthcheck phải healthy
+- **Catalog trống:** Chạy OM ingestion thủ công (Settings → Services → Run)
+- **dbt lineage không hiển thị:** Đảm bảo `dbt run` đã chạy và `target/manifest.json` tồn tại
+- **Credentials sai:** OM credentials là `admin@open-metadata.org` / `admin` (KHÔNG phải `admin` / `admin`)

@@ -78,7 +78,10 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | Product | Version | Role |
 |---------|---------|------|
 | **ClickHouse** | **25.12** | Primary analytical database; stores all raw measurements, forecasts, metadata, and dbt-transformed marts |
-| **PostgreSQL** | **15** | Airflow metadata database (scheduler, DAG state, connections, XCom) |
+| **PostgreSQL** | **15** | Airflow metadata database (scheduler, DAG state, connections, XCom); shared with OpenMetadata (`openmetadata_db`) |
+| **OpenMetadata** | **1.12.4** | Data catalog, dbt lineage, data quality governance |
+| **PostgreSQL OM** | shared | OM metadata store (`openmetadata_db`) |
+| **Elasticsearch** | 7.16.3 | OM search index |
 #### ClickHouse Tables (defined in `scripts/init-clickhouse.sql`)
 - `raw_aqicn_measurements` — MergeTree, append-only
 - `raw_aqicn_forecast` — ReplacingMergeTree
@@ -111,6 +114,9 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | `airflow/config/entrypoint.sh` | Custom entrypoint: runs `airflow db migrate/init`, creates log directories, handles Airflow 3.x command mapping (`webserver` → `api-server`) |
 | `airflow/config/setup_connections.py` | Python script to create Airflow connections programmatically |
 | `python_jobs/dashboard/Dockerfile` | Streamlit dashboard image — `python:3.11-slim`, installs from `python_jobs/dashboard/requirements.txt` |
+| `openmetadata/ingestion-configs/` | OM Ingestion workflow YAML configs (ClickHouse, dbt) |
+| `openmetadata/data/` | OM server persistent data |
+| `openmetadata/elasticsearch-data/` | OM Elasticsearch search index |
 ## Environment & Configuration
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -128,6 +134,14 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | `AIRFLOW_API_SECRET_KEY` | (from `.env`) | Airflow API secret |
 | `AIRFLOW_API_AUTH_JWT_SECRET` | (from `.env`) | JWT signing secret |
 | `AIRFLOW_WEBSERVER_SECRET_KEY` | (from `.env`) | Webserver secret key |
+| `OPENMETADATA_URL` | `http://openmetadata:8585/api` | OM API base URL |
+| `OM_ADMIN_USER` | `admin@open-metadata.org` | OM admin username |
+| `OM_ADMIN_PASSWORD` | `admin` | OM admin password |
+| `POSTGRES_OM_DB` | `openmetadata_db` | OM PostgreSQL database |
+| `POSTGRES_OM_USER` | `openmetadata_user` | OM PostgreSQL user |
+| `POSTGRES_OM_PASSWORD` | `openmetadata_password` | OM PostgreSQL password |
+| `CLICKHOUSE_OM_READER_USER` | `om_reader` | ClickHouse user for OM connector |
+| `CLICKHOUSE_OM_READER_PASSWORD` | `om_reader_secure_pass` | ClickHouse OM user password |
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
@@ -340,9 +354,13 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | airflow-scheduler | — | DAG scheduling |
 | airflow-dag-processor | — | DAG file parsing |
 | airflow-triggerer | — | Deferred task execution |
-| postgres | 5432 | Airflow metadata |
+| postgres | 5432 | Airflow metadata + OpenMetadata metadata store |
 | **dashboard** (Streamlit) | **8501** | **Analytics dashboard — real-time AQI visualization (Phase 3.2)** |
 | **grafana** | **3000** | **Infrastructure monitoring dashboards (Phase 3.3)** |
+| **openmetadata** | **8585** | **OM catalog UI + API (Phase 4)** |
+| **om-ingestion** | **8080** | **OM ingestion pipeline runner (Phase 4)** |
+| elasticsearch | 9200 (internal) | OM search backend (Phase 4) |
+| cadvisor | 8088 (external) | Container metrics |
 ### Network
 - All services on `air-quality-network`
 - Services reference each other by container name
