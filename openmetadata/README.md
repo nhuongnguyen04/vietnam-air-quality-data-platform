@@ -1,5 +1,11 @@
 # OpenMetadata Integration
 
+## Directories
+
+- `data/` — OM server persistent data (mounted as volume)
+- `elasticsearch-data/` — Elasticsearch index data (auto-created by container)
+- `ingestion-configs/` — OM Ingestion workflow YAML configs (mounted into om-ingestion container)
+
 ## Overview
 
 This directory contains OpenMetadata ingestion configurations for the Vietnam Air Quality Data Platform.
@@ -24,34 +30,48 @@ OpenMetadata Ingestion
         └── dbt service         ← ingest manifest → lineage graph
 ```
 
-## Services
+## Services (Phase 4.01+)
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| openmetadata | 8585 | OM server + UI |
-| mysql | 13306 | OM metadata store |
-| elasticsearch | 19200 | OM search index |
+All services run in the main `docker-compose.yml`:
 
-> **Note:** OpenMetadata requires 4GB+ RAM. It is started separately from the main stack.
+| Service | Container | Port | Purpose |
+|---------|-----------|------|---------|
+| openmetadata | openmetadata | 8585 | OM server + UI |
+| om-ingestion | openmetadata-ingestion | 8080 | OM Airflow-based ingestion scheduler |
+| elasticsearch | openmetadata-elasticsearch | (internal: 9200) | OM search index |
+| postgres | airflow-postgres1 | 5432 | Shared: Airflow metadata + OM metadata |
+
+> **Note:** OpenMetadata requires 4GB+ RAM total.
 
 ## Credentials
 
-- **Username**: `admin@open-metadata.org`
-- **Password**: `admin`
+| | |
+|-|-|
+| OM Login | `admin@open-metadata.org` / `admin` |
+| OM DB Host | `postgres` (shared with Airflow) |
+| OM DB Port | `5432` |
+| OM DB Database | `openmetadata_db` |
+| OM DB User | `openmetadata_user` |
+| OM DB Password | `openmetadata_password` |
+| ClickHouse Reader | `om_reader` / `om_reader_secure_pass` |
 
 ## Setup Instructions (One-time)
 
 ### Step 1: Start OpenMetadata
 
-OpenMetadata is started separately from the main `docker-compose.yml`:
+OpenMetadata starts together with the main stack:
 
 ```bash
-# From project root, start OM stack
-cd openmetadata
-docker compose up -d
+# From project root — ensure the network exists first
+docker network create air-quality-network 2>/dev/null || true
+docker compose up -d postgres
+sleep 10
+
+# Now start OM services
+docker compose up -d elasticsearch openmetadata om-ingestion
 
 # Wait for OM to be healthy (~3 minutes)
-docker compose ps
+docker compose ps openmetadata
 ```
 
 ### Step 2: Add ClickHouse Service (via OM UI)
@@ -105,9 +125,7 @@ docker compose ps
 | Include Tags | ✅ |
 | Mark Deleted Tables | ✅ |
 
-3. **Ingestion Pipeline**:
-   - Schedule: **hourly** (`0 * * * *`)
-
+3. **Ingestion Pipeline**: Schedule: **hourly** (`0 * * * *`)
 4. **Save → Run Ingestion immediately**
 
 ### Step 4: Verify (via OM API)
@@ -163,16 +181,5 @@ curl -X POST http://localhost:8585/api/v1/pipelines/trigger/<dbt-pipeline-id> \
 ### Stop OpenMetadata
 
 ```bash
-cd openmetadata
-docker compose down
+docker compose stop elasticsearch openmetadata om-ingestion
 ```
-
-## OM Database Credentials
-
-| Field | Value |
-|-------|-------|
-| Host | `mysql` (from openmetadata compose) |
-| Port | `3306` |
-| Database | `openmetadata` |
-| Username | `openmetadata` |
-| Password | `openmetadata` |
