@@ -38,6 +38,15 @@ def create_connections():
             'schema': os.getenv('CLICKHOUSE_DB', 'air_quality'),
             'description': 'ClickHouse connection for Airflow sensors',
         },
+        {
+            'conn_id': 'openmetadata_default',
+            'conn_type': 'http',
+            'host': os.getenv('OPENMETADATA_URL', 'http://openmetadata:8585/api').replace('/api', ''),
+            'port': 8585,
+            'login': os.getenv('OM_ADMIN_USER', 'admin@open-metadata.org'),
+            'password': os.getenv('OM_ADMIN_PASSWORD', 'admin'),
+            'description': 'OpenMetadata connection for Airflow → OM API calls',
+        },
     ]
     
     for conn_params in connections_to_create:
