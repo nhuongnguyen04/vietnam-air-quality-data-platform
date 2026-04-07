@@ -1,0 +1,86 @@
+version: 2
+
+models:
+  - name: stg_openweather__measurements
+    description: "Staged OpenWeather Air Pollution measurements — unit-converted to EPA standard units. Station IDs use raw format: openweather:{city}:{lat}:{lon}."
+    columns:
+      - name: source
+        description: "Data source identifier, always 'openweather'"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['openweather']
+
+      - name: station_id
+        description: "Station key in format openweather:{city}:{lat}:{lon}"
+        tests:
+          - not_null
+
+      - name: station_name
+        description: "City name used as station name for display"
+        tests:
+          - not_null
+
+      - name: city
+        description: "City name (same as station_name for OpenWeather)"
+        tests:
+          - not_null
+
+      - name: province
+        description: "Province name (same as station_name/city)"
+        tests:
+          - not_null
+
+      - name: latitude
+        description: "City centroid latitude"
+        tests:
+          - not_null
+
+      - name: longitude
+        description: "City centroid longitude"
+        tests:
+          - not_null
+
+      - name: timestamp_utc
+        description: "Measurement timestamp in UTC"
+        tests:
+          - not_null
+
+      - name: parameter
+        description: "Standardized pollutant name: pm25, pm10, o3, no2, so2, co, nh3, no"
+        tests:
+          - not_null
+
+      - name: value
+        description: "Pollutant concentration value, converted to EPA standard units (µg/m³ or ppb or ppm)"
+        tests:
+          - not_null
+
+      - name: unit
+        description: "Unit of measurement: µg/m³ for PM, ppb for O3/NO2/SO2/NH3/NO, ppm for CO"
+        tests:
+          - not_null
+
+      - name: quality_flag
+        description: "Data quality flag: valid or implausible"
+        tests:
+          - not_null
+
+      - name: aqi_reported
+        description: "OpenWeather AQI on 1-5 scale (Nullable). Nullable is valid."
+        tests: []
+
+      - name: ingest_time
+        description: "Timestamp when the record was ingested"
+        tests:
+          - not_null
+
+      - name: raw_payload
+        description: "Full raw JSON payload from OpenWeather API"
+        tests:
+          - not_null
+
+      - name: city_name
+        description: "City name (alias for station_name for downstream compatibility)"
+        tests:
+          - not_null

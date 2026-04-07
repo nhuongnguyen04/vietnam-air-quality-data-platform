@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: stg_pollutants__parameters
+    description: "Staged pollutant reference data from EPA AQI breakpoint table (pollutants.csv seed). Used for AQI calculation and display in dashboards."
+    columns:
+      - name: pollutant_key
+        description: "Standardized pollutant identifier: pm25, pm10, o3, no2, so2, co"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['pm25', 'pm10', 'o3', 'no2', 'so2', 'co']
+
+      - name: display_name
+        description: "Human-readable pollutant name"
+        tests:
+          - not_null
+
+      - name: unit
+        description: "EPA standard unit for this pollutant"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['µg/m³', 'ppb', 'ppm']
+
+      - name: epa_aqi_bp_lo
+        description: "EPA AQI breakpoint lower bound"
+        tests:
+          - not_null
+
+      - name: epa_aqi_bp_hi
+        description: "EPA AQI breakpoint upper bound"
+        tests:
+          - not_null
+
+      - name: conc_bp_lo
+        description: "Concentration breakpoint lower bound"
+        tests:
+          - not_null
+
+      - name: conc_bp_hi
+        description: "Concentration breakpoint upper bound"
+        tests:
+          - not_null
+
+      - name: health_effects
+        description: "Health advisory text for this AQI range"
+        tests:
+          - not_null
+
+  - name: stg_source_calibration
+    description: "Staged source calibration factors for AQI computation. openweather grid-model values are calibrated vs AQICN ground truth."
+    columns:
+      - name: source
+        description: "Data source: aqicn, openweather, sensorscm"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['aqicn', 'openweather', 'sensorscm']
+
+      - name: parameter
+        description: "Pollutant key this calibration applies to"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['pm25', 'pm10', 'o3', 'no2', 'so2', 'co']
+
+      - name: calibration_factor
+        description: "Multiplicative correction factor applied before AQI calculation"
+        tests:
+          - not_null
+
+      - name: calibration_method
+        description: "Method used to derive the calibration factor"
+        tests:
+          - not_null
+
+      - name: notes
+        description: "Free-text notes about the calibration"
+        tests:
+          - not_null

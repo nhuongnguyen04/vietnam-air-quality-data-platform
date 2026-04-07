@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: stg_sensorscm__measurements
+    description: "Staged Sensors.Community measurements — raw passthrough with standardized pollutant names. Station IDs prefixed with 'SENSORSCM_'."
+    columns:
+      - name: source
+        description: "Data source identifier, always 'sensorscm'"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['sensorscm']
+
+      - name: station_id
+        description: "Unique station key prefixed with 'SENSORSCM_', e.g. SENSORSCM_12345"
+        tests:
+          - not_null
+
+      - name: sensor_id
+        description: "Original Sensors.Community sensor ID"
+        tests:
+          - not_null
+
+      - name: latitude
+        description: "Latitude of the sensor (WGS84)"
+        tests:
+          - not_null
+
+      - name: longitude
+        description: "Longitude of the sensor (WGS84)"
+        tests:
+          - not_null
+
+      - name: timestamp_utc
+        description: "Measurement timestamp in UTC"
+        tests:
+          - not_null
+
+      - name: parameter
+        description: "Standardized pollutant/measurement name: pm25, pm10, o3, no2, so2, co, temperature, humidity, pressure"
+        tests:
+          - not_null
+
+      - name: value
+        description: "Sensor measurement value"
+        tests:
+          - not_null
+
+      - name: unit
+        description: "Unit of measurement"
+        tests:
+          - not_null
+
+      - name: quality_flag
+        description: "Data quality flag: valid, implausible, outlier"
+        tests:
+          - not_null
+
+      - name: ingest_time
+        description: "Timestamp when the record was ingested into ClickHouse"
+        tests:
+          - not_null
+
+      - name: raw_payload
+        description: "Full raw JSON payload for audit/debugging"
+        tests:
+          - not_null

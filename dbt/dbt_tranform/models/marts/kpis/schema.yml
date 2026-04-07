@@ -1,0 +1,179 @@
+version: 2
+
+models:
+  - name: mart_kpis__air_quality_index
+    description: "AQI KPI table at day/week/month granularity. Pre-computed AQI statistics and exceedance counts per time period. Source: mart_air_quality__daily_summary."
+    columns:
+      - name: period_date
+        description: "Start of the aggregation period (date for day, Monday for week, 1st of month for month)"
+        tests:
+          - not_null
+
+      - name: period_type
+        description: "Period type: day, week, month"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['day', 'week', 'month']
+
+      - name: avg_aqi
+        description: "Average AQI across all stations in this period"
+        tests:
+          - not_null
+
+      - name: max_aqi
+        description: "Maximum AQI across all stations in this period"
+        tests:
+          - not_null
+
+      - name: min_aqi
+        description: "Minimum AQI across all stations in this period"
+        tests:
+          - not_null
+
+      - name: days_exceeding_moderate
+        description: "Count of station-days with avg_aqi > 100"
+        tests:
+          - not_null
+
+      - name: days_exceeding_unhealthy_sensitive
+        description: "Count of station-days with avg_aqi > 150"
+        tests:
+          - not_null
+
+      - name: days_exceeding_unhealthy
+        description: "Count of station-days with avg_aqi > 200"
+        tests:
+          - not_null
+
+      - name: days_exceeding_very_unhealthy
+        description: "Count of station-days with avg_aqi > 300"
+        tests:
+          - not_null
+
+      - name: station_count
+        description: "Number of distinct stations contributing to this period"
+        tests:
+          - not_null
+
+      - name: pct_good
+        description: "Percentage of station-days with AQI in Good range (≤50). Nullable for week/month periods."
+        tests:
+          - not_null:
+              config:
+                where: "period_type = 'day'"
+
+      - name: pct_moderate
+        description: "Percentage of station-days with AQI in Moderate range (51-100)"
+        tests:
+          - not_null:
+              config:
+                where: "period_type = 'day'"
+
+      - name: pct_unhealthy_sensitive
+        description: "Percentage of station-days in Unhealthy for Sensitive Groups range (101-150)"
+        tests:
+          - not_null:
+              config:
+                where: "period_type = 'day'"
+
+      - name: pct_unhealthy
+        description: "Percentage of station-days in Unhealthy range (151-200)"
+        tests:
+          - not_null:
+              config:
+                where: "period_type = 'day'"
+
+      - name: pct_very_unhealthy
+        description: "Percentage of station-days in Very Unhealthy range (201-300)"
+        tests:
+          - not_null:
+              config:
+                where: "period_type = 'day'"
+
+      - name: pct_hazardous
+        description: "Percentage of station-days in Hazardous range (>300)"
+        tests:
+          - not_null:
+              config:
+                where: "period_type = 'day'"
+
+  - name: mart_kpis__data_coverage
+    description: "Data quality and coverage KPIs per station per day. Measures missing data rate, uptime, and freshness. Source: int_data_quality."
+    columns:
+      - name: date
+        description: "Date of the coverage record"
+        tests:
+          - not_null
+
+      - name: unified_station_id
+        description: "Station key"
+        tests:
+          - not_null
+
+      - name: uptime_pct
+        description: "Uptime percentage (100 if missing_data_rate ≤10%, scaling down to 25%)"
+        tests:
+          - not_null
+
+      - name: completeness_pct
+        description: "Data completeness: 100 - missing_data_rate"
+        tests:
+          - not_null
+
+      - name: data_freshness_hours
+        description: "Hours since the latest measurement"
+        tests:
+          - not_null
+
+      - name: freshness_score
+        description: "Score 10-100 based on data freshness"
+        tests:
+          - not_null
+
+      - name: data_quality_score
+        description: "Weighted composite quality score (0-100)"
+        tests:
+          - not_null
+
+      - name: is_outlier
+        description: "True if the station/day has poor quality data"
+        tests:
+          - not_null
+
+      - name: quality_category
+        description: "Quality tier: High (≥80), Medium (≥60), Low (≥40), Very Low (<40)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['High', 'Medium', 'Low', 'Very Low']
+
+  - name: mart_kpis__pollutant_concentrations
+    description: "Pollutant concentration KPIs — compares daily average concentrations against EPA reference thresholds. Reports exceedance rates per pollutant per day."
+    columns:
+      - name: date
+        description: "Date of the measurement"
+        tests:
+          - not_null
+
+      - name: pollutant
+        description: "Pollutant name: pm25, pm10, o3, no2, co, so2"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['pm25', 'pm10', 'o3', 'no2', 'co', 'so2']
+
+      - name: reference_threshold
+        description: "EPA reference AQI breakpoint concentration threshold for this pollutant"
+        tests:
+          - not_null
+
+      - name: exceedance_rate
+        description: "Percentage of readings exceeding the reference threshold"
+        tests:
+          - not_null
+
+      - name: total_readings
+        description: "Total number of readings contributing to this day's aggregate"
+        tests:
+          - not_null
