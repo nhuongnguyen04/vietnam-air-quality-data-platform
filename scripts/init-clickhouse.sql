@@ -330,9 +330,13 @@ SETTINGS index_granularity = 8192;
 -- Note: OpenWeather historical backfill available from Nov 2020 via /air_pollution/history
 -- Run dag_ingest_historical with --source openweather --start-date 2026-01-01 --end-date 2026-03-31
 
--- Optional: tạo user nếu cần (default đã có)
--- CREATE USER IF NOT EXISTS ${CLICKHOUSE_USER} IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_PASSWORD}';
--- GRANT ALL ON ${CLICKHOUSE_DB}.* TO ${CLICKHOUSE_USER};
+-- ============================================
+-- Phase 4: OpenMetadata ClickHouse Reader
+-- OM connector dùng user riêng với quyền SELECT only
+-- ============================================
+CREATE USER IF NOT EXISTS om_reader IDENTIFIED WITH sha256_password BY 'om_reader_secure_pass';
+GRANT SELECT ON air_quality.* TO om_reader;
+GRANT SELECT ON system.* TO om_reader;  -- cần thiết để OM liệt kê tables trong system.tables
 
 
 
