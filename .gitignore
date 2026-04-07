@@ -44,6 +44,7 @@ specs/
 
 data/
 clickhouse-data/
+elasticsearch-data/
 *.cfg
 
 .playwright-mcp/
