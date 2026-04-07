@@ -1,0 +1,36 @@
+# OpenMetadata Ingestion Workflow — dbt Lineage Connector
+# Usage: Import this workflow via OM UI → Settings → Services → Add Service → dbt → dbt Local
+# Requires: dag_transform has run at least once → target/manifest.json, catalog.json, run_results.json exist
+# Schedule: hourly (0 * * * *)
+# OM credentials: admin@open-metadata.org / admin
+
+source:
+  type: dbt
+  serviceName: Vietnam Air Quality dbt
+  sourceConfig:
+    config:
+      # dbt artifact paths — mounted from dbt host volume into OM container
+      dbtManifestFilePath: /opt/dbt-artifacts/manifest.json
+      dbtCatalogFilePath: /opt/dbt-artifacts/catalog.json
+      dbtRunResultsFilePath: /opt/dbt-artifacts/run_results.json
+      dbtRunMode: file
+      # Ingestion options
+      includeTags: true
+      markDeletedTables: true
+      forceUpdate: true
+      # Classification
+      dbtClassification: enabled
+      # Store raw dbt sources
+      includeRawdbtSources: false
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata:8585/api
+    authProvider: openmetadata
+    retryConfig:
+      maxRetries: 3
+      retryDelaySeconds: 5
+  logger:
+    level: INFO
