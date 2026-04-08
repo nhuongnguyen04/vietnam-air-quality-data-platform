@@ -47,10 +47,10 @@ sources:
             description: "Forecast date as string"
           - name: avg
             description: "Average forecast value as string"
-          - name: max
-            description: "Maximum forecast value as string"
-          - name: min
-            description: "Minimum forecast value as string"
+          - name: max_val
+            description: "Maximum forecast value as string (renamed from max to avoid ClickHouse built-in function conflict)"
+          - name: min_val
+            description: "Minimum forecast value as string (renamed from min to avoid ClickHouse built-in function conflict)"
           - name: ingest_time
             description: "Timestamp when data was ingested"
             tests:

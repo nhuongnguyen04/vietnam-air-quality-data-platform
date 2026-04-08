@@ -307,9 +307,9 @@ def transform_forecast(
                     "forecast_type": "daily",
                     "pollutant": pollutant,
                     "day": forecast_item.get("day"),
-                    "avg": str(forecast_item.get("avg")) if forecast_item.get("avg") else None,
-                    "max": str(forecast_item.get("max")) if forecast_item.get("max") else None,
-                    "min": str(forecast_item.get("min")) if forecast_item.get("min") else None,
+                    "avg": str(forecast_item.get("avg")) if forecast_item.get("avg") is not None else None,
+                    "max_val": str(forecast_item.get("max")) if forecast_item.get("max") is not None else '',
+                    "min_val": str(forecast_item.get("min")) if forecast_item.get("min") is not None else '',
                     "raw_forecast_item": str(forecast_item)
                 }
                 records.append(record)

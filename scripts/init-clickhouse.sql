@@ -107,10 +107,13 @@ CREATE TABLE IF NOT EXISTS raw_aqicn_forecast
     pollutant            LowCardinality(String),      -- "pm10", "pm25", "uvi", ...
 
     -- Forecast data (giữ nguyên 100% từ API, không convert)
+    -- D-09: avg/max/min là String không phải Nullable(String) vì:
+    --   - OpenMetadata profiler không xử lý được Nullable(String) → lỗi ILLEGAL_TYPE_OF_ARGUMENT
+    --   - AQICN API luôn trả về giá trị số (không có null thực); empty string thay vì NULL
     day                  Nullable(String),            -- forecast.daily.{pollutant}[].day (ví dụ: "2026-01-23")
-    avg                  Nullable(String),            -- forecast.daily.{pollutant}[].avg - giữ nguyên dạng string
-    max                  Nullable(String),            -- forecast.daily.{pollutant}[].max - giữ nguyên dạng string
-    min                  Nullable(String),            -- forecast.daily.{pollutant}[].min - giữ nguyên dạng string
+    avg                  String DEFAULT '',           -- forecast.daily.{pollutant}[].avg - giữ nguyên dạng string
+    max_val              String DEFAULT '',           -- forecast.daily.{pollutant}[].max - tránh trùng với ClickHouse built-in function max()
+    min_val              String DEFAULT '',           -- forecast.daily.{pollutant}[].min - tránh trùng với ClickHouse built-in function min()
 
     -- Full JSON gốc của forecast item để audit/debug/reprocess - GIỮ NGUYÊN 100%
     raw_forecast_item    String CODEC(ZSTD(1))

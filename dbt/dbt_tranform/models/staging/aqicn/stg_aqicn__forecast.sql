@@ -35,9 +35,10 @@ transformed as (
         day as forecast_date_str,
         
         -- Forecast values (convert from string to float)
+        -- D-36: max_val/min_val renamed from max/min to avoid ClickHouse built-in function name conflict
         toFloat64OrNull(avg) as forecast_avg,
-        toFloat64OrNull(max) as forecast_max,
-        toFloat64OrNull(min) as forecast_min,
+        toFloat64OrNull(max_val) as forecast_max,
+        toFloat64OrNull(min_val) as forecast_min,
         
         -- Calculate forecast lead days
         dateDiff('day', toDate(measurement_datetime), forecast_date) as forecast_lead_days,

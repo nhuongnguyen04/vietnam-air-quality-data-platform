@@ -22,9 +22,9 @@ import base64
 OM_URL = os.environ.get(
     "OPENMETADATA_URL",
     "http://openmetadata:8585/api",
-).rstrip('/')
-if not OM_URL.endswith('/api'):
-    OM_URL += '/api'
+).rstrip("/")
+if not OM_URL.endswith("/api"):
+    OM_URL += "/api"
 OM_USER = os.environ.get("OM_ADMIN_USER", "admin@open-metadata.org")
 OM_PASS = os.environ.get("OM_ADMIN_PASSWORD", "admin")
 
@@ -34,7 +34,10 @@ _token_cache: list[str] = []
 
 
 def om_login() -> str:
-    """Login to OM and return JWT access token (password must be base64 for OM 1.12+)."""
+    """
+    Login to OM 1.12+ and return JWT access token.
+    OM 1.12+ requires password as base64-encoded string and uses 'email' field.
+    """
     b64_pass = base64.b64encode(OM_PASS.encode("utf-8")).decode("utf-8")
     r = requests.post(
         f"{OM_URL}/v1/users/login",
@@ -81,6 +84,40 @@ def _patch_table_field(fqn_url: str, path: str, value, token: str) -> bool:
     return True
 
 
+def _get_user_id(username: str, token: str) -> str | None:
+    """
+    Look up OM user ID by username.
+    OM 1.12+ uses '/v1/users/name/{username}' endpoint.
+    Returns None if user not found.
+    """
+    r = requests.get(
+        f"{OM_URL}/v1/users/name/{username}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=15,
+    )
+    if r.ok:
+        return r.json()["id"]
+    return None
+
+
+def _get_admin_user_id(token: str) -> str | None:
+    """Get the admin user ID — try 'admin' first, then iterate users."""
+    admin_id = _get_user_id("admin", token)
+    if admin_id:
+        return admin_id
+    # Fall back: search via list
+    r = requests.get(
+        f"{OM_URL}/v1/users?limit=50",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=15,
+    )
+    if r.ok:
+        for user in r.json().get("data", []):
+            if user.get("name") == "admin" or user.get("email", "").startswith("admin"):
+                return user.get("id")
+    return None
+
+
 # ─── Main curation function ────────────────────────────────────────────────────
 
 def patch_table(
@@ -91,19 +128,18 @@ def patch_table(
     tier: str = None,
 ) -> None:
     """
-    Apply curation fields to a table via individual JSON-PATCH requests.
+    Apply curation fields to a table via JSON-PATCH requests.
 
     OM 1.12 REST API compatibility for ClickHouse tables:
     - /description ✅  works reliably
-    - /tags/{n} ❌  only works on tables that already have ≥1 tag (index-based add)
-    - /tags       ❌  replace on empty array → 404
-    - /owner      ❌  always → 500 (Non-existing name/value pair)
-    - /tier       ❌  always → 500 (Non-existing name/value pair)
+    - /owner       ⚠️  works if user exists, requires user ID lookup
+    - /tags        ❌  replace on empty array → 404; add works on existing-tag tables only
+    - /tier        ❌  always → 500 in OM 1.12 for ClickHouse tables
+    - /tags/{n}    ⚠️  index-based add — unpredictable
 
-    WORKAROUND for tags: apply via OM UI (Settings → Tags), or re-ingest tables
-    from om-ingestion with om_reader user that sets initial tags.
-
-    This script focuses on what works: setting descriptions.
+    WORKAROUND for tags/tier: apply via OM UI (Settings → Tags), or
+    re-ingest tables from om-ingestion with om_reader user that sets initial tags.
+    This script focuses on: descriptions + owners (where supported).
     """
     token = get_token()
     fqn_url = fqn.replace(" ", "%20")
@@ -115,11 +151,22 @@ def patch_table(
         else:
             ok = False
 
-    # owner / tier / tags: not supported via REST PATCH in OM 1.12 for ClickHouse tables
-    if owner_name or tags or tier:
+    # Owner: supported via GET /v1/users/name/admin → patch with user ID
+    if owner_name:
+        user_id = _get_admin_user_id(token)
+        if user_id:
+            if _patch_table_field(fqn_url, "/owner", {"id": user_id, "type": "user"}, token):
+                print("        ✅ owner")
+            else:
+                ok = False
+        else:
+            print("        ⚠ owner: admin user not found in OM")
+
+    # Tags/tier: OM 1.12 limitation — log warning, suggest UI
+    if tags or tier:
         print(
-            "        ⚠ owner/tags/tier: not supported via REST PATCH in OM 1.12"
-            " → apply via OM UI"
+            "        ⚠ tags/tier: not supported via REST PATCH in OM 1.12"
+            " → apply via OM UI (Settings → Tags → Edit table)"
         )
 
     if ok:
@@ -207,32 +254,40 @@ MART_CURATION = [
     },
     {
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__hourly",
-        "description": "Hourly aggregated metrics per station per hour. Includes AQI, "
-                        "pollutant breakdown, and data quality indicators.",
+        "description": (
+            "Hourly aggregated metrics per station per hour. Includes AQI, "
+            "pollutant breakdown, and data quality indicators."
+        ),
         "owner": "admin",
         "tags": ["AirQuality", "Vietnam", "NoPII"],
         "tier": "Tier2",
     },
     {
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__daily_summary",
-        "description": "Daily summary metrics per station. Includes min/max/avg AQI, "
-                       "dominant pollutant, and sensor quality tier.",
+        "description": (
+            "Daily summary metrics per station. Includes min/max/avg AQI, "
+            "dominant pollutant, and sensor quality tier."
+        ),
         "owner": "admin",
         "tags": ["AirQuality", "Vietnam", "NoPII"],
         "tier": "Tier2",
     },
     {
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__alerts",
-        "description": "Alert events table for Streamlit dashboard. Derives from "
-                       "fact_aqi_alerts with deduplication logic.",
+        "description": (
+            "Alert events table for Streamlit dashboard. Derives from "
+            "fact_aqi_alerts with deduplication logic."
+        ),
         "owner": "admin",
         "tags": ["AirQuality", "Alerts", "Vietnam", "NoPII"],
         "tier": "Tier1",
     },
     {
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__stations",
-        "description": "Station metadata denormalized for dashboard display. "
-                       "Joins AQICN stations, Sensors.Community sensors, and OpenWeather city metadata.",
+        "description": (
+            "Station metadata denormalized for dashboard display. "
+            "Joins AQICN stations, Sensors.Community sensors, and OpenWeather city metadata."
+        ),
         "owner": "admin",
         "tags": ["AirQuality", "Vietnam", "NoPII"],
         "tier": "Tier2",
@@ -324,9 +379,11 @@ RAW_CURATION = [
 ]
 
 
-def get_entity_id(entity_type: str, fqn: str) -> str:
+def get_entity_id(entity_type: str, fqn: str) -> str | None:
+    """Get entity ID by FQN using OM REST API."""
     token = get_token()
     headers = {"Authorization": f"Bearer {token}"}
+    # OM 1.12 handles FQN with spaces encoded
     url = f"{OM_URL}/v1/{entity_type}/name/{fqn.replace(' ', '%20')}"
     resp = requests.get(url, headers=headers, timeout=15)
     if resp.ok:
@@ -334,60 +391,88 @@ def get_entity_id(entity_type: str, fqn: str) -> str:
     return None
 
 
-def get_dbt_models() -> list:
-    """Dynamically parse dbt manifest to get all models."""
+def get_dbt_model_fqns() -> list[str]:
+    """Parse dbt manifest for all model FQNs. Returns list of table FQNs."""
     import json
     import os
-    manifest_path = '/opt/dbt/dbt_tranform/target/manifest.json'
-    if not os.path.exists(manifest_path):
-        manifest_path = '/home/nhuong/vietnam-air-quality-data-platform/dbt/dbt_tranform/target/manifest.json'
-        
+
+    manifest_paths = [
+        "/opt/dbt/dbt_tranform/target/manifest.json",
+        "/opt/dbt-artifacts/manifest.json",
+        os.path.join(
+            os.path.dirname(__file__),
+            "../../../../dbt/dbt_tranform/target/manifest.json",
+        ),
+        "/home/nhuong/vietnam-air-quality-data-platform/dbt/dbt_tranform/target/manifest.json",
+    ]
     tables = []
-    if os.path.exists(manifest_path):
-        with open(manifest_path, 'r') as f:
-            data = json.load(f)
-        for node in data.get('nodes', {}).values():
-            if node.get('resource_type') == 'model':
-                tables.append(f"Vietnam Air Quality ClickHouse.air_quality.air_quality.{node['name']}")
+    for manifest_path in manifest_paths:
+        if os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "r") as f:
+                    data = json.load(f)
+                for node in data.get("nodes", {}).values():
+                    if node.get("resource_type") == "model":
+                        tables.append(
+                            f"Vietnam Air Quality ClickHouse.air_quality.air_quality."
+                            f"{node['name']}"
+                        )
+                break  # Stop at first valid manifest
+            except Exception:
+                continue
     return tables
 
 
-def get_raw_tables() -> list:
-    """Dynamically fetch raw_ tables and ingestion_control from OpenMetadata."""
+def get_raw_table_fqns() -> list[str]:
+    """Dynamically fetch raw_* tables and ingestion_control from OM."""
     token = get_token()
     headers = {"Authorization": f"Bearer {token}"}
-    url = f"{OM_URL}/v1/tables?databaseSchema=Vietnam%20Air%20Quality%20ClickHouse.air_quality.air_quality&limit=1000"
+    url = (
+        f"{OM_URL}/v1/tables"
+        f"?databaseSchema=Vietnam%20Air%20Quality%20ClickHouse.air_quality.air_quality"
+        f"&limit=1000"
+    )
     resp = requests.get(url, headers=headers, timeout=15)
     tables = []
     if resp.ok:
         for t in resp.json().get("data", []):
-            if t["name"].startswith("raw_") or t["name"] == "ingestion_control":
-                tables.append(t["fullyQualifiedName"])
+            name = t.get("name", "")
+            if name.startswith("raw_") or name == "ingestion_control":
+                tables.append(t.get("fullyQualifiedName", ""))
     return tables
 
 
-def apply_pipeline_lineage():
-    print("Applying Dynamic Pipeline-to-Table Service Lineage...")
+def apply_pipeline_lineage() -> None:
+    """
+    Create pipeline→table lineage edges in OM.
+    dag_ingest_hourly → raw tables
+    dag_transform → dbt model tables (fct_*, mart_*, int_*)
+    """
+    print("Applying Dynamic Pipeline-to-Table Lineage...")
     token = get_token()
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
+
+    raw_fqns = get_raw_table_fqns()
+    dbt_fqns = get_dbt_model_fqns()
 
     dynamic_mappings = [
         {
             "pipeline_fqn": "Vietnam Air Quality Airflow.dag_ingest_hourly",
-            "tables": get_raw_tables()
+            "tables": raw_fqns,
         },
         {
             "pipeline_fqn": "Vietnam Air Quality Airflow.dag_transform",
-            "tables": get_dbt_models()
-        }
+            "tables": dbt_fqns,
+        },
     ]
-    
-    count = 0
+
+    edges_created = 0
     for mapping in dynamic_mappings:
-        if not mapping["tables"]:
+        tables = mapping["tables"]
+        if not tables:
             print(f"  ⚠ No tables found for pipeline: {mapping['pipeline_fqn']}")
             continue
 
@@ -395,26 +480,30 @@ def apply_pipeline_lineage():
         if not p_id:
             print(f"  ⚠ Pipeline not found: {mapping['pipeline_fqn']}")
             continue
-            
-        for t_fqn in mapping["tables"]:
+
+        for t_fqn in tables:
+            if not t_fqn:
+                continue
             t_id = get_entity_id("tables", t_fqn)
             if not t_id:
                 continue
-                
+
             payload = {
                 "edge": {
                     "fromEntity": {"id": p_id, "type": "pipeline"},
-                    "toEntity": {"id": t_id, "type": "table"}
+                    "toEntity": {"id": t_id, "type": "table"},
                 }
             }
-            resp = requests.put(f"{OM_URL}/v1/lineage", headers=headers, json=payload, timeout=15)
+            resp = requests.put(
+                f"{OM_URL}/v1/lineage", headers=headers, json=payload, timeout=15
+            )
             if resp.ok:
-                short_t = t_fqn.split('.')[-1]
-                short_p = mapping["pipeline_fqn"].split('.')[-1]
-                print(f"  ✅ Linked {short_p} -> {short_t}")
-                count += 1
-                
-    print(f"Dynamic Pipeline Lineage applied: {count} edges created.\n")
+                short_t = t_fqn.split(".")[-1]
+                pipeline_name = mapping["pipeline_fqn"].split(".")[-1]
+                print(f"  ✅ {pipeline_name} → {short_t}")
+                edges_created += 1
+
+    print(f"Pipeline Lineage: {edges_created} edges created.\n")
 
 
 def apply_all_curation() -> int:
@@ -437,10 +526,11 @@ def apply_all_curation() -> int:
             )
         except Exception as e:
             print(f"  ⚠ Failed: {e}")
-    print(f"\nCuration done. Processed {len(all_tables)} tables.")
+    print(f"\nCuration complete. Processed {len(all_tables)} tables.")
     return len(all_tables)
 
 
 if __name__ == "__main__":
-    apply_all_curation()
+    count = apply_all_curation()
     apply_pipeline_lineage()
+    print(f"\n✅ Done. {count} tables curated.")
