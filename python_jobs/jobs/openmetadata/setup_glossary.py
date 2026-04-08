@@ -3,29 +3,47 @@ Setup OM glossary and terms for Air Quality domain.
 Idempotent — safe to run repeatedly.
 
 Usage:
-    OM_URL=http://openmetadata:8585/api \
-    OM_USER=admin@open-metadata.org \
-    OM_PASS=admin \
+    OPENMETADATA_URL=http://localhost:8585/api \
+    OM_ADMIN_USER=admin@open-metadata.org \
+    OM_ADMIN_PASSWORD=admin \
     python python_jobs/jobs/openmetadata/setup_glossary.py
 """
 
 import os
 import requests
+import base64
 
-OM_URL = os.environ.get('OM_URL', 'http://openmetadata:8585/api')
-OM_USER = os.environ.get('OM_USER', 'admin@open-metadata.org')
-OM_PASS = os.environ.get('OM_PASS', 'admin')
+OM_URL = os.environ.get(
+    "OPENMETADATA_URL",
+    "http://openmetadata:8585/api",
+).rstrip('/')
+if not OM_URL.endswith('/api'):
+    OM_URL += '/api'
+OM_USER = os.environ.get("OM_ADMIN_USER", "admin@open-metadata.org")
+OM_PASS = os.environ.get("OM_ADMIN_PASSWORD", "admin")
+
+_token_cache: list[str] = []
 
 
 def om_login() -> str:
+    b64_pass = base64.b64encode(OM_PASS.encode("utf-8")).decode("utf-8")
     r = requests.post(
         f"{OM_URL}/v1/users/login",
-        json={"username": OM_USER, "password": OM_PASS},
+        json={"email": OM_USER, "password": b64_pass},
         headers={"Content-Type": "application/json"},
         timeout=30,
     )
     r.raise_for_status()
-    return r.json()["token"]
+    token = r.json()["accessToken"]
+    _token_cache.clear()
+    _token_cache.append(token)
+    return token
+
+
+def get_token() -> str:
+    if _token_cache:
+        return _token_cache[0]
+    return om_login()
 
 
 GLOSSARY_NAME = "AirQuality"
@@ -105,7 +123,7 @@ GLOSSARY_DEFINITIONS = [
 
 def create_glossary() -> str:
     """Create or get existing AirQuality glossary. Returns glossary ID."""
-    token = om_login()
+    token = get_token()
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -138,10 +156,9 @@ def create_glossary() -> str:
             "Data Platform. Covers AQI calculation, pollutants, data quality tiers, "
             "and alert thresholds."
         ),
-        "status": "Approved",
     }
     if owner_id:
-        create_payload["owner"] = {"id": owner_id, "type": "user"}
+        create_payload["owners"] = [{"id": owner_id, "type": "user"}]
 
     resp = requests.post(
         f"{OM_URL}/v1/glossaries",
@@ -168,7 +185,7 @@ def create_glossary() -> str:
 
 def create_terms(glossary_id: str):
     """Create glossary terms for all pollutants."""
-    token = om_login()
+    token = get_token()
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -179,8 +196,7 @@ def create_terms(glossary_id: str):
             "name": term["name"],
             "displayName": term["displayName"],
             "description": term["description"],
-            "glossary": {"id": glossary_id, "type": "glossary"},
-            "status": "Approved",
+            "glossary": GLOSSARY_NAME,
             "mutuallyExclusive": False,
         }
         term_resp = requests.post(

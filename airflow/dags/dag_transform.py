@@ -260,6 +260,68 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
         print("dbt test completed")
 
     @task
+    def dbt_docs_generate():
+        """dbt docs generate - Generate catalog and manifest."""
+        import subprocess
+        
+        env = os.environ.copy()
+        env.update(DBT_ENV_VARS)
+        
+        cmd = f"""
+{build_env_command()} && \
+cd {DBT_PROJECT_DIR} && \
+dbt docs generate --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
+"""
+        
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=1800
+        )
+        if result.returncode != 0:
+            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
+            # non-fatal
+            print("dbt docs generate failed, continuing")
+        else:
+            print("dbt docs generate completed")
+
+    @task
+    def patch_dbt_artifacts():
+        """Patch manifest.json and catalog.json to ensure OpenMetadata lineage correctly bridges dbt with ClickHouse tables."""
+        import json
+        import os
+        
+        target_dir = os.path.join(DBT_PROJECT_DIR, 'target')
+        db_name = os.environ.get('CLICKHOUSE_DB', 'air_quality')
+        
+        def patch_json(filepath, item_key):
+            if not os.path.exists(filepath): return
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+            changed = False
+            for group in ['nodes', 'sources']:
+                for node in data.get(group, {}).values():
+                    if item_key is None:
+                        if node.get('database') == '':
+                            node['database'] = db_name
+                            changed = True
+                    else:
+                        if node.get(item_key, {}).get('database') == '':
+                            node[item_key]['database'] = db_name
+                            changed = True
+            if changed:
+                with open(filepath, 'w') as f:
+                    json.dump(data, f)
+                print(f"Patched {filepath} database to {db_name}")
+
+        patch_json(os.path.join(target_dir, 'manifest.json'), None)
+        patch_json(os.path.join(target_dir, 'catalog.json'), 'metadata')
+        print("DBT artifacts patch completed")
+
+    @task
     def log_dbt_stats():
         """Log dbt transformation statistics."""
         import requests
@@ -329,10 +391,12 @@ dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
     intermediate = dbt_run_intermediate()
     marts = dbt_run_marts()
     test = dbt_test()
+    docs = dbt_docs_generate()
+    patch = patch_dbt_artifacts()
     stats = log_dbt_stats()
     update_transform_control = update_transform_control()
     completion = log_completion()
 
-    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> stats >> update_transform_control >> completion
+    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> docs >> patch >> stats >> update_transform_control >> completion
 
 dag_transform = dag_transform()
