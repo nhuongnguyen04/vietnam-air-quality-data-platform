@@ -188,3 +188,64 @@ CLICKHOUSE_OM_READER_PASSWORD=om_reader_secure_pass
 - **Catalog trống:** Chạy OM ingestion thủ công (Settings → Services → Run)
 - **dbt lineage không hiển thị:** Đảm bảo `dbt run` đã chạy và `target/manifest.json` tồn tại
 - **Credentials sai:** OM credentials là `admin@open-metadata.org` / `admin` (KHÔNG phải `admin` / `admin`)
+
+## Phase 5: Alerting & Reporting
+
+**Status:** In progress
+
+Phase 5 adds end-to-end alerting and automated weekly reporting to the platform.
+
+### Alerting Architecture
+
+All alerts are managed via **Grafana native alerting** (no separate DAG). Evaluated every 1 minute. Telegram is the sole notification channel.
+
+**Alert flow:**
+```
+Grafana evaluates rules (every 1 min)
+  → Threshold breached
+    → Contact point: telegram-critical
+      → Telegram Bot API
+        → Chat ID 5602934306
+```
+
+### Alert Rules
+
+| UID | Alert | Threshold | Severity | Re-alert |
+|-----|-------|-----------|----------|---------|
+| `aqi-critical-200` | AQI Critical | AQI > 200 | 🔴 CRITICAL | 1h |
+| `aqi-warning-150` | AQI Warning | AQI > 150 | 🟡 WARNING | 1h |
+| `pm25-warning-75` | PM2.5 Warning | PM2.5 > 75 µg/m³ | 🟡 WARNING | 1h |
+| `multi-source-divergence` | Source Divergence | \|AQICN−OW\| > 50 | 🟡 WARNING | 1h |
+| `dag-failure-critical` | DAG Failure | any DAG fails | 🔴 CRITICAL | 1h |
+| `clickhouse-down-critical` | ClickHouse Down | ping fails | 🔴 CRITICAL | 1h |
+| `data-freshness-warning` | Data Freshness | lag > 3h | 🟡 WARNING | 30min |
+| `station-stale-warning` | Station Stale | no data > 2h | 🟡 WARNING | 30min |
+
+> **Severity prefix:** All Telegram messages are prefixed with `🔴 CRITICAL:` or `🟡 WARNING:` for quick visual triage.
+
+### Weekly Report
+
+Automated Telegram report every **Monday at 09:00 (UTC+7)** via `dag_weekly_report`.
+
+**Content:**
+- City AQI averages (7-day)
+- Top 5 worst stations
+- 7-day trend vs previous week
+- Dominant pollutant per city
+
+**Manual trigger:**
+```bash
+docker compose exec airflow-webserver airflow dags trigger dag_weekly_report
+```
+
+### Smoke Test
+
+On-demand E2E smoke test: `dag_smoke_test` (schedule=None).
+
+```bash
+docker compose exec airflow-webserver airflow dags trigger dag_smoke_test
+```
+
+### Operational Runbook
+
+Full operational guide: `docs/runbook.md`
