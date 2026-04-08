@@ -337,6 +337,7 @@ SETTINGS index_granularity = 8192;
 CREATE USER IF NOT EXISTS om_reader IDENTIFIED WITH sha256_password BY 'om_reader_secure_pass';
 GRANT SELECT ON air_quality.* TO om_reader;
 GRANT SELECT ON system.* TO om_reader;  -- cần thiết để OM liệt kê tables trong system.tables
+GRANT SELECT ON system.query_log TO om_reader;  -- OM connection test cần query_log access
 
 
 

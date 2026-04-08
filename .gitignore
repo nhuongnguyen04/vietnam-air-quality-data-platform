@@ -48,3 +48,4 @@ elasticsearch-data/
 *.cfg
 
 .playwright-mcp/
+.gstack/
