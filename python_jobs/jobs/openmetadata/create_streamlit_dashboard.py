@@ -68,12 +68,13 @@ PAGES_CONFIG = [
         ]
     },
     {
-        "name": "streamlit_forecast",
-        "displayName": "Page 4: Forecast Accuracy",
-        "description": "Evaluate forecast performance against actual air quality metrics.",
-        "url": "http://localhost:8501/Forecast",
+        "name": "streamlit_historical_trend",
+        "displayName": "Page 4: Historical Trend",
+        "description": "Historical AQI trends from actual measurements — no forecast data required.",
+        "url": "http://localhost:8501/Historical_Trend",
         "tables": [
-            "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_analytics__forecast_accuracy"
+            "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__daily_summary",
+            "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__dashboard"
         ]
     },
     {

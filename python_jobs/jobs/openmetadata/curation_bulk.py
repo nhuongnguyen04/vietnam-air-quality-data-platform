@@ -245,7 +245,7 @@ MART_CURATION = [
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__dashboard",
         "description": (
             "Pre-aggregated dashboard-ready dataset. Combines hourly AQI, dominant "
-            "pollutant, forecast vs actual, and trend indicators. Primary source for "
+            "pollutant, and trend indicators. Primary source for "
             "Streamlit dashboard."
         ),
         "owner": "admin",
@@ -306,16 +306,6 @@ RAW_CURATION = [
         "tier": "Tier3",
     },
     {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqicn_forecast",
-        "description": (
-            "Raw AQICN forecast data (3-day forecast per pollutant per station). "
-            "ReplacingMergeTree, deduplicated on station_id + measurement_time_v + day."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "AQICN", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqicn_stations",
         "description": (
             "Raw AQICN station metadata (name, geo, AQI, attribution). "
@@ -351,16 +341,6 @@ RAW_CURATION = [
         "description": (
             "Raw OpenWeather Air Pollution API measurements for 62 Vietnam provinces. "
             "Append-only MergeTree. Parameters: pm25, pm10, o3, no2, so2, co, nh3, no."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "OpenWeather", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_openweather_forecast",
-        "description": (
-            "Raw OpenWeather Air Pollution 4-day forecast. Separated from measurements "
-            "(future timestamps). ReplacingMergeTree."
         ),
         "owner": "admin",
         "tags": ["Raw", "OpenWeather", "NoPII"],
