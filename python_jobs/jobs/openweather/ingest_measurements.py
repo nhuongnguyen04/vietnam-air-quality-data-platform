@@ -2,8 +2,8 @@
 """
 OpenWeather Air Pollution Measurements Ingestion Job.
 
-Fetches current + forecast air quality data for 3 Vietnamese city centroids
-(Hanoi, HCMC, Da Nang) and stores them in ClickHouse.
+Fetches current air quality data for 62 Vietnam provinces/cities
+and stores them in ClickHouse.
 
 Usage:
     python jobs/openweather/ingest_measurements.py --mode incremental
@@ -17,7 +17,7 @@ import sys
 import logging
 import argparse
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -50,20 +50,17 @@ def fetch_city_data(
     city_name: str,
     lat: float,
     lon: float,
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> List[Dict[str, Any]]:
     """
-    Fetch current + forecast data for one city.
+    Fetch current air quality data for one city.
 
     Returns:
-        A 2-tuple of (current_records, forecast_records).
-        Current records -> raw_openweather_measurements (timestamps <= now).
-        Forecast records -> raw_openweather_forecast (timestamps always future-dated).
+        List of current records for raw_openweather_measurements.
     """
     logger = logging.getLogger(__name__)
     current_records = []
-    forecast_records = []
 
-    # 1. Current conditions
+    # Current conditions
     try:
         resp = client.get(
             "/air_pollution",
@@ -75,19 +72,7 @@ def fetch_city_data(
     except Exception as e:
         logger.warning(f"[{city_name}] current fetch failed: {e}")
 
-    # 2. Forecast (4-day hourly) -> raw_openweather_forecast
-    try:
-        resp = client.get(
-            "/air_pollution/forecast",
-            params={"lat": lat, "lon": lon, "appid": client.token}
-        )
-        records = transform_city_response(resp, city_name, lat, lon, is_forecast=True)
-        forecast_records.extend(records)
-        logger.info(f"[{city_name}] forecast: {len(records)} records")
-    except Exception as e:
-        logger.warning(f"[{city_name}] forecast fetch failed: {e}")
-
-    return current_records, forecast_records
+    return current_records
 
 
 def fetch_historical_data(
@@ -129,29 +114,22 @@ def fetch_historical_data(
 
 
 def run_incremental(writer, client) -> int:
-    """Fetch + write current (measurements) and forecast data for all cities. Returns row count."""
+    """Fetch + write current measurements for all cities. Returns row count."""
     logger = logging.getLogger(__name__)
     all_measurements = []
-    all_forecasts = []
 
     for city_name, coords in VIETNAM_CITIES.items():
         lat, lon = coords["lat"], coords["lon"]
-        current_records, forecast_records = fetch_city_data(client, city_name, lat, lon)
+        current_records = fetch_city_data(client, city_name, lat, lon)
         all_measurements.extend(current_records)
-        all_forecasts.extend(forecast_records)
 
     if all_measurements:
         writer.write_batch("raw_openweather_measurements", all_measurements, source="openweather")
         logger.info(f"Wrote {len(all_measurements)} openweather measurements")
-
-    if all_forecasts:
-        writer.write_batch("raw_openweather_forecast", all_forecasts, source="openweather")
-        logger.info(f"Wrote {len(all_forecasts)} openweather forecasts")
-
-    if not all_measurements and not all_forecasts:
+    else:
         logger.warning("No openweather records collected")
 
-    return len(all_measurements) + len(all_forecasts)
+    return len(all_measurements)
 
 
 def run_historical(writer, client, start_date: datetime, end_date: datetime) -> int:
