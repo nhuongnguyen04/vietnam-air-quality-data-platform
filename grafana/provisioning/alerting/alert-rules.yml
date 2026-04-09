@@ -4,8 +4,16 @@
 # D-07: Operational warnings → Grafana only, NO Telegram
 #
 # Grafana 11.x provisioning format: apiVersion: 1
-# All expression data items MUST have a model: block with type + maxDataPoints
-# to avoid "assignment to entry in nil map" panic.
+#
+# QUAN TRỌNG - Cấu trúc threshold expression:
+# - "threshold expression requires exactly one condition" = thiếu conditions[]
+# - conditions[] bắt buộc cho threshold type (Grafana 11.x requirement)
+# - Mỗi condition: evaluator (so sánh), query (ref), reducer (last)
+#
+# Alert firing logic:
+#   A (SQL) → B (reduce last) → C (threshold: > threshold) → alert fires if C=1
+# hoặc
+#   A (SQL) → C (classic_conditions: check each row) → alert fires
 
 apiVersion: 1
 
@@ -84,13 +92,15 @@ groups:
           team: data-ops
         contactPoints: [telegram-critical]
 
-# =============================================================
-# Rule 3: AQI Critical (>200 Very Unhealthy) — CRITICAL → Telegram
-# Schema fix: station_name → station_id (via JOIN), timestamp_utc → datetime_hour
-# =============================================================
+      # =============================================================
+      # Rule 3: AQI Critical (>200 Very Unhealthy) — CRITICAL → Telegram
+      # Fix: classic_conditions thay vì threshold (xử lý multi-row table data)
+      # Threshold expression yêu cầu scalar value; classic_conditions xử lý
+      # table data với GROUP BY từ ClickHouse.
+      # =============================================================
       - uid: aqi-critical-200
         title: AQI Critical (>200 Very Unhealthy)
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -113,17 +123,22 @@ groups:
           - refId: B
             datasourceUid: "-100"
             model:
-              type: reduce
+              # classic_conditions: đánh giá từng row table data
+              # Không cần reduce trước — xử lý multi-row GROUP BY result
+              type: classic_conditions
               maxDataPoints: 300
-              reducer: last
-              expression: A
-          - refId: C
-            datasourceUid: "-100"
-            model:
-              type: threshold
-              maxDataPoints: 300
-              expression: B
-              params: [200]
+              conditions:
+                - evaluator:
+                    params: [200]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
         noDataState: OK
         execErrState: Error
         for: 5m
@@ -136,7 +151,7 @@ groups:
             🔴 AQI Alert — Minimize outdoor exposure
             City: {{ $labels.city }}
             Station: {{ $labels.station_id }}
-            AQI: {{ $values.B.Value }}
+            AQI: {{ $values.A.max_aqi }}
             Pollutant: {{ $labels.pollutant }}
         labels:
           severity: critical
@@ -145,108 +160,12 @@ groups:
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Rule 4: Data Freshness Warning (>3h old) — WARNING → Grafana only
-      # D-07: No Telegram — operational warning
-      # =============================================================
-      - uid: data-freshness-warning
-        title: Data Freshness Warning (>3h old)
-        condition: C
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                SELECT source,
-                       MAX(lag_seconds) AS max_lag,
-                       MAX(last_success) AS last_data_time
-                FROM air_quality.ingestion_control
-                GROUP BY source
-                HAVING MAX(lag_seconds) > 10800
-          - refId: C
-            datasourceUid: "-100"
-            model:
-              type: reduce
-              maxDataPoints: 300
-              reducer: last
-              expression: A
-        noDataState: OK
-        execErrState: OK
-        for: 5m
-        groupWait: 30s
-        groupInterval: 30m
-        repeatInterval: 30m
-        annotations:
-          summary: "🟡 WARNING: Data from {{ $labels.source }} is >3h old"
-          description: |
-            Source: {{ $labels.source }}
-            Max Lag: {{ $values.A.Max_lag }}s
-        labels:
-          severity: warning
-          team: data-ops
-
-      # =============================================================
-      # Rule 5: Station Stale (>2h no data) — WARNING → Grafana only
-      # Schema fix: city/source from GROUP BY, timestamp_utc → datetime_hour
-      # D-07: No Telegram — operational warning
-      # =============================================================
-      - uid: station-stale-warning
-        title: Station Stale (>2h no data)
-        condition: C
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                SELECT station_id,
-                       argMax(l.city, h.datetime_hour) AS city,
-                       argMax(h.source, h.datetime_hour) AS source,
-                       MAX(h.datetime_hour) AS last_seen
-                FROM air_quality.fct_hourly_aqi h
-                LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                GROUP BY h.station_id
-                HAVING MAX(h.datetime_hour) < NOW() - INTERVAL 2 HOUR
-          - refId: C
-            datasourceUid: "-100"
-            model:
-              type: reduce
-              maxDataPoints: 300
-              reducer: last
-              expression: A
-        noDataState: OK
-        execErrState: OK
-        for: 5m
-        groupWait: 30s
-        groupInterval: 30m
-        repeatInterval: 30m
-        annotations:
-          summary: "🟡 WARNING: Station {{ $labels.station_id }} has no data for >2h"
-          description: |
-            Station: {{ $labels.station_id }}
-            City: {{ $labels.city }}
-            Source: {{ $labels.source }}
-        labels:
-          severity: warning
-          team: data-ops
-
-      # =============================================================
-      # Phase 5: AQI Warning (>150 Unhealthy for Sensitive Groups)
-      # D-02: AQI > 150 → WARNING → Telegram
-      # D-05: Severity prefix = 🟡 WARNING:
-      # D-06: Re-alert every 1h (groupInterval = 1h)
+      # Rule 4: AQI Warning (>150 Unhealthy for Sensitive Groups)
+      # WARNING → Telegram
       # =============================================================
       - uid: aqi-warning-150
         title: AQI Warning (>150 Unhealthy for Sensitive Groups)
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -269,17 +188,20 @@ groups:
           - refId: B
             datasourceUid: "-100"
             model:
-              type: reduce
+              type: classic_conditions
               maxDataPoints: 300
-              reducer: last
-              expression: A
-          - refId: C
-            datasourceUid: "-100"
-            model:
-              type: threshold
-              maxDataPoints: 300
-              expression: B
-              params: [150]
+              conditions:
+                - evaluator:
+                    params: [150]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
         noDataState: OK
         execErrState: Error
         for: 5m
@@ -292,7 +214,7 @@ groups:
             🟡 AQI Alert — Sensitive groups should reduce outdoor activity
             City: {{ $labels.city }}
             Station: {{ $labels.station_id }}
-            AQI: {{ $values.B.Value }}
+            AQI: {{ $values.A.max_aqi }}
             Pollutant: {{ $labels.pollutant }}
         labels:
           severity: warning
@@ -301,15 +223,12 @@ groups:
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Phase 5: PM2.5 Warning (>75 µg/m³ Vietnam TCVN)
-      # D-03: PM2.5 > 75 µg/m³ → WARNING → Telegram
-      # D-05: Severity prefix = 🟡 WARNING:
-      # D-06: Re-alert every 1h
-      # Key: avg_value is µg/m³, NOT normalized_aqi (AQI scale)
+      # Rule 5: PM2.5 Warning (>75 µg/m³ Vietnam TCVN)
+      # WARNING → Telegram
       # =============================================================
       - uid: pm25-warning-75
         title: PM2.5 Warning (>75 µg/m³ Vietnam TCVN)
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -333,17 +252,20 @@ groups:
           - refId: B
             datasourceUid: "-100"
             model:
-              type: reduce
+              type: classic_conditions
               maxDataPoints: 300
-              reducer: last
-              expression: A
-          - refId: C
-            datasourceUid: "-100"
-            model:
-              type: threshold
-              maxDataPoints: 300
-              expression: B
-              params: [75]
+              conditions:
+                - evaluator:
+                    params: [75]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
         noDataState: OK
         execErrState: Error
         for: 5m
@@ -356,7 +278,7 @@ groups:
             🟡 PM2.5 Alert — Sensitive groups should reduce outdoor activity
             City: {{ $labels.city }}
             Station: {{ $labels.station_id }}
-            PM2.5: {{ $values.B.Value }} µg/m³
+            PM2.5: {{ $values.A.max_pm25 }} µg/m³
             Pollutant: {{ $labels.pollutant }}
         labels:
           severity: warning
@@ -365,14 +287,12 @@ groups:
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Phase 5: Multi-Source Divergence (AQICN vs OpenWeather >50 AQI)
-      # D-04: |AQICN − OpenWeather| > 50 per city → WARNING → Telegram
-      # D-05: Severity prefix = 🟡 WARNING:
-      # D-06: Re-alert every 1h
+      # Rule 6: Multi-Source Divergence (AQICN vs OpenWeather >50 AQI)
+      # WARNING → Telegram
       # =============================================================
       - uid: multi-source-divergence
         title: Multi-Source Divergence (AQICN vs OpenWeather >50 AQI)
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -411,17 +331,20 @@ groups:
           - refId: B
             datasourceUid: "-100"
             model:
-              type: reduce
+              type: classic_conditions
               maxDataPoints: 300
-              reducer: last
-              expression: A
-          - refId: C
-            datasourceUid: "-100"
-            model:
-              type: threshold
-              maxDataPoints: 300
-              expression: B
-              params: [1]
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
         noDataState: OK
         execErrState: Error
         for: 5m
@@ -433,11 +356,106 @@ groups:
           description: |
             🟡 Multi-Source Divergence Alert — Verify data source quality
             City: {{ $labels.city }}
-            AQICN AQI: {{ $values.B.aqicn_aqi }}
-            OpenWeather AQI: {{ $values.B.ow_aqi }}
-            Difference: {{ $values.B.abs_diff }} AQI units
+            AQICN AQI: {{ $values.A.aqicn_aqi }}
+            OpenWeather AQI: {{ $values.A.ow_aqi }}
+            Difference: {{ $values.A.abs_diff }} AQI units
         labels:
           severity: warning
           team: air-quality
           alert_type: multi_source_divergence
         contactPoints: [telegram-critical]
+
+      # =============================================================
+      # Rule 7: Data Freshness Warning (>3h old) — WARNING → Grafana only
+      # D-07: No Telegram — operational warning
+      # =============================================================
+      - uid: data-freshness-warning
+        title: Data Freshness Warning (>3h old)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: clickhouse-airquality
+            model:
+              interval: 1m
+              maxDataPoints: 300
+              rawSql: |
+                SELECT source,
+                       MAX(lag_seconds) AS max_lag,
+                       MAX(last_success) AS last_data_time
+                FROM air_quality.ingestion_control
+                GROUP BY source
+                HAVING MAX(lag_seconds) > 10800
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              maxDataPoints: 300
+              reducer: last
+              expression: A
+        noDataState: OK
+        execErrState: OK
+        for: 5m
+        groupWait: 30s
+        groupInterval: 30m
+        repeatInterval: 30m
+        annotations:
+          summary: "🟡 WARNING: Data from {{ $labels.source }} is >3h old"
+          description: |
+            Source: {{ $labels.source }}
+            Max Lag: {{ $values.A.max_lag }}s
+        labels:
+          severity: warning
+          team: data-ops
+        # Không contactPoints → dùng notification policy tree (default: grafana)
+
+      # =============================================================
+      # Rule 8: Station Stale (>2h no data) — WARNING → Grafana only
+      # D-07: No Telegram — operational warning
+      # =============================================================
+      - uid: station-stale-warning
+        title: Station Stale (>2h no data)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: clickhouse-airquality
+            model:
+              interval: 1m
+              maxDataPoints: 300
+              rawSql: |
+                SELECT station_id,
+                       argMax(l.city, h.datetime_hour) AS city,
+                       argMax(h.source, h.datetime_hour) AS source,
+                       MAX(h.datetime_hour) AS last_seen
+                FROM air_quality.fct_hourly_aqi h
+                LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
+                GROUP BY h.station_id
+                HAVING MAX(h.datetime_hour) < NOW() - INTERVAL 2 HOUR
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              maxDataPoints: 300
+              reducer: last
+              expression: A
+        noDataState: OK
+        execErrState: OK
+        for: 5m
+        groupWait: 30s
+        groupInterval: 30m
+        repeatInterval: 30m
+        annotations:
+          summary: "🟡 WARNING: Station {{ $labels.station_id }} has no data for >2h"
+          description: |
+            Station: {{ $labels.station_id }}
+            City: {{ $labels.city }}
+            Source: {{ $labels.source }}
+        labels:
+          severity: warning
+          team: data-ops
+        # Không contactPoints → dùng notification policy tree

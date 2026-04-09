@@ -55,17 +55,24 @@ def mock_rate_limiter():
 
 @pytest.fixture
 def env_vars():
-    """Return a dict of standard environment variables for jobs."""
+    """Return a dict of standard environment variables for jobs.
+    Loads from .env if available, falling back to placeholder values.
+    """
+    from dotenv import load_dotenv
+    load_dotenv()
+    
     return {
-        "CLICKHOUSE_HOST": "localhost",
-        "CLICKHOUSE_PORT": "8123",
-        "CLICKHOUSE_USER": "admin",
-        "CLICKHOUSE_PASSWORD": "admin",
-        "CLICKHOUSE_DB": "air_quality",
-        "OPENAQ_API_TOKEN": "test_openaq_token",
-        "AQICN_API_TOKEN": "test_aqicn_token",
-        "OPENWEATHER_API_TOKEN": "test_openweather_token",
-        "PYTHON_JOBS_DIR": "/opt/python/jobs",
+        "CLICKHOUSE_HOST": os.getenv("CLICKHOUSE_HOST", "localhost"),
+        "CLICKHOUSE_PORT": os.getenv("CLICKHOUSE_PORT", "8123"),
+        "CLICKHOUSE_USER": os.getenv("CLICKHOUSE_USER", "admin"),
+        "CLICKHOUSE_PASSWORD": os.getenv("CLICKHOUSE_PASSWORD", "admin"),
+        "CLICKHOUSE_DB": os.getenv("CLICKHOUSE_DB", "air_quality"),
+        "OPENAQ_API_TOKEN": os.getenv("OPENAQ_API_TOKEN", "test_openaq_token"),
+        "AQICN_API_TOKEN": os.getenv("AQICN_API_TOKEN", "test_aqicn_token"),
+        "OPENWEATHER_API_TOKEN": os.getenv("OPENWEATHER_API_TOKEN", "test_openweather_token"),
+        "TELEGRAM_BOT_TOKEN": os.getenv("TELEGRAM_BOT_TOKEN", "your_test_bot_token"),
+        "TELEGRAM_CHAT_ID": os.getenv("TELEGRAM_CHAT_ID", "123456789"),
+        "PYTHON_JOBS_DIR": os.getenv("PYTHON_JOBS_DIR", "/opt/python/jobs"),
     }
 
 

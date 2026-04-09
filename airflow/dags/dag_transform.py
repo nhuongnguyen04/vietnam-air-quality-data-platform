@@ -35,9 +35,9 @@ DBT_ENV_VARS = {
     'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
     'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
     'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
-    'DBT_LOG_PATH': '/tmp/dbt_logs',
-    'DBT_TARGET_PATH': '/tmp/dbt_target',
-    'DBT_PACKAGES_INSTALL_PATH': '/tmp/dbt_packages',
+    'DBT_LOG_PATH': os.path.join(DBT_PROJECT_DIR, 'logs'),
+    'DBT_TARGET_PATH': os.path.join(DBT_PROJECT_DIR, 'target'),
+    'DBT_PACKAGES_INSTALL_PATH': os.path.join(DBT_PROJECT_DIR, 'dbt_packages'),
 }
 
 

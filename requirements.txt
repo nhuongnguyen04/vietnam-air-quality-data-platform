@@ -22,3 +22,4 @@ pydantic
 
 # Testing
 pytest
+python-dotenv

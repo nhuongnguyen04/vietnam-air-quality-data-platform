@@ -1,0 +1,76 @@
+# Grafana Alerting Notification Policies — Phase 3.3
+# Format chuẩn: apiVersion: 1, policies[] array với receiver/matchers
+#
+# Root cause: alerts route vào grafana-default-email (SMTP fail)
+# thay vì telegram-critical. Fix bằng cách set receiver = telegram-critical
+# ở default policy và match theo label.
+
+apiVersion: 1
+
+policies:
+  # Default policy (orgId mặc định = 1) — catch-all, không matchers
+  # Tất cả alerts không match route nào bên dưới đều vào đây → telegram
+  - orgId: 1
+    receiver: telegram-critical
+    group_by:
+      - alertname
+      - severity
+      - team
+      - city
+      - dag_id
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    # Không có matchers = match all
+
+  # Critical severity → Telegram ngay
+  - orgId: 1
+    receiver: telegram-critical
+    matchers:
+      - severity = critical
+    group_by:
+      - alertname
+      - dag_id
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    continue: false
+
+  # data-ops team (DAG + ClickHouse) → Telegram
+  - orgId: 1
+    receiver: telegram-critical
+    matchers:
+      - team = data-ops
+    group_by:
+      - alertname
+      - dag_id
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    continue: false
+
+  # air-quality team (AQI, PM2.5, divergence) → Telegram
+  - orgId: 1
+    receiver: telegram-critical
+    matchers:
+      - team = air-quality
+    group_by:
+      - alertname
+      - city
+    group_wait: 30s
+    group_interval: 1h
+    repeat_interval: 1h
+    continue: false
+
+  # Warning severity → Telegram (thừa kế từ default, để rõ ràng)
+  - orgId: 1
+    receiver: telegram-critical
+    matchers:
+      - severity = warning
+    group_by:
+      - alertname
+      - city
+    group_wait: 30s
+    group_interval: 1h
+    repeat_interval: 1h
+    continue: false

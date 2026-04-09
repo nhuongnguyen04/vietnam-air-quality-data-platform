@@ -1,10 +1,13 @@
 """Telegram client for sending air quality alerts and reports."""
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 TELEGRAM_API = "https://api.telegram.org"
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 
 def send_message(text: str, parse_mode: str = "HTML") -> dict:
