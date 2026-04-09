@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: aqiin
+    description: "AQI.in web scraper — Vietnam air quality dashboard. Regional parsing: station_name split into ward, district, province."
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_aqiin_measurements
+        description: "Real-time measurements scraped from aqi.in"
+        columns:
+          - name: station_name
+          - name: timestamp_utc
+          - name: parameter
+          - name: value
+          - name: aqi_reported
+      - name: raw_aqiin_stations
+        description: "Station metadata from aqi.in"

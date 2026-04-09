@@ -30,17 +30,19 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 models:
   dbt_tranform:
-    # Staging models - views for performance
     staging:
       +materialized: view
-      # D-AQI-02 (Phase 6): source_aqicn group removed
-    
-    # Intermediate models - views
     intermediate:
       +materialized: view
-    
-    # Marts - tables for analytics
     marts:
-      +materialized: table
-      +groups:
-        - mart_air_quality
+      core:
+        +materialized: incremental
+
+seeds:
+  dbt_tranform:
+    pollutants:
+      +column_types:
+        conc_bp_lo: String
+        conc_bp_hi: String
+        epa_aqi_bp_lo: String
+        epa_aqi_bp_hi: String

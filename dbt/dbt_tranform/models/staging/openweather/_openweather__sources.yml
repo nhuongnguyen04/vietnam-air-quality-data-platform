@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: openweather
+    description: "OpenWeather Air Pollution API — Secondary air quality source."
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_openweather_measurements
+        description: "Raw OpenWeather air pollution readings"
+        columns:
+          - name: station_id
+          - name: city_name
+          - name: timestamp_utc
+          - name: parameter
+          - name: value
+          - name: aqi_reported
