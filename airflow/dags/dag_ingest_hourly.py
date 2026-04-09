@@ -149,28 +149,6 @@ def dag_ingest_hourly():
         print(f"AQICN measurements ingestion completed")
 
     @task
-    def run_aqicn_forecast_ingestion():
-        """Run AQICN forecast ingestion."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(get_job_env_vars())
-        
-        cmd = f"cd {PYTHON_PATH} && python jobs/aqicn/ingest_forecast.py"
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
-        print(f"AQICN forecast ingestion completed")
-
-    @task
     def update_aqicn_control():
         """Update ingestion_control for AQICN measurements."""
         import sys
@@ -178,15 +156,6 @@ def dag_ingest_hourly():
         from common.ingestion_control import update_control as _update
         _update(source='aqicn', records_ingested=0, success=True)
         print("Updated ingestion_control for aqicn")
-
-    @task
-    def update_forecast_control():
-        """Update ingestion_control for AQICN forecast."""
-        import sys
-        sys.path.insert(0, '/opt/python/jobs')
-        from common.ingestion_control import update_control as _update
-        _update(source='aqicn_forecast', records_ingested=0, success=True)
-        print("Updated ingestion_control for aqicn_forecast")
 
     @task
     def run_sensorscm_measurements_ingestion():
@@ -272,26 +241,23 @@ def dag_ingest_hourly():
     metadata = ensure_metadata()
 
     aqicn = run_aqicn_measurements_ingestion()
-    forecast = run_aqicn_forecast_ingestion()
     sensorscm = run_sensorscm_measurements_ingestion()
     openweather = run_openweather_measurements_ingestion()
     update_aqicn_control = update_aqicn_control()
-    update_forecast_control = update_forecast_control()
     update_sensorscm_control = update_sensorscm_control()
     update_openweather_control = update_openweather_control()
     completion = log_completion()
 
-    # Fan-out: all 4 sources run in parallel after metadata
-    check_clickhouse >> metadata >> [aqicn, forecast, sensorscm, openweather]
+    # Fan-out: all 3 sources run in parallel after metadata
+    check_clickhouse >> metadata >> [aqicn, sensorscm, openweather]
 
     # Fan-in per source, then fan-in to completion
     aqicn >> update_aqicn_control
-    forecast >> update_forecast_control
     sensorscm >> update_sensorscm_control
     openweather >> update_openweather_control
 
     # Fan-in all control updates to completion
-    [update_aqicn_control, update_forecast_control, update_sensorscm_control,
+    [update_aqicn_control, update_sensorscm_control,
      update_openweather_control] >> completion
 
     # Trigger dag_transform after ingestion completes
