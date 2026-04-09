@@ -26,10 +26,8 @@ from .aqicn_models import (
     AQICNMeasurement,
     AQICNTime,
     AQICNIAQI,
-    AQICNForecast,
     transform_station,
     transform_measurement as transform_aqicn_measurement,
-    transform_forecast,
     get_all_pollutants,
     get_weather_parameters
 )
@@ -54,10 +52,8 @@ __all__ = [
     "AQICNMeasurement",
     "AQICNTime",
     "AQICNIAQI",
-    "AQICNForecast",
     "transform_station",
     "transform_aqicn_measurement",
-    "transform_forecast",
     "get_all_pollutants",
     "get_weather_parameters"
 ]

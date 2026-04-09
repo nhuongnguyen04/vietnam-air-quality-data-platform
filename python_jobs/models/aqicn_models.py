@@ -4,7 +4,6 @@ AQICN (World Air Quality Index) API Data Models.
 This module provides data models for:
 - Stations (crawled from HTML + feed API)
 - Measurements (from feed endpoint)
-- Forecasts (from feed endpoint)
 
 Author: Air Quality Data Platform
 """
@@ -66,22 +65,6 @@ class AQICNIAQI(BaseModel):
     t: Optional[Dict[str, Any]] = None  # Temperature
     w: Optional[Dict[str, Any]] = None  # Wind
     wg: Optional[Dict[str, Any]] = None  # Wind gust
-
-
-class AQICNForecastDaily(BaseModel):
-    """AQICN forecast daily data."""
-    pm10: Optional[List[Dict[str, Any]]] = None
-    pm25: Optional[List[Dict[str, Any]]] = None
-    o3: Optional[List[Dict[str, Any]]] = None
-    no2: Optional[List[Dict[str, Any]]] = None
-    so2: Optional[List[Dict[str, Any]]] = None
-    co: Optional[List[Dict[str, Any]]] = None
-    uvi: Optional[List[Dict[str, Any]]] = None
-
-
-class AQICNForecast(BaseModel):
-    """AQICN forecast data."""
-    daily: Optional[AQICNForecastDaily] = None
 
 
 class AQICNAttribution(BaseModel):
@@ -264,55 +247,6 @@ def transform_measurement(
         record["pollutant"] = "aqi"
         record["value"] = str(aqi) if aqi else None
         records.append(record)
-    
-    return records
-
-
-def transform_forecast(
-    raw: Dict[str, Any],
-    station_id: str
-) -> List[Dict[str, Any]]:
-    """
-    Transform raw forecast API response to database format.
-    
-    Args:
-        raw: Raw response from /feed endpoint
-        station_id: Station identifier
-        
-    Returns:
-        List of transformed forecast records
-    """
-    data = raw.get("data", {})
-    if not data:
-        return []
-    
-    records = []
-    
-    time_info = data.get("time", {})
-    forecast = data.get("forecast", {})
-    daily = forecast.get("daily", {}) if forecast else {}
-    
-    # Get measurement time for linking
-    measurement_time_v = time_info.get("v")
-    
-    # Process each pollutant type with forecast data
-    pollutant_types = ["pm10", "pm25", "o3", "no2", "so2", "co", "uvi"]
-    
-    for pollutant in pollutant_types:
-        if pollutant in daily:
-            for forecast_item in daily[pollutant]:
-                record = {
-                    "station_id": station_id,
-                    "measurement_time_v": str(measurement_time_v) if measurement_time_v else None,
-                    "forecast_type": "daily",
-                    "pollutant": pollutant,
-                    "day": forecast_item.get("day"),
-                    "avg": str(forecast_item.get("avg")) if forecast_item.get("avg") is not None else None,
-                    "max_val": str(forecast_item.get("max")) if forecast_item.get("max") is not None else '',
-                    "min_val": str(forecast_item.get("min")) if forecast_item.get("min") is not None else '',
-                    "raw_forecast_item": str(forecast_item)
-                }
-                records.append(record)
     
     return records
 
