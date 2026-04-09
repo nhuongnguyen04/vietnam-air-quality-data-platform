@@ -8,15 +8,14 @@ st.header("🔗 Source Comparison")
 
 st.info(
     "Comparing AQI readings from multiple data sources: "
-    "AQICN (government monitors), Sensors.Community (community sensors), "
-    "and OpenWeather (weather API)."
+    "AQI.in (~540 Vietnam monitoring stations) and OpenWeather (62 Vietnam provinces)."
 )
 
 sources = st.multiselect(
     "Data Sources",
-    options=["aqicn", "sensorscm", "openweather"],
-    default=["aqicn", "sensorscm", "openweather"],
-    format_func=lambda x: {"aqicn": "AQICN", "sensorscm": "Sensors.Community", "openweather": "OpenWeather"}.get(x, x),
+    options=["aqiin", "openweather"],
+    default=["aqiin", "openweather"],
+    format_func=lambda x: {"aqiin": "AQI.in", "openweather": "OpenWeather"}.get(x, x),
 )
 
 @st.cache_data(ttl=300)

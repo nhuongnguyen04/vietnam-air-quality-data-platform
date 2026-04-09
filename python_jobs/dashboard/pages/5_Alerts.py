@@ -7,7 +7,7 @@ from lib.clickhouse_client import query_df
 st.header("🚨 AQI Alerts")
 
 st.caption(
-    "Air quality threshold breaches from AQICN monitoring stations. "
+    "Air quality threshold breaches from AQI.in + OpenWeather monitoring. "
     "High = AQI > 150, Very High = AQI > 200."
 )
 

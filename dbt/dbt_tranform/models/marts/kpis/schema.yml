@@ -14,7 +14,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['day', 'week', 'month']
+              arguments:
+                values: ['day', 'week', 'month']
 
       - name: avg_aqi
         description: "Average AQI across all stations in this period"
@@ -146,7 +147,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['High', 'Medium', 'Low', 'Very Low']
+              arguments:
+                values: ['High', 'Medium', 'Low', 'Very Low']
 
   - name: mart_kpis__pollutant_concentrations
     description: "Pollutant concentration KPIs — compares daily average concentrations against EPA reference thresholds. Reports exceedance rates per pollutant per day."
@@ -161,7 +163,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['pm25', 'pm10', 'o3', 'no2', 'co', 'so2']
+              arguments:
+                values: ['pm25', 'pm10', 'o3', 'no2', 'co', 'so2']
 
       - name: reference_threshold
         description: "EPA reference AQI breakpoint concentration threshold for this pollutant"

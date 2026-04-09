@@ -214,8 +214,8 @@ MART_CURATION = [
         "description": (
             "Dimension table for monitoring station locations across 63 provinces "
             "of Vietnam. Includes GPS coordinates (lat 8-24, lon 102-110), elevation, "
-            "station type, and source attribution. Sourced from AQICN, OpenWeather, "
-            "and Sensors.Community."
+            "station type, and source attribution. Sourced from AQI.in (~540 stations) "
+            "and OpenWeather (62 provinces). D-AQI-02 (Phase 6): AQICN + Sensors.Community removed."
         ),
         "owner": "admin",
         "tags": ["AirQuality", "Vietnam", "NoPII"],
@@ -286,7 +286,8 @@ MART_CURATION = [
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__stations",
         "description": (
             "Station metadata denormalized for dashboard display. "
-            "Joins AQICN stations, Sensors.Community sensors, and OpenWeather city metadata."
+            "Combines AQI.in stations (~540 locations) and OpenWeather city metadata. "
+            "D-AQI-02 (Phase 6): AQICN + Sensors.Community removed."
         ),
         "owner": "admin",
         "tags": ["AirQuality", "Vietnam", "NoPII"],
@@ -296,51 +297,34 @@ MART_CURATION = [
 
 RAW_CURATION = [
     {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqicn_measurements",
+        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqiin_measurements",
         "description": (
-            "Raw AQICN/WAQI (api.waqi.info) measurement data ingested via Python jobs. "
-            "Append-only MergeTree. Retains 100% original API payload in raw_payload column."
+            "Raw AQI.in (~540 Vietnam monitoring stations) web-scraped measurements. "
+            "Source: aqi.in widget API (httpx-based scraper). "
+            "Parameters: pm25, pm10, co, no2, o3, so2, temp, hum. "
+            "D-AQI-02 (Phase 6): Primary air quality source, replacing AQICN + Sensors.Community."
         ),
         "owner": "admin",
-        "tags": ["Raw", "AQICN", "NoPII"],
+        "tags": ["Raw", "AQIin", "NoPII"],
         "tier": "Tier3",
     },
     {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqicn_stations",
+        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqiin_stations",
         "description": (
-            "Raw AQICN station metadata (name, geo, AQI, attribution). "
-            "ReplacingMergeTree, deduplicated on station_id."
+            "Raw AQI.in station metadata (station name, province, URL slug). "
+            "ReplacingMergeTree deduplicated on station_id. "
+            "D-AQI-02 (Phase 6): Primary station registry."
         ),
         "owner": "admin",
-        "tags": ["Raw", "AQICN", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_sensorscm_measurements",
-        "description": (
-            "Raw Sensors.Community (sensor.community) sensor measurements. "
-            "Deduplicated on sensor_id + timestamp. Includes PM2.5, PM10, "
-            "temperature, humidity from SDS011/PMS5003 sensors."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "SensorsCommunity", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_sensorscm_sensors",
-        "description": (
-            "Raw Sensors.Community sensor/station metadata. "
-            "Deduplicated on sensor_id. Includes GPS, sensor_type, is_indoor."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "SensorsCommunity", "NoPII"],
+        "tags": ["Raw", "AQIin", "NoPII"],
         "tier": "Tier3",
     },
     {
         "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_openweather_measurements",
         "description": (
             "Raw OpenWeather Air Pollution API measurements for 62 Vietnam provinces. "
-            "Append-only MergeTree. Parameters: pm25, pm10, o3, no2, so2, co, nh3, no."
+            "Parameters: pm25, pm10, o3, no2, so2, co, nh3, no. "
+            "D-AQI-02 (Phase 6): Secondary air quality source alongside AQI.in."
         ),
         "owner": "admin",
         "tags": ["Raw", "OpenWeather", "NoPII"],

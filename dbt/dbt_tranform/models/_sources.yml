@@ -1,85 +1,46 @@
 version: 2
 
 sources:
-  - name: aqicn
-    description: "Raw AQICN data from ClickHouse"
+  - name: aqiin
+    description: "AQI.in web scraper — Vietnam air quality dashboard (~540 monitoring stations). Source: httpx widget scraper on aqi.in. D-AQI-02 (Phase 6): Primary air quality source."
     database: air_quality
     schema: air_quality
     tables:
-      - name: raw_aqicn_measurements
-        description: "Raw AQICN measurements data from feed API"
+      - name: raw_aqiin_measurements
+        description: "Real-time AQI + 6 pollutants scraped from aqi.in Vietnam dashboard"
         columns:
+          - name: source
+          - name: ingest_time
+          - name: ingest_batch_id
+          - name: ingest_date
           - name: station_id
-            description: "Station ID from AQICN API (data.idx)"
-            tests:
-              - not_null
-          - name: time_v
-            description: "Unix timestamp of measurement"
-          - name: pollutant
-            description: "Pollutant name (pm25, pm10, o3, etc.)"
+          - name: station_name
+          - name: province
+          - name: timestamp_utc
+          - name: parameter
           - name: value
-            description: "Pollutant value as string"
-          - name: station_name
-            description: "Station name with location info"
-          - name: latitude
-            description: "Latitude as string"
-          - name: longitude
-            description: "Longitude as string"
-          - name: ingest_time
-            description: "Timestamp when data was ingested"
-            tests:
-              - not_null
+          - name: aqi_reported
+          - name: unit
+            description: "Unit: µg/m³ for pollutants, ppm for CO, ppb for NO2/O3/SO2, °C for temp, % for humidity"
+          - name: quality_flag
+            description: "Data quality flag: valid (always 'valid' for AQI.in community sensors)"
+          - name: raw_payload
 
-      - name: raw_aqicn_forecast
-        description: "Raw AQICN forecast data from feed API"
+      - name: raw_aqiin_stations
+        description: "AQI.in station metadata (station name, province, source URL slug)"
         columns:
-          - name: station_id
-            description: "Station ID from AQICN API"
-            tests:
-              - not_null
-          - name: measurement_time_v
-            description: "Unix timestamp of the measurement this forecast relates to"
-          - name: forecast_type
-            description: "Type of forecast (daily, hourly, etc.)"
-          - name: pollutant
-            description: "Pollutant being forecasted"
-          - name: day
-            description: "Forecast date as string"
-          - name: avg
-            description: "Average forecast value as string"
-          - name: max_val
-            description: "Maximum forecast value as string (renamed from max to avoid ClickHouse built-in function conflict)"
-          - name: min_val
-            description: "Minimum forecast value as string (renamed from min to avoid ClickHouse built-in function conflict)"
+          - name: source
           - name: ingest_time
-            description: "Timestamp when data was ingested"
-            tests:
-              - not_null
-
-      - name: raw_aqicn_stations
-        description: "Raw AQICN stations metadata from bounds API"
-        columns:
+          - name: ingest_batch_id
+          - name: ingest_date
           - name: station_id
-            description: "Station ID from AQICN API (uid)"
-            tests:
-              - not_null
           - name: station_name
-            description: "Station name with location info"
-          - name: latitude
-            description: "Latitude as string"
-          - name: longitude
-            description: "Longitude as string"
-          - name: aqi
-            description: "Current AQI value as string"
-          - name: ingest_time
-            description: "Timestamp when data was ingested"
-            tests:
-              - not_null
-
-
+          - name: province
+          - name: url
+          - name: raw_payload
 
   - name: openweather
-    description: "OpenWeather Air Pollution API — city-centroid air quality data. Source: api.openweathermap.org/data/2.5/air_pollution. Covers Hanoi, HCMC, Da Nang."
+    description: "OpenWeather Air Pollution API — city-centroid air quality data. 62 Vietnam provinces. D-AQI-02 (Phase 6): Secondary air quality source alongside AQI.in."
     database: air_quality
     schema: air_quality
     tables:
@@ -91,7 +52,7 @@ sources:
             tests:
               - not_null
           - name: city_name
-            description: "City name (Hanoi, Ho Chi Minh City, Da Nang)"
+            description: "City name"
             tests:
               - not_null
           - name: timestamp_utc
@@ -106,30 +67,3 @@ sources:
             description: "OpenWeather AQI on 1-5 scale (1=good, 5=very poor)"
           - name: quality_flag
             description: "Data quality flag: valid | implausible"
-
-  - name: sensorscm
-    description: "Sensors.Community (Luftdaten) — community sensor network data. Source: api.luftdaten.info/v1/. Vietnam bounding box filtered."
-    database: air_quality
-    schema: air_quality
-    tables:
-      - name: raw_sensorscm_measurements
-        description: "Raw Sensors.Community measurement readings — pm10, pm25, temperature, humidity, pressure"
-        columns:
-          - name: sensor_id
-            description: "Unique sensor ID (UInt32)"
-            tests:
-              - not_null
-          - name: station_id
-            description: "Station ID matching sensor_id"
-            tests:
-              - not_null
-          - name: timestamp_utc
-            description: "Measurement timestamp in UTC"
-            tests:
-              - not_null
-          - name: parameter
-            description: "Sensor measurement type (pm10, pm25, temperature, humidity, pressure)"
-          - name: value
-            description: "Sensor measurement value"
-          - name: quality_flag
-            description: "Data quality flag: valid | implausible | outlier"

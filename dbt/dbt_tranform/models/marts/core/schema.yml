@@ -206,7 +206,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['150', '200']
+              arguments:
+                values: ['150', '200']
 
       - name: normalized_aqi
         description: "AQI value at the time of breach"
@@ -251,7 +252,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['150', '200']
+              arguments:
+                values: ['150', '200']
 
       - name: normalized_aqi
         description: "AQI value at the time of breach"
@@ -586,7 +588,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['150', '200']
+              arguments:
+                values: ['150', '200']
 
       - name: normalized_aqi
         description: "AQI value at the time of breach"

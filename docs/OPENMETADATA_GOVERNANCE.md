@@ -10,8 +10,8 @@ OpenMetadata 1.12.4 cung cấp centralized data catalog cho Vietnam Air Quality 
 
 | Layer | Tables | OM Tier |
 |-------|--------|---------|
-| Raw | raw_aqicn_*, raw_sensorscm_*, raw_openweather_* | Tier3 |
-| Staging | stg_aqicn__*, stg_openweather__*, stg_sensorscm__* | Tier3 |
+| Raw | raw_aqiin_*, raw_openweather_* | Tier3 |
+| Staging | stg_aqiin__*, stg_openweather__* | Tier3 |
 | Intermediate | int_* | Tier2 |
 | Mart | fct_*, dim_*, mart_air_quality__* | Tier1/Tier2 |
 
@@ -23,7 +23,7 @@ OpenMetadata 1.12.4 cung cấp centralized data catalog cho Vietnam Air Quality 
 | `Data.Vietnam` | Tables with Vietnam location data |
 | `Data.NoPII` | All tables (no personal data) |
 | `Data.Raw` | Raw ingestion tables |
-| `Data.AQICN` / `Data.OpenWeather` / `Data.SensorsCommunity` | Source attribution |
+| `Data.AQIin` / `Data.OpenWeather` | Source attribution (D-AQI-02 Phase 6) |
 | `Data.Alerts` | Alert/event tables |
 | `Data.Dashboard` | Dashboard-ready tables |
 | `Data.Infrastructure` | Infrastructure metadata tables |
@@ -136,8 +136,7 @@ Project Airflow (`apache/airflow:3.1.7`, port 8090) kết nối với OM qua OM 
 - `dag_transform` — dbt transformation
 - `dag_openmetadata_curation` — catalog curation
 - `dag_ingest_historical` — historical backfill (manual trigger)
-- `dag_metadata_update` — metadata refresh (daily)
-- `dag_sensorscm_poll` — Sensors.Community polling
+- `dag_metadata_update` — metadata refresh (daily, AQI.in stations)
 
 ## Data Quality
 

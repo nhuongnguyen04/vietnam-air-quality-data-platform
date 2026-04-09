@@ -33,8 +33,7 @@ models:
     # Staging models - views for performance
     staging:
       +materialized: view
-      +groups:
-        - source_aqicn
+      # D-AQI-02 (Phase 6): source_aqicn group removed
     
     # Intermediate models - views
     intermediate:

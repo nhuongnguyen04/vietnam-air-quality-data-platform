@@ -1,17 +1,20 @@
 {{ config(materialized='view') }}
 
-with aqicn as (
+-- D-AQI-02: Phase 6 — Thay AQICN + Sensors.Community bằng AQI.in + OpenWeather
+-- Chỉ 2 nguồn: aqiin (~540 vị trí VN) + openweather (62 tỉnh/thành)
+
+with aqiin as (
     select
         station_id,
         timestamp_utc,
-        parameter,
+        parameter_clean                                      AS parameter,
         value,
         unit,
         quality_flag,
         aqi_reported,
         source,
         ingest_time
-    from {{ ref('stg_aqicn__measurements') }}
+    from {{ ref('stg_aqiin__measurements') }}
 ),
 openweather as (
     select
@@ -25,23 +28,8 @@ openweather as (
         source,
         ingest_time
     from {{ ref('stg_openweather__measurements') }}
-),
-sensorscm as (
-    select
-        station_id,
-        timestamp_utc,
-        parameter,
-        value,
-        unit,
-        quality_flag,
-        null::Nullable(Int32) as aqi_reported,
-        source,
-        ingest_time
-    from {{ ref('stg_sensorscm__measurements') }}
 )
-select * from aqicn
+select * from aqiin
 union all
 select * from openweather
-union all
-select * from sensorscm
 where value is not null and timestamp_utc is not null

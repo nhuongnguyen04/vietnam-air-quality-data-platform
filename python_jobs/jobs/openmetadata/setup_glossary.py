@@ -68,8 +68,8 @@ GLOSSARY_DEFINITIONS = [
             "Airborne particles ≤ 2.5 micrometers diameter. Primary health risk "
             "in Vietnamese urban areas. WHO guideline: < 5 µg/m³ annual mean, "
             "< 15 µg/m³ 24-hour mean. Primary pollutant in Hanoi and HCMC. "
-            "Used in stg_aqicn__measurements, stg_openweather__measurements, "
-            "stg_sensorscm__measurements."
+            "Used in stg_aqiin__measurements and stg_openweather__measurements. "
+            "D-AQI-02 (Phase 6): AQICN + Sensors.Community removed."
         ),
     },
     {

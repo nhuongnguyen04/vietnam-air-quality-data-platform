@@ -34,7 +34,10 @@ LOCATIONS_FILE = Path(__file__).parent / "vietnam_locations.txt"
 # ─── ClickHouse Writer ───────────────────────────────────────────────────────
 
 def write_to_clickhouse(results: List[LocationData], batch_id: str):
-    """Write results to ClickHouse raw_aqiin_* tables."""
+    """Write results to ClickHouse raw_aqiin_* tables.
+
+    D-AQI-01: schema updated to include unit + quality_flag (Phase 6).
+    """
     writer = create_clickhouse_writer()
     measurement_records = []
     station_records = []
@@ -43,43 +46,83 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
         if not loc.success:
             continue
 
-        # Station Metadata
+        # Station metadata — extract province from station_id path
+        # station_id format: 'ha-noi/hanoi', 'ba-ria-vung-tau/vung-tau', etc.
+        province = sid.split('/')[0] if '/' in sid else sid
+        station_url = f"https://www.aqi.in/dashboard/{sid}"
+
         station_records.append({
             "source": "aqiin",
             "ingest_time": datetime.now(timezone.utc),
             "ingest_batch_id": batch_id,
+            "station_id": sid,                  -- slug path (D-AQI-01)
             "station_name": loc.station_name,
+            "province": province,
+            "url": station_url,
             "raw_payload": loc.raw_payload,
         })
 
-        # Measurements
+        # Helper to get unit from parameter
+        def get_unit(param: str) -> str:
+            if param in ('pm25', 'pm2.5', 'pm2_5', 'pm10', 'pm10_concentration'):
+                return 'µg/m³'
+            if param in ('co', 'carbon_monoxide', 'co_concentration'):
+                return 'ppm'
+            if param in ('no2', 'nitrogen_dioxide', 'o3', 'ozone', 'so2', 'sulfur_dioxide', 'nh3', 'no'):
+                return 'ppb'
+            if param == 'temp':
+                return '°C'
+            if param == 'hum':
+                return '%'
+            return 'µg/m³'
+
+        # Pollutant measurements
         for p in loc.pollutants:
             measurement_records.append({
                 "source": "aqiin",
                 "ingest_time": datetime.now(timezone.utc),
                 "ingest_batch_id": batch_id,
+                "station_id": sid,
                 "station_name": loc.station_name,
                 "timestamp_utc": loc.timestamp_utc,
                 "parameter": p.parameter,
                 "value": p.value,
                 "aqi_reported": loc.aqi,
+                "unit": get_unit(p.parameter),   -- D-AQI-01
+                "quality_flag": "valid",          -- D-AQI-01 (community sensors)
                 "raw_payload": loc.raw_payload,
             })
 
-        # Weather
+        # Weather measurements
         if loc.temperature is not None:
             measurement_records.append({
-                "source": "aqiin", "ingest_time": datetime.now(timezone.utc), "ingest_batch_id": batch_id,
+                "source": "aqiin",
+                "ingest_time": datetime.now(timezone.utc),
+                "ingest_batch_id": batch_id,
+                "station_id": sid,
                 "station_name": loc.station_name,
-                "timestamp_utc": loc.timestamp_utc, "parameter": "temp", "value": loc.temperature,
-                "aqi_reported": loc.aqi, "raw_payload": loc.raw_payload,
+                "timestamp_utc": loc.timestamp_utc,
+                "parameter": "temp",
+                "value": loc.temperature,
+                "aqi_reported": loc.aqi,
+                "unit": "°C",                     -- D-AQI-01
+                "quality_flag": "valid",         -- D-AQI-01
+                "raw_payload": loc.raw_payload,
             })
         if loc.humidity is not None:
             measurement_records.append({
-                "source": "aqiin", "ingest_time": datetime.now(timezone.utc), "ingest_batch_id": batch_id,
+                "source": "aqiin",
+                "ingest_time": datetime.now(timezone.utc),
+                "ingest_batch_id": batch_id,
+                "station_id": sid,
                 "station_name": loc.station_name,
-                "timestamp_utc": loc.timestamp_utc, "parameter": "hum", "value": loc.humidity,
-                "aqi_reported": loc.aqi, "raw_payload": loc.raw_payload,
+                "timestamp_utc": loc.timestamp_utc,
+                "parameter": "hum",
+                "value": loc.humidity,
+                "aqi_reported": loc.aqi,
+                "unit": "%",                      -- D-AQI-01
+                "quality_flag": "valid",          -- D-AQI-01
+                "raw_payload": loc.raw_payload,
             })
 
     if measurement_records:

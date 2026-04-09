@@ -10,7 +10,7 @@
 --
 -- This version calls the pollutant-specific macros from macros/calculate_aqi.sql.
 -- Calibration factor is applied before AQI computation via LEFT JOIN.
--- CO unit conversion (mg/m³ → ppm) is already done in stg_aqicn__measurements.
+-- CO unit conversion (mg/m³ → ppm) is done in stg_aqiin__measurements.
 --
 -- NOTE: All columns must be explicitly aliased to avoid ambiguity between
 --       the 'unit' column in stg_pollutants__parameters and m.unit from

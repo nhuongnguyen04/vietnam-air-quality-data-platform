@@ -3,7 +3,7 @@
 
 **Vietnam Air Quality Data Platform — Refactor & Upgrade**
 
-A comprehensive data engineering platform that ingests, transforms, and visualizes air quality data for Vietnam from multiple external sources (AQICN, Sensors.Community, OpenWeather, and government/MONRE data), stores it in ClickHouse, and exposes it through Streamlit dashboards (Phase 3.2), Grafana monitoring (Phase 3.3), and automated reports with alerting.
+A comprehensive data engineering platform that ingests, transforms, and visualizes air quality data for Vietnam from multiple external sources (AQI.in ~540 monitoring stations, OpenWeather Air Pollution API 62 provinces, and government/MONRE data), stores it in ClickHouse, and exposes it through Streamlit dashboards (Phase 3.2), Grafana monitoring (Phase 3.3), and automated reports with alerting.
 
 **This is a brownfield project.** The existing codebase already has OpenAQ ingestion, ClickHouse storage, dbt transformations, and Airflow orchestration. This refactor replaces the data source layer, modernizes the entire pipeline, and adds visualization + metadata management.
 
@@ -15,7 +15,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - **New additions**: Streamlit (analytics dashboard, Phase 3.2), Grafana (infrastructure monitoring, Phase 3.3), OpenMetadata (metadata catalog)
 - **Near-real-time**: Target <15 min ingestion latency if sources and API rate limits permit; fall back to hourly if unstable
 - **Vietnam focus**: All sources must have measurable Vietnam data coverage
-- **API costs**: Prefer free-tier APIs; AQICN token already exists
+- **API costs**: Prefer free-tier APIs; AQI.in is free (widget scraper); OpenWeather token required
 - **Stability over speed**: Get it working reliably before optimizing for speed
 <!-- GSD:project-end -->
 
@@ -55,23 +55,18 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | `dashboard` | `app.py` | Streamlit analytics dashboard (Phase 3.2); connects to ClickHouse, renders 5 pages: Overview, Pollutants, Source Comparison, Forecast, Alerts |
 | Module | File | Purpose |
 |--------|------|---------|
-| `common` | `api_client.py` | Generic `APIClient` with retry/backoff; factory function `create_aqicn_client()` (api.waqi.info); `create_openaq_client()` (deprecated, OpenAQ removed) |
 | `common` | `clickhouse_writer.py` | `ClickHouseWriter` — batch insert writer via HTTP interface; `create_clickhouse_writer()` factory |
 | `common` | `config.py` | Dataclass-based config: `ClickHouseConfig`, `APIConfig`, `JobConfig`, `IngestionConfig`; reads from env vars and YAML |
 | `common` | `logging_config.py` | JSON-structured logging via `pythonjsonlogger`; `StructuredLogFormatter`, `JobLogger`, `JobContextFilter` |
-| `common` | `rate_limiter.py` | `TokenBucketRateLimiter` (thread-safe, sliding window); `AdaptiveRateLimiter`; `create_aqicn_limiter()` (~60 req/min), `create_openweather_limiter()` (~60 req/min) |
-| `jobs/aqicn` | `ingest_stations.py` | Ingest AQICN station metadata |
-| `jobs/aqicn` | `ingest_measurements.py` | Ingest AQICN measurement data (incremental + historical modes) |
-| `jobs/aqicn` | `ingest_forecast.py` | Ingest AQICN forecast data |
-| `jobs/sensorscm` | `ingest_sensors.py` | Ingest Sensors.Community sensor metadata |
-| `jobs/sensorscm` | `ingest_measurements.py` | Ingest Sensors.Community measurement data (incremental + historical modes) |
+| `common` | `rate_limiter.py` | `TokenBucketRateLimiter` (thread-safe, sliding window); `AdaptiveRateLimiter`; `create_openweather_limiter()` (~60 req/min) |
+| `jobs/aqiin` | `ingest_measurements.py` | Ingest AQI.in measurements (~540 Vietnam stations, widget scraper, httpx) |
 | `jobs/openweather` | `ingest_measurements.py` | Ingest OpenWeather Air Pollution measurements (incremental mode) |
 ### Airflow DAGs (`airflow/dags/`)
 | DAG | File | Schedule | Purpose |
 |-----|------|----------|---------|
-| `dag_ingest_hourly` | `dag_ingest_hourly.py` | `0 * * * *` (hourly at minute 0) | Run AQICN + Sensors.Community + OpenWeather measurements + AQICN forecast ingestion every hour (4 parallel sources) |
+| `dag_ingest_hourly` | `dag_ingest_hourly.py` | `*/15 * * * *` (every 15 minutes) | Run AQI.in + OpenWeather measurements ingestion every 15 minutes (2 parallel sources) |
 | `dag_ingest_historical` | `dag_ingest_historical.py` | Manual trigger only | One-time backfill of historical data |
-| `dag_metadata_update` | `dag_metadata_update.py` | `0 1 * * *` (daily at 01:00) | Daily refresh of Sensors.Community sensors and AQICN stations metadata |
+| `dag_metadata_update` | `dag_metadata_update.py` | `0 1 * * *` (daily at 01:00) | Daily metadata refresh (AQI.in stations auto-populated during measurement ingestion) |
 | `dag_transform` | `dag_transform.py` | `30 * * * *` (hourly at minute 30) | Run `dbt deps` → `dbt seed` → `dbt run` (staging → intermediate → marts) → `dbt test` |
 ## Infrastructure Tools
 ### Databases
@@ -83,12 +78,10 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | **PostgreSQL OM** | shared | OM metadata store (`openmetadata_db`) |
 | **Elasticsearch** | 7.16.3 | OM search index |
 #### ClickHouse Tables (defined in `scripts/init-clickhouse.sql`)
-- `raw_aqicn_measurements` — MergeTree, append-only
-- `raw_aqicn_forecast` — ReplacingMergeTree
-- `raw_aqicn_stations` — ReplacingMergeTree, deduped on `station_id`
-- `raw_sensorscm_measurements` — ReplacingMergeTree, deduped on `sensor_id + timestamp`
-- `raw_sensorscm_sensors` — ReplacingMergeTree, deduped on `sensor_id`
-- `raw_openweather_measurements` — MergeTree, append-only
+- `raw_aqiin_measurements` — ReplacingMergeTree, deduped on `station_id + timestamp_utc + parameter` (Phase 6, D-AQI-02)
+- `raw_aqiin_stations` — ReplacingMergeTree, deduped on `station_id`
+- `raw_openweather_measurements` — ReplacingMergeTree, append-only
+- `raw_aqicn_*` / `raw_sensorscm_*` — archived (Phase 6: D-AQI-02)
 ### Message Queue / Scheduling
 - **Apache Airflow 3.1.7** — orchestration and scheduling
 - **Docker Compose** — all services containerized; no separate message queue needed (Airflow handles scheduling internally via PostgreSQL)
@@ -126,7 +119,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | `CLICKHOUSE_PASSWORD` | `admin123456` | ClickHouse password |
 | `CLICKHOUSE_DB` | `air_quality` | ClickHouse database name |
 | `OPENAQ_API_TOKEN` | (from `.env`) | OpenAQ API key (deprecated; OpenAQ ingestion removed; `X-API-KEY` header) |
-| `AQICN_API_TOKEN` | (from `.env`) | AQICN API token (passed as query param `?token=`) |
+| `OPENWEATHER_API_TOKEN` | (from `.env`) | OpenWeather Air Pollution API token |
 | `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` | `postgresql+psycopg2://airflow:airflow@postgres/airflow` | PostgreSQL Airflow backend |
 | `AIRFLOW_CONN_CLICKHOUSE_DEFAULT` | auto-assembled | Airflow connection string for ClickHouse sensor |
 | `DBT_PROFILES_DIR` | `/opt/dbt/dbt_tranform` | dbt profiles directory |
@@ -160,15 +153,15 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - **Variable naming**: `snake_case` for variables and functions, `PascalCase` for classes.
 - **Constants**: `UPPERCASE_WITH_UNDERSCORES` at module level.
 ### Python Package Structure
-- Python ingestion jobs live in `/python_jobs/jobs/<source>/` (e.g., `python_jobs/jobs/aqicn/`, `python_jobs/jobs/sensorscm/`, `python_jobs/jobs/openweather/`).
+- Python ingestion jobs live in `/python_jobs/jobs/<source>/` (e.g., `python_jobs/jobs/aqiin/`, `python_jobs/jobs/openweather/`).
 - Shared utilities live in `python_jobs/common/` (e.g., `api_client.py`, `rate_limiter.py`, `clickhouse_writer.py`, `config.py`, `logging_config.py`).
-- Models live in `python_jobs/models/` (e.g., `aqicn_models.py`, `sensorscm_models.py`, `openweather_models.py`).
+- Models live in `python_jobs/models/` (e.g., `aqiin_models.py`, `openweather_models.py`).
 - **Dashboard**: Streamlit analytics in `python_jobs/dashboard/` — `app.py` là entry point, pages trong `pages/`.
 - Every package directory must contain an `__init__.py` file.
 ### CLI Arguments
 - `--mode`: `incremental` (default for hourly runs), `historical` (for backfills), or `rewrite` (for metadata refresh).
 - `--start-date`, `--end-date`: Date range for historical ingestion.
-- `--days-back`: Number of days to backfill for AQICN.
+- `--limit`: Limit number of locations to crawl for AQI.in (default: all 540).
 ## 2. SQL Naming Conventions (dbt)
 ### Project Setup
 - **Project name**: `dbt_tranform`
@@ -212,7 +205,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 ### Default Args
 ### Task Naming
 - Use `snake_case` task names (function names decorated with `@task`).
-- Tasks follow a `verb_noun` pattern: `check_clickhouse_connection`, `run_aqicn_measurements_ingestion`, `dbt_run_staging`.
+- Tasks follow a `verb_noun` pattern: `check_clickhouse_connection`, `run_aqiin_measurements_ingestion`, `dbt_run_staging`.
 - In `dag_transform.py`, dbt tasks are explicitly named: `dbt_deps`, `dbt_seed`, `dbt_run_staging`, `dbt_run_intermediate`, `dbt_run_marts`, `dbt_test`.
 ### DAG Schedule & Concurrency
 ### Environment Variables in DAGs
@@ -308,7 +301,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 ### 1. Sensors.Community Data Path
 ```
 ```
-### 2. AQICN Data Path
+### 2. AQI.in Data Path
 ```
 ```
 ### 3. dbt Transformation Path
@@ -325,8 +318,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 ```
 ```
 ### dag_metadata_update (schedule: daily at 01:00)
-- Runs Sensors.Community sensors and AQICN stations metadata refresh
-- Ensures metadata is fresh before next hourly run
+- Runs AQI.in stations metadata refresh (auto-populated during measurement ingestion)
 ### dag_ingest_historical
 - Manual trigger only (no schedule)
 - Config: `start_date`/`end_date` or `days_back` parameters

@@ -18,7 +18,7 @@ api:
 job:
   # Rate limiting (requests per second)
   rate_limit_openaq: 0.8  # ~48 requests/minute (safe under 60/min)
-  rate_limit_aqicn: 1.0
+  # D-AQI-02: AQICN removed (Phase 6)
 
   # Batch settings
   batch_size: 1000
@@ -32,7 +32,7 @@ job:
   max_retries: 3
   retry_delay: 5  # seconds
 
-  # Vietnam bounds for AQICN
+  # Vietnam bounds for AQI.in
   vietnam_bounds:
     lat_min: 8.5
     lon_min: 102.0

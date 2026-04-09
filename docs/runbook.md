@@ -16,24 +16,24 @@
 
 INGESTION LAYER
 ───────────────
-┌──────────────┐  ┌──────────────────┐  ┌────────────────────┐  ┌────────────┐
-│ AQICN API   │  │ OpenWeather API  │  │ Sensors.Community  │  │  (future) │
-│ api.waqi.info│  │ openweathermap   │  │ api.luftdaten.info │  │  MONRE     │
-└──────┬───────┘  └───────┬──────────┘  └─────────┬──────────┘  └────────────┘
-       │                  │                        │
-       ▼                  ▼                        ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
+┌────────────────────┐  ┌──────────────────┐  ┌────────────┐
+│ AQI.in Widget API   │  │ OpenWeather API  │  │  (future) │
+│ aqi.in (~540 VN)    │  │ openweathermap   │  │  MONRE     │
+└─────────┬──────────┘  └───────┬──────────┘  └────────────┘
+          │                     │
+          ▼                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
 │                        ClickHouse: air_quality                               │
-│  raw_aqicn_measurements  |  raw_openweather_measurements  |  raw_sensorscm   │
+│  raw_aqiin_measurements  |  raw_openweather_measurements  (D-AQI-02 Phase 6)  │
 │                        ReplacingMergeTree (dedup by ingest_time)            │
-└──────────────────────────────────────┬───────────────────────────────────────┘
+└──────────────────────────────────────┬───────────────────────────────────┘
                                        │
 TRANSFORM LAYER
 ───────────────
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                           dbt Transform                                      │
-│  staging (stg_aqicn__, stg_openweather__, stg_sensorscm__)                   │
+│  staging (stg_aqiin__, stg_openweather__)                   │
 │    → intermediate (int_unified__, int_aqi_calculations__)                     │
 │    → marts (fct_hourly_aqi, fct_daily_aqi_summary, dim_locations)           │
 │    → analytics (mart_air_quality__dashboard, mart_air_quality__alerts)       │
@@ -46,7 +46,7 @@ VISUALIZATION + MONITORING
                                        ▼
          ┌──────────────────────────────┴───────────────────────────────┐
          │                     Airflow (scheduling)                     │
-         │  dag_ingest_hourly  |  dag_transform  |  dag_sensorscm_poll │
+         │  dag_ingest_hourly  |  dag_transform  |
          │  dag_weekly_report  |  dag_smoke_test  |  dag_metadata_update│
          └──────────────────────────────┬───────────────────────────────┘
                                         │
@@ -104,7 +104,7 @@ METADATA & CATALOG
 | `aqi-critical-200` | AQI Critical | AQI > 200 | 🔴 CRITICAL | Telegram | Every 1h |
 | `aqi-warning-150` | AQI Warning | AQI > 150 | 🟡 WARNING | Telegram | Every 1h |
 | `pm25-warning-75` | PM2.5 Warning | PM2.5 > 75 µg/m³ | 🟡 WARNING | Telegram | Every 1h |
-| `multi-source-divergence` | Multi-Source Divergence | \|AQICN−OW\| > 50 | 🟡 WARNING | Telegram | Every 1h |
+| `multi-source-divergence` | Multi-Source Divergence | |AQI.in−OW| > 50 | 🟡 WARNING | Telegram | Every 1h |
 | `dag-failure-critical` | DAG Failure | any DAG fails | 🔴 CRITICAL | Telegram | Every 1h |
 | `clickhouse-down-critical` | ClickHouse Down | ping fails | 🔴 CRITICAL | Telegram | Every 1h |
 | `data-freshness-warning` | Data Freshness | lag > 3h | 🟡 WARNING | Grafana only | 30 min |
@@ -153,7 +153,7 @@ docker compose exec airflow-webserver \
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
 | Ingestion task fails with HTTP 429 | Rate limit exceeded | Wait 60s, DAG auto-retries |
-| Ingestion task fails with HTTP 401/403 | Invalid API key | Check AQICN/API key env vars |
+| Ingestion task fails with HTTP 401/403 | Invalid API key | Check OpenWeather API key env var |
 | dbt run fails on stg model | Schema changed upstream | Re-audit source columns |
 | dbt run fails on mart model | ClickHouse OOM | Check `docker stats`, increase memory |
 | Grafana panel shows no data | Table empty or schema mismatch | Run `dag_transform` manually |

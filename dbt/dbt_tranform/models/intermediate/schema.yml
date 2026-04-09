@@ -2,10 +2,13 @@ version: 2
 
 models:
   - name: int_unified__measurements
-    description: "Unified measurement layer — UNION ALL of AQICN, OpenWeather, and Sensors.Community staged data. Standardized column names and pollutant names. AQI values and calibration factors NOT yet applied."
+    description: >
+      D-AQI-02 (Phase 6): Unified measurement layer — UNION ALL of AQI.in (~540 stations)
+      and OpenWeather (62 Vietnam provinces). Standardized column names and pollutant names.
+      AQI values and calibration factors applied in int_aqi_calculations.
     columns:
       - name: station_id
-        description: "Station key prefixed by source: AQICN_*, SENSORSCM_*, or openweather:*"
+        description: "Station key: AQIIN_{slug} or openweather:{city}:{lat}:{lon}"
         tests:
           - not_null
 
@@ -15,34 +18,36 @@ models:
           - not_null
 
       - name: parameter
-        description: "Standardized pollutant name: pm25, pm10, o3, no2, so2, co"
+        description: "Standardized pollutant name: pm25, pm10, co, o3, no2, so2, temp, hum"
         tests:
           - not_null
 
       - name: value
-        description: "Pollutant concentration value in source unit (calibration NOT applied). Nullable — OpenWeather data may have null values not filtered by int_unified__measurements WHERE clause."
-        tests: []
+        description: "Pollutant concentration value in source unit"
+        tests:
+          - not_null
 
       - name: unit
-        description: "Unit of measurement: µg/m³ for PM, ppb for O3/NO2/SO2, ppm for CO"
+        description: "Unit of measurement: µg/m³ for PM, ppb for O3/NO2/SO2, ppm for CO, °C for temp, % for hum"
         tests:
           - not_null
 
       - name: quality_flag
-        description: "Data quality flag: valid or implausible"
+        description: "Data quality flag: valid (always 'valid' for AQI.in; valid|implausible for OpenWeather)"
         tests:
           - not_null
 
       - name: aqi_reported
-        description: "AQI as reported by the source (Nullable — Sensors.Community has none)"
+        description: "AQI as reported by the source (UInt16 from AQI.in; Nullable from OpenWeather)"
         tests: []
 
       - name: source
-        description: "Data source: aqicn, openweather, sensorscm"
+        description: "Data source: aqiin or openweather (D-AQI-02: Phase 6)"
         tests:
           - not_null
           - accepted_values:
-              values: ['aqicn', 'openweather', 'sensorscm']
+              arguments:
+                values: ['aqiin', 'openweather']
 
       - name: ingest_time
         description: "Timestamp when the record was ingested"
@@ -50,19 +55,22 @@ models:
           - not_null
 
   - name: int_unified__stations
-    description: "Unified station metadata — UNION ALL of AQICN, OpenWeather, and Sensors.Community stations. Aggregated first_seen/last_seen timestamps."
+    description: >
+      D-AQI-02 (Phase 6): Unified station metadata — UNION ALL of AQI.in (~540 stations)
+      and OpenWeather (62 provinces). Aggregated first_seen/last_seen timestamps.
     columns:
       - name: station_id
-        description: "Unified station key: AQICN_*, SENSORSCM_*, or openweather:*. NOTE: grouped by station_id from multiple sources, may represent the same physical station."
+        description: "Unified station key: AQIIN_{slug} or openweather:{city}:{lat}:{lon}"
         tests:
           - not_null
 
       - name: source
-        description: "Data source: aqicn, openweather, sensorscm"
+        description: "Data source: aqiin or openweather (D-AQI-02: Phase 6)"
         tests:
           - not_null
           - accepted_values:
-              values: ['aqicn', 'openweather', 'sensorscm']
+              arguments:
+                values: ['aqiin', 'openweather']
 
       - name: station_name
         description: "Human-readable station name"
@@ -70,45 +78,46 @@ models:
           - not_null
 
       - name: latitude
-        description: "Station latitude (WGS84)"
-        tests:
-          - not_null
+        description: "Station latitude (WGS84) — empty string for AQI.in (not available)"
+        tests: []
 
       - name: longitude
-        description: "Station longitude (WGS84)"
-        tests:
-          - not_null
+        description: "Station longitude (WGS84) — empty string for AQI.in (not available)"
+        tests: []
 
       - name: province
-        description: "Province name (empty string for Sensors.Community)"
+        description: "Province name"
         tests:
           - not_null
 
       - name: city
-        description: "City name (empty string for Sensors.Community)"
+        description: "City name (same as province for AQI.in)"
         tests:
           - not_null
 
       - name: location_type
-        description: "Station type: KTTV, KCN, Chi cục BVMT, Other, city_centroid, community"
+        description: "Station type: community (AQI.in) or city_centroid (OpenWeather)"
         tests:
           - not_null
           - accepted_values:
-              values: ['KTTV', 'KCN', 'Chi cục BVMT', 'Other', 'city_centroid', 'community']
+              arguments:
+                values: ['community', 'city_centroid']
 
       - name: sensor_quality_tier
-        description: "Sensor quality tier: research, city_centroid, community"
+        description: "Sensor quality tier: community (AQI.in) or city_centroid (OpenWeather)"
         tests:
           - not_null
           - accepted_values:
-              values: ['research', 'city_centroid', 'community']
+              arguments:
+                values: ['community', 'city_centroid']
 
       - name: is_active
         description: "Whether the station is currently active — always true"
         tests:
           - not_null
           - accepted_values:
-              values: [true]
+              arguments:
+                values: [true]
 
       - name: first_seen
         description: "Earliest ingest_time for this station"
@@ -121,14 +130,18 @@ models:
           - not_null
 
   - name: int_aqi_calculations
-    description: "AQI calculations using EPA piecewise breakpoint formula — applied per pollutant. Calibration factor from stg_source_calibration is applied before AQI computation. Max AQI across pollutants per station/hour is the dominant AQI."
+    description: >
+      D-AQI-02 (Phase 6): AQI calculations using EPA piecewise breakpoint formula —
+      applied per pollutant. Calibration factor from stg_source_calibration is applied
+      before AQI computation. Max AQI across pollutants per station/hour is the dominant AQI.
     columns:
       - name: source
-        description: "Data source: aqicn, openweather, sensorscm"
+        description: "Data source: aqiin or openweather"
         tests:
           - not_null
           - accepted_values:
-              values: ['aqicn', 'openweather', 'sensorscm']
+              arguments:
+                values: ['aqiin', 'openweather']
 
       - name: station_id
         description: "Station key"
@@ -169,7 +182,7 @@ models:
         tests: []
 
       - name: aqi_category
-        description: "AQI category derived from aqi_value: Good, Moderate, Unhealthy for Sensitive Groups, Unhealthy, Very Unhealthy, Hazardous, Unknown. Nullable for non-standard pollutants (pm1, temperature, etc.) where AQI cannot be calculated."
+        description: "AQI category derived from aqi_value: Good, Moderate, Unhealthy for Sensitive Groups, Unhealthy, Very Unhealthy, Hazardous, Unknown."
         tests:
           - not_null:
               config:
@@ -185,7 +198,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['epa_piecewise']
+              arguments:
+                values: ['epa_piecewise']
 
       - name: ingest_time
         description: "Timestamp when the record was ingested"
@@ -193,10 +207,13 @@ models:
           - not_null
 
   - name: int_daily_actuals__aqicn
-    description: "Daily actuals for AQICN: station-level daily aggregates (avg, max, count) of pollutant measurements. Used by int_forecast_accuracy for forecast error calculation."
+    description: >
+      D-AQI-02 (Phase 6): Daily aggregated actuals from unified source (AQI.in + OpenWeather).
+      Pre-materialized to avoid ClickHouse correlated subquery limitation in JOINs.
+      Joins on: station_id + pollutant + measurement_date.
     columns:
       - name: station_id
-        description: "Station key prefixed with AQICN_"
+        description: "Station key (AQIIN_* or openweather:*)"
         tests:
           - not_null
 
@@ -220,23 +237,33 @@ models:
         tests:
           - not_null
 
+      - name: min_value
+        description: "Minimum measurement value for this pollutant on this date"
+        tests:
+          - not_null
+
       - name: reading_count
         description: "Number of individual measurements contributing to this daily aggregate"
         tests:
           - not_null
 
   - name: int_data_quality
-    description: "Data quality metrics per station per day — missing data rate, freshness score, outlier detection. Used by mart_kpis__data_coverage for KPI reporting."
+    description: >
+      D-AQI-02 (Phase 6): Data quality metrics per station per day —
+      missing data rate, freshness score, outlier detection. Derived from int_unified__measurements.
     columns:
       - name: unified_station_id
         description: "Unified station key"
         tests:
           - not_null
 
-      - name: source_system
-        description: "Source system: aqicn, openweather, sensorscm"
+      - name: source
+        description: "Source: aqiin or openweather"
         tests:
           - not_null
+          - accepted_values:
+              arguments:
+                values: ['aqiin', 'openweather']
 
       - name: measurement_date
         description: "Date of the measurement period"
@@ -244,7 +271,7 @@ models:
           - not_null
 
       - name: total_measurements
-        description: "Total number of measurements expected (hourly granularity)"
+        description: "Total number of measurements expected"
         tests:
           - not_null
 
@@ -284,98 +311,68 @@ models:
           - not_null
 
       - name: freshness_score
-        description: "Score (10-100) based on data freshness: 100 if ≤24h, 75 if ≤48h, 50 if ≤72h, 25 if ≤168h, 10 otherwise"
-        tests:
-          - not_null
-
-      - name: avg_data_quality_score
-        description: "Base quality score (0-100) based on presence of values"
-        tests:
-          - not_null
-
-      - name: is_outlier
-        description: "True if missing_data_rate > 50% or data_freshness_hours > 168"
+        description: "Score (20-100) based on data freshness: ≤2h=100, ≤6h=80, ≤24h=60, ≤48h=40, else=20"
         tests:
           - not_null
 
       - name: overall_data_quality_score
-        description: "Weighted composite score: 50% avg_data_quality + 30% freshness_score + 20% (100 - missing_data_rate)"
+        description: "Weighted composite score: 60 + freshness_score * 0.4"
+        tests:
+          - not_null
+
+      - name: is_outlier
+        description: "True if data_freshness_hours > 48 OR missing_data_rate > 50"
         tests:
           - not_null
 
   - name: int_forecast_accuracy
-    description: "Forecast accuracy analysis — compares AQICN forecast values against actual daily measurements. Calculates MAE, RMSE, and accuracy score per station/pollutant/date."
+    description: >
+      D-AQI-02 (Phase 6) + D-01 (Phase 01.1): Forecast ingestion removed.
+      This model returns empty — kept as schema placeholder.
+      Dashboard Forecast → Historical Trend (uses int_unified__measurements actuals).
     columns:
       - name: station_id
-        description: "AQICN station ID (plain numeric, no prefix)"
-        tests:
-          - not_null
-
-      - name: pollutant
-        description: "Pollutant being forecasted: pm25, pm10"
-        tests:
-          - not_null
-
-      - name: forecast_date
-        description: "Date for which the forecast was made"
-        tests:
-          - not_null
-
-      - name: forecast_measurement_time
-        description: "Datetime of the measurement this forecast applies to"
-        tests:
-          - not_null
-
-      - name: forecast_avg
-        description: "Average forecast value"
-        tests:
-          - not_null
-
-      - name: forecast_max
-        description: "Maximum forecast value"
-        tests:
-          - not_null
-
-      - name: forecast_min
-        description: "Minimum forecast value"
-        tests:
-          - not_null
-
-      - name: forecast_lead_days
-        description: "Number of days ahead the forecast was made"
-        tests:
-          - not_null
-
-      - name: actual_measurement_time
-        description: "Date of the actual measurement (matches forecast_date)"
-        tests:
-          - not_null
-
-      - name: actual_value
-        description: "Actual average measurement value on that date"
-        tests:
-          - not_null
-
-      - name: absolute_error
-        description: "Absolute difference: |forecast_avg - actual_value|"
-        tests:
-          - not_null
-
-      - name: percentage_error
-        description: "Percentage error: |forecast_avg - actual_value| / actual_value * 100 (Nullable)"
+        description: "Station key (always NULL — model is inactive)"
         tests: []
-
+      - name: pollutant
+        description: "Pollutant (always NULL — model is inactive)"
+        tests: []
+      - name: forecast_date
+        description: "Forecast date (always NULL)"
+        tests: []
+      - name: forecast_measurement_time
+        description: "Measurement datetime (always NULL)"
+        tests: []
+      - name: forecast_avg
+        description: "Average forecast value (always NULL)"
+        tests: []
+      - name: forecast_max
+        description: "Max forecast value (always NULL)"
+        tests: []
+      - name: forecast_min
+        description: "Min forecast value (always NULL)"
+        tests: []
+      - name: forecast_lead_days
+        description: "Lead days (always NULL)"
+        tests: []
+      - name: actual_measurement_time
+        description: "Actual measurement time (always NULL)"
+        tests: []
+      - name: actual_value
+        description: "Actual value (always NULL)"
+        tests: []
+      - name: absolute_error
+        description: "Absolute error (always NULL)"
+        tests: []
+      - name: percentage_error
+        description: "Percentage error (always NULL)"
+        tests: []
       - name: mae
-        description: "Mean Absolute Error for this station/pollutant (rolling)"
-        tests:
-          - not_null
-
+        description: "MAE (always NULL)"
+        tests: []
       - name: rmse
-        description: "Root Mean Squared Error for this station/pollutant (rolling)"
-        tests:
-          - not_null
-
+        description: "RMSE (always NULL)"
+        tests: []
       - name: forecast_accuracy_score
-        description: "Accuracy score 0-100: ≤10% error → 100, ≤20% → 80, ≤30% → 60, ≤50% → 40, else → 20"
-        tests:
-          - not_null
+        description: "Accuracy score (always NULL)"
+        tests: []

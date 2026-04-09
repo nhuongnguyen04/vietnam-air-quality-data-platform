@@ -25,15 +25,30 @@ from typing import List, Optional
 import httpx
 from bs4 import BeautifulSoup
 
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/121.0.6167.160 Mobile/15E148 Safari/604.1"
+]
+
+def get_headers():
+    return {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://www.aqi.in/"
+    }
+
 logger = logging.getLogger(__name__)
 
 # ─── Config ────────────────────────────────────────────────────────────
-MAX_CONCURRENT = 10
+MAX_CONCURRENT = 5
 REQUEST_TIMEOUT = 15.0
-REQUEST_DELAY_MIN = 0.05
-REQUEST_DELAY_MAX = 0.15
+REQUEST_DELAY_MIN = 0.1
+REQUEST_DELAY_MAX = 0.5
 MAX_RETRIES = 2
-WORKERS = 10
+WORKERS = 5
 
 # ─── Dataclasses ────────────────────────────────────────────────────────
 
@@ -167,15 +182,14 @@ def parse_widget_html(html: str, station_id: str, url: str = "") -> LocationData
 
 # ─── Fetcher Config ────────────────────────────────────────────────────────
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-}
-
 def fetch_one(location_id: str, client: httpx.Client) -> tuple:
     url = generate_widget_url(location_id)
     try:
-        r = client.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        r = client.get(url, headers=get_headers(), timeout=REQUEST_TIMEOUT)
+        if r.status_code == 403 or r.status_code == 429:
+            # Add a longer sleep if we hit a rate limit
+            time.sleep(2)
+            raise Exception(f"Rate limited: {r.status_code}")
         if r.status_code != 200:
             raise Exception(f"HTTP {r.status_code}")
         return location_id, parse_widget_html(r.text, location_id, url=url)

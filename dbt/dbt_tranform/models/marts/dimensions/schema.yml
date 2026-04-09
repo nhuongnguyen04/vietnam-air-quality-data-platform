@@ -15,7 +15,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['aqicn', 'openweather', 'sensorscm']
+              arguments:
+                values: ['aqicn', 'openweather', 'sensorscm']
 
       - name: station_name
         description: "Human-readable station name"
@@ -57,7 +58,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [true]
+              arguments:
+                values: [true]
 
       - name: first_seen
         description: "Earliest ingest_time for this station"

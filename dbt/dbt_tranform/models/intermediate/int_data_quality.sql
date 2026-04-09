@@ -1,52 +1,45 @@
 {{ config(materialized='view') }}
 
-with aqicn_quality as (
+-- D-AQI-02: Phase 6 — Data quality metrics for AQI.in + OpenWeather
+with unified as (
     select
-        station_id as unified_station_id,
-        'aqicn' as source_system,
-        toDate(timestamp_utc) as measurement_date,
-        count(*) as total_measurements,
-        count(value) as non_null_measurements,
-        count(*) - count(value) as missing_measurements,
-        count(distinct parameter) as unique_pollutants,
-        min(timestamp_utc) as earliest_measurement,
-        max(timestamp_utc) as latest_measurement,
-        dateDiff('hour', max(timestamp_utc), now()) as data_freshness_hours,
-        if(count(value) > 0, 100, 0) as avg_data_quality_score
-    from {{ ref('stg_aqicn__measurements') }}
-    group by station_id, toDate(timestamp_utc)
+        station_id                                        AS unified_station_id,
+        source,
+        toDate(timestamp_utc)                           AS measurement_date,
+        count(*)                                          AS total_measurements,
+        count(value)                                     AS non_null_measurements,
+        count(*) - count(value)                          AS missing_measurements,
+        count(distinct parameter)                         AS unique_pollutants,
+        min(timestamp_utc)                               AS earliest_measurement,
+        max(timestamp_utc)                               AS latest_measurement,
+        dateDiff('hour', max(timestamp_utc), now())     AS data_freshness_hours
+    from {{ ref('int_unified__measurements') }}
+    group by station_id, source, toDate(timestamp_utc)
 ),
-
-combined as (
-    select * from aqicn_quality
-),
-
-with_outliers as (
+scored as (
     select
         *,
+        -- Missing data rate
+        if(total_measurements > 0,
+            (missing_measurements::Float64 / total_measurements) * 100,
+            0)                                               AS missing_data_rate,
+        -- Freshness score
         case
-            when total_measurements > 0
-            then (missing_measurements::Float64 / total_measurements) * 100
-            else 100
-        end as missing_data_rate,
-        case
-            when data_freshness_hours <= 24 then 100
-            when data_freshness_hours <= 48 then 75
-            when data_freshness_hours <= 72 then 50
-            when data_freshness_hours <= 168 then 25
-            else 10
-        end as freshness_score,
-        case
-            when missing_data_rate > 50 then true
-            when data_freshness_hours > 168 then true
-            else false
-        end as is_outlier
-    from combined
+            when data_freshness_hours <= 2  then 100
+            when data_freshness_hours <= 6  then 80
+            when data_freshness_hours <= 24 then 60
+            when data_freshness_hours <= 48 then 40
+            else 20
+        end                                               AS freshness_score,
+        -- Overall quality: weighted average
+        (60 + freshness_score * 0.4)                       AS overall_data_quality_score,
+        -- Outlier flag
+        if(data_freshness_hours > 48 OR missing_data_rate > 50, true, false) AS is_outlier
+    from unified
 )
-
 select
     unified_station_id,
-    source_system,
+    source,
     measurement_date,
     total_measurements,
     non_null_measurements,
@@ -57,7 +50,6 @@ select
     latest_measurement,
     data_freshness_hours,
     freshness_score,
-    avg_data_quality_score,
-    is_outlier,
-    (avg_data_quality_score * 0.5 + freshness_score * 0.3 + (100 - missing_data_rate) * 0.2) as overall_data_quality_score
-from with_outliers
+    overall_data_quality_score,
+    is_outlier
+from scored

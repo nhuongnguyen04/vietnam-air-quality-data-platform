@@ -83,7 +83,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['High', 'Medium', 'Low', 'Very Low']
+              arguments:
+                values: ['High', 'Medium', 'Low', 'Very Low']
 
   - name: mart_analytics__geographic
     description: "Geographic analytics — city and province level AQI aggregates. Source: mart_air_quality__daily_summary joined with dim_locations."

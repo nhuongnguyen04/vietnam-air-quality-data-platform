@@ -367,11 +367,11 @@ SELECT
     min(value)                                                AS min_value,
     now()                                                     AS updated_at
 FROM (
-    SELECT station_id, timestamp_utc, source, parameter, value FROM raw_aqicn_measurements
+    -- D-AQI-01: Phase 6 — AQICN and Sensors.Community removed
+    -- Sources: AQI.in (540 Vietnam locations) + OpenWeather (62 provinces)
+    SELECT station_id, timestamp_utc, source, parameter, value FROM raw_aqiin_measurements
     UNION ALL
     SELECT concat('OPENWEATHER_', upper(city_name)), timestamp_utc, 'openweather', parameter, value FROM raw_openweather_measurements
-    UNION ALL
-    SELECT concat('SENSORSCM_', toString(sensor_id)), timestamp_utc, 'sensorscm', parameter, value FROM raw_sensorscm_measurements
 )
 WHERE timestamp_utc IS NOT NULL AND value IS NOT NULL
 GROUP BY datetime_hour, station_id, source, pollutant;
@@ -393,3 +393,69 @@ SELECT
     now()                                                     AS updated_at
 FROM mv_hourly_station_aqi
 GROUP BY date, station_id, source;
+-- ============================================
+-- AQI.in Measurements (Vietnam Provinces)
+-- Source: aqi.in/vi/dashboard/vietnam/
+-- Rationale: High-frequency data from standard and Prana Air sensors.
+-- ReplacingMergeTree(ingest_time) for server-side deduplication.
+-- ============================================
+CREATE TABLE IF NOT EXISTS raw_aqiin_measurements
+(
+    source              LowCardinality(String) DEFAULT 'aqiin',
+    ingest_time         DateTime DEFAULT now(),
+    ingest_batch_id     String,
+    ingest_date         Date MATERIALIZED toDate(ingest_time),
+
+    station_id          String,                    -- slug from URL (e.g. 'hanoi', 'ba-ria-vung-tau/vung-tau')
+    station_name        Nullable(String),
+    province            Nullable(String),
+
+    timestamp_utc      DateTime,
+    parameter          LowCardinality(String),    -- pm25, pm10, o3, no2, so2, co, temp, hum
+    value              Float32,
+    aqi_reported       UInt16,                     -- AQI reported by aqi.in
+
+    -- D-AQI-01: unit and quality_flag added to align with unified schema (Phase 6)
+    -- Units: µg/m³ for pollutants, °C for temp, % for humidity
+    unit              LowCardinality(String) DEFAULT (
+        CASE
+            WHEN lower(parameter) IN ('pm25', 'pm2.5', 'pm2_5', 'pm10', 'pm10_concentration') THEN 'µg/m³'
+            WHEN parameter IN ('co', 'carbon_monoxide') THEN 'ppm'
+            WHEN parameter IN ('no2', 'nitrogen_dioxide') THEN 'ppb'
+            WHEN parameter IN ('o3', 'ozone') THEN 'ppb'
+            WHEN parameter IN ('so2', 'sulfur_dioxide') THEN 'ppb'
+            WHEN parameter IN ('nh3', 'ammonia') THEN 'ppb'
+            WHEN parameter IN ('no') THEN 'ppb'
+            WHEN parameter = 'temp' THEN '°C'
+            WHEN parameter = 'hum' THEN '%'
+            ELSE 'µg/m³'
+        END
+    ),
+    quality_flag      LowCardinality(String) DEFAULT 'valid',  -- valid | implausible
+
+    raw_payload        String CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (station_id, timestamp_utc, parameter)
+SETTINGS index_granularity = 8192;
+
+-- AQI.in Stations metadata
+CREATE TABLE IF NOT EXISTS raw_aqiin_stations
+(
+    source              LowCardinality(String) DEFAULT 'aqiin',
+    ingest_time         DateTime DEFAULT now(),
+    ingest_batch_id     String,
+    ingest_date         Date MATERIALIZED toDate(ingest_time),
+
+    station_id          String,
+    station_name        Nullable(String),
+    province           Nullable(String),
+    url                String,
+
+    raw_payload         String CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (station_id)
+SETTINGS index_granularity = 8192;
