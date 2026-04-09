@@ -28,7 +28,7 @@ from jobs.aqiin.scraper_core import (
 # ─── Config ────────────────────────────────────────────────────────────
 BATCH_SIZE = 100
 BATCH_DELAY = 0.5
-WORKERS = 10
+WORKERS = 5
 LOCATIONS_FILE = Path(__file__).parent / "vietnam_locations.txt"
 
 # ─── ClickHouse Writer ───────────────────────────────────────────────────────
@@ -40,27 +40,9 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
     """
     writer = create_clickhouse_writer()
     measurement_records = []
-    station_records = []
-
     for sid, loc in results:
         if not loc.success:
             continue
-
-        # Station metadata — extract province from station_id path
-        # station_id format: 'ha-noi/hanoi', 'ba-ria-vung-tau/vung-tau', etc.
-        province = sid.split('/')[0] if '/' in sid else sid
-        station_url = f"https://www.aqi.in/dashboard/{sid}"
-
-        station_records.append({
-            "source": "aqiin",
-            "ingest_time": datetime.now(timezone.utc),
-            "ingest_batch_id": batch_id,
-            "station_id": sid,                  -- slug path (D-AQI-01)
-            "station_name": loc.station_name,
-            "province": province,
-            "url": station_url,
-            "raw_payload": loc.raw_payload,
-        })
 
         # Helper to get unit from parameter
         def get_unit(param: str) -> str:
@@ -82,14 +64,13 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
                 "source": "aqiin",
                 "ingest_time": datetime.now(timezone.utc),
                 "ingest_batch_id": batch_id,
-                "station_id": sid,
                 "station_name": loc.station_name,
                 "timestamp_utc": loc.timestamp_utc,
                 "parameter": p.parameter,
                 "value": p.value,
                 "aqi_reported": loc.aqi,
-                "unit": get_unit(p.parameter),   -- D-AQI-01
-                "quality_flag": "valid",          -- D-AQI-01 (community sensors)
+                "unit": get_unit(p.parameter),   # D-AQI-01
+                "quality_flag": "valid",          # D-AQI-01 (community sensors)
                 "raw_payload": loc.raw_payload,
             })
 
@@ -99,14 +80,13 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
                 "source": "aqiin",
                 "ingest_time": datetime.now(timezone.utc),
                 "ingest_batch_id": batch_id,
-                "station_id": sid,
                 "station_name": loc.station_name,
                 "timestamp_utc": loc.timestamp_utc,
                 "parameter": "temp",
                 "value": loc.temperature,
                 "aqi_reported": loc.aqi,
-                "unit": "°C",                     -- D-AQI-01
-                "quality_flag": "valid",         -- D-AQI-01
+                "unit": "°C",                     # D-AQI-01
+                "quality_flag": "valid",         # D-AQI-01
                 "raw_payload": loc.raw_payload,
             })
         if loc.humidity is not None:
@@ -114,23 +94,20 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
                 "source": "aqiin",
                 "ingest_time": datetime.now(timezone.utc),
                 "ingest_batch_id": batch_id,
-                "station_id": sid,
                 "station_name": loc.station_name,
                 "timestamp_utc": loc.timestamp_utc,
                 "parameter": "hum",
                 "value": loc.humidity,
                 "aqi_reported": loc.aqi,
-                "unit": "%",                      -- D-AQI-01
-                "quality_flag": "valid",          -- D-AQI-01
+                "unit": "%",                      # D-AQI-01
+                "quality_flag": "valid",          # D-AQI-01
                 "raw_payload": loc.raw_payload,
             })
 
     if measurement_records:
         writer.write_batch("raw_aqiin_measurements", measurement_records, source="aqiin")
-    if station_records:
-        writer.write_batch("raw_aqiin_stations", station_records, source="aqiin")
 
-    return len(measurement_records), len(station_records)
+    return len(measurement_records)
 
 def create_progress_callback(logger: logging.Logger):
     def callback(finished: int, total: int, sid: str, result: LocationData):
@@ -158,7 +135,7 @@ async def run(mode: str, limit: int):
         progress_callback=create_progress_callback(logger)
     )
     
-    n_m, n_s = write_to_clickhouse(results, batch_id)
+    n_m = write_to_clickhouse(results, batch_id)
     return {"successful": sum(1 for sid, r in results if r.success), "total": len(paths), "records": n_m}
 
 def main():

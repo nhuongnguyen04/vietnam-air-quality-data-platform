@@ -66,7 +66,7 @@ def fetch_city_data(
             "/air_pollution",
             params={"lat": lat, "lon": lon, "appid": client.token}
         )
-        records = transform_city_response(resp, city_name, lat, lon, is_forecast=False)
+        records = transform_city_response(resp, city_name, lat, lon)
         current_records.extend(records)
         logger.info(f"[{city_name}] current: {len(records)} records")
     except Exception as e:
