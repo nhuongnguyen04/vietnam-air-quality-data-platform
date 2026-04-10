@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: stg_aqiin__measurements
+    description: "Deduplicated real-time air quality measurements from aqi.in"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [station_name, timestamp_utc, parameter]
+    columns:
+      - name: station_name
+        tests:
+          - not_null
+      - name: timestamp_utc
+        tests:
+          - not_null
+      - name: parameter
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['co', 'hum', 'no2', 'o3', 'pm10', 'pm25', 'so2', 'temp']
+      - name: value
+        tests:
+          - not_null
+          - range:
+              min_value: -50  # Allow negative temp, but air quality stats usually non-negative. parameter aware ranges would be better.

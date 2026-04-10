@@ -8,3 +8,18 @@ sources:
     tables:
       - name: raw_tomtom_traffic_hourly
         description: "Hourly aggregated traffic flow data"
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 12, period: hour}
+        loaded_at_field: updated_at
+        columns:
+          - name: station_name
+            tests:
+              - not_null
+          - name: hour_utc
+            tests:
+              - not_null
+          - name: congestion_ratio
+            tests:
+              - not_null
+

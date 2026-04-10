@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: stg_tomtom__flow
+    description: "Hourly traffic flow measurements from TomTom"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [station_name, timestamp_utc]
+    columns:
+      - name: station_name
+        tests:
+          - not_null
+      - name: timestamp_utc
+        tests:
+          - not_null
+      - name: value
+        description: "Congestion ratio (0 to 1)"
+        tests:
+          - not_null
+          - range:
+              min_value: 0
+              max_value: 1

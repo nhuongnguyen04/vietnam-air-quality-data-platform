@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: stg_openweather__meteorology
+    description: "Meteorological data from OpenWeather"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [province, timestamp_utc]
+    columns:
+      - name: province
+        tests:
+          - not_null
+      - name: timestamp_utc
+        tests:
+          - not_null
+      - name: humidity
+        tests:
+          - range:
+              min_value: 0
+              max_value: 100
+      - name: temp
+        tests:
+          - range:
+              min_value: -10
+              max_value: 60

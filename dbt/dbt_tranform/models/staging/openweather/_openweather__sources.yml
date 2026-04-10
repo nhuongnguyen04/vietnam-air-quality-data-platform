@@ -8,6 +8,15 @@ sources:
     tables:
       - name: raw_openweather_measurements
         description: "Raw OpenWeather air pollution readings"
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
+        loaded_at_field: ingest_time
       - name: raw_openweather_meteorology
         description: "Raw OpenWeather weather readings (Temp, Wind, Hum)"
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 12, period: hour}
+        loaded_at_field: ingest_time
+
 
