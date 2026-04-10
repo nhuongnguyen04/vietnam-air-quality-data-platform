@@ -56,6 +56,8 @@ services:
     - ./airflow/logs:/opt/airflow/logs
     - ./python_jobs:/opt/python/jobs:ro
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+    - dbt-target:/opt/dbt/dbt_tranform/target
+    - dbt-logs:/opt/dbt/dbt_tranform/logs
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -129,6 +131,8 @@ services:
     - ./airflow/logs:/opt/airflow/logs
     - ./python_jobs:/opt/python/jobs:ro
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+    - dbt-target:/opt/dbt/dbt_tranform/target
+    - dbt-logs:/opt/dbt/dbt_tranform/logs
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -197,6 +201,8 @@ services:
     - ./airflow/logs:/opt/airflow/logs
     - ./python_jobs:/opt/python/jobs:ro
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+    - dbt-target:/opt/dbt/dbt_tranform/target
+    - dbt-logs:/opt/dbt/dbt_tranform/logs
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -265,6 +271,8 @@ services:
     - ./airflow/logs:/opt/airflow/logs
     - ./python_jobs:/opt/python/jobs:ro
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+    - dbt-target:/opt/dbt/dbt_tranform/target
+    - dbt-logs:/opt/dbt/dbt_tranform/logs
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -363,6 +371,8 @@ services:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+    - dbt-target:/opt/dbt/dbt_tranform/target
+    - dbt-logs:/opt/dbt/dbt_tranform/logs
     command: >
       bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/dbt_tranform/dbt_packages
       && chown -R 50000:0 /opt/airflow/logs /opt/dbt/dbt_tranform
@@ -747,7 +757,7 @@ services:
     - AIRFLOW__CORE__PARALLELISM=4
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./dbt/dbt_tranform/target:/opt/dbt-artifacts:ro
+    - dbt-target:/opt/dbt-artifacts:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -779,3 +789,5 @@ networks:
 volumes:
   grafana-data: null
   prometheus-data: null
+  dbt-target:
+  dbt-logs:

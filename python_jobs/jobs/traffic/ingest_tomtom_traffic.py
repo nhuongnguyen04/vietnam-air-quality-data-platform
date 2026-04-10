@@ -24,7 +24,24 @@ from common.clickhouse_writer import create_clickhouse_writer
 from common.ingestion_control import update_control
 
 # Config
-BASE_DIR = Path(__file__).parent.parent.parent.parent
+def get_project_root() -> Path:
+    """Find project root by searching for 'dbt' or 'python_jobs' directory in parents."""
+    curr = Path(__file__).resolve()
+    # Handle the case where we are in a container with a deep mount
+    # or running locally. Search up to 6 levels up.
+    for _ in range(6):
+        if (curr / "dbt").exists() or (curr / "python_jobs").exists():
+            return curr
+        if curr.parent == curr:
+            break
+        curr = curr.parent
+    
+    # Fallback to the known structure if discovery fails
+    # /opt/python/jobs/jobs/traffic/script.py (container) -> 5 levels up to /opt
+    # python_jobs/jobs/traffic/script.py (host) -> 4 levels up to project root
+    return Path(__file__).resolve().parent.parent.parent.parent
+
+BASE_DIR = get_project_root()
 STATION_METADATA_FILE = BASE_DIR / "dbt/dbt_tranform/seeds/unified_stations_metadata.csv"
 
 def load_station_groups() -> Dict[Tuple[float, float], List[str]]:
@@ -33,8 +50,14 @@ def load_station_groups() -> Dict[Tuple[float, float], List[str]]:
     if not STATION_METADATA_FILE.exists():
         # Fallback to original if unified is missing (should not happen in prod)
         STATION_METADATA_FILE_OLD = BASE_DIR / "dbt/dbt_tranform/seeds/vn_station_coordinates.csv"
+        # Log path for debugging if it fails
         if not STATION_METADATA_FILE_OLD.exists():
-            raise FileNotFoundError(f"No station metadata found at {STATION_METADATA_FILE}")
+            raise FileNotFoundError(
+                f"No station metadata found at: \n"
+                f"  - Primary: {STATION_METADATA_FILE}\n"
+                f"  - Fallback: {STATION_METADATA_FILE_OLD}\n"
+                f"  (BASE_DIR was resolved to: {BASE_DIR})"
+            )
         target_file = STATION_METADATA_FILE_OLD
     else:
         target_file = STATION_METADATA_FILE
