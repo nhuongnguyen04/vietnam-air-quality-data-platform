@@ -1,31 +1,33 @@
 with aqiin as (
     select
-        source,
-        station_name,
-        district,
-        province,
-        timestamp_utc,
-        parameter,
-        value,
-        aqi_reported,
-        quality_flag,
-        ingest_time
-    from {{ ref('stg_aqiin__measurements') }}
+        m.source,
+        m.station_name,
+        s.district,
+        s.province,
+        m.timestamp_utc,
+        m.parameter,
+        m.value,
+        m.aqi_reported,
+        m.quality_flag,
+        m.ingest_time
+    from {{ ref('stg_aqiin__measurements') }} m
+    left join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
 ),
 
 openweather as (
     select
-        source,
-        station_name,
-        district,
-        province,
-        timestamp_utc,
-        parameter,
-        value,
-        aqi_reported,
-        quality_flag,
-        ingest_time
-    from {{ ref('stg_openweather__measurements') }}
+        m.source,
+        m.station_name,
+        s.district,
+        s.province,
+        m.timestamp_utc,
+        m.parameter,
+        m.value,
+        m.aqi_reported,
+        m.quality_flag,
+        m.ingest_time
+    from {{ ref('stg_openweather__measurements') }} m
+    left join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
 ),
 
 unified as (

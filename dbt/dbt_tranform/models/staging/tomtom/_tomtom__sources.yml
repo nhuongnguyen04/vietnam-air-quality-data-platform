@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: tomtom
+    description: "TomTom Traffic API data"
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_tomtom_traffic_hourly
+        description: "Hourly aggregated traffic flow data"

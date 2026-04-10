@@ -11,12 +11,3 @@ sources:
       - name: raw_openweather_meteorology
         description: "Raw OpenWeather weather readings (Temp, Wind, Hum)"
 
-  - name: tomtom
-    description: "TomTom Traffic API — Congestion and speed data."
-    database: air_quality
-    schema: air_quality
-    tables:
-      - name: raw_tomtom_traffic
-        description: "Raw TomTom traffic flow readings (3rd-hourly samples)"
-      - name: raw_tomtom_traffic_hourly
-        description: "Calculated 1-hourly traffic (Python-interpolated)"

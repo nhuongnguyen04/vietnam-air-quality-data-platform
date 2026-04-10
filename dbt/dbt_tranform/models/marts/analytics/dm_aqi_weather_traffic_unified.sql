@@ -3,8 +3,7 @@
     engine='ReplacingMergeTree',
     unique_key='(station_name, datetime_hour)',
     order_by='(province, datetime_hour, station_name)',
-    partition_by='toYYYYMM(date)',
-    schema=var('analytics_schema', 'analytics')
+    partition_by='toYYYYMM(date)'
 ) }}
 
 WITH aqi AS (
@@ -31,7 +30,7 @@ weather AS (
 ),
 
 traffic AS (
-    SELECT * FROM {{ ref('stg_tomtom__traffic') }}
+    SELECT * FROM {{ ref('stg_tomtom__flow') }}
 ),
 
 station_metadata AS (
@@ -41,7 +40,7 @@ station_metadata AS (
 
 pop AS (
     -- Updated 2026 population projections
-    SELECT * FROM {{ ref('stg_seed__population_2026') }}
+    SELECT * FROM {{ ref('stg_core__population') }}
 )
 
 SELECT
@@ -68,8 +67,8 @@ SELECT
     w.pressure as pressure,
     
     -- Traffic
-    t.congestion_ratio as congestion_index,
-    t.data_quality_flag as traffic_data_type,
+    t.value as congestion_index,
+    t.quality_flag as traffic_data_type,
     
     -- Weather Indicators
     case when w.humidity > 80 then 1 else 0 end as is_high_humidity_suppression,
@@ -84,12 +83,12 @@ SELECT
     
     -- Traffic Impact Ratio: How much pollution per unit of congestion
     -- Avoid division by zero
-    CAST(if(t.congestion_ratio > 0, a.pm25 / t.congestion_ratio, 0) AS Float32) as traffic_pollution_ratio,
+    CAST(if(t.value > 0, a.pm25 / t.value, 0) AS Float32) as traffic_pollution_ratio,
 
     now() as dbt_updated_at
 
 FROM aqi a
 LEFT JOIN station_metadata m ON a.station_name = m.station_name
-LEFT JOIN weather w ON a.province = w.province AND a.datetime_hour = w.hour_utc
-LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.hour_utc
+LEFT JOIN weather w ON a.province = w.province AND a.datetime_hour = w.timestamp_utc
+LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.timestamp_utc
 LEFT JOIN pop p ON a.province = p.location_name

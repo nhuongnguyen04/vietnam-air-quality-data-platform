@@ -1,6 +1,5 @@
 {{ config(
-    materialized='view',
-    schema=var('staging_schema', 'staging')
+    materialized='view'
 ) }}
 
 WITH raw_data AS (
@@ -27,9 +26,11 @@ SELECT
     station_name,
     latitude,
     longitude,
-    hour_utc,
-    congestion_ratio,
-    data_quality_flag,
+    hour_utc as timestamp_utc,
+    congestion_ratio as value,
+    'congestion_ratio' as parameter,
+    data_quality_flag as quality_flag,
+    updated_at as ingest_time,
     now() as dbt_updated_at
 FROM deduplicated
 WHERE rn = 1

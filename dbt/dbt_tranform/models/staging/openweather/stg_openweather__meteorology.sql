@@ -1,6 +1,5 @@
 {{ config(
-    materialized='view',
-    schema=var('staging_schema', 'staging')
+    materialized='view'
 ) }}
 
 WITH raw_data AS (
@@ -13,7 +12,7 @@ deduplicated AS (
         province,
         latitude,
         longitude,
-        toStartOfHour(timestamp_utc) as hour_utc,
+        toStartOfHour(timestamp_utc) as timestamp_utc,
         temp,
         feels_like,
         humidity,
@@ -32,7 +31,7 @@ SELECT
     province,
     latitude,
     longitude,
-    hour_utc,
+    timestamp_utc,
     temp,
     feels_like,
     humidity,

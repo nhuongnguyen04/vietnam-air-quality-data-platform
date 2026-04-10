@@ -1,6 +1,5 @@
 {{ config(
-    materialized='table',
-    schema=var('analytics_schema', 'analytics')
+    materialized='table'
 ) }}
 
 WITH provincial_daily AS (

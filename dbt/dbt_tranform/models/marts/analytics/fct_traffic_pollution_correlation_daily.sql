@@ -1,6 +1,5 @@
 {{ config(
-    materialized='table',
-    schema=var('analytics_schema', 'analytics')
+    materialized='table'
 ) }}
 
 WITH daily_stats AS (
@@ -8,13 +7,18 @@ WITH daily_stats AS (
         date,
         province,
         station_name,
-        location_type,
+        -- Derive location_type from province classification
+        case
+            when province IN ('Ha Noi', 'Ho Chi Minh', 'Da Nang', 'Hai Phong', 'Can Tho') then 'Urban'
+            when province IN ('Binh Duong', 'Dong Nai', 'Ba Ria - Vung Tau', 'Bac Ninh', 'Bac Giang', 'Hung Yen') then 'Industrial'
+            else 'Rural'
+        end as location_type,
         avg(pm25) as avg_pm25,
         avg(congestion_index) as avg_congestion,
         max(pm25) as peak_pm25,
         max(congestion_index) as peak_congestion
     FROM {{ ref('dm_aqi_weather_traffic_unified') }}
-    GROUP BY 1, 2, 3, 4
+    GROUP BY 1, 2, 3
 )
 
 SELECT
