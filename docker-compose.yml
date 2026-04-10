@@ -61,6 +61,7 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -132,6 +133,7 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -198,6 +200,7 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -264,6 +267,7 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -340,6 +344,7 @@ services:
         max-file: '3'
     networks:
     - air-quality-network
+    
   airflow-init:
     build:
       context: .
@@ -353,11 +358,12 @@ services:
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
-    command: 'bash -c "mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
-      && chown -R 50000:0 /opt/airflow/logs && chmod -R 775 /opt/airflow/logs /opt/airflow/dags
-      /opt/airflow/plugins && echo ''Permissions setup complete.''"
-
-      '
+    - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
+    command: >
+      bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/dbt_tranform/dbt_packages
+      && chown -R 50000:0 /opt/airflow/logs /opt/dbt/dbt_tranform
+      && chmod -R 775 /opt/airflow/logs /opt/dbt/dbt_tranform
+      && echo 'Permissions setup complete.'"
     networks:
     - air-quality-network
   dashboard:

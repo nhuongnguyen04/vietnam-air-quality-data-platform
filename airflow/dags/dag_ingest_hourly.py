@@ -8,7 +8,7 @@ This DAG runs every 15 minutes to ingest the latest measurements from:
 D-AQI-02 (Phase 6): AQICN and Sensors.Community removed.
 Sources: AQI.in + OpenWeather (2 sources, both running in parallel).
 
-Schedule: Every 15 minutes (*/15 * * * *)
+Schedule: Every hour (0 * * * *)
 """
 
 from datetime import datetime, timedelta
@@ -52,7 +52,7 @@ def get_job_env_vars() -> dict:
 @dag(
     default_args=default_args,
     description='Ingestion of air quality measurements from AQI.in and OpenWeather every 15 minutes — triggers dag_transform on completion',
-    schedule='*/15 * * * *',
+    schedule='0 * * * *',
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
