@@ -81,6 +81,7 @@ services:
     - PYTHON_JOBS_DIR=/opt/python/jobs/
     # D-AQI-02 (Phase 6): AQICN removed — AQICN_API_TOKEN no longer used
     - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+    - TOMTOM_API_KEY=${TOMTOM_API_KEY}
     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     depends_on:
@@ -153,6 +154,7 @@ services:
     - PYTHON_JOBS_DIR=/opt/python/jobs
     # D-AQI-02 (Phase 6): AQICN removed — AQICN_API_TOKEN no longer used
     - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+    - TOMTOM_API_KEY=${TOMTOM_API_KEY}
     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     depends_on:
@@ -220,6 +222,7 @@ services:
     - PYTHON_JOBS_DIR=/opt/python/jobs
     # D-AQI-02 (Phase 6): AQICN removed — AQICN_API_TOKEN no longer used
     - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+    - TOMTOM_API_KEY=${TOMTOM_API_KEY}
     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     depends_on:
@@ -287,6 +290,7 @@ services:
     - PYTHON_JOBS_DIR=/opt/python/jobs
     # D-AQI-02 (Phase 6): AQICN removed — AQICN_API_TOKEN no longer used
     - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+    - TOMTOM_API_KEY=${TOMTOM_API_KEY}
     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     depends_on:

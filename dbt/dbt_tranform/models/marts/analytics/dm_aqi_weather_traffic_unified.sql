@@ -35,11 +35,13 @@ traffic AS (
 ),
 
 station_metadata AS (
-    SELECT station_name, location_type FROM {{ ref('vn_station_coordinates') }}
+    -- New high-precision metadata (from TomTom Search API)
+    SELECT station_name, latitude, longitude FROM {{ ref('unified_stations_metadata') }}
 ),
 
 pop AS (
-    SELECT * FROM {{ ref('vn_population_provincial_2024') }}
+    -- Updated 2026 population projections
+    SELECT * FROM {{ ref('stg_seed__population_2026') }}
 )
 
 SELECT
@@ -48,7 +50,8 @@ SELECT
     a.province as province,
     a.district as district,
     a.station_name as station_name,
-    m.location_type as location_type,
+    m.latitude as station_latitude,
+    m.longitude as station_longitude,
     
     -- Air Quality metrics
     a.aqi_us as aqi_us,
@@ -73,11 +76,11 @@ SELECT
     case when w.wind_speed < 1.0 then 1 else 0 end as is_stagnant_air_risk,
     
     -- Demographics
-    p.population as provincial_population,
+    p.total_population as provincial_population,
     
     -- Advanced Calculated Metrics
     -- Exposure Score: PM2.5 intensity weighted by population
-    CAST((a.pm25 * p.population) / 1000000.0 AS Float32) as population_exposure_score,
+    CAST((a.pm25 * p.total_population) / 1000000.0 AS Float32) as population_exposure_score,
     
     -- Traffic Impact Ratio: How much pollution per unit of congestion
     -- Avoid division by zero
@@ -89,4 +92,4 @@ FROM aqi a
 LEFT JOIN station_metadata m ON a.station_name = m.station_name
 LEFT JOIN weather w ON a.province = w.province AND a.datetime_hour = w.hour_utc
 LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.hour_utc
-LEFT JOIN pop p ON a.province = p.province
+LEFT JOIN pop p ON a.province = p.location_name

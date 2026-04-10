@@ -11,7 +11,7 @@ Schedule: Daily at 01:00
 """
 
 from datetime import datetime, timedelta
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 import os
 
 # Default arguments

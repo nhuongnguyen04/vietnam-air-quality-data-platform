@@ -11,8 +11,8 @@ Schedule: Every hour (0 * * * *)
 """
 
 from datetime import datetime, timedelta
-from airflow.decorators import dag, task
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sdk import dag, task
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 import os
 
 # Default arguments
