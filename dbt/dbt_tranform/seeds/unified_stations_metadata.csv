@@ -8,31 +8,31 @@ station_name,latitude,longitude,province,source
 "Bac Ninh Phong Coc, Bac Giang, Bac Giang, Vietnam",21.2734,106.3223,,original
 "Bac Ninh Phu Lang, Bac Giang, Bac Giang, Vietnam",21.2734,106.3223,,original
 "Lang Son Dong Tan Huu Lung, Bac Giang, Bac Giang, Vietnam",21.2734,106.3223,,original
-"Bac Ninh Binh Dinh, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh KCN Tien Son, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh Kcn Qua, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh Monitoring Center Suoi Hoa Ward Bac Ninh City, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh Peoples Committee Of Yen Phong, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh Phu Xa Van Mon, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh Thuan Thanh Inter Area, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
+"Bac Ninh Binh Dinh, Bac Ninh, Bac Ninh, Vietnam",20.428433,106.177636,,tomtom_fix
+"Bac Ninh KCN Tien Son, Bac Ninh, Bac Ninh, Vietnam",21.1323007,105.9964069,,tomtom_fix
+"Bac Ninh Kcn Qua, Bac Ninh, Bac Ninh, Vietnam",12.6207307,109.1169767,,tomtom_fix
+"Bac Ninh Monitoring Center Suoi Hoa Ward Bac Ninh City, Bac Ninh, Bac Ninh, Vietnam",21.1894289,106.0768435,,tomtom_fix
+"Bac Ninh Peoples Committee Of Yen Phong, Bac Ninh, Bac Ninh, Vietnam",21.187594,105.964505,,tomtom_fix
+"Bac Ninh Phu Xa Van Mon, Bac Ninh, Bac Ninh, Vietnam",21.17052,105.931758,,tomtom_fix
+"Bac Ninh Thuan Thanh Inter Area, Bac Ninh, Bac Ninh, Vietnam",21.063514,106.089884,,tomtom_fix
 "Bac Ninh Tieu Hoc Dai Bai, Bac Ninh, Bac Ninh, Vietnam",21.0377269,106.1468067,,aqicn_fuzzy
-"Bac Ninh Ubnd Aai Aang, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
-"Bac Ninh Ubnd Que Vu, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
+"Bac Ninh Ubnd Aai Aang, Bac Ninh, Bac Ninh, Vietnam",21.367173,106.261874,,tomtom_fix
+"Bac Ninh Ubnd Que Vu, Bac Ninh, Bac Ninh, Vietnam",21.189218,106.08057,,tomtom_fix
 "Bac Ninh, Bac Ninh, Vietnam",21.0353984,106.1025755,,aqicn_fuzzy
-"Ha Noi UBND TT Soc Son, Bac Ninh, Bac Ninh, Vietnam",21.1218,106.078,,original
+"Ha Noi UBND TT Soc Son, Bac Ninh, Bac Ninh, Vietnam",21.0868252,105.9429915,,tomtom_fix
 "Binh Dinh, Vietnam",21.0353984,106.1025755,,aqicn_fuzzy
 "Gia Lai UBND thi xa An Khe, Quy Nhon, Binh Dinh, Vietnam",13.783,109.224,,original
 "Ngo May, Quy Nhon, Binh Dinh, Vietnam",13.783,109.224,,original
 "Quy Nhon, Binh Dinh, Vietnam",21.0353984,106.1025755,,aqicn_fuzzy
 "ong a, Quy Nhon, Binh Dinh, Vietnam",13.783,109.224,,original
-"Binh Duong, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Binh Duong, Vietnam",11.071018,106.69369,,tomtom_fix
 "Hiep Thanh, Thanh pho Thu Dau Mot, Binh Duong, Vietnam",11.069,106.654,,original
 "Tay Ninh Thi xa Trang Bang, Thu Dau Mot, Binh Duong, Vietnam",11.069,106.654,,original
 "Thanh pho Thu Dau Mot, Binh Duong, Vietnam",11.069,106.654,,original
 "Thu Dau Mot, Binh Duong, Vietnam",11.069,106.654,,original
 "Can Tho Ninh Kieu KTTV Tram cam bien, Can Tho, Can Tho, Vietnam",10.0452,105.7469,,original
 "Can Tho, Can Tho, Vietnam",10.0452,105.7469,,original
-"Can Tho, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Can Tho, Vietnam",9.742392,105.758997,,tomtom_fix
 "Cao BaNgtraM Khi Ttqt, Cao Bang, Cao BaNg, Vietnam",22.6657,106.268,,original
 "Cao Bang, Cao BaNg, Vietnam",22.6657,106.268,,original
 "Cao Bang Phuong De Tham, Cao Bang, Cao Bang, Vietnam",22.6657,106.268,,original
@@ -43,14 +43,14 @@ station_name,latitude,longitude,province,source
 "Gia Lai Thong Nhat Ward Pleiku, Pleiku, Gia Lai, Vietnam",13.8079,108.1094,,original
 "Pleiku, Gia Lai, Vietnam",13.8079,108.1094,,original
 "Tra Da, Pleiku, Gia Lai, Vietnam",13.8079,108.1094,,original
-"Ha Nam Province, Vietnam",20.5833,105.9167,,original
-"Ha Noi UNBD TT Van Dinh ung Hoa, Phu Ly, Ha Nam, Vietnam",20.5833,105.9167,,original
-"Hai Ba Trung, Thanh pho Phu Ly, Ha Nam, Vietnam",20.5833,105.9167,,original
-"Luu Hoang, Phu Ly, Ha Nam, Vietnam",20.5833,105.9167,,original
-"Minh Khai Ward, Phu Ly, Ha Nam Province, Vietnam",20.5833,105.9167,,original
-"Phu Ly, Ha Nam Province, Vietnam",20.5833,105.9167,,original
-"Phu Ly, Ha Nam, Vietnam",20.5833,105.9167,,original
-"Thanh pho Phu Ly, Ha Nam, Vietnam",20.5833,105.9167,,original
+"Ha Nam Province, Vietnam",20.581922,105.951226,,tomtom_fix
+"Ha Noi UNBD TT Van Dinh ung Hoa, Phu Ly, Ha Nam, Vietnam",20.73573,105.772647,,tomtom_fix
+"Hai Ba Trung, Thanh pho Phu Ly, Ha Nam, Vietnam",13.7709675,109.2271627,,tomtom_fix
+"Luu Hoang, Phu Ly, Ha Nam, Vietnam",20.8601108,106.6739042,,tomtom_fix
+"Minh Khai Ward, Phu Ly, Ha Nam Province, Vietnam",21.0638864,105.7435505,,tomtom_fix
+"Phu Ly, Ha Nam Province, Vietnam",20.9619188,105.7651602,,tomtom_fix
+"Phu Ly, Ha Nam, Vietnam",20.9619188,105.7651602,,tomtom_fix
+"Thanh pho Phu Ly, Ha Nam, Vietnam",13.7709675,109.2271627,,tomtom_fix
 "Bac Ninh Chau Khe, Hanoi, Ha Noi, Vietnam",21.214854,105.9315671,,tomtom_geocoding
 "Bac Ninh UBND xa Xuan Lam, Hanoi, Ha Noi, Vietnam",21.071568,105.797171,,tomtom_geocoding
 "Bac Ninh gan KCN Yen Phong, Hanoi, Ha Noi, Vietnam",21.1277395,105.8895444,,aqicn_fuzzy
@@ -76,7 +76,7 @@ station_name,latitude,longitude,province,source
 "Hanoi US Embassy, Hanoi, Ha Noi, Vietnam",20.999105,105.699893,,tomtom_geocoding
 "Hanoi Ubnd P Hoang Van Thu Hoang Mai, Hanoi, Ha Noi, Vietnam",20.9875114,105.8601278,,tomtom_geocoding
 "Hanoi Ubnd Tay Mo, Hanoi, Ha Noi, Vietnam",21.004935,105.748395,,tomtom_geocoding
-"Hanoi, Ha Noi, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Hanoi, Ha Noi, Vietnam",20.999105,105.699893,,tomtom_fix
 "Hoan Kiem District, Ha Noi, Vietnam",21.028279,105.853881,,tomtom_geocoding
 "Hung Yen Nha van hoa xa Tan Quang h.Van Lam, Hanoi, Ha Noi, Vietnam",20.855515,105.873407,,tomtom_geocoding
 "KDT Tay ho Tay Bac Tu Liem, Hanoi, Ha Noi, Vietnam",21.0694483,105.8108535,,tomtom_geocoding
@@ -109,31 +109,31 @@ station_name,latitude,longitude,province,source
 "United Nations International School Of Hanoi, Hanoi, Ha Noi, Vietnam",20.999105,105.699893,,tomtom_geocoding
 "Xa Trung Gia, Soc Son District, Ha Noi, Vietnam",21.3242416,105.8275688,,tomtom_geocoding
 "Xuan Tao Ward, North Tu Liem District, Ha Noi, Vietnam",21.031618,105.767294,,tomtom_geocoding
-"Bac Ninhubnd Xa Cao DuC Gia Binh, Hai Duong, HaI Duong, Vietnam",20.9406,106.3209,,original
-"Haiphong, HaI Phong, Vietnam",20.8449,106.6881,,original
-"Quang Ninh Nam, Haiphong, HaI Phong, Vietnam",20.8449,106.6881,,original
-"Quang Ninh People Committee Of Uong Bi City, Haiphong, HaI Phong, Vietnam",20.8449,106.6881,,original
-"Quang Ninh Peoples Committee Of Mao Khe Ward, Haiphong, HaI Phong, Vietnam",20.8449,106.6881,,original
-"Hai Duong Co Dung Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong Gan nhiet Dien Pha Lai Chi Linh, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong Hoi Doanh Nghiep Kinh Mon, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong TT Ke Sat Binh Giang, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong TT Lai Cach Cam Giang, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong TT Phu Thai Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong Tram Tan Binh TP Hai Duong, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong Tram Y te Duy Tan Kinh Mon, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong UBND TP Chi Linh, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Khu Tu Thong, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Quang Ninh Nhue Ho Dong Trieu, Hai Duong, Hai Duong, Vietnam",20.9406,106.3209,,original
-"Hai Duong TT Minh Tan Kinh Mon, Haiphong, Hai Phong, Vietnam",20.8449,106.6881,,original
-"Hai Phong Phu Lien, Haiphong, Hai Phong, Vietnam",20.8449,106.6881,,original
-"Haiphong, Hai Phong, Vietnam",20.8449,106.6881,,original
-"Ngo Quyen District, Hai Phong, Vietnam",20.8449,106.6881,,original
-"Phuong Cau Dat, Ngo Quyen District, Hai Phong, Vietnam",20.8449,106.6881,,original
+"Bac Ninhubnd Xa Cao DuC Gia Binh, Hai Duong, HaI Duong, Vietnam",21.0872606,106.2782485,,tomtom_fix
+"Haiphong, HaI Phong, Vietnam",20.875173,106.474483,,tomtom_fix
+"Quang Ninh Nam, Haiphong, HaI Phong, Vietnam",20.9431343,106.3343711,,tomtom_fix
+"Quang Ninh People Committee Of Uong Bi City, Haiphong, HaI Phong, Vietnam",20.953212,107.102052,,tomtom_fix
+"Quang Ninh Peoples Committee Of Mao Khe Ward, Haiphong, HaI Phong, Vietnam",20.953212,107.102052,,tomtom_fix
+"Hai Duong Co Dung Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.939309,106.345852,,tomtom_fix
+"Hai Duong Gan nhiet Dien Pha Lai Chi Linh, Hai Duong, Hai Duong, Vietnam",10.779516,106.6576644,,tomtom_fix
+"Hai Duong Hoi Doanh Nghiep Kinh Mon, Hai Duong, Hai Duong, Vietnam",10.2389171,106.3768486,,tomtom_fix
+"Hai Duong TT Ke Sat Binh Giang, Hai Duong, Hai Duong, Vietnam",20.9002411,106.1433398,,tomtom_fix
+"Hai Duong TT Lai Cach Cam Giang, Hai Duong, Hai Duong, Vietnam",10.00702,105.079062,,tomtom_fix
+"Hai Duong TT Phu Thai Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.9629581,106.5081853,,tomtom_fix
+"Hai Duong Tram Tan Binh TP Hai Duong, Hai Duong, Hai Duong, Vietnam",10.803596,106.477615,,tomtom_fix
+"Hai Duong Tram Y te Duy Tan Kinh Mon, Hai Duong, Hai Duong, Vietnam",21.0019603,106.54233,,tomtom_fix
+"Hai Duong UBND TP Chi Linh, Hai Duong, Hai Duong, Vietnam",21.2734411,107.2867976,,tomtom_fix
+"Hai Duong, Hai Duong, Vietnam",20.939309,106.345852,,tomtom_fix
+"Khu Tu Thong, Hai Duong, Hai Duong, Vietnam",12.3063362,109.1885428,,tomtom_fix
+"Quang Ninh Nhue Ho Dong Trieu, Hai Duong, Hai Duong, Vietnam",17.4034323,106.605772,,tomtom_fix
+"Hai Duong TT Minh Tan Kinh Mon, Haiphong, Hai Phong, Vietnam",21.0386565,106.5802676,,tomtom_fix
+"Hai Phong Phu Lien, Haiphong, Hai Phong, Vietnam",20.797349,106.6259,,tomtom_fix
+"Haiphong, Hai Phong, Vietnam",20.875173,106.474483,,tomtom_fix
+"Ngo Quyen District, Hai Phong, Vietnam",20.8658566,106.704599,,tomtom_fix
+"Phuong Cau Dat, Ngo Quyen District, Hai Phong, Vietnam",20.861362,106.705175,,tomtom_fix
 "Ba Dinh, Hanoi, Hanoi, Vietnam",21.0386287,105.8380479,,tomtom_geocoding
 "Chuong My, Hanoi, Vietnam",20.921719,105.704747,,tomtom_geocoding
-"Hanoi, Hanoi, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Hanoi, Hanoi, Vietnam",20.999105,105.699893,,tomtom_fix
 "Hanoi, Vietnam",21.0491,105.8831,,aqicn_fuzzy
 "Xuan Mai Town Committee, Chuong My, Hanoi, Vietnam",20.913078,105.733435,,tomtom_geocoding
 "Duong Ngo Quang Tham, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.661527,106.699552,,tomtom_geocoding
@@ -151,41 +151,41 @@ station_name,latitude,longitude,province,source
 "Hung Yen, Hung Yen, Vietnam",20.6464,106.0538,,original
 "Hung Yen, Vietnam",20.6464,106.0538,,original
 "Thanh pho Hung Yen, Hung Yen, Vietnam",20.6464,106.0538,,original
-"Nha Trang, Khanh Hoa, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Nha Trang, Khanh Hoa, Vietnam",12.2467998,109.188338,,tomtom_fix
 "Nha Trang, Nha Trang, Khanh Hoa, Vietnam",12.2588,109.0521,,original
 "Ninh An, Thi xa Ninh Hoa, Khanh Hoa, Vietnam",12.2588,109.0521,,original
 "Thi xa Ninh Hoa, Khanh Hoa, Vietnam",12.2588,109.0521,,original
 "Vinh Luong, Nha Trang, Khanh Hoa, Vietnam",12.2588,109.0521,,original
-"Lam Dong, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Lam Dong, Vietnam",11.673026,107.970028,,tomtom_fix
 "Phuong 6, Thanh pho a Lat, Lam Dong, Vietnam",11.5755,108.1426,,original
 "Thanh pho a Lat, Lam Dong, Vietnam",11.5755,108.1426,,original
-"Huu Lung District, Lang Son Province, Vietnam",21.8538,106.761,,original
-"Lang Son Province, Vietnam",21.8538,106.761,,original
-"Lang Son phuong Chi Lang TP Lang Son, Lang Son, Lang Son, Vietnam",21.8538,106.761,,original
-"Lang Son xa Hong Phong Cao Loc, Lang Son, Lang Son, Vietnam",21.8538,106.761,,original
-"Lang Son, Lang Son, Vietnam",21.8538,106.761,,original
-"Lang Son, Vietnam",21.8538,106.761,,original
-"Tan Thanh, Huu Lung District, Lang Son Province, Vietnam",21.8538,106.761,,original
+"Huu Lung District, Lang Son Province, Vietnam",21.505561,106.345104,,tomtom_fix
+"Lang Son Province, Vietnam",21.83897,106.621475,,tomtom_fix
+"Lang Son phuong Chi Lang TP Lang Son, Lang Son, Lang Son, Vietnam",21.597632,106.522357,,tomtom_fix
+"Lang Son xa Hong Phong Cao Loc, Lang Son, Lang Son, Vietnam",22.089139,106.393262,,tomtom_fix
+"Lang Son, Lang Son, Vietnam",14.358781,108.570142,,tomtom_fix
+"Lang Son, Vietnam",21.83897,106.621475,,tomtom_fix
+"Tan Thanh, Huu Lung District, Lang Son Province, Vietnam",21.51459,106.431905,,tomtom_fix
 "Lao Cai Tram gan KCN Tang Loong 2, Lao Cai, Lao Cai, Vietnam",22.4862,103.9505,,original
 "Lao Cai, Lao Cai, Vietnam",22.4862,103.9505,,original
-"Lao Cai, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Lao Cai, Vietnam",22.476114,103.973453,,tomtom_fix
 "Lao Caikcn Taloong1, Lao Cai, Lao Cai, Vietnam",22.3221386,104.1214227,,aqicn_fuzzy
 "Long An TT van hoa huyen Ben Luc, Tan An, Long An, Vietnam",10.645084,106.485962,,aqicn_fuzzy
-"Long An, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Long An, Vietnam",10.54551,106.383875,,tomtom_fix
 "Phuong 2, Thanh pho Tan An, Long An, Vietnam",10.6926,106.1408,,original
 "Tan An, Long An, Vietnam",10.6926,106.1408,,original
 "Thanh pho Tan An, Long An, Vietnam",10.6926,106.1408,,original
 "Nghe An Truong Thi, Vinh, Nghe An, Vietnam",19.2483,104.9204,,original
-"Nghe An, Vietnam",12.284358,109.192524,,aqicn_fuzzy
-"Vinh, Nghe An, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Nghe An, Vietnam",19.236818,104.945777,,tomtom_fix
+"Vinh, Nghe An, Vietnam",18.6653068,105.6904611,,tomtom_fix
 "Vinh, Vinh, Nghe An, Vietnam",19.2483,104.9204,,original
 "Ninh Binh Cuc Phuong, Ninh Binh, Ninh Binh, Vietnam",20.25,105.975,,original
 "Ninh Binh, Ninh Binh, Vietnam",20.25,105.975,,original
 "Ninh Binh, Vietnam",21.0353984,106.1025755,,aqicn_fuzzy
-"Ninh Thuan, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Ninh Thuan, Vietnam",11.3496566,108.8795216,,tomtom_fix
 "Phu Ha, Thanh pho Phan Rang - Thap Cham, Ninh Thuan, Vietnam",11.6922,108.9,,original
 "Thanh pho Phan Rang - Thap Cham, Ninh Thuan, Vietnam",11.6922,108.9,,original
-"Phu Tho, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Phu Tho, Vietnam",10.7674659,106.6543333,,tomtom_fix
 "Viet Tri, Phu Tho, Vietnam",21.3737,105.2225,,original
 "Viet Tri, Viet Tri, Phu Tho, Vietnam",21.3737,105.2225,,original
 "Dong Hoi, Quang Binh Province, Vietnam",17.6108,106.425,,original
@@ -197,21 +197,21 @@ station_name,latitude,longitude,province,source
 "Nguyen Nghiem, Thanh pho Quang Ngai, Quang Ngai, Vietnam",15.1205,108.7243,,original
 "Quang Ngai, Vietnam",15.1205,108.7243,,original
 "Thanh pho Quang Ngai, Quang Ngai, Vietnam",15.1205,108.7243,,original
-"Bach ang, Thanh pho Uong Bi, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Cam Pha, Quang Ninh Province, Vietnam",21.0064,107.2925,,original
-"Cam Pha, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Cam Trung, Cam Pha, Quang Ninh Province, Vietnam",21.0064,107.2925,,original
-"Ha Long, Ha Long, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Ha Long, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Quang Ninh Gan KCN Cai Lan, Ha Long, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Quang Ninh K11 Minh Thanh, Ha Long, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Quang Ninh Nam Cau Trang, Ha Long, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Quang Ninh Province, Vietnam",21.0064,107.2925,,original
+"Bach ang, Thanh pho Uong Bi, Quang Ninh, Vietnam",21.0349941,106.7578651,,tomtom_fix
+"Cam Pha, Quang Ninh Province, Vietnam",21.009484,107.273044,,tomtom_fix
+"Cam Pha, Quang Ninh, Vietnam",21.009484,107.273044,,tomtom_fix
+"Cam Trung, Cam Pha, Quang Ninh Province, Vietnam",21.0115552,107.2927747,,tomtom_fix
+"Ha Long, Ha Long, Quang Ninh, Vietnam",20.941659,107.123648,,tomtom_fix
+"Ha Long, Quang Ninh, Vietnam",20.941659,107.123648,,tomtom_fix
+"Quang Ninh Gan KCN Cai Lan, Ha Long, Quang Ninh, Vietnam",20.9714019,106.9979764,,tomtom_fix
+"Quang Ninh K11 Minh Thanh, Ha Long, Quang Ninh, Vietnam",20.9522968,107.1033195,,tomtom_fix
+"Quang Ninh Nam Cau Trang, Ha Long, Quang Ninh, Vietnam",20.944746,107.10738,,tomtom_fix
+"Quang Ninh Province, Vietnam",17.403808,106.640013,,tomtom_fix
 "Quang Ninh Trung tam van hoa the thao Cam Pha, Cam Pha, Quang Ninh, Vietnam",21.009332,107.27356,,aqicn_fuzzy
-"Quang Ninh Yen My, Ha Long, Quang Ninh, Vietnam",21.0064,107.2925,,original
-"Thanh pho Uong Bi, Quang Ninh, Vietnam",21.0064,107.2925,,original
+"Quang Ninh Yen My, Ha Long, Quang Ninh, Vietnam",20.9290249,106.8585154,,tomtom_fix
+"Thanh pho Uong Bi, Quang Ninh, Vietnam",21.0349941,106.7578651,,tomtom_fix
 "Quang Tri, Quang Tri, Vietnam",16.7386,107.0911,,original
-"Quang Tri, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Quang Tri, Vietnam",16.705646,107.163386,,tomtom_fix
 "Vietnam 3 PurpleAir, Quang Tri, Quang Tri, Vietnam",16.7386,107.0911,,original
 "Son La P To Hieu KTTV Tram cam bien, Son La, Son La, Vietnam",21.325,103.918,,original
 "Son La, Son La, Vietnam",21.325,103.918,,original
@@ -219,19 +219,19 @@ station_name,latitude,longitude,province,source
 "Tay Ninh Phuong 3 TP Tay Ninh, Tay Ninh, Tay Ninh, Vietnam",11.3667,106.1333,,original
 "Tay Ninh, Tay Ninh, Vietnam",11.327715,106.10414,,aqicn_fuzzy
 "Tay Ninh, Vietnam",11.3667,106.1333,,original
-"Bo Xuyen, Thanh pho Thai Binh, Thai Binh, Vietnam",20.5345,106.3495,,original
-"Phu Xuan, Thai Binh, Thai Binh Province, Vietnam",20.5345,106.3495,,original
-"Thai Binh Province, Vietnam",20.5345,106.3495,,original
-"Thai Binh, Thai Binh Province, Vietnam",20.5345,106.3495,,original
-"Thai Binh, Vietnam",20.5345,106.3495,,original
-"Thanh pho Thai Binh, Thai Binh, Vietnam",20.5345,106.3495,,original
-"Mo Che, Thanh pho Song Cong, Thai Nguyen, Vietnam",21.5941,105.8481,,original
-"Quan Trieu, Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",21.5941,105.8481,,original
-"Thai Nguyen Hung Vuong Street Thai Nguyen City, Thai Nguyen, Thai Nguyen, Vietnam",21.5941,105.8481,,original
-"Thai Nguyen, Thai Nguyen, Vietnam",21.5941,105.8481,,original
-"Thanh pho Song Cong, Thai Nguyen, Vietnam",21.5941,105.8481,,original
-"Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",21.5941,105.8481,,original
-"Trung Thanh, Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",21.5941,105.8481,,original
+"Bo Xuyen, Thanh pho Thai Binh, Thai Binh, Vietnam",20.453535,106.340532,,tomtom_fix
+"Phu Xuan, Thai Binh, Thai Binh Province, Vietnam",16.4746072,107.5770136,,tomtom_fix
+"Thai Binh Province, Vietnam",20.472891,106.31215,,tomtom_fix
+"Thai Binh, Thai Binh Province, Vietnam",20.472891,106.31215,,tomtom_fix
+"Thai Binh, Vietnam",20.472891,106.31215,,tomtom_fix
+"Thanh pho Thai Binh, Thai Binh, Vietnam",10.76948,106.704307,,tomtom_fix
+"Mo Che, Thanh pho Song Cong, Thai Nguyen, Vietnam",10.769626,106.703028,,tomtom_fix
+"Quan Trieu, Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",21.6080038,105.8173548,,tomtom_fix
+"Thai Nguyen Hung Vuong Street Thai Nguyen City, Thai Nguyen, Thai Nguyen, Vietnam",10.3592436,107.0790306,,tomtom_fix
+"Thai Nguyen, Thai Nguyen, Vietnam",22.022294,105.825354,,tomtom_fix
+"Thanh pho Song Cong, Thai Nguyen, Vietnam",10.769626,106.703028,,tomtom_fix
+"Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",10.76948,106.704307,,tomtom_fix
+"Trung Thanh, Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",12.254,109.19236,,tomtom_fix
 "Nghi Son, Thanh Hoa Province, Vietnam",19.804,105.4392,,original
 "Phuong Tinh Hai, Nghi Son, Thanh Hoa Province, Vietnam",19.804,105.4392,,original
 "Thanh Hoa Province, Vietnam",19.804,105.4392,,original
@@ -242,7 +242,7 @@ station_name,latitude,longitude,province,source
 "Thanh pho Tra Vinh, Tra Vinh, Vietnam",9.9475,106.3375,,original
 "Tra Vinh xa Dan Thanh, Tra Vinh, Tra Vinh, Vietnam",9.9475,106.3375,,original
 "Tra Vinh xa Dong Hai, Tra Vinh, Tra Vinh, Vietnam",9.9475,106.3375,,original
-"Tra Vinh, Tra Vinh, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Tra Vinh, Tra Vinh, Vietnam",9.936279,106.341117,,tomtom_fix
 "Ham Yen District, Tuyen Quang Province, Vietnam",21.823,105.2149,,original
 "Tan Yen, Ham Yen District, Tuyen Quang Province, Vietnam",21.823,105.2149,,original
 "Tuyen Quang Province, Vietnam",21.823,105.2149,,original
@@ -250,7 +250,7 @@ station_name,latitude,longitude,province,source
 "Khom 3, Thanh pho Vinh Long, Vinh Long, Vietnam",10.0833,105.9667,,original
 "Thanh pho Vinh Long, Vinh Long, Vietnam",10.0833,105.9667,,original
 "Thi xa Binh Minh, Vinh Long, Vietnam",10.0833,105.9667,,original
-"Vinh Long, Vietnam",12.284358,109.192524,,aqicn_fuzzy
+"Vinh Long, Vietnam",9.993799,106.293484,,tomtom_fix
 "Ha Noi UBND xa Thanh Xuan Soc Son, Vinh Yen, Vinh Phuc, Vietnam",21.3609,105.5973,,original
 "Vinh Phuc, Vietnam",21.3609,105.5973,,original
 "Vinh Yen, Vinh Phuc, Vietnam",21.3609,105.5973,,original
