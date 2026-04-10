@@ -1,0 +1,92 @@
+{{ config(
+    materialized='incremental',
+    engine='ReplacingMergeTree',
+    unique_key='(station_name, datetime_hour)',
+    order_by='(province, datetime_hour, station_name)',
+    partition_by='toYYYYMM(date)',
+    schema=var('analytics_schema', 'analytics')
+) }}
+
+WITH aqi AS (
+    SELECT 
+        toStartOfHour(timestamp_utc) as datetime_hour,
+        toDate(timestamp_utc) as date,
+        province,
+        district,
+        station_name,
+        max(aqi_us) as aqi_us,
+        max(aqi_vn) as aqi_vn,
+        maxIf(value, parameter = 'pm25') as pm25,
+        maxIf(value, parameter = 'pm10') as pm10,
+        maxIf(value, parameter = 'co') as co
+    FROM {{ ref('int_aqi__calculations') }}
+    {% if is_incremental() %}
+    WHERE timestamp_utc >= (SELECT max(datetime_hour) FROM {{ this }}) - interval 3 hour
+    {% endif %}
+    GROUP BY 1, 2, 3, 4, 5
+),
+
+weather AS (
+    SELECT * FROM {{ ref('stg_openweather__meteorology') }}
+),
+
+traffic AS (
+    SELECT * FROM {{ ref('stg_tomtom__traffic') }}
+),
+
+station_metadata AS (
+    SELECT station_name, location_type FROM {{ ref('vn_station_coordinates') }}
+),
+
+pop AS (
+    SELECT * FROM {{ ref('vn_population_provincial_2024') }}
+)
+
+SELECT
+    a.datetime_hour as datetime_hour,
+    a.date as date,
+    a.province as province,
+    a.district as district,
+    a.station_name as station_name,
+    m.location_type as location_type,
+    
+    -- Air Quality metrics
+    a.aqi_us as aqi_us,
+    a.aqi_vn as aqi_vn,
+    a.pm25 as pm25,
+    a.pm10 as pm10,
+    a.co as co,
+    
+    -- Meteorology
+    w.temp as temp,
+    w.humidity as humidity,
+    w.wind_speed as wind_speed,
+    w.wind_deg as wind_deg,
+    w.pressure as pressure,
+    
+    -- Traffic
+    t.congestion_ratio as congestion_index,
+    t.data_quality_flag as traffic_data_type,
+    
+    -- Weather Indicators
+    case when w.humidity > 80 then 1 else 0 end as is_high_humidity_suppression,
+    case when w.wind_speed < 1.0 then 1 else 0 end as is_stagnant_air_risk,
+    
+    -- Demographics
+    p.population as provincial_population,
+    
+    -- Advanced Calculated Metrics
+    -- Exposure Score: PM2.5 intensity weighted by population
+    CAST((a.pm25 * p.population) / 1000000.0 AS Float32) as population_exposure_score,
+    
+    -- Traffic Impact Ratio: How much pollution per unit of congestion
+    -- Avoid division by zero
+    CAST(if(t.congestion_ratio > 0, a.pm25 / t.congestion_ratio, 0) AS Float32) as traffic_pollution_ratio,
+
+    now() as dbt_updated_at
+
+FROM aqi a
+LEFT JOIN station_metadata m ON a.station_name = m.station_name
+LEFT JOIN weather w ON a.province = w.province AND a.datetime_hour = w.hour_utc
+LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.hour_utc
+LEFT JOIN pop p ON a.province = p.province

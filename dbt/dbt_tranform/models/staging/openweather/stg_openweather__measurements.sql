@@ -17,6 +17,7 @@ deduplicated as (
 cleaned as (
     select
         'openweather' as source,
+        station_id as station_name,
         city_name as district,
         city_name as province, -- OpenWeather city-centroid data, using city as both for now
         timestamp_utc,

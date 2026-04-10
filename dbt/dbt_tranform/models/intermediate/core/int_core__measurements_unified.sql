@@ -1,6 +1,7 @@
 with aqiin as (
     select
         source,
+        station_name,
         district,
         province,
         timestamp_utc,
@@ -15,6 +16,7 @@ with aqiin as (
 openweather as (
     select
         source,
+        station_name,
         district,
         province,
         timestamp_utc,

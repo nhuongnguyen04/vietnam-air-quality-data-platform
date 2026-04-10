@@ -1,12 +1,11 @@
 """
 Hourly Ingestion DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
 
-This DAG runs every 15 minutes to ingest the latest measurements from:
+This DAG runs every hour to ingest the latest measurements from:
 - AQI.in (~540 Vietnam monitoring stations via widget scraper)
 - OpenWeather Air Pollution API (62 Vietnam provinces)
-
-D-AQI-02 (Phase 6): AQICN and Sensors.Community removed.
-Sources: AQI.in + OpenWeather (2 sources, both running in parallel).
+- TomTom Traffic Flow API (3-hourly sampling)
+- Traffic Pattern Engine (1-hourly interpolation via Python)
 
 Schedule: Every hour (0 * * * *)
 """
@@ -32,13 +31,7 @@ PYTHON_PATH = PYTHON_JOBS_DIR
 
 
 def get_job_env_vars() -> dict:
-    """Get environment variables at execution time (not parse time).
-
-    This must be a function, not a module-level dict, because Airflow 3
-    parses DAGs in the dag-processor but executes tasks in a separate
-    task runner process. Module-level dicts capture env vars at parse time,
-    which may differ from the execution environment.
-    """
+    """Get environment variables at execution time (not parse time)."""
     return {
         'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
         'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
@@ -46,21 +39,22 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
+        'TOMTOM_API_KEY': os.environ.get('TOMTOM_API_KEY', ''),
     }
 
 
 @dag(
     default_args=default_args,
-    description='Ingestion of air quality measurements from AQI.in and OpenWeather every 15 minutes — triggers dag_transform on completion',
+    description='Ingestion of air quality, weather, and traffic data every hour — triggers dag_transform on completion',
     schedule='0 * * * *',
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=10,
-    tags=['ingestion', '15min', 'triggers-transform', 'air-quality', 'aqiin'],
+    tags=['ingestion', 'hourly', 'triggers-transform', 'air-quality', 'weather', 'traffic'],
 )
 def dag_ingest_hourly():
-    """15-minute ingestion DAG using Airflow 3 TaskFlow API — AQI.in + OpenWeather only."""
+    """Hourly ingestion DAG for AQI.in, OpenWeather (AQI + Weather), and TomTom (Traffic)."""
 
     @task
     def check_clickhouse_connection():
@@ -83,7 +77,7 @@ def dag_ingest_hourly():
 
     @task
     def run_aqiin_measurements_ingestion():
-        """Run AQI.in measurements ingestion (~540 Vietnam stations via widget scraper)."""
+        """Run AQI.in measurements ingestion."""
         import subprocess
 
         env = os.environ.copy()
@@ -91,30 +85,15 @@ def dag_ingest_hourly():
 
         cmd = f"cd {PYTHON_PATH} && python jobs/aqiin/ingest_measurements.py --mode incremental"
 
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
-        print(f"AQI.in measurements ingestion completed")
+        print("AQI.in measurements ingestion completed")
 
     @task
-    def update_aqiin_control():
-        """Update ingestion_control for AQI.in measurements."""
-        import sys
-        sys.path.insert(0, '/opt/python/jobs')
-        from common.ingestion_control import update_control as _update
-        _update(source='aqiin', records_ingested=0, success=True)
-        print("Updated ingestion_control for aqiin")
-
-    @task
-    def run_openweather_measurements_ingestion():
-        """Run OpenWeather measurements ingestion (62 Vietnam provinces)."""
+    def run_openweather_aqi_ingestion():
+        """Run OpenWeather air pollution ingestion."""
         import subprocess
 
         env = os.environ.copy()
@@ -122,63 +101,111 @@ def dag_ingest_hourly():
 
         cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_measurements.py --mode incremental"
 
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
-        print("OpenWeather measurements ingestion completed")
+        print("OpenWeather AQI ingestion completed")
 
     @task
-    def update_openweather_control():
-        """Update ingestion_control for OpenWeather measurements."""
+    def run_openweather_weather_ingestion():
+        """Run OpenWeather meteorology ingestion (Temp, Wind, Hum)."""
+        import subprocess
+
+        env = os.environ.copy()
+        env.update(get_job_env_vars())
+
+        cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_weather.py"
+
+        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Error: {result.stderr}")
+            raise Exception(f"Command failed: {cmd}")
+        print("OpenWeather Weather ingestion completed")
+
+    @task
+    def run_tomtom_traffic_ingestion(**context):
+        """Run TomTom Traffic Ingestion (Every 3 hours)."""
+        import subprocess
+        from datetime import datetime
+        
+        # Logic to run only every 3 hours to stay within API limits
+        data_interval_start = context.get('data_interval_start')
+        hour = data_interval_start.hour if data_interval_start else datetime.now().hour
+        
+        if hour % 3 == 0:
+            env = os.environ.copy()
+            env.update(get_job_env_vars())
+
+            cmd = f"cd {PYTHON_PATH} && python jobs/traffic/ingest_tomtom_traffic.py"
+
+            result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"Error: {result.stderr}")
+                raise Exception(f"Command failed: {cmd}")
+            print("TomTom Traffic ingestion completed")
+            return True
+        else:
+            print(f"Skipping traffic ingestion (Hour {hour} not divisible by 3)")
+            return False
+
+    @task
+    def run_traffic_calculation(should_run_calc: bool):
+        """Run Traffic Pattern Enrichment calculation in Python."""
+        import subprocess
+        
+        # We always run the calculation to ensure we interpolate against last 24h
+        # even if we didn't ingest new raw data this hour (to fill the 1h/2h slots)
+        env = os.environ.copy()
+        env.update(get_job_env_vars())
+
+        cmd = f"cd {PYTHON_PATH} && python jobs/traffic/calculate_hourly_traffic.py"
+
+        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Error: {result.stderr}")
+            raise Exception(f"Command failed: {cmd}")
+        print("Traffic Hourly Calculation completed")
+
+    @task
+    def update_ingestion_control():
+        """Update ingestion_control for all sources."""
         import sys
         sys.path.insert(0, '/opt/python/jobs')
         from common.ingestion_control import update_control as _update
-        _update(source='openweather', records_ingested=0, success=True)
-        print("Updated ingestion_control for openweather")
+        
+        _update(source='dag_ingest_hourly', records_ingested=0, success=True)
+        print("Updated ingestion_control summary")
 
     @task
     def log_completion():
         """Log completion message."""
-        print("Hourly ingestion completed (AQI.in + OpenWeather)")
+        print("Hourly ingestion cycle completed (AQI + Weather + Traffic)")
 
-    # Trigger dag_transform after ingestion completes
     trigger_transform = TriggerDagRunOperator(
         task_id='trigger_transform',
         trigger_dag_id='dag_transform',
         wait_for_completion=False,
-        poke_interval=30,
-        reset_dag_run=True,
-        allowed_states=['success'],
-        failed_states=['failed'],
     )
 
-    # Define task dependencies
-    check_clickhouse = check_clickhouse_connection()
-
+    # Dependencies
+    check_ch = check_clickhouse_connection()
+    
     aqiin = run_aqiin_measurements_ingestion()
-    openweather = run_openweather_measurements_ingestion()
-    update_aqiin_control = update_aqiin_control()
-    update_openweather_control = update_openweather_control()
+    ow_aqi = run_openweather_aqi_ingestion()
+    ow_weather = run_openweather_weather_ingestion()
+    tt_traffic = run_tomtom_traffic_ingestion()
+    
+    # We pass the result of traffic ingestion, but calculation script 
+    # handles lookback itself, so it can run every hour.
+    traffic_calc = run_traffic_calculation(tt_traffic)
+    
+    update_control = update_ingestion_control()
     completion = log_completion()
 
-    # Fan-out: 2 sources run in parallel after connection check
-    check_clickhouse >> [aqiin, openweather]
-
-    # Fan-in per source
-    aqiin >> update_aqiin_control
-    openweather >> update_openweather_control
-
-    # Fan-in all control updates to completion
-    [update_aqiin_control, update_openweather_control] >> completion
-
-    # Trigger dag_transform after ingestion completes
+    check_ch >> [aqiin, ow_aqi, ow_weather, tt_traffic]
+    tt_traffic >> traffic_calc
+    [aqiin, ow_aqi, ow_weather, traffic_calc] >> update_control >> completion
     completion >> trigger_transform
 
 

@@ -107,20 +107,61 @@ FROM (
 WHERE timestamp_utc IS NOT NULL AND value IS NOT NULL
 GROUP BY datetime_hour, station_id, source, pollutant;
 
--- Daily aggregation
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_daily_station_summary
-ENGINE = SummingMergeTree()
-ORDER BY (date, station_id)
-PARTITION BY toYYYYMM(date)
-AS
-SELECT
-    toDate(datetime_hour)                                    AS date,
-    station_id,
-    source,
-    avg(avg_value)                                           AS avg_aqi,
-    max(max_value)                                            AS max_aqi,
-    min(min_value)                                           AS min_aqi,
-    sum(measurement_count)                                     AS total_measurements,
-    now()                                                     AS updated_at
-FROM mv_hourly_station_aqi
-GROUP BY date, station_id, source;
+-- 7. TomTom Traffic Flow Data
+-- Raw 3-hourly samples
+CREATE TABLE IF NOT EXISTS raw_tomtom_traffic
+(
+    source              LowCardinality(String) DEFAULT 'tomtom',
+    ingest_time        DateTime DEFAULT now(),
+    station_name       String,
+    latitude           Float64,
+    longitude          Float64,
+    timestamp_utc      DateTime,
+    current_speed      Float32,
+    free_flow_speed    Float32,
+    confidence         Float32,
+    raw_payload        String CODEC(ZSTD(1))
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(timestamp_utc)
+ORDER BY (station_name, timestamp_utc)
+SETTINGS index_granularity = 8192;
+
+-- Calculated 1-hourly traffic (interpolated by Python)
+CREATE TABLE IF NOT EXISTS raw_tomtom_traffic_hourly
+(
+    source              LowCardinality(String) DEFAULT 'tomtom_calculated',
+    station_name       String,
+    latitude           Float64,
+    longitude          Float64,
+    hour_utc           DateTime,
+    congestion_ratio   Float32,
+    data_quality_flag  LowCardinality(String), -- real-time, interpolated, baseline
+    updated_at         DateTime DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(updated_at)
+PARTITION BY toYYYYMM(hour_utc)
+ORDER BY (station_name, hour_utc)
+SETTINGS index_granularity = 8192;
+
+-- 8. OpenWeather Meteorology (New Feed)
+CREATE TABLE IF NOT EXISTS raw_openweather_meteorology
+(
+    source              LowCardinality(String) DEFAULT 'openweather',
+    province           String,
+    latitude           Float64,
+    longitude          Float64,
+    timestamp_utc      DateTime,
+    temp               Float32,
+    feels_like         Float32,
+    humidity           UInt8,
+    pressure           UInt16,
+    wind_speed         Float32,
+    wind_deg           UInt16,
+    clouds_all         UInt8,
+    ingest_time        DateTime DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(ingest_time)
+PARTITION BY toYYYYMM(timestamp_utc)
+ORDER BY (province, timestamp_utc)
+SETTINGS index_granularity = 8192;
