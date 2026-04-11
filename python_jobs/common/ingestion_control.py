@@ -33,20 +33,15 @@ def update_control(
 ) -> None:
     """
     Write or update a row in `ingestion_control` for the given source.
-
-    Parameters
-    ----------
-    source : str
-        Source name, e.g. 'aqicn', 'openaq', 'airnow', 'aqicn_forecast', 'dbt_transform'.
-    records_ingested : int
-        Number of rows ingested in this run.
-    success : bool
-        Whether the ingestion run completed successfully.
-    error_message : str, optional
-        Exception text or error message if the run failed.
-    last_run : datetime, optional
-        Override for `last_run` timestamp. Defaults to UTC now.
     """
+    # Skip if we are in CSV mode (e.g. GitHub Actions) as there is no ClickHouse
+    if os.environ.get('INGEST_MODE') == 'csv':
+        logging_level = 'INFO' if success else 'ERROR'
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.log(getattr(logging, logging_level), f"SKIPPING INGESTION_CONTROL UPDATE (CSV MODE): source={source}, success={success}, records={records_ingested}")
+        return
+
     client = get_clickhouse_client()
 
     now = last_run or datetime.now(timezone.utc)

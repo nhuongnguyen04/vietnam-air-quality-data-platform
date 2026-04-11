@@ -15,7 +15,7 @@ DRIVE_ROOT_ID = os.environ.get("GDRIVE_ROOT_FOLDER_ID")
 SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT")
 LOCAL_LANDING_ZONE = os.environ.get("CSV_OUTPUT_DIR", "landing_zone")
 
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
+SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def get_drive_service():
     """Authenticate and return the Drive service."""

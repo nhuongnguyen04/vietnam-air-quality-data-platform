@@ -36,27 +36,22 @@ jobs:
       - name: Create local landing zone
         run: mkdir -p landing_zone
 
-      - name: Ingest AQI.in Data
-        run: python python_jobs/jobs/aqiin/ingest_measurements.py
-        continue-on-error: true
-
-      - name: Ingest OpenWeather AQI
-        run: python python_jobs/jobs/openweather/ingest_measurements.py --mode incremental
-        continue-on-error: true
-
-      - name: Ingest OpenWeather Weather
-        run: python python_jobs/jobs/openweather/ingest_weather.py
-        continue-on-error: true
-
-      - name: Ingest TomTom Traffic (Every 3 hours)
+      - name: Parallel Data Ingestion
         run: |
+          echo "Starting parallel ingestion..."
+          python python_jobs/jobs/aqiin/ingest_measurements.py &
+          python python_jobs/jobs/openweather/ingest_measurements.py --mode incremental &
+          python python_jobs/jobs/openweather/ingest_weather.py &
+          
           HOUR=$(date +%H)
           if [ $((10#$HOUR % 3)) -eq 0 ]; then
-            python python_jobs/jobs/traffic/ingest_tomtom_traffic.py
+            python python_jobs/jobs/traffic/ingest_tomtom_traffic.py &
           else
             echo "Skipping TomTom (Hour $HOUR is not divisible by 3)"
           fi
-        continue-on-error: true
+          
+          wait
+          echo "All parallel ingestion jobs finished."
 
       - name: Upload to Google Drive
         run: python scripts/gdrive_uploader.py
