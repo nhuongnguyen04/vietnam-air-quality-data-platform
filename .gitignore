@@ -25,7 +25,6 @@ airflow/*.pid
 .env
 credentials.json
 *.json
-*.txt
 
 # NiFi
 nifi/*.log
