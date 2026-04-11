@@ -375,8 +375,7 @@ services:
     - dbt-logs:/opt/dbt/dbt_tranform/logs
     command: >
       bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/dbt_tranform/dbt_packages
-      && chown -R 50000:0 /opt/airflow/logs /opt/dbt/dbt_tranform
-      && chmod -R 775 /opt/airflow/logs /opt/dbt/dbt_tranform
+      && chmod -R 777 /opt/airflow/logs /opt/dbt/dbt_tranform
       && echo 'Permissions setup complete.'"
     networks:
     - air-quality-network

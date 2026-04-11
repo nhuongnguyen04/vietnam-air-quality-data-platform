@@ -131,6 +131,7 @@ def run_calculation():
                     # Estimate based on the first sample and the profile evolution
                     # This captures the "Rush Hour" spikes even between 3-hour samples
                     congestion = s1['congestion_ratio'] * (w_curr / w_t1 if w_t1 > 0 else 1.0)
+                    congestion = max(0.0, min(1.0, float(congestion)))
                     flag = 'interpolated'
                 
                 calculated_records.append({
@@ -150,7 +151,7 @@ def run_calculation():
             'latitude': station_lat,
             'longitude': station_lon,
             'hour_utc': last_s['timestamp_utc'],
-            'congestion_ratio': float(last_s['congestion_ratio']),
+            'congestion_ratio': float(np.clip(last_s['congestion_ratio'], 0, 1)),
             'data_quality_flag': 'real-time',
             'updated_at': datetime.now()
         })

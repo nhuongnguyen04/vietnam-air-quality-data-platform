@@ -46,7 +46,7 @@ def get_job_env_vars() -> dict:
 @dag(
     default_args=default_args,
     description='Ingestion of air quality, weather, and traffic data every hour — triggers dag_transform on completion',
-    schedule='0 * * * *',
+    schedule=None,
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
     max_active_runs=1,

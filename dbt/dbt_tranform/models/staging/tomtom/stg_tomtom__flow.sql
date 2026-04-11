@@ -27,7 +27,7 @@ SELECT
     latitude,
     longitude,
     hour_utc as timestamp_utc,
-    congestion_ratio as value,
+    clamp(congestion_ratio, 0, 1) as value,
     'congestion_ratio' as parameter,
     data_quality_flag as quality_flag,
     updated_at as ingest_time,
