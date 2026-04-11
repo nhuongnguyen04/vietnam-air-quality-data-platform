@@ -62,26 +62,37 @@ def find_or_create_folder(service, name, parent_id):
 def get_target_folder_id(service, filename):
     """Determine GDrive folder ID based on filename convention."""
     # Convention: [source]_[type]_[timestamp].csv
-    # e.g., aqiin_raw_..., ow_meas_..., ow_weat_..., tomtom_traf_...
+    # e.g., aqiin_meas_..., openweather_meas_..., tomtom_traf_...
     
     # 1. Get/Create landing_zone folder
     landing_zone_id = find_or_create_folder(service, "landing_zone", DRIVE_ROOT_ID)
     
     parts = filename.split('_')
+    if len(parts) < 2:
+        return landing_zone_id
+        
     source_prefix = parts[0].lower()
     type_prefix = parts[1].lower()
     
+    # Mapping for AQI.in
     if source_prefix == "aqiin":
         return find_or_create_folder(service, "aqi_in", landing_zone_id)
-    elif source_prefix == "ow":
+    
+    # Mapping for OpenWeather (ow or openweather)
+    elif source_prefix in ["ow", "openweather"]:
         ow_id = find_or_create_folder(service, "openweather", landing_zone_id)
-        if type_prefix == "meas":
+        if "meas" in type_prefix:
             return find_or_create_folder(service, "measurements", ow_id)
-        else:
+        elif "mete" in type_prefix or "weat" in type_prefix:
             return find_or_create_folder(service, "weather", ow_id)
+        return ow_id
+        
+    # Mapping for TomTom
     elif source_prefix == "tomtom":
         tomtom_id = find_or_create_folder(service, "tomtom", landing_zone_id)
-        return find_or_create_folder(service, "traffic", tomtom_id)
+        if "traf" in type_prefix or "flow" in type_prefix:
+            return find_or_create_folder(service, "traffic", tomtom_id)
+        return tomtom_id
     
     return landing_zone_id
 
