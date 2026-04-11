@@ -422,49 +422,5 @@ class PaginatedAPIClient(APIClient):
             page += 1
 
 
-def create_openaq_client(api_token: str) -> PaginatedAPIClient:
-    """
-    Create a configured OpenAQ API client.
-    
-    Args:
-        api_token: OpenAQ API token
-        
-    Returns:
-        Configured PaginatedAPIClient for OpenAQ
-    """
-    from .rate_limiter import create_openaq_limiter
-    
-    return PaginatedAPIClient(
-        base_url="https://api.openaq.org",
-        token=api_token,
-        timeout=30,
-        max_retries=8,
-        rate_limiter=create_openaq_limiter(),
-        page_param="page",
-        limit_param="limit",
-        auth_header_name="X-API-KEY",
-        auth_header_format="{}"
-    )
 
-
-def create_aqicn_client(api_token: str) -> APIClient:
-    """
-    Create a configured AQICN API client.
-    
-    Args:
-        api_token: AQICN API token
-        
-    Returns:
-        Configured APIClient for AQICN
-    """
-    from .rate_limiter import create_aqicn_limiter
-    
-    return APIClient(
-        base_url="https://api.waqi.info",
-        token=api_token,
-        timeout=30,
-        max_retries=5,
-        rate_limiter=create_aqicn_limiter(),
-        auth_header_name=None
-    )
 

@@ -4,7 +4,10 @@ Common utilities for Air Quality Data Platform Jobs.
 This package provides:
 - rate_limiter: Token bucket rate limiting for API calls
 - api_client: HTTP client with retry logic
-- clickhouse_writer: Batch writer for ClickHouse
+- base_writer: DataWriter protocol
+- csv_writer: CSVWriter implementation
+- clickhouse_writer: ClickHouseWriter implementation
+- writer_factory: Factory for creating writers (get_data_writer)
 - config: Configuration management
 - logging_config: Structured logging
 
@@ -23,20 +26,22 @@ except ImportError:
 
 from .rate_limiter import (
     TokenBucketRateLimiter,
-    AdaptiveRateLimiter,
-    create_openaq_limiter,
-    create_aqicn_limiter
+    AdaptiveRateLimiter
 )
 
 from .api_client import (
     APIClient,
-    PaginatedAPIClient,
-    create_openaq_client,
-    create_aqicn_client
+    PaginatedAPIClient
 )
 
-from .clickhouse_writer import (
-    ClickHouseWriter,
+from .base_writer import DataWriter
+
+from .csv_writer import CSVWriter
+
+from .clickhouse_writer import ClickHouseWriter
+
+from .writer_factory import (
+    get_data_writer,
     create_clickhouse_writer
 )
 
@@ -60,17 +65,16 @@ __all__ = [
     # Rate limiter
     "TokenBucketRateLimiter",
     "AdaptiveRateLimiter",
-    "create_openaq_limiter",
-    "create_aqicn_limiter",
     
     # API client
     "APIClient",
     "PaginatedAPIClient",
-    "create_openaq_client",
-    "create_aqicn_client",
     
-    # ClickHouse writer
+    # Writers
+    "DataWriter",
+    "CSVWriter",
     "ClickHouseWriter",
+    "get_data_writer",
     "create_clickhouse_writer",
     
     # Config
@@ -87,4 +91,3 @@ __all__ = [
     "JobLogger",
     "log_job_stats"
 ]
-

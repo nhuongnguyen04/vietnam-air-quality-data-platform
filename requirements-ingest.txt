@@ -1,0 +1,13 @@
+# Ingestion dependencies (Fast setup for GHA)
+python-json-logger==2.0.7
+pydantic
+httpx[http2]
+beautifulsoup4==4.14.3
+lxml
+requests
+python-dotenv
+
+# Google Drive Integration (Used in scripts/gdrive_uploader.py)
+google-api-python-client>=2.155.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.1

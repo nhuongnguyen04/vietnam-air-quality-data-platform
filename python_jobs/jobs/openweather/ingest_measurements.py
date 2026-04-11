@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from common.api_client import APIClient
 from common.rate_limiter import create_openweather_limiter
-from common.clickhouse_writer import create_clickhouse_writer
+from common import get_data_writer
 from common.ingestion_control import update_control
 from models.openweather_models import (
     VIETNAM_CITIES,
@@ -189,7 +189,7 @@ def main():
         sys.exit(1)
 
     client = create_openweather_client(api_token)
-    writer = create_clickhouse_writer()
+    writer = get_data_writer()
 
     try:
         if args.mode == "incremental":

@@ -20,7 +20,7 @@ from typing import List, Dict, Any, Tuple
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from common.api_client import APIClient
-from common.clickhouse_writer import create_clickhouse_writer
+from common import get_data_writer
 from common.ingestion_control import update_control
 
 # Config
@@ -160,7 +160,7 @@ def main():
         token=api_token,
         timeout=20,
     )
-    writer = create_clickhouse_writer()
+    writer = get_data_writer()
 
     try:
         groups = load_station_groups()

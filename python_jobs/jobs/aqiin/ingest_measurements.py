@@ -18,7 +18,7 @@ from typing import List
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from common import create_clickhouse_writer, JobLogger, log_job_stats
+from common import get_data_writer, JobLogger, log_job_stats
 from jobs.aqiin.scraper_core import (
     scrape_in_batches,
     LocationData,
@@ -38,7 +38,7 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
 
     D-AQI-01: schema updated to include unit + quality_flag (Phase 6).
     """
-    writer = create_clickhouse_writer()
+    writer = get_data_writer()
     measurement_records = []
     for sid, loc in results:
         if not loc.success:
