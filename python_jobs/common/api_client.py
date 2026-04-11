@@ -186,7 +186,12 @@ class APIClient:
             return response.json()
             
         except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP Error: {e} for {url}")
+            # Enhanced error logging with response body (important for 400 Bad Requests)
+            try:
+                error_detail = response.text if 'response' in locals() else "Unknown"
+                logger.error(f"HTTP Error: {e} | Response Body: {error_detail}")
+            except:
+                logger.error(f"HTTP Error: {e}")
             raise
         except requests.exceptions.ConnectionError as e:
             logger.error(f"Connection Error: {e} for {url}")

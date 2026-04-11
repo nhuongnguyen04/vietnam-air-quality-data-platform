@@ -78,8 +78,8 @@ def load_station_groups() -> Dict[Tuple[float, float], List[str]]:
 def fetch_traffic_data(client: APIClient, lat: float, lon: float) -> Dict[str, Any]:
     """Fetch traffic flow data for a specific point."""
     # TomTom Flow Segment Data API
-    # zoom level 10 is good for regional traffic
-    endpoint = "/traffic/services/4/flowSegmentData/absolute/10/json"
+    # zoom level 22 is best for snapping to specific segments
+    endpoint = "/traffic/services/4/flowSegmentData/absolute/22/json"
     
     resp = client.get(
         endpoint,
@@ -104,11 +104,24 @@ def run_traffic_ingestion(writer, client, groups: Dict[Tuple[float, float], List
 
     for (lat, lon), station_names in groups.items():
         try:
-            # 1. Fetch once per point
-            flow = fetch_traffic_data(client, lat, lon)
+            # 1. Fetch once per point - Using Zoom 22 for best precision
+            # Some stations may be off-road, resulting in 400 Bad Request
+            try:
+                flow = fetch_traffic_data(client, lat, lon)
+            except Exception as e:
+                # Extract response text if available to check for TomTom-specific reason
+                error_body = ""
+                if hasattr(e, 'response') and e.response is not None:
+                    error_body = e.response.text
+                
+                # Catch TomTom-specific "Point too far" error (HTTP 400)
+                if "400" in str(e) and ("too far" in error_body.lower() or "INVALID_REQUEST" in error_body):
+                    logger.info(f"Skipping point ({lat}, {lon}) - No nearby TomTom traffic segment found.")
+                    continue
+                raise # Re-raise other errors
             
             if not flow or flow.get("currentSpeed") is None:
-                logger.warning(f"No traffic data for point ({lat}, {lon})")
+                logger.debug(f"No traffic data for point ({lat}, {lon})")
                 continue
 
             # 2. Distribute to all stations at this point
