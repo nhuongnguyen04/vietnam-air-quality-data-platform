@@ -5,9 +5,6 @@ This module provides a TokenBucketRateLimiter class that implements the token bu
 algorithm to control request rates to external APIs. It ensures compliance with API
 rate limits while allowing small bursts.
 
-OpenAQ API limits: 60 requests/minute, 2000 requests/hour
-AQICN API limits: Varies by subscription
-
 Author: Air Quality Data Platform
 """
 
@@ -289,47 +286,19 @@ class AdaptiveRateLimiter(TokenBucketRateLimiter):
         return success
 
 
-# Factory functions for common use cases
-def create_openaq_limiter() -> TokenBucketRateLimiter:
-    """
-    Create a rate limiter configured for OpenAQ API.
-    
-    OpenAQ limits: 60 requests/minute, 2000 requests/hour
-    Using 48/min (0.8/s) for safety margin
-    """
-    return TokenBucketRateLimiter(
-        rate_per_second=0.8,      # ~48/min
-        burst_size=4,             # Small burst allowed
-        max_delay=120.0,          # Longer backoff for rate limits
-        requests_per_minute=48.0
-    )
-
-
-def create_aqicn_limiter() -> TokenBucketRateLimiter:
-    """
-    Create a rate limiter configured for AQICN API.
-
-    Using conservative defaults - adjust based on API token tier.
-    """
-    return TokenBucketRateLimiter(
-        rate_per_second=1.0,     # 60/min
-        burst_size=5,
-        max_delay=60.0
-    )
-
-
 def create_openweather_limiter() -> TokenBucketRateLimiter:
     """
     Create a rate limiter configured for OpenWeather Air Pollution API.
 
     OpenWeather free tier: 60 requests/minute, 1M calls/month.
-    Using ~50/min (0.8/s) for safety margin.
+    Using ~54/min (0.9/s) for safety margin.
     """
     return TokenBucketRateLimiter(
-        rate_per_second=0.8,      # ~48/min safe
+        rate_per_second=0.9,      # ~54/min safe
         burst_size=4,
         max_delay=300.0,          # 5min max backoff (D-31)
         backoff_factor=2.0,
+        requests_per_minute=54.0
     )
 
 

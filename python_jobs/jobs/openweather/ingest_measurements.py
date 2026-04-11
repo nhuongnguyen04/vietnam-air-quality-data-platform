@@ -17,7 +17,8 @@ import sys
 import logging
 import argparse
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -118,10 +119,18 @@ def run_incremental(writer, client) -> int:
     logger = logging.getLogger(__name__)
     all_measurements = []
 
-    for city_name, coords in VIETNAM_CITIES.items():
+    def fetch_one(city_name: str, coords: Dict[str, float]) -> List[Dict[str, Any]]:
         lat, lon = coords["lat"], coords["lon"]
-        current_records = fetch_city_data(client, city_name, lat, lon)
-        all_measurements.extend(current_records)
+        return fetch_city_data(client, city_name, lat, lon)
+
+    # Parallelize cities. Rate limiter ensures safety.
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_one, name, c) for name, c in VIETNAM_CITIES.items()]
+        for future in as_completed(futures):
+            try:
+                all_measurements.extend(future.result())
+            except Exception as e:
+                logger.error(f"Worker failed: {e}")
 
     if all_measurements:
         writer.write_batch("raw_openweather_measurements", all_measurements, source="openweather")
@@ -137,10 +146,18 @@ def run_historical(writer, client, start_date: datetime, end_date: datetime) -> 
     logger = logging.getLogger(__name__)
     all_records = []
 
-    for city_name, coords in VIETNAM_CITIES.items():
+    def fetch_one(city_name: str, coords: Dict[str, float]) -> List[Dict[str, Any]]:
         lat, lon = coords["lat"], coords["lon"]
-        records = fetch_historical_data(client, city_name, lat, lon, start_date, end_date)
-        all_records.extend(records)
+        return fetch_historical_data(client, city_name, lat, lon, start_date, end_date)
+
+    # Parallelize cities. Rate limiter ensures safety.
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_one, name, c) for name, c in VIETNAM_CITIES.items()]
+        for future in as_completed(futures):
+            try:
+                all_records.extend(future.result())
+            except Exception as e:
+                logger.error(f"Worker failed: {e}")
 
     if all_records:
         writer.write_batch("raw_openweather_measurements", all_records, source="openweather")

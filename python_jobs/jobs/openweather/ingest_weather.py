@@ -13,7 +13,8 @@ import sys
 import logging
 import argparse
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -65,17 +66,29 @@ def run_weather_ingestion(writer, client) -> int:
     logger = logging.getLogger(__name__)
     all_weather = []
 
-    for city_name, coords in VIETNAM_CITIES.items():
+    def fetch_city_weather(city_name: str, coords: Dict[str, float]) -> Optional[Dict[str, Any]]:
         lat, lon = coords["lat"], coords["lon"]
         try:
             resp = client.get(
                 "/weather",
                 params={"lat": lat, "lon": lon, "units": "metric", "appid": client.token}
             )
-            record = transform_weather_response(resp, city_name, lat, lon)
-            all_weather.append(record)
+            return transform_weather_response(resp, city_name, lat, lon)
         except Exception as e:
             logger.warning(f"[{city_name}] weather fetch failed: {e}")
+            return None
+
+    # Use parallel threads to overlap latency. Rate limiter handles the throttling.
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_city = {
+            executor.submit(fetch_city_weather, city, coords): city 
+            for city, coords in VIETNAM_CITIES.items()
+        }
+        
+        for future in as_completed(future_to_city):
+            record = future.result()
+            if record:
+                all_weather.append(record)
 
     if all_weather:
         writer.write_batch("raw_openweather_meteorology", all_weather, source="openweather")
