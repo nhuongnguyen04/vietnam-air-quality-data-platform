@@ -3,27 +3,41 @@ import os
 import json
 import logging
 from pathlib import Path
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # Configuration
 DRIVE_ROOT_ID = os.environ.get("GDRIVE_ROOT_FOLDER_ID")
-SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT")
+CLIENT_ID = os.environ.get("GDRIVE_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("GDRIVE_CLIENT_SECRET")
+REFRESH_TOKEN = os.environ.get("GDRIVE_REFRESH_TOKEN")
 LOCAL_LANDING_ZONE = os.environ.get("CSV_OUTPUT_DIR", "landing_zone")
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def get_drive_service():
-    """Authenticate and return the Drive service."""
-    if not SERVICE_ACCOUNT_JSON:
-        raise ValueError("GDRIVE_SERVICE_ACCOUNT environment variable is missing")
+    """Authenticate and return the Drive service using Refresh Token."""
+    if not all([CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN]):
+        raise ValueError("Missing OAuth credentials: GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, or GDRIVE_REFRESH_TOKEN")
     
-    info = json.loads(SERVICE_ACCOUNT_JSON)
-    creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+    creds = Credentials(
+        None,
+        refresh_token=REFRESH_TOKEN,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        scopes=SCOPES
+    )
+    
+    # Refresh token if needed
+    if not creds.valid:
+        creds.refresh(Request())
+        
     return build('drive', 'v3', credentials=creds)
 
 def find_or_create_folder(service, name, parent_id):

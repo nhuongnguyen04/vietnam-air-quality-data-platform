@@ -8,15 +8,14 @@ from datetime import datetime
 from threading import local
 from typing import List, Dict, Any, Optional
 import clickhouse_connect
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
-logger = logging.getLogger(__name__)
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 
 # Configuration
 DRIVE_ROOT_ID = os.environ.get("GDRIVE_ROOT_FOLDER_ID")
-SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT")
+CLIENT_ID = os.environ.get("GDRIVE_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("GDRIVE_CLIENT_SECRET")
+REFRESH_TOKEN = os.environ.get("GDRIVE_REFRESH_TOKEN")
 CH_HOST = os.environ.get("CLICKHOUSE_HOST", "localhost")
 CH_PORT = int(os.environ.get("CLICKHOUSE_PORT", "8123"))
 CH_USER = os.environ.get("CLICKHOUSE_USER", "admin")
@@ -39,10 +38,23 @@ thread_local = local()
 
 def get_drive_service():
     if not hasattr(thread_local, "drive_service"):
-        if not SERVICE_ACCOUNT_JSON:
-            raise ValueError("GDRIVE_SERVICE_ACCOUNT missing")
-        info = json.loads(SERVICE_ACCOUNT_JSON)
-        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        if not all([CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN]):
+            raise ValueError("Missing OAuth credentials: GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, or GDRIVE_REFRESH_TOKEN")
+        
+        creds = Credentials(
+            None,
+            refresh_token=REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=SCOPES
+        )
+        
+        # Refresh token if needed
+        if not creds.valid:
+            creds.refresh(Request())
+            
+        from googleapiclient.discovery import build
         thread_local.drive_service = build('drive', 'v3', credentials=creds)
     return thread_local.drive_service
 
