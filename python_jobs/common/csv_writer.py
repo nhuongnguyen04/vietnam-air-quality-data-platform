@@ -40,6 +40,7 @@ class CSVWriter:
         type_map = {
             "measurements": "meas",
             "weather": "weat",
+            "meteorology": "weat",   # Map OpenWeather meteorology to weat
             "traffic": "traf",
             "flow": "flow"
         }
