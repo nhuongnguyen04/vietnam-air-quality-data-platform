@@ -47,3 +47,115 @@ def get_aqi_color_name(aqi: float) -> str:
         "Unknown": "gray",
     }
     return names.get(category, "gray")
+
+
+# === EPA AQI Breakpoints (Phase 07) ===
+EPA_BREAKPOINTS = [
+    (0, 50, "Good", "#00E400"),
+    (51, 100, "Moderate", "#FFFF00"),
+    (101, 150, "Unhealthy for Sensitive Groups", "#FF7E00"),
+    (151, 200, "Unhealthy", "#FF0000"),
+    (201, 300, "Very Unhealthy", "#8F3F97"),
+    (301, 500, "Hazardous", "#7E0023"),
+]
+
+# EPA color map cho Plotly color_discrete_map (dùng category name làm key)
+EPA_COLORS = {
+    "Good": "#00E400",
+    "Moderate": "#FFFF00",
+    "Unhealthy for Sensitive Groups": "#FF7E00",
+    "Unhealthy": "#FF0000",
+    "Very Unhealthy": "#8F3F97",
+    "Hazardous": "#7E0023",
+}
+
+# EPA sequential scale cho color_continuous_scale (dùng cho numeric AQI)
+EPA_SEQUENTIAL_SCALE = [
+    [0.0, "#00E400"],      # Good
+    [0.17, "#FFFF00"],     # Moderate
+    [0.33, "#FF7E00"],     # USG
+    [0.5, "#FF0000"],      # Unhealthy
+    [0.67, "#8F3F97"],     # Very Unhealthy
+    [1.0, "#7E0023"],      # Hazardous
+]
+
+
+def get_epa_color_for_value(aqi: float) -> str:
+    """Return EPA hex color for a numeric AQI value.
+
+    Args:
+        aqi: AQI numeric value (0-500+)
+
+    Returns:
+        EPA hex color string.
+    """
+    if aqi is None:
+        return "#808080"
+    for lo, hi, _, color in EPA_BREAKPOINTS:
+        if lo <= aqi <= hi:
+            return color
+    return "#7E0023"  # Hazardous fallback
+
+
+def apply_epa_template(fig, height: int = 400):
+    """Apply consistent EPA-themed layout to a Plotly figure.
+
+    Args:
+        fig: plotly.graph_objects.Figure object
+        height: figure height in pixels
+
+    Returns:
+        Modified figure with EPA theme applied.
+    """
+    fig.update_layout(
+        font=dict(family="sans-serif", size=12),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="rgba(240,242,246,0.4)",
+        margin=dict(l=20, r=20, t=30, b=20),
+        height=height,
+    )
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="rgba(200,200,200,0.3)",
+        title_font=dict(size=11),
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(200,200,200,0.3)",
+        title_font=dict(size=11),
+    )
+    fig.update_traces(marker_line_width=0)
+    return fig
+
+
+def render_empty_chart(message: str, height: int = 250):
+    """Return an empty Plotly figure with a descriptive message.
+
+    Args:
+        message: Vietnamese text to display in chart area
+        height: figure height
+
+    Returns:
+        plotly.graph_objects.Figure with empty axes + centered annotation
+    """
+    import plotly.graph_objects as go
+
+    fig = go.Figure()
+    fig.update_layout(
+        xaxis=dict(visible=False, showgrid=False),
+        yaxis=dict(visible=False, showgrid=False),
+        annotations=[
+            dict(
+                text=message,
+                x=0.5, y=0.5,
+                showarrow=False,
+                font=dict(size=14, color="#888888"),
+                xref="paper", yref="paper",
+            )
+        ],
+        height=height,
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="white",
+        margin=dict(l=10, r=10, t=30, b=10),
+    )
+    return fig
