@@ -108,12 +108,16 @@ def render_empty_fig(message: str, height: int = 280):
     fig = px.bar()
     fig.update_layout(
         height=height,
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-        annotations=[dict(text=message, x=0.5, y=0.5, showarrow=False,
-                         font=dict(size=13, color="gray"),
-                    xref="paper", yref="paper")],
+        xaxis=dict(visible=False, showgrid=False),
+        yaxis=dict(visible=False, showgrid=False),
+        annotations=[dict(
+            text=f"<b>{message}</b>",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=13, color="#9CA3AF"),
+            xref="paper", yref="paper",
+        )],
         paper_bgcolor="white",
+        plot_bgcolor="white",
         margin=dict(l=0, r=0, t=10, b=10),
     )
     return fig

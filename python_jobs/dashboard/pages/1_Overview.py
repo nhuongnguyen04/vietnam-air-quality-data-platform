@@ -135,18 +135,19 @@ def render_empty_fig(message: str, height: int = 250):
     fig = px.bar()
     fig.update_layout(
         height=height,
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
+        xaxis=dict(visible=False, showgrid=False),
+        yaxis=dict(visible=False, showgrid=False),
         annotations=[
             dict(
-                text=message,
+                text=f"<b>{message}</b>",
                 x=0.5, y=0.5,
                 showarrow=False,
-                font=dict(size=13, color="gray"),
+                font=dict(size=13, color="#9CA3AF"),
                 xref="paper", yref="paper",
             )
         ],
         paper_bgcolor="white",
+        plot_bgcolor="white",
         margin=dict(l=0, r=0, t=10, b=10),
     )
     return fig
@@ -184,8 +185,14 @@ try:
 
     if not health.empty:
         hrow = health.iloc[0]
-        col3.metric("Giờ rủi ro cao", f"{int(hrow.total_risk_hours)}h",
-                    delta=f"{int(hrow.bad_days)} ngày cao")
+        delta_val = int(hrow.total_risk_hours)
+        delta_color = "inverse" if delta_val > 0 else "normal"
+        col3.metric(
+            "Giờ rủi ro cao",
+            f"{delta_val}h",
+            delta=f"{int(hrow.bad_days)} ngày cao",
+            delta_color=delta_color,
+        )
     else:
         col3.metric("Giờ rủi ro cao", "—")
 

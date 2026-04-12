@@ -80,6 +80,25 @@ EPA_SEQUENTIAL_SCALE = [
 ]
 
 
+def get_epa_continuous_scale():
+    """Return EPA-themed sequential color scale for Plotly heatmaps.
+
+    Returns:
+        List of [position, hex_color] pairs for color_continuous_scale.
+    """
+    return [
+        [0.00, "#00E400"],   # Good
+        [0.15, "#9ACC00"],   # Good → Moderate transition
+        [0.25, "#FFFF00"],   # Moderate
+        [0.35, "#FF9900"],   # Moderate → USG transition
+        [0.45, "#FF7E00"],   # Unhealthy for Sensitive Groups
+        [0.55, "#FF6600"],   # USG → Unhealthy transition
+        [0.65, "#FF0000"],   # Unhealthy
+        [0.80, "#8F3F97"],   # Very Unhealthy
+        [1.00, "#7E0023"],   # Hazardous
+    ]
+
+
 def get_epa_color_for_value(aqi: float) -> str:
     """Return EPA hex color for a numeric AQI value.
 

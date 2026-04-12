@@ -1,8 +1,9 @@
 [theme]
-primaryColor = "#00E400"
+# Cyan brand — clean, technical, consistent with air/aqua quality theme
+primaryColor = "#0891B2"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F0F2F6"
-textColor = "#31333F"
+textColor = "#1A2332"
 font = "sans serif"
 
 [server]
