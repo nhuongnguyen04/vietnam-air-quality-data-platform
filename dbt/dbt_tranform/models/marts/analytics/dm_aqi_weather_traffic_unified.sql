@@ -30,7 +30,13 @@ weather AS (
 ),
 
 traffic AS (
-    SELECT * FROM {{ ref('stg_tomtom__flow') }}
+    SELECT 
+        station_name,
+        toStartOfHour(timestamp_utc) as datetime_hour,
+        avg(value) as value,
+        any(quality_flag) as quality_flag
+    FROM {{ ref('stg_tomtom__flow') }}
+    GROUP BY station_name, datetime_hour
 ),
 
 station_metadata AS (
@@ -90,5 +96,5 @@ SELECT
 FROM aqi a
 LEFT JOIN station_metadata m ON a.station_name = m.station_name
 LEFT JOIN weather w ON a.province = w.province AND a.datetime_hour = w.timestamp_utc
-LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.timestamp_utc
+LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.datetime_hour
 LEFT JOIN pop p ON a.province = p.location_name
