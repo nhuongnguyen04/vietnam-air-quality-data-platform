@@ -404,7 +404,8 @@ services:
     restart: unless-stopped
     ports:
     - 8501:8501
-    volumes: []
+    volumes:
+    - ./python_jobs/dashboard:/app
     environment:
     - CLICKHOUSE_HOST=clickhouse
     - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}

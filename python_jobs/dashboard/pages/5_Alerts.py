@@ -11,8 +11,6 @@ import plotly.express as px
 from lib.clickhouse_client import query_df
 from lib.aqi_utils import get_epa_continuous_scale
 
-st.set_page_config(title="Cảnh báo", page_icon="🚨", layout="wide")
-
 st.title("🚨 Cảnh báo & Tuân thủ Tiêu chuẩn")
 st.caption("Dữ liệu dựa trên WHO (2021) và TCVN 05:2023-BKHCN daily standards.")
 

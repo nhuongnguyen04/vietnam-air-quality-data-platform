@@ -11,8 +11,6 @@ import plotly.express as px
 from lib.clickhouse_client import query_df
 from lib.aqi_utils import get_epa_continuous_scale
 
-st.set_page_config(title="Xu hướng lịch sử", page_icon="📈", layout="wide")
-
 st.title("📈 Xu hướng Chất lượng Không khí — Lịch sử")
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
