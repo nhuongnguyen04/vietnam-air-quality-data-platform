@@ -1,4 +1,5 @@
-name: Hourly Data Ingestion
+name: Hourly Data Ingestion  # Scheduled at minute 0
+# Refresh comment to restart stalled schedule: 2026-04-12
 
 on:
   schedule:

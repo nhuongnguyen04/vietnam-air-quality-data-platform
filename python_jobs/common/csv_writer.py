@@ -6,7 +6,7 @@ import os
 import csv
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from .base_writer import DataWriter
 
@@ -27,7 +27,9 @@ class CSVWriter:
 
     def _get_filename(self, table: str, source: Optional[str]) -> str:
         """Generate filename based on source, type and timestamp."""
-        ts = datetime.now().strftime("%Y%m%d_%H%M")
+        # Use Vietnam Time (UTC+7) to ensure correct date for early morning runs
+        ict_tz = timezone(timedelta(hours=7))
+        ts = datetime.now(ict_tz).strftime("%Y%m%d_%H%M")
         
         # Determine source and type from table name if not provided
         parts = table.split('_')
