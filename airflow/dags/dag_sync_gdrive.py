@@ -42,7 +42,7 @@ def dag_sync_gdrive():
     @task
     def sync_data():
         """Execute the gdrive_sync.py script."""
-        script_path = os.path.join('/opt/python/jobs', 'scripts/gdrive_sync.py')
+        script_path = os.path.join('/opt/python/jobs', 'jobs/sync/gdrive_sync.py')
         
         # Ensure we have the necessary environment variables
         env = os.environ.copy()
@@ -55,6 +55,7 @@ def dag_sync_gdrive():
         result = subprocess.run(
             ['python', script_path],
             env=env,
+            cwd='/opt/python/jobs',
             capture_output=True,
             text=True
         )
@@ -64,6 +65,36 @@ def dag_sync_gdrive():
             raise Exception(f"Sync script failed with return code {result.returncode}")
             
         print(f"Sync Script Output: {result.stdout}")
+        return True
+
+    @task
+    def run_traffic_calculation():
+        """Run Traffic Pattern Enrichment calculation in Python."""
+        import subprocess
+        
+        script_path = os.path.join('/opt/python/jobs', 'jobs/traffic/calculate_hourly_traffic.py')
+        
+        # Ensure we have the necessary environment variables
+        env = os.environ.copy()
+        env['CLICKHOUSE_HOST'] = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
+        env['CLICKHOUSE_PORT'] = os.environ.get('CLICKHOUSE_PORT', '8123')
+        env['CLICKHOUSE_USER'] = os.environ.get('CLICKHOUSE_USER', 'admin')
+        env['CLICKHOUSE_PASSWORD'] = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
+        env['CLICKHOUSE_DB'] = os.environ.get('CLICKHOUSE_DB', 'air_quality')
+
+        result = subprocess.run(
+            ['python', script_path],
+            env=env,
+            cwd='/opt/python/jobs',
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print(f"Calculation Script Error: {result.stderr}")
+            raise Exception(f"Calculation script failed with return code {result.returncode}")
+            
+        print(f"Calculation Script Output: {result.stdout}")
         return True
 
     @task
@@ -78,8 +109,9 @@ def dag_sync_gdrive():
 
     # Dependencies
     sync = sync_data()
+    calc = run_traffic_calculation()
     completion = log_completion()
     
-    sync >> completion >> trigger_transform
+    sync >> calc >> completion >> trigger_transform
 
 dag_sync_gdrive = dag_sync_gdrive()
