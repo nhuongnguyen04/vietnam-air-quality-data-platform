@@ -1,100 +1,256 @@
+"""Pollutants page — pollutant trends, source fingerprint, compliance, heatmap."""
+from __future__ import annotations
+
+import sys
+sys.path.insert(0, "..")
+
 import streamlit as st
 import pandas as pd
-import sys
-sys.path.insert(0, '..')
+import plotly.express as px
+
 from lib.clickhouse_client import query_df
-from lib.aqi_utils import get_aqi_category
-
-st.header("🧪 Pollutant Analysis")
-
-pollutants = st.multiselect(
-    "Pollutants",
-    options=["pm25", "pm10", "o3", "no2", "co", "so2"],
-    default=["pm25", "pm10", "o3"],
-    format_func=lambda x: {"pm25": "PM2.5", "pm10": "PM10", "o3": "Ozone (O\u2083)", "no2": "NO\u2082", "co": "CO", "so2": "SO\u2082"}.get(x, x),
+from lib.aqi_utils import (
+    EPA_COLORS,
+    get_epa_color_for_value,
+    get_epa_continuous_scale,
 )
 
+st.set_page_config(title="Chất ô nhiễm", page_icon="🧪", layout="wide")
+
+st.title("🧪 Phân tích Chất ô nhiễm")
+
+# ── helpers ─────────────────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=3600)
+def get_provinces():
+    q = """
+    SELECT DISTINCT province
+    FROM air_quality.dm_aqi_current_status
+    WHERE province IS NOT NULL AND province != ''
+    ORDER BY province
+    """
+    return query_df(q)["province"].tolist()
+
+
 @st.cache_data(ttl=300)
-def get_exceedance_trend(pollutant_list):
-    if not pollutant_list:
-        return pd.DataFrame()
-    pollutant_filter = "', '".join(pollutant_list)
+def get_pollutant_trend(days: int, province: str | None):
+    if province and province != "Toàn quốc":
+        where_clause = f"AND province = '{province}'"
+    else:
+        where_clause = ""
     q = f"""
     SELECT
         date,
-        pollutant,
-        exceedance_rate
-    FROM air_quality.mart_kpis__pollutant_concentrations
-    WHERE date >= today() - INTERVAL 30 DAY
-      AND pollutant IN ('{pollutant_filter}')
+        round(avg(pm25_avg), 1)   AS pm25_avg,
+        round(avg(pm10_avg), 1)   AS pm10_avg,
+        round(avg(co_avg), 3)     AS co_avg,
+        round(avg(no2_avg), 2)    AS no2_avg,
+        round(avg(so2_avg), 2)    AS so2_avg,
+        round(avg(o3_avg), 1)     AS o3_avg
+    FROM air_quality.fct_air_quality_summary_daily
+    WHERE date >= today() - INTERVAL {days} DAY
+      {where_clause}
+    GROUP BY date
     ORDER BY date
     """
     return query_df(q)
 
 
 @st.cache_data(ttl=300)
-def get_dominant_pollutants():
-    q = """
+def get_source_fingerprint(days: int, province: str | None):
+    if province and province != "Toàn quốc":
+        where_clause = f"AND province = '{province}'"
+    else:
+        where_clause = ""
+    q = f"""
     SELECT
-        dominant_pollutant,
-        count(*) as days
-    FROM air_quality.mart_air_quality__daily_summary
-    WHERE date >= today() - INTERVAL 30 DAY
-      AND dominant_pollutant IS NOT NULL
-    GROUP BY dominant_pollutant
-    ORDER BY days DESC
-    LIMIT 6
+        province,
+        probable_source,
+        count(*) AS cnt,
+        round(avg(pm25_avg), 1) AS pm25_avg
+    FROM air_quality.dm_pollutant_source_fingerprint
+    WHERE date >= today() - INTERVAL {days} DAY
+      {where_clause}
+    GROUP BY province, probable_source
+    ORDER BY province, cnt DESC
     """
     return query_df(q)
 
 
 @st.cache_data(ttl=300)
-def get_aqi_distribution():
-    q = """
+def get_compliance_status(days: int, province: str | None):
+    if province and province != "Toàn quốc":
+        where_clause = f"AND province = '{province}'"
+    else:
+        where_clause = ""
+    q = f"""
     SELECT
-        case
-            when avg_aqi <= 50 then 'Good'
-            when avg_aqi <= 100 then 'Moderate'
-            when avg_aqi <= 150 then 'Unhealthy for Sensitive Groups'
-            when avg_aqi <= 200 then 'Unhealthy'
-            when avg_aqi <= 300 then 'Very Unhealthy'
-            else 'Hazardous'
-        end as category,
-        count(*) as days
-    FROM air_quality.mart_air_quality__daily_summary
-    WHERE date >= today() - INTERVAL 30 DAY
-    GROUP BY category
-    ORDER BY days DESC
+        province,
+        compliance_status,
+        count(*) AS cnt
+    FROM air_quality.dm_aqi_compliance_standards
+    WHERE date >= today() - INTERVAL {days} DAY
+      {where_clause}
+    GROUP BY province, compliance_status
+    ORDER BY province, cnt DESC
     """
     return query_df(q)
 
 
+@st.cache_data(ttl=300)
+def get_pollutant_heatmap(days: int):
+    q = f"""
+    SELECT
+        province,
+        toString(date) AS date_str,
+        round(avg(pm25_avg), 1) AS pm25_avg
+    FROM air_quality.fct_air_quality_summary_daily
+    WHERE date >= today() - INTERVAL {days} DAY
+      AND province IS NOT NULL AND province != ''
+    GROUP BY province, date
+    ORDER BY province, date
+    """
+    return query_df(q)
+
+
+def render_empty_fig(message: str, height: int = 280):
+    fig = px.bar()
+    fig.update_layout(
+        height=height,
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        annotations=[dict(text=message, x=0.5, y=0.5, showarrow=False,
+                         font=dict(size=13, color="gray"),
+                    xref="paper", yref="paper")],
+        paper_bgcolor="white",
+        margin=dict(l=0, r=0, t=10, b=10),
+    )
+    return fig
+
+
+# ── page body ─────────────────────────────────────────────────────────────────────
+
 try:
-    col1, col2 = st.columns(2)
+    provinces = get_provinces()
+    col_filter1, col_filter2 = st.columns([2, 1])
+    with col_filter1:
+        selected_province = st.selectbox(
+            "Chọn tỉnh/thành phố",
+            options=["Toàn quốc"] + provinces,
+            index=0,
+        )
+    with col_filter2:
+        TIME_OPTIONS = {7: "7 ngày", 30: "30 ngày", 90: "3 tháng", 365: "1 năm"}
+        days = st.selectbox(
+            "Khoảng thời gian",
+            options=list(TIME_OPTIONS.keys()),
+            format_func=lambda x: TIME_OPTIONS[x],
+            index=1,
+        )
 
-    with col1:
-        st.subheader("Pollutant Exceedance Rate (30d)")
-        exc = get_exceedance_trend(pollutants)
-        if not exc.empty:
-            pivot = exc.pivot(index="date", columns="pollutant", values="exceedance_rate")
-            st.bar_chart(pivot, height=300)
-        else:
-            st.info("No pollutant concentration data available.")
+    province_arg = selected_province if selected_province != "Toàn quốc" else None
 
-    with col2:
-        st.subheader("Dominant Pollutants")
-        dom = get_dominant_pollutants()
-        if not dom.empty:
-            st.bar_chart(dom.set_index("dominant_pollutant"), horizontal=True, height=300)
-        else:
-            st.info("No dominant pollutant data.")
-
-    st.subheader("AQI Category Distribution (30d)")
-    dist = get_aqi_distribution()
-    if not dist.empty:
-        st.bar_chart(dist.set_index("category"), horizontal=True, height=300)
+    # ── pollutant trend (full width) ────────────────────────────────────────────
+    st.subheader(f"Nồng độ chất ô nhiễm theo thời gian — {TIME_OPTIONS[days]}")
+    with st.spinner("Đang tải dữ liệu pollutants..."):
+        trend = get_pollutant_trend(days, province_arg)
+    if not trend.empty:
+        pollutants = ["pm25_avg", "pm10_avg", "o3_avg", "no2_avg", "co_avg", "so2_avg"]
+        fig = px.line(
+            trend,
+            x="date",
+            y=pollutants,
+            labels={
+                "date": "Ngày",
+                "value": "Nồng độ",
+                "variable": "Chất ô nhiễm",
+                "pm25_avg": "PM2.5 (µg/m³)",
+                "pm10_avg": "PM10 (µg/m³)",
+                "o3_avg": "O₃ (µg/m³)",
+                "no2_avg": "NO₂ (µg/m³)",
+                "co_avg": "CO (mg/m³)",
+                "so2_avg": "SO₂ (µg/m³)",
+            },
+        )
+        fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=40))
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No AQI distribution data.")
+        fig = render_empty_fig("Không có dữ liệu pollutant trong khoảng thời gian đã chọn.")
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption("Chạy dbt transform để cập nhật fct_air_quality_summary_daily.")
+
+    # ── compliance + fingerprint (col2) ────────────────────────────────────────
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.subheader("Tuân thủ tiêu chuẩn")
+        compliance = get_compliance_status(days, province_arg)
+        if not compliance.empty:
+            COMPLIANCE_COLORS = {
+                "Good/Safe": "#00E400",
+                "Warning (WHO Breach)": "#FF7E00",
+                "Unhealthy (TCVN Breach)": "#FF0000",
+            }
+            fig = px.bar(
+                compliance,
+                x="province",
+                y="cnt",
+                color="compliance_status",
+                color_discrete_map=COMPLIANCE_COLORS,
+                barmode="group",
+            )
+            fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            fig = render_empty_fig("Không có dữ liệu tuân thủ tiêu chuẩn.")
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption("dm_aqi_compliance_standards chưa có dữ liệu.")
+
+    with col_right:
+        st.subheader("Nguồn ô nhiễm (fingerprint)")
+        fingerprint = get_source_fingerprint(days, province_arg)
+        if not fingerprint.empty:
+            FINGERPRINT_COLORS = {
+                "Combustion/Traffic": "#FF7E00",
+                "Dust/Construction": "#8F3F97",
+                "Mixed": "#FF0000",
+            }
+            fig = px.bar(
+                fingerprint,
+                x="province",
+                y="cnt",
+                color="probable_source",
+                color_discrete_map=FINGERPRINT_COLORS,
+                barmode="stack",
+            )
+            fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            fig = render_empty_fig("Không có dữ liệu nguồn ô nhiễm.")
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption("dm_pollutant_source_fingerprint chưa có dữ liệu.")
+
+    # ── heatmap (province × date) ───────────────────────────────────────────────
+    st.subheader("Bản đồ nhiệt PM2.5 — tỉnh × ngày")
+    heatmap_data = get_pollutant_heatmap(days)
+    if not heatmap_data.empty:
+        top_provinces = heatmap_data.groupby("province")["pm25_avg"].mean().nlargest(15).index.tolist()
+        filtered = heatmap_data[heatmap_data["province"].isin(top_provinces)]
+        fig = px.density_heatmap(
+            filtered,
+            x="date_str",
+            y="province",
+            z="pm25_avg",
+            color_continuous_scale=get_epa_continuous_scale(),
+            labels={"date_str": "Ngày", "province": "Tỉnh", "pm25_avg": "PM2.5 µg/m³"},
+        )
+        fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=30))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        fig = render_empty_fig("Không có dữ liệu heatmap PM2.5.")
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption("Chưa có dữ liệu tổng hợp theo ngày cho bản đồ nhiệt.")
 
 except Exception as e:
-    st.error(f"Query failed: {e}")
+    st.error(f"Truy vấn thất bại: {e}")
+    st.info("Kiểm tra ClickHouse và dbt transform đã chạy thành công.")
