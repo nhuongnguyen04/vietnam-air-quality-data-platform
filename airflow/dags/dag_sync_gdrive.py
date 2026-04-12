@@ -8,6 +8,7 @@ ingested by GitHub Actions from Google Drive to ClickHouse.
 from datetime import datetime, timedelta
 from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
 import os
 import subprocess
 
@@ -64,8 +65,16 @@ def dag_sync_gdrive():
             print(f"Sync Script Error: {result.stderr}")
             raise Exception(f"Sync script failed with return code {result.returncode}")
             
+            
         print(f"Sync Script Output: {result.stdout}")
-        return True
+        
+        # Parse number of files synced from output
+        for line in result.stdout.splitlines():
+            if line.startswith("FILES_SYNCED="):
+                success_count = int(line.split("=")[1])
+                return success_count > 0
+        
+        return False
 
     @task
     def run_traffic_calculation():
@@ -108,10 +117,18 @@ def dag_sync_gdrive():
     )
 
     # Dependencies
-    sync = sync_data()
+    sync_has_data = sync_data()
+    
+    check_sync = ShortCircuitOperator(
+        task_id='check_sync_data',
+        python_callable=lambda x: x,
+        op_args=[sync_has_data],
+    )
+    
     calc = run_traffic_calculation()
     completion = log_completion()
     
-    sync >> calc >> completion >> trigger_transform
+    # Linear flow: Only proceed if check_sync passes
+    sync_has_data >> check_sync >> calc >> completion >> trigger_transform
 
 dag_sync_gdrive = dag_sync_gdrive()

@@ -281,6 +281,8 @@ def main():
                 logger.error(f"Worker crashed for {f_info['name']}: {e}")
 
     logger.info(f"Parallel sync complete. Successfully processed: {success_count}/{len(all_files)}")
+    # Output for Airflow to parse
+    print(f"FILES_SYNCED={success_count}")
 
 if __name__ == "__main__":
     main()
