@@ -30,8 +30,9 @@ pages = {
         st.Page("pages/1_Overview.py", title=t("nav_overview", lang), icon=":material/dashboard:"),
         st.Page("pages/2_Pollutants.py", title=t("nav_pollutants", lang), icon=":material/analytics:"),
     ],
-    t("nav_traffic", lang): [
+    t("nav_environment", lang): [
         st.Page("pages/6_Traffic_Impact.py", title=t("nav_traffic", lang), icon=":material/traffic:"),
+        st.Page("pages/9_Weather_Impact.py", title=t("nav_weather", lang), icon=":material/air:"),
     ],
     t("nav_health", lang): [
         st.Page("pages/7_Health_Risk.py", title=t("nav_health", lang), icon=":material/health_and_safety:"),
