@@ -27,23 +27,23 @@ lang = st.session_state.lang
 
 pages = {
     t("nav_overview", lang): [
-        st.Page("pages/1_Overview.py", title=t("nav_overview", lang)),
-        st.Page("pages/2_Pollutants.py", title=t("nav_pollutants", lang)),
+        st.Page("pages/1_Overview.py", title=t("nav_overview", lang), icon=":material/dashboard:"),
+        st.Page("pages/2_Pollutants.py", title=t("nav_pollutants", lang), icon=":material/analytics:"),
     ],
     t("nav_traffic", lang): [
-        st.Page("pages/6_Traffic_Impact.py", title=t("nav_traffic", lang)),
+        st.Page("pages/6_Traffic_Impact.py", title=t("nav_traffic", lang), icon=":material/traffic:"),
     ],
     t("nav_health", lang): [
-        st.Page("pages/7_Health_Risk.py", title=t("nav_health", lang)),
+        st.Page("pages/7_Health_Risk.py", title=t("nav_health", lang), icon=":material/health_and_safety:"),
     ],
     t("nav_status", lang): [
-        st.Page("pages/8_Status.py", title=t("nav_status", lang)),
+        st.Page("pages/8_Status.py", title=t("nav_status", lang), icon=":material/settings_suggest:"),
     ]
 }
 
 # ── Sidebar Utilities ────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f"# 🌿 VN Air Quality")
+    st.markdown(f"# VN Air Quality")
     st.divider()
     
     st.subheader(t("standard_guidelines", lang))

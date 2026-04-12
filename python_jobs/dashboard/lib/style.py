@@ -1,153 +1,184 @@
 import streamlit as st
 from lib.i18n import t
 
-# ── SVG ICON DATABASE ────────────────────────────────────────────────────────
-SVG_ICONS = {
-    "insights": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg>',
-    "biotech": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M160-160v-80h80v-40q0-83 58.5-141.5T440-480v-40h-80v-80h80v-40q0-83 58.5-141.5T640-840h160v80h-160q-50 0-85 35t-35 85v40h80v80h-80v40q0 83-58.5 141.5T440-240v40h80v80H160Z"/></svg>',
-    "error": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240Zm40 360q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>',
-    "location_on": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 400Q306-224 223-345.5T140-571q0-150 100.5-249.5T480-920q139 0 239.5 99.5T820-571q0 125-83 246.5T480-80Z"/></svg>',
-    "traffic": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M440-80v-167q-85-15-142.5-73.5T240-460v-300q0-25 17.5-42.5T300-820h140v-60h80v60h140q25 0 42.5 17.5T720-760v300q0 81-57.5 139.5T520-247v167h-80ZM480-500q25 0 42.5-17.5T540-560q0-25-17.5-42.5T480-620q-25 0-42.5 17.5T420-560q0 25 17.5 42.5T480-500Z"/></svg>',
-    "health": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M440-280h80v-160h160v-80H520v-160h-80v160H280v80h160v160ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>',
-    "status": '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/></svg>'
-}
-
 def inject_style():
-    """Inject custom CSS for premium look and feel."""
+    """Inject custom CSS for premium UI look and feel."""
     theme = st.session_state.get("theme", "light")
     
     if theme == "dark":
-        bg_color = "#0E1117"
-        secondary_bg = "#1A1C24"
-        text_color = "#E0E0E0"
-        card_bg = "rgba(255, 255, 255, 0.05)"
+        bg_color = "#0e1117"
+        text_color = "#f0f2f6"
+        card_bg = "rgba(17, 25, 40, 0.75)"
         border_color = "rgba(255, 255, 255, 0.1)"
+        sidebar_bg = "#111b21"
         shadow = "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
     else:
-        bg_color = "#F0F2F6"
-        secondary_bg = "#FFFFFF"
-        text_color = "#262730"
-        card_bg = "rgba(255, 255, 255, 0.7)"
-        border_color = "rgba(255, 255, 255, 0.3)"
-        shadow = "0 8px 32px 0 rgba(31, 38, 135, 0.15)"
+        bg_color = "#f8f9fb"
+        text_color = "#1e293b"
+        card_bg = "rgba(255, 255, 255, 0.8)"
+        border_color = "rgba(226, 232, 240, 0.8)"
+        sidebar_bg = "#ffffff"
+        shadow = "0 8px 32px 0 rgba(31, 38, 135, 0.07)"
 
-    css = f"""
+    st.markdown(f"""
     <style>
-        /* Hide Streamlit Header & Footer */
-        header[data-testid="stHeader"] {{
-            visibility: hidden;
-            height: 0;
-        }}
-        footer {{
-            visibility: hidden;
-        }}
-        
-        /* Base Theme */
-        .stApp {{
-            background-color: {bg_color};
-            color: {text_color};
-            padding-top: 0 !important;
-        }}
-
-        /* Adjust Main Container Padding */
-        .block-container {{
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
-        }}
-        
-        /* Glassmorphism Card */
-        .glass-card {{
-            background: {card_bg};
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-radius: 12px;
-            border: 1px solid {border_color};
-            box-shadow: {shadow};
-            padding: 18px;
-            margin-bottom: 20px;
-        }}
-        
-        /* Sidebar Styling Refinement */
-        [data-testid="stSidebar"] {{
-            background-color: {secondary_bg} !important;
-            border-right: 1px solid {border_color};
-        }}
-        
-        [data-testid="stSidebar"] * {{
-            color: {text_color} !important;
-        }}
-        
-        [data-testid="stSidebarNav"] span {{
-            color: {text_color} !important;
-        }}
-
-        /* Custom Font - Montserrat */
+        /* ── Base Styles ─────────────────────────────────── */
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
         
-        html, body, [class*="css"], .stText, .stMarkdown {{
+        html, body, [data-testid="stAppViewContainer"], .stMarkdown {{
             font-family: 'Montserrat', sans-serif !important;
+            background-color: {bg_color};
+            color: {text_color};
         }}
 
-        /* Plotly Modebar Hidden */
-        .js-plotly-plot .plotly .modebar {{
-            display: none !important;
+        header[data-testid="stHeader"] {{ visibility: hidden; height: 0; }}
+        footer {{ visibility: hidden; }}
+        .block-container {{ padding-top: 1rem !important; padding-bottom: 5rem !important; }}
+
+        /* ── Sidebar Polish ──────────────────────────────── */
+        [data-testid="stSidebar"] {{
+            background-color: {sidebar_bg} !important;
+            border-right: 1px solid {border_color};
+            min-width: 250px !important;
+        }}
+        [data-testid="stSidebarNav"] {{
+            padding-top: 0 !important;
+        }}
+        [data-testid="stSidebarNav"] span {{
+            color: {text_color} !important;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }}
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 {{
+            font-size: 1.4rem !important;
+            font-weight: 700 !important;
+            margin-bottom: 0 !important;
+            padding-top: 1.5rem !important;
+        }}
+
+        /* ── Top Bar Columns Alignment ──────────────────── */
+        [data-testid="stHorizontalBlock"] {{
+            align-items: center;
+        }}
+        
+        /* ── Glass Card & Charts ─────────────────────────── */
+        .glass-card, .stPlotlyChart {{
+            background: {card_bg};
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid {border_color};
+            border-radius: 16px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: {shadow};
+        }}
+
+        /* ── Metric Card ─────────────────────────────────── */
+        .metric-card {{
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 0;
+        }}
+        .metric-icon {{
+            background: {bg_color};
+            border: 1px solid {border_color};
+            border-radius: 12px;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }}
+        .metric-icon svg {{
+            fill: {text_color};
+            width: 26px;
+            height: 26px;
+        }}
+        .metric-value {{
+            font-size: 1.8rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }}
+        .metric-label {{
+            font-size: 0.9rem;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }}
+
+        /* ── Buttons ────────────────────────────────────── */
+        .stButton button {{
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease;
         }}
     </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 def render_top_bar():
-    """Render a persistent top bar for theme and language toggles."""
+    """Render a persistent top bar for theme and language toggles on one row, aligned right."""
+    theme = st.session_state.get("theme", "light")
     lang = st.session_state.get("lang", "vi")
     
-    # Using columns for native top alignment
-    tc1, tc2, tc3 = st.columns([0.84, 0.08, 0.08])
+    # Use columns to align right and keep on one row
+    c1, spacer, c2, c3 = st.columns([0.6, 0.2, 0.1, 0.1])
     
-    with tc2:
-        current_theme = st.session_state.get("theme", "light")
-        new_theme = "dark" if current_theme == "light" else "light"
-        theme_icon = "🌙" if current_theme == "light" else "☀️"
-        st.button(f"{theme_icon}", key="theme_toggle_top", 
-                  on_click=lambda: st.session_state.update({"theme": new_theme}),
-                  help=t("theme_light" if new_theme=="light" else "theme_dark", lang))
-
-    with tc3:
-        new_lang = "en" if lang == "vi" else "vi"
-        btn_label = "EN" if lang == "vi" else "VI"
-        st.button(btn_label, key="lang_toggle_top", 
-                  on_click=lambda: st.session_state.update({"lang": new_lang}),
-                  help=t("lang_en" if new_lang=="en" else "lang_vi", lang))
+    with c2:
+        if st.button("🌙" if theme == "light" else "☀️", key="theme_toggle"):
+            st.session_state.theme = "dark" if theme == "light" else "light"
+            st.rerun()
+            
+    with c3:
+        if st.button("EN" if lang == "vi" else "VI", key="lang_toggle"):
+            st.session_state.lang = "en" if lang == "vi" else "vi"
+            st.rerun()
 
 def render_metric_card(label, value, delta=None, delta_color="normal", icon=None):
     """Render a custom premium metric card with SVG icons."""
-    theme = st.session_state.get("theme", "light")
-    text_color = "#E0E0E0" if theme == "dark" else "#262730"
+    icons = {
+        "traffic": '<path d="M20 7h-9l1.45-3.45a1 1 0 0 0-1.82-.72L8.43 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM4 9h16v10h-6v-2h-4v2H4V9z"/>',
+        "insights": '<path d="m16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z"/>',
+        "error": '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>',
+        "star": '<path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z"/>',
+        "biotech": '<path d="M7 19c-1.1 0-2 .9-2 2h14c0-1.1-.9-2-2-2H7zM6.9 9.88l-2.02.32c-.39.06-.67.43-.61.82l.13.82c.06.39.43.67.82.61l2.02-.32c.39-.06.67-.43.61-.82l-.13-.82c-.06-.39-.43-.67-.82-.61zm.55 3.51-.32 2.02c-.06.39.21.76.61.82l.82.13c.39.06.76-.21.82-.61l.32-2.02c.06-.39-.21-.76-.61-.82l-.82-.13c-.39-.06-.76.21-.82.61zm11.65-3.51.13.82c.06.39.43.67.82.61l2.02-.32c.39-.06.67-.43.61-.82l-.13-.82c-.06-.39-.43-.67-.82-.61l-2.02.32c-.39.06-.67.43-.61.82zm-.55 3.51.82.13c.39.06.76-.21.82-.61l.32-2.02c.06-.39-.21-.76-.61-.82l-.82-.13c-.39-.06-.76.21-.82.61l-.32 2.02c-.06.39.21.76.61.82zm-7.97-1.4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/><path d="M12 3C7.58 3 4 6.58 4 11c0 3.17 1.86 5.92 4.57 7.21l1.41-3.66C8.78 13.9 8 12.55 8 11c0-2.21 1.79-4 4-4s4 1.79 4 4c0 1.55-.78 2.9-1.98 3.55l1.41 3.66C18.14 16.92 20 14.17 20 11c0-4.42-3.58-8-8-8z"/>',
+        "location": '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>',
+        "health": '<path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>'
+    }
     
-    delta_html = ""
-    if delta:
-        color = "#09ab3b" if delta.startswith("+") else "#ff4b4b"
-        delta_html = f'<div style="font-size: 0.8rem; font-weight: 600; color: {color};">{delta}</div>'
-
-    icon_svg = SVG_ICONS.get(icon, "")
-    icon_html = f'<div style="font-size: 2rem; margin-right: 15px; opacity: 0.7; color: {text_color}; display: flex; align-items: center;">{icon_svg}</div>' if icon_svg else ""
+    icon_svg = f'<svg viewBox="0 0 24 24">{icons.get(icon, "")}</svg>' if icon in icons else ""
     
-    card_html = f"""<div class="glass-card"><div style="display: flex; align-items: center;">{icon_html}<div><div class="metric-label">{label}</div><div class="metric-value font-semibold" style="color: {text_color};">{value}</div>{delta_html}</div></div></div>"""
-    st.markdown(card_html, unsafe_allow_html=True)
+    st.markdown(f"""
+        <div class="glass-card">
+            <div class="metric-card">
+                <div class="metric-icon">{icon_svg}</div>
+                <div>
+                    <div class="metric-label">{label}</div>
+                    <div class="metric-value">{value}</div>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 def get_plotly_layout(height=400):
+    """Return a polished Plotly layout consistent with the glassmorphism theme."""
     theme = st.session_state.get("theme", "light")
-    is_dark = theme == "dark"
-    text_color = "#E0E0E0" if is_dark else "#262730"
-    grid_color = "rgba(255,255,255,0.1)" if is_dark else "rgba(0,0,0,0.05)"
+    text_color = "#f0f2f6" if theme == "dark" else "#1e293b"
+    grid_color = "rgba(255, 255, 255, 0.05)" if theme == "dark" else "rgba(0, 0, 0, 0.05)"
     
     return dict(
-        font=dict(family="Montserrat, sans-serif", size=12, color=text_color),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=20, r=20, t=40, b=20),
         height=height,
-        hovermode="x unified",
-        xaxis=dict(showgrid=True, gridcolor=grid_color, linecolor=grid_color, tickfont=dict(color=text_color)),
-        yaxis=dict(showgrid=True, gridcolor=grid_color, linecolor=grid_color, tickfont=dict(color=text_color)),
-        legend=dict(font=dict(color=text_color), bgcolor="rgba(0,0,0,0)")
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Montserrat', color=text_color),
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(gridcolor=grid_color, zeroline=False),
+        yaxis=dict(gridcolor=grid_color, zeroline=False),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     )
