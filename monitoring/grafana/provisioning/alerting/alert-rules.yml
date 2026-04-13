@@ -48,7 +48,7 @@ groups:
         for: 5m
         annotations:
           summary: "🔴 [CẢNH BÁO NGUY HẠI] AQI > 200"
-          value: "{{ $values.B | printf \"%.0f\" }}"
+          value: "{{ $values.B }}"
         labels:
           severity: critical
           team: air-quality
@@ -84,7 +84,7 @@ groups:
         for: 10m
         annotations:
           summary: "🟡 [CẢNH BÁO] Hệ thống chậm cập nhật dữ liệu"
-          value: "{{ $values.B.Value }}"
+          value: "{{ $values.B }}"
         labels:
           severity: warning
           team: data-ops
@@ -121,7 +121,7 @@ groups:
         for: 15m
         annotations:
           summary: "⚠️ [GIÁN ĐOẠN DỮ LIỆU] Trạm mất tín hiệu"
-          value: "{{ $values.B | printf \"%.0f\" }}"
+          value: "{{ $values.B }}"
           last_seen: "{{ $labels.last_seen }}"
         labels:
           severity: warning
@@ -154,7 +154,7 @@ groups:
         for: 10m
         annotations:
           summary: "🟠 [CẢNH BÁO] AQI vượt mức 150"
-          value: "{{ $values.B | printf \"%.0f\" }}"
+          value: "{{ $values.B }}"
         labels:
           severity: warning
 
@@ -186,7 +186,7 @@ groups:
         for: 10m
         annotations:
           summary: "🟠 [CẢNH BÁO] Bụi mịn PM2.5 cao (>75 µg/m³)"
-          value: "{{ $values.B | printf \"%.1f\" }}"
+          value: "{{ $values.B }}"
         labels:
           severity: warning
 
