@@ -3,7 +3,11 @@ global:
   evaluation_interval: 30s
 
 alerting:
-  alertmanagers: []
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'grafana:3000'
+      path_prefix: '/api/alertmanager/grafana'
 
 rule_files:
   - /etc/prometheus/rules/*.yml

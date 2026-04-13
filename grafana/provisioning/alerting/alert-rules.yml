@@ -8,59 +8,14 @@ groups:
     rules:
 
       # =============================================================
-      # Rule 1: DAG Failure
+      # Rule 1 & 2 are now managed by Prometheus to prioritize infra monitoring reliability.
+      # They are commented out here to avoid duplication.
       # =============================================================
-      - uid: dag-failure-critical
-        title: "[PIPELINE][NGHIÊM TRỌNG] Lỗi thực thi DAG Airflow"
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange: { from: 600, to: 0 }
-            datasourceUid: airflow-postgres
-            model:
-              type: sql
-              format: table
-              rawSql: |
-                SELECT state, dag_id, MAX(end_date) as last_run
-                FROM dag_run
-                WHERE end_date >= NOW() - INTERVAL '10 MINUTE'
-                  AND state IN ('failed', 'up_for_retry')
-                GROUP BY state, dag_id
-          - refId: B
-            datasourceUid: "-100"
-            model: { type: reduce, reducer: last, expression: A }
-        noDataState: OK
-        execErrState: Error
-        for: 5m
-        annotations:
-          summary: "Luồng dữ liệu {{ $labels.dag_id }} gặp lỗi — Cần kiểm tra ngay"
-          description: "DAG {{ $labels.dag_id }} đang ở trạng thái {{ $labels.state }}. Pipeline bị gián đoạn."
-        labels:
-          severity: critical
-          team: data-ops
-        contactPoints: [telegram-critical]
-
+      # - uid: dag-failure-critical
+      # ... (Disabled)
+      # - uid: clickhouse-down-critical
+      # ... (Disabled)
       # =============================================================
-      # Rule 2: ClickHouse Down
-      # =============================================================
-      - uid: clickhouse-down-critical
-        title: "[HẠ TẦNG][NGHIÊM TRỌNG] ClickHouse Database Ngừng hoạt động"
-        condition: A
-        data:
-          - refId: A
-            relativeTimeRange: { from: 120, to: 0 }
-            datasourceUid: clickhouse-airquality
-            model: { rawSql: "SELECT 1 AS clickhouse_up" }
-        noDataState: Alerting
-        execErrState: Alerting
-        for: 2m
-        annotations:
-          summary: "Cơ sở dữ liệu ClickHouse không thể kết nối"
-          description: "Hệ thống không thể truy cập ClickHouse. Vui lòng kiểm tra dịch vụ và kết nối mạng (Docker)."
-        labels:
-          severity: critical
-          team: data-ops
-        contactPoints: [telegram-critical]
 
       # =============================================================
       # Rule 3: AQI Critical (>200)
