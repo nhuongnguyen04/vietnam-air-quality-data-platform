@@ -1,44 +1,46 @@
 """
-Bulk catalog curation using OM REST API.
-No openmetadata-ingestion library needed — uses simple requests calls.
+Bulk catalog curation — bổ sung thông tin KHÔNG tự động thu thập được bởi OM agents.
 
-Usage (from project root):
-    OPENMETADATA_URL=http://localhost:8585/api \
-    OM_ADMIN_USER=admin@open-metadata.org \
-    OM_ADMIN_PASSWORD=admin \
+Phạm vi của script này:
+  - Chỉ áp dụng cho các bảng KHÔNG phải dbt model (raw tables, reference tables, seeds).
+  - Các dbt models (stg_*, int_*, dm_*, fct_*) được agent dbt pipeline tự xử lý
+    từ manifest.json — descriptions, column docs, tags (meta), lineage.
+  - Script này KHÔNG duplicate thông tin đã có trong dbt YAML docs.
+
+Loại thông tin bổ sung:
+  1. Description cho raw tables (raw_aqiin_*, raw_openweather_*, raw_tomtom_*)
+  2. Description cho reference/seed tables (pollutants, seed_dim_time, source_calibration, ...)
+  3. Pipeline→RawTable lineage (dag_ingest_hourly → raw_*) — dbt chỉ track dbt→dbt lineage
+
+Usage (từ project root):
+    OPENMETADATA_URL=http://localhost:8585/api \\
+    OM_ADMIN_USER=admin@open-metadata.org \\
+    OM_ADMIN_PASSWORD=admin \\
     python python_jobs/jobs/openmetadata/curation_bulk.py
-
-Environment variables:
-    OPENMETADATA_URL: OpenMetadata API base URL (default: http://openmetadata:8585/api)
-    OM_ADMIN_USER:     OM admin username   (default: admin@open-metadata.org)
-    OM_ADMIN_PASSWORD: OM admin password   (default: admin)
 """
 
 import os
-import sys
 import requests
 import base64
 
-OM_URL = os.environ.get(
-    "OPENMETADATA_URL",
-    "http://openmetadata:8585/api",
-).rstrip("/")
+OM_URL = os.environ.get("OPENMETADATA_URL", "http://openmetadata:8585/api").rstrip("/")
 if not OM_URL.endswith("/api"):
     OM_URL += "/api"
 OM_USER = os.environ.get("OM_ADMIN_USER", "admin@open-metadata.org")
 OM_PASS = os.environ.get("OM_ADMIN_PASSWORD", "admin")
 
-# ─── Authentication ──────────────────────────────────────────────────────────────
+SERVICE = "Vietnam Air Quality ClickHouse"
+DB = "air_quality"
+SCHEMA = "air_quality"
+PREFIX = f"{SERVICE}.{DB}.{SCHEMA}"
+
+# ─── Auth ─────────────────────────────────────────────────────────────────────
 
 _token_cache: list[str] = []
 
 
 def om_login() -> str:
-    """
-    Login to OM 1.12+ and return JWT access token.
-    OM 1.12+ requires password as base64-encoded string and uses 'email' field.
-    """
-    b64_pass = base64.b64encode(OM_PASS.encode("utf-8")).decode("utf-8")
+    b64_pass = base64.b64encode(OM_PASS.encode()).decode()
     r = requests.post(
         f"{OM_URL}/v1/users/login",
         json={"email": OM_USER, "password": b64_pass},
@@ -53,448 +55,304 @@ def om_login() -> str:
 
 
 def get_token() -> str:
-    """Return cached token or login fresh."""
-    if _token_cache:
-        return _token_cache[0]
-    return om_login()
+    return _token_cache[0] if _token_cache else om_login()
 
 
-# ─── PATCH helpers ──────────────────────────────────────────────────────────────
+# ─── PATCH helpers ─────────────────────────────────────────────────────────────
 
-def _patch_table_field(fqn_url: str, path: str, value, token: str) -> bool:
-    """
-    Send a single-field JSON-PATCH to a table.
-    Returns True on 200/204, False on 404/4xx (error is logged, not raised).
-    """
-    r = requests.patch(
-        f"{OM_URL}/v1/tables/name/{fqn_url}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json-patch+json",
-        },
-        json=[{"op": "replace", "path": path, "value": value}],
-        timeout=30,
-    )
-    if r.status_code == 404:
-        return False
-    if r.status_code >= 400:
-        err = r.text[:150].replace("\n", " ")
-        print(f"        ⚠ {path} → {r.status_code}: {err}")
-        return False
-    return True
-
-
-def _get_user_id(username: str, token: str) -> str | None:
-    """
-    Look up OM user ID by username.
-    OM 1.12+ uses '/v1/users/name/{username}' endpoint.
-    Returns None if user not found.
-    """
-    r = requests.get(
-        f"{OM_URL}/v1/users/name/{username}",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=15,
-    )
-    if r.ok:
-        return r.json()["id"]
-    return None
-
-
-def _get_admin_user_id(token: str) -> str | None:
-    """Get the admin user ID — try 'admin' first, then iterate users."""
-    admin_id = _get_user_id("admin", token)
-    if admin_id:
-        return admin_id
-    # Fall back: search via list
-    r = requests.get(
-        f"{OM_URL}/v1/users?limit=50",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=15,
-    )
-    if r.ok:
-        for user in r.json().get("data", []):
-            if user.get("name") == "admin" or user.get("email", "").startswith("admin"):
-                return user.get("id")
-    return None
-
-
-# ─── Main curation function ────────────────────────────────────────────────────
-
-def patch_table(
-    fqn: str,
-    description: str = None,
-    owner_name: str = None,
-    tags: list[str] = None,
-    tier: str = None,
-) -> None:
-    """
-    Apply curation fields to a table via JSON-PATCH requests.
-
-    OM 1.12 REST API compatibility for ClickHouse tables:
-    - /description ✅  works reliably
-    - /owner       ⚠️  works if user exists, requires user ID lookup
-    - /tags        ❌  replace on empty array → 404; add works on existing-tag tables only
-    - /tier        ❌  always → 500 in OM 1.12 for ClickHouse tables
-    - /tags/{n}    ⚠️  index-based add — unpredictable
-
-    WORKAROUND for tags/tier: apply via OM UI (Settings → Tags), or
-    re-ingest tables from om-ingestion with om_reader user that sets initial tags.
-    This script focuses on: descriptions + owners (where supported).
-    """
+def _patch_table(fqn: str, path: str, value) -> bool:
+    """Thử 'add' rồi 'replace' để tương thích OM 1.12."""
     token = get_token()
-    fqn_url = fqn.replace(" ", "%20")
-    ok = True
-
-    if description:
-        if _patch_table_field(fqn_url, "/description", description, token):
-            print("        ✅ description")
-        else:
-            ok = False
-
-    # Owner: supported via GET /v1/users/name/admin → patch with user ID
-    if owner_name:
-        user_id = _get_admin_user_id(token)
-        if user_id:
-            if _patch_table_field(fqn_url, "/owner", {"id": user_id, "type": "user"}, token):
-                print("        ✅ owner")
-            else:
-                ok = False
-        else:
-            print("        ⚠ owner: admin user not found in OM")
-
-    # Tags/tier: OM 1.12 limitation — log warning, suggest UI
-    if tags or tier:
-        print(
-            "        ⚠ tags/tier: not supported via REST PATCH in OM 1.12"
-            " → apply via OM UI (Settings → Tags → Edit table)"
-        )
-
-    if ok:
-        print(f"  ✅ {fqn}")
-
-
-# ─── Curation definitions ──────────────────────────────────────────────────────
-
-MART_CURATION = [
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.fct_hourly_aqi",
-        "description": (
-            "Hourly AQI measurements per station and pollutant. Primary fact table for "
-            "air quality analytics. Values normalized to US EPA AQI scale (0-500). "
-            "Populated by dbt intermediate/int_unified__measurements. "
-            "Serves Streamlit dashboard (Overview, Pollutants pages)."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Vietnam", "NoPII"],
-        "tier": "Tier1",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.fct_daily_aqi_summary",
-        "description": (
-            "Daily AQI summary per station. Aggregates hourly measurements into daily "
-            "min/max/avg/median AQI. Uses US EPA category breakpoints."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Vietnam", "NoPII"],
-        "tier": "Tier1",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.fact_aqi_alerts",
-        "description": (
-            "Alert events when AQI exceeds WHO/US EPA exposure thresholds. "
-            "Generated by dbt rules in intermediate/int_aqi_calculations. "
-            "Serves as source for Streamlit alert notifications and Grafana alerts."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Alerts", "Vietnam", "NoPII"],
-        "tier": "Tier1",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.dim_locations",
-        "description": (
-            "Dimension table for monitoring station locations across 63 provinces "
-            "of Vietnam. Includes GPS coordinates (lat 8-24, lon 102-110), elevation, "
-            "station type, and source attribution. Sourced from AQI.in (~540 stations) "
-            "and OpenWeather (62 provinces). D-AQI-02 (Phase 6): AQICN + Sensors.Community removed."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Vietnam", "NoPII"],
-        "tier": "Tier2",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.dim_time",
-        "description": (
-            "Time dimension table. Pre-generated hourly buckets (2020-2030) for "
-            "efficient time-series joins in analytical queries."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality"],
-        "tier": "Tier2",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.dim_pollutants",
-        "description": (
-            "Pollutant dimension. Defines PM2.5, PM10, O₃, NO₂, SO₂, CO with "
-            "AQI breakpoints per pollutant per averaging period (1-hour, 8-hour, 24-hour)."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality"],
-        "tier": "Tier2",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__dashboard",
-        "description": (
-            "Pre-aggregated dashboard-ready dataset. Combines hourly AQI, dominant "
-            "pollutant, and trend indicators. Primary source for "
-            "Streamlit dashboard."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Dashboard", "Vietnam", "NoPII"],
-        "tier": "Tier1",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__hourly",
-        "description": (
-            "Hourly aggregated metrics per station per hour. Includes AQI, "
-            "pollutant breakdown, and data quality indicators."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Vietnam", "NoPII"],
-        "tier": "Tier2",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__daily_summary",
-        "description": (
-            "Daily summary metrics per station. Includes min/max/avg AQI, "
-            "dominant pollutant, and sensor quality tier."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Vietnam", "NoPII"],
-        "tier": "Tier2",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__alerts",
-        "description": (
-            "Alert events table for Streamlit dashboard. Derives from "
-            "fact_aqi_alerts with deduplication logic."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Alerts", "Vietnam", "NoPII"],
-        "tier": "Tier1",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.mart_air_quality__stations",
-        "description": (
-            "Station metadata denormalized for dashboard display. "
-            "Combines AQI.in stations (~540 locations) and OpenWeather city metadata. "
-            "D-AQI-02 (Phase 6): AQICN + Sensors.Community removed."
-        ),
-        "owner": "admin",
-        "tags": ["AirQuality", "Vietnam", "NoPII"],
-        "tier": "Tier2",
-    },
-]
-
-RAW_CURATION = [
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqiin_measurements",
-        "description": (
-            "Raw AQI.in (~540 Vietnam monitoring stations) web-scraped measurements. "
-            "Source: aqi.in widget API (httpx-based scraper). "
-            "Parameters: pm25, pm10, co, no2, o3, so2, temp, hum. "
-            "D-AQI-02 (Phase 6): Primary air quality source, replacing AQICN + Sensors.Community."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "AQIin", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_aqiin_stations",
-        "description": (
-            "Raw AQI.in station metadata (station name, province, URL slug). "
-            "ReplacingMergeTree deduplicated on station_id. "
-            "D-AQI-02 (Phase 6): Primary station registry."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "AQIin", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.raw_openweather_measurements",
-        "description": (
-            "Raw OpenWeather Air Pollution API measurements for 62 Vietnam provinces. "
-            "Parameters: pm25, pm10, o3, no2, so2, co, nh3, no. "
-            "D-AQI-02 (Phase 6): Secondary air quality source alongside AQI.in."
-        ),
-        "owner": "admin",
-        "tags": ["Raw", "OpenWeather", "NoPII"],
-        "tier": "Tier3",
-    },
-    {
-        "fqn": "Vietnam Air Quality ClickHouse.air_quality.air_quality.ingestion_control",
-        "description": (
-            "Ingestion run metadata tracking. Logs source, last_run, records_ingested, "
-            "lag_seconds, error_message per source. Consumed by Grafana freshness dashboards."
-        ),
-        "owner": "admin",
-        "tags": ["Infrastructure", "NoPII"],
-        "tier": "Tier3",
-    },
-]
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json-patch+json",
+    }
+    url = f"{OM_URL}/v1/tables/name/{fqn.replace(' ', '%20')}"
+    for op in ("add", "replace"):
+        r = requests.patch(url, headers=headers,
+                           json=[{"op": op, "path": path, "value": value}],
+                           timeout=30)
+        if r.status_code == 404:
+            return False
+        if r.status_code < 400:
+            return True
+        if r.status_code == 500 and "Non-existing" in r.text and op == "add":
+            continue  # thử replace
+        print(f"    ⚠ {path} [{op}] → {r.status_code}: {r.text[:120]}")
+        return False
+    return False
 
 
 def get_entity_id(entity_type: str, fqn: str) -> str | None:
-    """Get entity ID by FQN using OM REST API."""
     token = get_token()
-    headers = {"Authorization": f"Bearer {token}"}
-    # OM 1.12 handles FQN with spaces encoded
-    url = f"{OM_URL}/v1/{entity_type}/name/{fqn.replace(' ', '%20')}"
-    resp = requests.get(url, headers=headers, timeout=15)
-    if resp.ok:
-        return resp.json()["id"]
-    return None
-
-
-def get_dbt_model_fqns() -> list[str]:
-    """Parse dbt manifest for all model FQNs. Returns list of table FQNs."""
-    import json
-    import os
-
-    manifest_paths = [
-        "/opt/dbt/dbt_tranform/target/manifest.json",
-        "/opt/dbt-artifacts/manifest.json",
-        os.path.join(
-            os.path.dirname(__file__),
-            "../../../../dbt/dbt_tranform/target/manifest.json",
-        ),
-        "/home/nhuong/vietnam-air-quality-data-platform/dbt/dbt_tranform/target/manifest.json",
-    ]
-    tables = []
-    for manifest_path in manifest_paths:
-        if os.path.exists(manifest_path):
-            try:
-                with open(manifest_path, "r") as f:
-                    data = json.load(f)
-                for node in data.get("nodes", {}).values():
-                    if node.get("resource_type") == "model":
-                        tables.append(
-                            f"Vietnam Air Quality ClickHouse.air_quality.air_quality."
-                            f"{node['name']}"
-                        )
-                break  # Stop at first valid manifest
-            except Exception:
-                continue
-    return tables
-
-
-def get_raw_table_fqns() -> list[str]:
-    """Dynamically fetch raw_* tables and ingestion_control from OM."""
-    token = get_token()
-    headers = {"Authorization": f"Bearer {token}"}
-    url = (
-        f"{OM_URL}/v1/tables"
-        f"?databaseSchema=Vietnam%20Air%20Quality%20ClickHouse.air_quality.air_quality"
-        f"&limit=1000"
+    r = requests.get(
+        f"{OM_URL}/v1/{entity_type}/name/{fqn.replace(' ', '%20')}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=15,
     )
-    resp = requests.get(url, headers=headers, timeout=15)
-    tables = []
-    if resp.ok:
-        for t in resp.json().get("data", []):
-            name = t.get("name", "")
-            if name.startswith("raw_") or name == "ingestion_control":
-                tables.append(t.get("fullyQualifiedName", ""))
-    return tables
+    return r.json()["id"] if r.ok else None
+
+
+# ─── Curation: chỉ non-dbt tables ─────────────────────────────────────────────
+#
+# Agent dbt pipeline tự xử lý (KHÔNG cần curation thủ công):
+#   stg_aqiin__measurements, stg_openweather__measurements, stg_openweather__meteorology,
+#   stg_tomtom__flow, stg_core__stations, stg_core__pollutants, stg_core__population,
+#   int_core__measurements_unified, int_aqi__calculations, int_traffic__pattern_enrichment,
+#   fct_air_quality_summary_hourly, fct_air_quality_summary_daily, fct_air_quality_summary_monthly,
+#   fct_air_quality_summary_hourly_province, fct_air_quality_summary_daily_province,
+#   fct_air_quality_summary_monthly_province, fct_other_measurements_hourly,
+#   dm_aqi_weather_traffic_unified, dm_aqi_current_status, dm_platform_data_health,
+#   dm_aqi_compliance_standards, dm_aqi_health_impact_summary, dm_aqi_temporal_patterns,
+#   dm_pollutant_source_fingerprint, dm_regional_health_risk_ranking,
+#   fct_traffic_pollution_correlation_daily
+#
+# Non-dbt tables cần curation thủ công (14 bảng):
+
+NON_DBT_CURATION = [
+    # ── Raw tables ── (nguồn: ingest scripts, GitHub Actions, dag_sync_gdrive)
+    {
+        "fqn": f"{PREFIX}.raw_aqiin_measurements",
+        "description": (
+            "Raw measurements từ AQI.in — ~540 trạm quan trắc không khí Việt Nam. "
+            "Nguồn: widget API aqi.in (httpx scraper, chạy mỗi giờ qua dag_ingest_hourly). "
+            "Columns: station_name, timestamp_utc, parameter, value, unit, raw_payload (ZSTD compressed JSON). "
+            "D-AQI-02 (Phase 6): Nguồn AQI chính, thay thế AQICN. "
+            "ReplacingMergeTree — dedup theo (station_name, timestamp_utc, parameter)."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.raw_openweather_measurements",
+        "description": (
+            "Raw air pollution measurements từ OpenWeather Air Pollution API — 62 tỉnh Việt Nam. "
+            "Nguồn: OpenWeather API (chạy mỗi giờ qua dag_ingest_hourly). "
+            "Parameters: pm25, pm10, o3, no2, so2, co, nh3, no (µg/m³). "
+            "ReplacingMergeTree — dedup theo (station_id, timestamp_utc, parameter)."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.raw_openweather_meteorology",
+        "description": (
+            "Raw weather/meteorology data từ OpenWeather Weather API — 62 tỉnh Việt Nam. "
+            "Nguồn: OpenWeather API (chạy mỗi giờ qua dag_ingest_hourly). "
+            "Columns: province, timestamp_utc, temp, feels_like, pressure, humidity, "
+            "wind_speed, wind_deg, wind_gust, clouds_all, weather_description. "
+            "Được join trong dm_aqi_weather_traffic_unified để phân tích tương quan khí tượng-ô nhiễm."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.raw_tomtom_traffic",
+        "description": (
+            "Raw traffic flow measurements từ TomTom Traffic Flow API — 255 điểm đo trên các thành phố lớn. "
+            "Nguồn: TomTom API (chạy mỗi giờ qua GitHub Actions → Google Drive → dag_sync_gdrive). "
+            "Columns: station_name, timestamp_utc, current_speed, free_flow_speed, "
+            "current_travel_time, free_flow_travel_time, confidence, latitude, longitude. "
+            "raw_payload: JSON gốc từ TomTom API (ZSTD compressed). "
+            "D-AQI-02 (Phase 6): Nguồn traffic chính cho correlation analysis."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.raw_tomtom_traffic_hourly",
+        "description": (
+            "TomTom traffic data đã được tính congestion_ratio theo giờ. "
+            "Nguồn: script calculate_traffic_patterns.py (chạy sau dag_sync_gdrive). "
+            "congestion_ratio = 1 - (current_speed / free_flow_speed), clamp [0, 1]. "
+            "ReplacingMergeTree(updated_at) — dedup theo (station_name, hour_utc). "
+            "Đây là nguồn chính cho stg_tomtom__flow → int_traffic__pattern_enrichment → dm_aqi_weather_traffic_unified."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.ingestion_control",
+        "description": (
+            "Bảng kiểm soát và giám sát ingestion — một bản ghi cho mỗi data source. "
+            "Được dag_ingest_hourly cập nhật sau mỗi lần ingest. "
+            "Columns: source, last_run, last_success, records_ingested, lag_seconds, error_message, updated_at. "
+            "ReplacingMergeTree(updated_at) — luôn giữ bản ghi mới nhất của mỗi source. "
+            "Monitored bởi Grafana (freshness dashboard) và Prometheus alerting."
+        ),
+    },
+
+    # ── Reference/Seed tables ── (không có trong dbt, được load thủ công hoặc từ seed)
+    {
+        "fqn": f"{PREFIX}.unified_stations_metadata",
+        "description": (
+            "Bảng metadata trạm quan trắc hợp nhất — 255 điểm đo. "
+            "Nguồn: AQI.in station discovery + TomTom Search API geocoding. "
+            "Columns: station_name, latitude, longitude, province (Int32 province code), source. "
+            "Được load thủ công khi thêm station mới. "
+            "Là nguồn cho stg_core__stations view trong dbt."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.vn_station_coordinates",
+        "description": (
+            "Tọa độ GPS và phân loại địa điểm cho 255 trạm quan trắc Việt Nam. "
+            "location_type: urban/suburban/rural/industrial — phân loại dùng cho traffic-pollution analysis. "
+            "Columns: station_name, latitude, longitude, province, location_type. "
+            "Được dùng trong fct_traffic_pollution_correlation_daily để nhóm theo location_type."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.vn_traffic_profile",
+        "description": (
+            "Hồ sơ giao thông theo giờ cho từng loại địa điểm Việt Nam. "
+            "weight: trọng số phân phối traffic trong 24 giờ/ngày. "
+            "Columns: location_type, hour_of_day, weight, day_type (weekday/weekend). "
+            "Được dùng để ước tính traffic khi không có dữ liệu TomTom thực."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.population_density_2026",
+        "description": (
+            "Dân số và mật độ dân số theo tỉnh Việt Nam năm 2026. "
+            "Nguồn: Tổng cục Thống kê Việt Nam (GSO 2026). "
+            "Columns: province_name, area_km2, avg_population_thousands, density_per_km2. "
+            "Được dùng để tính Population Exposure Score trong dm_aqi_weather_traffic_unified. "
+            "Là nguồn cho stg_core__population view trong dbt."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.pollutants",
+        "description": (
+            "Bảng tham chiếu thông số ô nhiễm — US EPA AQI breakpoints. "
+            "Nguồn: dbt seed file seeds/pollutants.csv (được load vào ClickHouse khi deploy). "
+            "Columns: pollutant_key, display_name, unit, epa_aqi_bp_lo, epa_aqi_bp_hi, "
+            "conc_bp_lo, conc_bp_hi, health_effects. "
+            "Là nguồn cho stg_core__pollutants view trong dbt. "
+            "LƯU Ý: bảng này được tạo từ dbt seed nhưng không bị dbt pipeline OM track vì là seed, không phải model."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.seed_dim_time",
+        "description": (
+            "Bảng thời gian pre-generated — phạm vi giờ từ 2020 đến 2030. "
+            "Nguồn: dbt seed file (được load một lần khi setup). "
+            "Columns: datetime_hour, date, day_of_week, hour_of_day, is_weekend, "
+            "month, year, vietnam_tz_offset, vietnam_timezone_hour. "
+            "Dùng để join time dimension trong analytical queries. "
+            "LƯU Ý: là dbt seed — không được track bởi dbt pipeline OM theo mặc định."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.source_calibration",
+        "description": (
+            "Hệ số hiệu chỉnh (calibration factors) cho từng data source và pollutant parameter. "
+            "Columns: source, parameter, calibration_factor, calibration_method, valid_from, valid_to. "
+            "calibration_factor được nhân với giá trị đo để chuẩn hóa giữa các nguồn. "
+            "Được dbt models dùng để áp dụng calibration trong quá trình staging."
+        ),
+    },
+    {
+        "fqn": f"{PREFIX}.aqicn_station_lat_long",
+        "description": (
+            "Metadata trạm AQICN — 105 trạm quan trắc Việt Nam. "
+            "D-AQI-02 (Phase 6): AQICN không còn là nguồn data chính. "
+            "Bảng này được giữ lại làm tham chiếu lịch sử và backup. "
+            "Columns: station_id, station_name, latitude, longitude, city, province, "
+            "sensor_quality_tier, is_active. "
+            "Không còn được sử dụng trong các dbt models hiện tại."
+        ),
+    },
+]
+
+
+# ─── Lineage: pipeline → raw tables (dbt chỉ track dbt→dbt, không track này) ──
+
+PIPELINE_LINEAGE = [
+    {
+        "pipeline_fqn": "Vietnam Air Quality Airflow.dag_ingest_hourly",
+        # Tất cả raw_* và ingestion_control được tạo bởi pipeline này
+        "table_patterns": ["raw_aqiin_measurements", "raw_openweather_measurements",
+                           "raw_openweather_meteorology", "ingestion_control"],
+    },
+    {
+        "pipeline_fqn": "Vietnam Air Quality Airflow.dag_transform",
+        # dbt pipeline OM tự track dbt→dbt lineage, nhưng dag_transform là Airflow trigger
+        # Ta đánh dấu dag_transform → các bảng output cuối (dm_*, fct_*)
+        # để người dùng biết DAG nào tạo ra data
+        "table_patterns": ["raw_tomtom_traffic", "raw_tomtom_traffic_hourly"],
+    },
+]
+
+
+# ─── Main ──────────────────────────────────────────────────────────────────────
+
+def curate_non_dbt_tables() -> None:
+    """Apply descriptions cho 14 non-dbt tables."""
+    print(f"Curating {len(NON_DBT_CURATION)} non-dbt tables...")
+    ok = 0
+    skip = 0
+    for table in NON_DBT_CURATION:
+        name = table["fqn"].split(".")[-1]
+        desc = table.get("description", "")
+        if not desc:
+            continue
+        success = _patch_table(table["fqn"], "/description", desc)
+        if success:
+            print(f"  ✅ {name}")
+            ok += 1
+        else:
+            print(f"  ⚠  {name} — table không tồn tại trong OM (chưa được index)")
+            skip += 1
+    print(f"\n  → {ok} updated | {skip} skipped (not yet indexed)\n")
 
 
 def apply_pipeline_lineage() -> None:
     """
-    Create pipeline→table lineage edges in OM.
-    dag_ingest_hourly → raw tables
-    dag_transform → dbt model tables (fct_*, mart_*, int_*)
+    Tạo lineage edges: Airflow pipeline → raw tables.
+    dbt pipeline OM tự xử lý dbt→dbt lineage — ta chỉ bổ sung phần còn thiếu:
+    dag_ingest_hourly → raw_* tables (không có trong dbt manifest).
     """
-    print("Applying Dynamic Pipeline-to-Table Lineage...")
+    print("Applying pipeline → raw table lineage...")
     token = get_token()
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
-    raw_fqns = get_raw_table_fqns()
-    dbt_fqns = get_dbt_model_fqns()
-
-    dynamic_mappings = [
-        {
-            "pipeline_fqn": "Vietnam Air Quality Airflow.dag_ingest_hourly",
-            "tables": raw_fqns,
-        },
-        {
-            "pipeline_fqn": "Vietnam Air Quality Airflow.dag_transform",
-            "tables": dbt_fqns,
-        },
-    ]
+    # Lấy tất cả raw tables đang có trong OM
+    r = requests.get(
+        f"{OM_URL}/v1/tables?databaseSchema={PREFIX.replace(' ', '%20')}&limit=500",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=15,
+    )
+    om_tables = {}
+    if r.ok:
+        for t in r.json().get("data", []):
+            om_tables[t["name"]] = t["fullyQualifiedName"]
 
     edges_created = 0
-    for mapping in dynamic_mappings:
-        tables = mapping["tables"]
-        if not tables:
-            print(f"  ⚠ No tables found for pipeline: {mapping['pipeline_fqn']}")
-            continue
-
+    for mapping in PIPELINE_LINEAGE:
         p_id = get_entity_id("pipelines", mapping["pipeline_fqn"])
         if not p_id:
-            print(f"  ⚠ Pipeline not found: {mapping['pipeline_fqn']}")
+            print(f"  ⚠ Pipeline not in OM: {mapping['pipeline_fqn']}")
             continue
 
-        for t_fqn in tables:
-            if not t_fqn:
+        for table_name in mapping["table_patterns"]:
+            if table_name not in om_tables:
+                print(f"  ⚠ Table not indexed yet: {table_name}")
                 continue
-            t_id = get_entity_id("tables", t_fqn)
+            t_id = get_entity_id("tables", om_tables[table_name])
             if not t_id:
                 continue
-
-            payload = {
-                "edge": {
+            resp = requests.put(
+                f"{OM_URL}/v1/lineage",
+                headers=headers,
+                json={"edge": {
                     "fromEntity": {"id": p_id, "type": "pipeline"},
                     "toEntity": {"id": t_id, "type": "table"},
-                }
-            }
-            resp = requests.put(
-                f"{OM_URL}/v1/lineage", headers=headers, json=payload, timeout=15
+                }},
+                timeout=15,
             )
             if resp.ok:
-                short_t = t_fqn.split(".")[-1]
-                pipeline_name = mapping["pipeline_fqn"].split(".")[-1]
-                print(f"  ✅ {pipeline_name} → {short_t}")
+                pipeline_short = mapping["pipeline_fqn"].split(".")[-1]
+                print(f"  ✅ {pipeline_short} → {table_name}")
                 edges_created += 1
 
-    print(f"Pipeline Lineage: {edges_created} edges created.\n")
-
-
-def apply_all_curation() -> int:
-    """
-    Apply curation to all mart and raw tables.
-    Returns number of tables processed.
-    """
-    print("Starting catalog curation...")
-    all_tables = MART_CURATION + RAW_CURATION
-    for i, table in enumerate(all_tables, 1):
-        short_name = table["fqn"].split(".")[-1]
-        print(f"[{i}/{len(all_tables)}] {short_name}")
-        try:
-            patch_table(
-                fqn=table["fqn"],
-                description=table.get("description"),
-                owner_name=table.get("owner"),
-                tags=table.get("tags"),
-                tier=table.get("tier"),
-            )
-        except Exception as e:
-            print(f"  ⚠ Failed: {e}")
-    print(f"\nCuration complete. Processed {len(all_tables)} tables.")
-    return len(all_tables)
+    print(f"\n  → {edges_created} lineage edges created\n")
 
 
 if __name__ == "__main__":
-    count = apply_all_curation()
+    curate_non_dbt_tables()
     apply_pipeline_lineage()
-    print(f"\n✅ Done. {count} tables curated.")
+    print("✅ Curation complete.")
+    print()
+    print("NOTE: dbt models (stg_*, int_*, dm_*, fct_*) được dbt pipeline OM xử lý tự động")
+    print("  → Trigger dbt pipeline trong OM UI để sync descriptions từ dbt YAML.")

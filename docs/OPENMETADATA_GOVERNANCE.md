@@ -10,26 +10,28 @@ OpenMetadata 1.12.4 cung cấp centralized data catalog cho Vietnam Air Quality 
 
 | Layer | Tables | OM Tier |
 |-------|--------|---------|
-| Raw | raw_aqiin_*, raw_openweather_* | Tier3 |
-| Staging | stg_aqiin__*, stg_openweather__* | Tier3 |
+| Raw | raw_aqiin_*, raw_openweather_*, raw_tomtom_* | Tier3 |
+| Staging | stg_aqiin__*, stg_openweather__*, stg_tomtom__* | Tier3 |
 | Intermediate | int_* | Tier2 |
-| Mart | fct_*, dim_*, mart_air_quality__* | Tier1/Tier2 |
+| Mart | fct_*, dim_*, mart_air_quality__*, dm_aqi_weather_traffic_unified | Tier1/Tier2 |
 
 ### Tags
 
 | Tag | Usage |
 |-----|-------|
 | `Data.AirQuality` | All air quality tables |
+| `Data.Traffic` | TomTom traffic flow data (Phase 6) |
+| `Data.Weather` | OpenWeather meteorology data |
 | `Data.Vietnam` | Tables with Vietnam location data |
 | `Data.NoPII` | All tables (no personal data) |
 | `Data.Raw` | Raw ingestion tables |
-| `Data.AQIin` / `Data.OpenWeather` | Source attribution (D-AQI-02 Phase 6) |
+| `Data.AQIin` / `Data.OpenWeather` / `Data.TomTom` | Source attribution |
 | `Data.Alerts` | Alert/event tables |
 | `Data.Dashboard` | Dashboard-ready tables |
-| `Data.Infrastructure` | Infrastructure metadata tables |
-| `Tier.Tier1` | Mission-critical (fct_hourly_aqi, mart_air_quality__*) |
-| `Tier.Tier2` | Analytical (dim_*, other marts) |
-| `Tier.Tier3` | Raw/staging |
+| `Data.Infrastructure` | Infrastructure & Landing Zone metadata |
+| `Tier.Tier1` | Mission-critical (dm_aqi_weather_traffic_unified, fct_hourly_aqi) |
+| `Tier.Tier2` | Analytical (dim_*, fct_traffic_pollution_correlation_daily) |
+| `Tier.Tier3` | Raw/staging & Landing Zone CSVs |
 
 ### Glossary
 
@@ -133,7 +135,8 @@ Project Airflow (`apache/airflow:3.1.7`, port 8090) kết nối với OM qua OM 
 
 **DAGs visible in OM:**
 - `dag_ingest_hourly` — hourly measurement ingestion
-- `dag_transform` — dbt transformation
+- `dag_sync_gdrive` — TomTom traffic sync from Landing Zone (Phase 6)
+- `dag_transform` — dbt transformation (Air Quality + Traffic)
 - `dag_openmetadata_curation` — catalog curation
 - `dag_ingest_historical` — historical backfill (manual trigger)
 - `dag_metadata_update` — metadata refresh (daily, AQI.in stations)
