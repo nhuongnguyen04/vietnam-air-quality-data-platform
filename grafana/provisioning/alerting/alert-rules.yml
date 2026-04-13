@@ -74,14 +74,13 @@ groups:
             datasourceUid: clickhouse-airquality
             model:
               rawSql: |
-                SELECT MAX(h.normalized_aqi) AS max_aqi,
-                       argMax(h.station_id, h.normalized_aqi) AS station_id,
-                       argMax(l.city, h.normalized_aqi) AS city
-                FROM air_quality.fct_hourly_aqi h
-                LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                WHERE h.datetime_hour >= NOW() - INTERVAL 1 HOUR
-                GROUP BY l.city
-                HAVING MAX(h.normalized_aqi) > 200
+                SELECT MAX(h.current_aqi_us) AS max_aqi,
+                       argMax(h.district, h.current_aqi_us) AS district,
+                       argMax(h.province, h.current_aqi_us) AS province
+                FROM air_quality.dm_aqi_current_status h
+                WHERE h.latest_hour >= NOW() - INTERVAL 2 HOUR
+                GROUP BY h.province, h.district
+                HAVING MAX(h.current_aqi_us) > 200
           - refId: B
             datasourceUid: "-100"
             model:

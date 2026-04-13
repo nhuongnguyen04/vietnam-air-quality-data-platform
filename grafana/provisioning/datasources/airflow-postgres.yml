@@ -6,7 +6,7 @@ datasources:
     uid: airflow-postgres
     type: postgres
     access: proxy
-    url: airflow-postgres1:5432
+    url: postgres:5432
     database: airflow
     user: airflow
     editable: false
