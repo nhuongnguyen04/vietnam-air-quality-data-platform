@@ -50,12 +50,13 @@ models:
           Aligned to exact minutes; rounded to hour in hourly fact models.
       - name: parameter
         description: |
-          Pollutant parameter. Only pm25, pm10, co, no2, so2, o3 present (temp/hum excluded upstream).
-          Each pollutant has its own AQI breakpoint table.
+          Pollutant parameter. Primarily pm25, pm10, co, no2, so2, o3 (AQI-calculable).
+          Also passes through temp/hum from AQI.in and no/nh3 from OpenWeather (not AQI-calculable).
+          Each standard pollutant has its own AQI breakpoint table; non-standard params have NULL AQI.
         tests:
           - not_null
           - accepted_values:
-              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2']
+              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2', 'no', 'nh3', 'temp', 'hum']
       - name: value
         description: |
           Raw pollutant concentration in µg/m³ (original source unit).

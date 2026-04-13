@@ -79,11 +79,12 @@ models:
     columns:
       - name: pollutant_key
         description: |
-          Unique pollutant identifier code.
+          Pollutant identifier code.
           Values: 'pm25', 'pm10', 'o3', 'no2', 'so2', 'co'
+          Note: NOT globally unique — each pollutant has 7 rows (one per AQI breakpoint in the seed).
+          The true unique grain is (pollutant_key, epa_aqi_bp_lo).
         tests:
           - not_null
-          - unique
       - name: display_name
         description: |
           Human-readable pollutant name (e.g. "PM2.5", "Ozone").

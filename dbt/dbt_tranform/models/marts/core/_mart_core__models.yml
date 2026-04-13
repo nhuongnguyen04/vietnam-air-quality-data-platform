@@ -423,11 +423,13 @@ models:
       - name: parameter
         description: |
           Auxiliary measurement parameter.
-          Values: temp, hum (and any other non-criteria pollutants from ingestion sources).
+          Values: temp, hum, no (nitrogen monoxide), nh3 (ammonia) — non-criteria pollutants.
+          Note: no and nh3 are trace gases present in OpenWeather Air Pollution API responses
+          but outside EPA AQI scope; included here for completeness.
         tests:
           - not_null
           - accepted_values:
-              values: ['temp', 'hum']
+              values: ['temp', 'hum', 'no', 'nh3']
       - name: value
         description: |
           Measured value in original units.
