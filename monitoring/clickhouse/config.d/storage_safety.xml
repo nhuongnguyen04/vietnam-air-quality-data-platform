@@ -1,0 +1,11 @@
+<clickhouse>
+    <max_data_part_size_for_query>10737418240</max_data_part_size_for_query> <!-- 10GB max part size to prevent massive merges -->
+    
+    <!-- Safety thresholds: Stop operations if disk space is low (2GB in bytes: 2147483648) -->
+    <min_free_disk_space_for_temporary_data>2147483648</min_free_disk_space_for_temporary_data>
+    <min_free_disk_space_for_merge>2147483648</min_free_disk_space_for_merge>
+    <min_free_disk_space_for_parts_to_be_active>2147483648</min_free_disk_space_for_parts_to_be_active>
+    
+    <background_pool_size>16</background_pool_size>
+    <background_schedule_pool_size>16</background_schedule_pool_size>
+</clickhouse>

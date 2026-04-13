@@ -61,14 +61,27 @@ groups:
         annotations:
           summary: "Host memory >90% used"
 
-      - alert: HostDiskSpaceLow
-        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+      # Warning: 20GB left (Enough for ~2 months)
+      - alert: HostDiskSpaceWarning
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} < 20000000000
         for: 5m
         labels:
           severity: warning
           team: data-ops
         annotations:
-          summary: "Host root disk <10% free"
+          summary: "Disk Space Warning: {{ $labels.mountpoint }} < 20GB free"
+          description: "Partition {{ $labels.mountpoint }} is getting low. Current free space: {{ $value | humanize1024 }}B."
+
+      # Critical: 5GB left (System failure imminent)
+      - alert: HostDiskSpaceCritical
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} < 5000000000
+        for: 1m
+        labels:
+          severity: critical
+          team: data-ops
+        annotations:
+          summary: "CRITICAL: Disk Space Imminent Failure on {{ $labels.mountpoint }}"
+          description: "Partition {{ $labels.mountpoint }} has only {{ $value | humanize1024 }}B left. Move data or increase disk immediately!"
 
       # ── PostgreSQL / Airflow health ──────────────────────────────
       - alert: AirflowDAGFailures
