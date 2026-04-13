@@ -570,7 +570,7 @@
             "uid": "clickhouse-airquality"
           },
           "queryType": "sql",
-          "rawSql": "SELECT $__timeGroup(event_time, '1m') as time, count() as queries FROM system.query_log WHERE event_date >= toDate($__from/1000) AND event_time >= toDateTime($__from/1000) GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT $__timeInterval(event_time) as time, count() as queries FROM system.query_log WHERE $__timeFilter(event_time) AND type != 'QueryStart' GROUP BY time ORDER BY time"
         }
       ],
       "title": "ClickHouse Query Throughput",
@@ -604,7 +604,7 @@
             "uid": "clickhouse-airquality"
           },
           "queryType": "sql",
-          "rawSql": "SELECT $__timeGroup(event_time, '1m') as time, avg(query_duration_ms) as avg_latency FROM system.query_log WHERE event_date >= toDate($__from/1000) AND event_time >= toDateTime($__from/1000) AND type = 'QueryFinish' GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT $__timeInterval(event_time) as time, avg(query_duration_ms) as avg_latency FROM system.query_log WHERE $__timeFilter(event_time) AND type = 'QueryFinish' GROUP BY time ORDER BY time"
         }
       ],
       "title": "Avg Query Latency",
