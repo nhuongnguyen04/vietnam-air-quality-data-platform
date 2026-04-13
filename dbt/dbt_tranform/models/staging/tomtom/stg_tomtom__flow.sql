@@ -9,16 +9,16 @@ WITH raw_data AS (
 
 deduplicated AS (
     SELECT
-        source,
         station_name,
-        latitude,
-        longitude,
         hour_utc,
-        congestion_ratio,
-        data_quality_flag,
-        updated_at,
-        ROW_NUMBER() OVER (PARTITION BY station_name, hour_utc ORDER BY updated_at DESC) as rn
+        argMax(source, updated_at) as source,
+        argMax(latitude, updated_at) as latitude,
+        argMax(longitude, updated_at) as longitude,
+        argMax(congestion_ratio, updated_at) as congestion_ratio,
+        argMax(data_quality_flag, updated_at) as data_quality_flag,
+        max(updated_at) as updated_at
     FROM raw_data
+    GROUP BY station_name, hour_utc
 )
 
 SELECT
@@ -33,4 +33,3 @@ SELECT
     updated_at as ingest_time,
     now() as dbt_updated_at
 FROM deduplicated
-WHERE rn = 1
