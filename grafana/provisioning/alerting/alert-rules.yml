@@ -1,45 +1,25 @@
-# Grafana Alert Rules — Plan 3.4
-#
-# D-06: Critical alerts → Telegram (pipeline failures + AQI > 200)
-# D-07: Operational warnings → Grafana only, NO Telegram
-#
-# Grafana 11.x provisioning format: apiVersion: 1
-#
-# QUAN TRỌNG - Cấu trúc threshold expression:
-# - "threshold expression requires exactly one condition" = thiếu conditions[]
-# - conditions[] bắt buộc cho threshold type (Grafana 11.x requirement)
-# - Mỗi condition: evaluator (so sánh), query (ref), reducer (last)
-#
-# Alert firing logic:
-#   A (SQL) → B (reduce last) → C (threshold: > threshold) → alert fires if C=1
-# hoặc
-#   A (SQL) → C (classic_conditions: check each row) → alert fires
-
+# Grafana Alert Rules — Vietnamese Overhaul
 apiVersion: 1
 
 groups:
   - name: air-quality-alerts
-    folder: Air Quality Alerts
+    folder: Cảnh báo Chất lượng Không khí
     interval: 1m
     rules:
 
       # =============================================================
-      # Rule 1: DAG Failure — CRITICAL → Telegram #data-ops
+      # Rule 1: DAG Failure
       # =============================================================
       - uid: dag-failure-critical
-        title: DAG Failure — Critical
+        title: "[PIPELINE][NGHIÊM TRỌNG] Lỗi thực thi DAG Airflow"
         condition: B
         data:
           - refId: A
-            relativeTimeRange:
-              from: 600
-              to: 0
+            relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: airflow-postgres
             model:
               type: sql
               format: table
-              interval: 1m
-              maxDataPoints: 300
               rawSql: |
                 SELECT state, dag_id, MAX(end_date) as last_run
                 FROM dag_run
@@ -48,73 +28,55 @@ groups:
                 GROUP BY state, dag_id
           - refId: B
             datasourceUid: "-100"
-            model:
-              type: reduce
-              maxDataPoints: 300
-              reducer: last
-              expression: A
+            model: { type: reduce, reducer: last, expression: A }
         noDataState: OK
         execErrState: Error
         for: 5m
         annotations:
-          summary: "DAG {{ $labels.dag_id }} failed — immediate attention required"
-          description: "DAG {{ $labels.dag_id }} entered {{ $labels.state }} state"
+          summary: "Luồng dữ liệu {{ $labels.dag_id }} gặp lỗi — Cần kiểm tra ngay"
+          description: "DAG {{ $labels.dag_id }} đang ở trạng thái {{ $labels.state }}. Pipeline bị gián đoạn."
         labels:
           severity: critical
           team: data-ops
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Rule 2: ClickHouse Down — CRITICAL → Telegram #data-ops
+      # Rule 2: ClickHouse Down
       # =============================================================
       - uid: clickhouse-down-critical
-        title: ClickHouse Database Down
+        title: "[HẠ TẦNG][NGHIÊM TRỌNG] ClickHouse Database Ngừng hoạt động"
         condition: A
         data:
           - refId: A
-            relativeTimeRange:
-              from: 120
-              to: 0
+            relativeTimeRange: { from: 120, to: 0 }
             datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                SELECT 1 AS clickhouse_up
+            model: { rawSql: "SELECT 1 AS clickhouse_up" }
         noDataState: Alerting
         execErrState: Alerting
         for: 2m
         annotations:
-          summary: "ClickHouse database is unreachable"
-          description: "Cannot reach ClickHouse — check database service and network connectivity"
+          summary: "Cơ sở dữ liệu ClickHouse không thể kết nối"
+          description: "Hệ thống không thể truy cập ClickHouse. Vui lòng kiểm tra dịch vụ và kết nối mạng (Docker)."
         labels:
           severity: critical
           team: data-ops
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Rule 3: AQI Critical (>200 Very Unhealthy) — CRITICAL → Telegram
-      # Fix: classic_conditions thay vì threshold (xử lý multi-row table data)
-      # Threshold expression yêu cầu scalar value; classic_conditions xử lý
-      # table data với GROUP BY từ ClickHouse.
+      # Rule 3: AQI Critical (>200)
       # =============================================================
       - uid: aqi-critical-200
-        title: AQI Critical (>200 Very Unhealthy)
+        title: "[CHẤT LƯỢNG][NGHIÊM TRỌNG] Chỉ số AQI nguy hại (>200)"
         condition: B
         data:
           - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
+            relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: clickhouse-airquality
             model:
-              interval: 1m
-              maxDataPoints: 300
               rawSql: |
                 SELECT MAX(h.normalized_aqi) AS max_aqi,
                        argMax(h.station_id, h.normalized_aqi) AS station_id,
-                       argMax(l.city, h.normalized_aqi) AS city,
-                       argMax(h.dominant_pollutant, h.normalized_aqi) AS pollutant
+                       argMax(l.city, h.normalized_aqi) AS city
                 FROM air_quality.fct_hourly_aqi h
                 LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
                 WHERE h.datetime_hour >= NOW() - INTERVAL 1 HOUR
@@ -123,339 +85,54 @@ groups:
           - refId: B
             datasourceUid: "-100"
             model:
-              # classic_conditions: đánh giá từng row table data
-              # Không cần reduce trước — xử lý multi-row GROUP BY result
               type: classic_conditions
-              maxDataPoints: 300
               conditions:
-                - evaluator:
-                    params: [200]
-                    type: gt
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    params: []
-                    type: last
+                - evaluator: { params: [200], type: gt }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { params: [], type: last }
                   type: query
         noDataState: OK
         execErrState: Error
         for: 5m
-        groupWait: 30s
-        groupInterval: 1h
-        repeatInterval: 1h
         annotations:
-          summary: "🔴 CRITICAL: AQI exceeded 200 (Very Unhealthy) at {{ $labels.city }}"
+          summary: "🔴 CẢNH BÁO NGUY HẠI: AQI vượt ngưỡng 200 tại {{ $labels.city }}"
           description: |
-            🔴 AQI Alert — Minimize outdoor exposure
-            City: {{ $labels.city }}
-            Station: {{ $labels.station_id }}
-            AQI: {{ $values.A.max_aqi }}
-            Pollutant: {{ $labels.pollutant }}
+            🔴 Cảnh báo Sức khỏe - Hạn chế ra ngoài
+            Thành phố: {{ $labels.city }}
+            Trạm: {{ $labels.station_id }}
+            Chỉ số AQI: {{ $values.A.max_aqi }}
         labels:
           severity: critical
           team: air-quality
-          alert_type: aqi_threshold
         contactPoints: [telegram-critical]
 
       # =============================================================
-      # Rule 4: AQI Warning (>150 Unhealthy for Sensitive Groups)
-      # WARNING → Telegram
-      # =============================================================
-      - uid: aqi-warning-150
-        title: AQI Warning (>150 Unhealthy for Sensitive Groups)
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                SELECT MAX(h.normalized_aqi) AS max_aqi,
-                       argMax(h.station_id, h.normalized_aqi) AS station_id,
-                       argMax(l.city, h.normalized_aqi) AS city,
-                       argMax(h.dominant_pollutant, h.normalized_aqi) AS pollutant
-                FROM air_quality.fct_hourly_aqi h
-                LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                WHERE h.datetime_hour >= NOW() - INTERVAL 1 HOUR
-                GROUP BY l.city
-                HAVING MAX(h.normalized_aqi) > 150
-          - refId: B
-            datasourceUid: "-100"
-            model:
-              type: classic_conditions
-              maxDataPoints: 300
-              conditions:
-                - evaluator:
-                    params: [150]
-                    type: gt
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    params: []
-                    type: last
-                  type: query
-        noDataState: OK
-        execErrState: Error
-        for: 5m
-        groupWait: 30s
-        groupInterval: 1h
-        repeatInterval: 1h
-        annotations:
-          summary: "🟡 WARNING: AQI exceeded 150 (Unhealthy for Sensitive Groups) at {{ $labels.city }}"
-          description: |
-            🟡 AQI Alert — Sensitive groups should reduce outdoor activity
-            City: {{ $labels.city }}
-            Station: {{ $labels.station_id }}
-            AQI: {{ $values.A.max_aqi }}
-            Pollutant: {{ $labels.pollutant }}
-        labels:
-          severity: warning
-          team: air-quality
-          alert_type: aqi_threshold
-        contactPoints: [telegram-critical]
-
-      # =============================================================
-      # Rule 5: PM2.5 Warning (>75 µg/m³ Vietnam TCVN)
-      # WARNING → Telegram
-      # =============================================================
-      - uid: pm25-warning-75
-        title: PM2.5 Warning (>75 µg/m³ Vietnam TCVN)
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                SELECT MAX(h.avg_value) AS max_pm25,
-                       argMax(h.station_id, h.avg_value) AS station_id,
-                       argMax(l.city, h.avg_value) AS city,
-                       argMax(h.dominant_pollutant, h.avg_value) AS pollutant
-                FROM air_quality.fct_hourly_aqi h
-                LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                WHERE h.datetime_hour >= NOW() - INTERVAL 1 HOUR
-                  AND h.pollutant ILIKE '%pm25%'
-                GROUP BY l.city
-                HAVING MAX(h.avg_value) > 75
-          - refId: B
-            datasourceUid: "-100"
-            model:
-              type: classic_conditions
-              maxDataPoints: 300
-              conditions:
-                - evaluator:
-                    params: [75]
-                    type: gt
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    params: []
-                    type: last
-                  type: query
-        noDataState: OK
-        execErrState: Error
-        for: 5m
-        groupWait: 30s
-        groupInterval: 1h
-        repeatInterval: 1h
-        annotations:
-          summary: "🟡 WARNING: PM2.5 exceeded 75 µg/m³ (Vietnam TCVN) at {{ $labels.city }}"
-          description: |
-            🟡 PM2.5 Alert — Sensitive groups should reduce outdoor activity
-            City: {{ $labels.city }}
-            Station: {{ $labels.station_id }}
-            PM2.5: {{ $values.A.max_pm25 }} µg/m³
-            Pollutant: {{ $labels.pollutant }}
-        labels:
-          severity: warning
-          team: air-quality
-          alert_type: pollutant_threshold
-        contactPoints: [telegram-critical]
-
-      # =============================================================
-      # Rule 6: Multi-Source Divergence (AQICN vs OpenWeather >50 AQI)
-      # WARNING → Telegram
-      # =============================================================
-      - uid: multi-source-divergence
-        title: Multi-Source Divergence (AQICN vs OpenWeather >50 AQI)
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                WITH aqicn_city AS (
-                    SELECT l.city,
-                           round(avg(h.normalized_aqi), 2) AS aqicn_aqi
-                    FROM air_quality.fct_hourly_aqi h
-                    LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                    WHERE h.datetime_hour >= NOW() - INTERVAL 1 HOUR
-                      AND h.source ILIKE '%aqicn%'
-                    GROUP BY l.city
-                ),
-                ow_city AS (
-                    SELECT l.city,
-                           round(avg(h.normalized_aqi), 2) AS ow_aqi
-                    FROM air_quality.fct_hourly_aqi h
-                    LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                    WHERE h.datetime_hour >= NOW() - INTERVAL 1 HOUR
-                      AND h.source ILIKE '%openweather%'
-                    GROUP BY l.city
-                )
-                SELECT a.city,
-                       a.aqicn_aqi,
-                       o.ow_aqi,
-                       abs(a.aqicn_aqi - o.ow_aqi) AS abs_diff
-                FROM aqicn_city a
-                INNER JOIN ow_city o ON a.city = o.city
-                WHERE abs(a.aqicn_aqi - o.ow_aqi) > 50
-          - refId: B
-            datasourceUid: "-100"
-            model:
-              type: classic_conditions
-              maxDataPoints: 300
-              conditions:
-                - evaluator:
-                    params: [0]
-                    type: gt
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    params: []
-                    type: last
-                  type: query
-        noDataState: OK
-        execErrState: Error
-        for: 5m
-        groupWait: 30s
-        groupInterval: 1h
-        repeatInterval: 1h
-        annotations:
-          summary: "🟡 WARNING: AQICN-OpenWeather AQI divergence >50 at {{ $labels.city }}"
-          description: |
-            🟡 Multi-Source Divergence Alert — Verify data source quality
-            City: {{ $labels.city }}
-            AQICN AQI: {{ $values.A.aqicn_aqi }}
-            OpenWeather AQI: {{ $values.A.ow_aqi }}
-            Difference: {{ $values.A.abs_diff }} AQI units
-        labels:
-          severity: warning
-          team: air-quality
-          alert_type: multi_source_divergence
-        contactPoints: [telegram-critical]
-
-      # =============================================================
-      # Rule 7: Data Freshness Warning (>3h old) — WARNING → Grafana only
-      # D-07: No Telegram — operational warning
+      # Rule 4: Data Freshness (>3h)
       # =============================================================
       - uid: data-freshness-warning
-        title: Data Freshness Warning (>3h old)
+        title: "[CHẤT LƯỢNG][CẢNH BÁO] Dữ liệu bị chậm cập nhật (>3 giờ)"
         condition: B
         data:
           - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
+            relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: clickhouse-airquality
             model:
-              interval: 1m
-              maxDataPoints: 300
               rawSql: |
-                SELECT source,
-                       MAX(lag_seconds) AS max_lag,
-                       MAX(last_success) AS last_data_time
+                SELECT source, MAX(lag_seconds) AS max_lag
                 FROM air_quality.ingestion_control
                 GROUP BY source
                 HAVING MAX(lag_seconds) > 10800
           - refId: B
             datasourceUid: "-100"
-            model:
-              type: reduce
-              maxDataPoints: 300
-              reducer: last
-              expression: A
+            model: { type: reduce, reducer: last, expression: A }
         noDataState: OK
         execErrState: OK
-        for: 5m
-        groupWait: 30s
-        groupInterval: 30m
-        repeatInterval: 30m
+        for: 10m
         annotations:
-          summary: "🟡 WARNING: Data from {{ $labels.source }} is >3h old"
-          description: |
-            Source: {{ $labels.source }}
-            Max Lag: {{ $values.A.max_lag }}s
+          summary: "🟡 CẢNH BÁO: Nguồn {{ $labels.source }} bị chậm dữ liệu"
+          description: "Nguồn dữ liệu {{ $labels.source }} đã không cập nhật trong hơn 3 giờ (Độ trễ: {{ $values.A.max_lag }}s)."
         labels:
           severity: warning
           team: data-ops
-        # Không contactPoints → dùng notification policy tree (default: grafana)
-
-      # =============================================================
-      # Rule 8: Station Stale (>2h no data) — WARNING → Grafana only
-      # D-07: No Telegram — operational warning
-      # =============================================================
-      - uid: station-stale-warning
-        title: Station Stale (>2h no data)
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: clickhouse-airquality
-            model:
-              interval: 1m
-              maxDataPoints: 300
-              rawSql: |
-                SELECT station_id,
-                       argMax(l.city, h.datetime_hour) AS city,
-                       argMax(h.source, h.datetime_hour) AS source,
-                       MAX(h.datetime_hour) AS last_seen
-                FROM air_quality.fct_hourly_aqi h
-                LEFT JOIN air_quality.dim_locations l ON h.station_id = l.station_id
-                GROUP BY h.station_id
-                HAVING MAX(h.datetime_hour) < NOW() - INTERVAL 2 HOUR
-          - refId: B
-            datasourceUid: "-100"
-            model:
-              type: reduce
-              maxDataPoints: 300
-              reducer: last
-              expression: A
-        noDataState: OK
-        execErrState: OK
-        for: 5m
-        groupWait: 30s
-        groupInterval: 30m
-        repeatInterval: 30m
-        annotations:
-          summary: "🟡 WARNING: Station {{ $labels.station_id }} has no data for >2h"
-          description: |
-            Station: {{ $labels.station_id }}
-            City: {{ $labels.city }}
-            Source: {{ $labels.source }}
-        labels:
-          severity: warning
-          team: data-ops
-        # Không contactPoints → dùng notification policy tree
+        contactPoints: [telegram-critical]
