@@ -2,28 +2,82 @@ version: 2
 
 sources:
   - name: aqiin
-    description: "AQI.in web scraper — Vietnam air quality dashboard. Regional parsing: station_name split into ward, district, province."
+    description: |
+      AQI.in Vietnam air quality monitoring network.
+
+      **Data Source:** Web scraping of AQI.in widget endpoints (https://aqi.in/dashboard/vietnam)
+      **Coverage:** ~540 monitoring stations across Vietnam (major cities and provinces)
+      **Ingestion:** Python job `python_jobs/jobs/aqiin/ingest_measurements.py` — scrapes widget data every 15 minutes
+      **Update Frequency:** Real-time (target <15 min latency)
+
+      **Station Naming Convention:** "Ward, District, Province, Vietnam" (e.g. "Ba Dinh, Ba Dinh, Ha Noi, Vietnam")
+
+      **Parameters Captured:**
+      - Criteria pollutants: pm25, pm10, co, no2, o3, so2
+      - Weather auxiliary: temp, hum
+
+      **Data Quality:**
+      - quality_flag set by scraping pipeline: 'valid', 'suspect', 'missing', 'error'
+      - Only 'valid' records used in production analytics
+
+      **Caveats:**
+      - Scraping-based ingestion may miss readings if widget endpoints change
+      - Station metadata (coordinates) not available from AQI.in — inferred from station_name parsing
     database: air_quality
     schema: air_quality
     tables:
       - name: raw_aqiin_measurements
-        description: "Real-time measurements scraped from aqi.in"
+        description: |
+          Real-time air quality measurements scraped from AQI.in widgets.
+
+          **Grain:** One row per (station_name, timestamp_utc, parameter) — multiple ingest attempts possible.
+
+          **Deduplication:** Python ingestion job uses ReplacingMergeTree; dbt staging picks latest ingest per unique key.
+
+          **Known Issues:**
+          - timestamp_utc may have seconds precision (not always aligned to hour boundaries)
+          - station_name format may vary (not all stations follow "Ward, District, Province" pattern)
+
+          **Freshness Expectations:**
+          - warn_after: 12 hours — data is stale if no new readings in 12h
+          - error_after: 24 hours — data pipeline likely broken if no readings in 24h
         freshness:
           warn_after: {count: 12, period: hour}
           error_after: {count: 24, period: hour}
         loaded_at_field: ingest_time
         columns:
           - name: station_name
+            description: |
+              Station location string from AQI.in widget.
+              Format: "Ward, District, Province, Vietnam" (may vary).
             tests:
               - not_null
           - name: timestamp_utc
+            description: |
+              UTC timestamp of the measurement.
+              Original precision from widget (may include seconds).
             tests:
               - not_null
           - name: parameter
+            description: |
+              Pollutant or environmental parameter code.
+              Values: pm25, pm10, co, no2, o3, so2, temp, hum
             tests:
               - not_null
           - name: value
+            description: |
+              Measurement value in µg/m³ (pollutants) or °C/% (weather).
             tests:
               - not_null
           - name: aqi_reported
-
+            description: |
+              AQI computed by source widget (if available).
+              Not used in dbt transformations — reference only.
+          - name: quality_flag
+            description: |
+              Data quality flag from scraping pipeline.
+              Values: 'valid', 'suspect', 'missing', 'error'
+          - name: ingest_time
+            description: |
+              ClickHouse ingest timestamp.
+              Used for deduplication and freshness monitoring.

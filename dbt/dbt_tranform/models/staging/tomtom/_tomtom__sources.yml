@@ -2,24 +2,79 @@ version: 2
 
 sources:
   - name: tomtom
-    description: "TomTom Traffic API data"
+    description: |
+      TomTom Traffic API — real-time and historical traffic congestion data.
+
+      **Data Source:** TomTom Traffic API (https://developer.tomtom.com/traffic-api)
+      **Coverage:** Major urban areas in Vietnam — Hanoi, Ho Chi Minh City, Da Nang, Hai Phong, Can Tho
+      **Ingestion:** Python job with TomTom Search API for geocoding station metadata
+      **Update Frequency:** Hourly aggregation from TomTom real-time traffic flow endpoints
+
+      **Station Naming Convention:** Same as AQI.in — "Ward, District, Province, Vietnam"
+
+      **Data Provided:**
+      - Real-time traffic flow: congestion index at specific locations
+      - Historical traffic: aggregated hourly averages
+      - Geocoding: lat/lon for each monitoring location (via TomTom Search API)
+
+      **Authentication:** Requires TomTom API key (TOMTOM_API_KEY environment variable)
+
+      **Caveats:**
+      - Coverage limited to major cities — rural provinces have no traffic data
+      - Traffic data represents TomTom user population, not all vehicles on the road
+      - TomTom does not provide PM2.5 or other pollutant data — correlation with air quality is analytical, not direct
     database: air_quality
     schema: air_quality
     tables:
       - name: raw_tomtom_traffic_hourly
-        description: "Hourly aggregated traffic flow data"
+        description: |
+          Hourly aggregated traffic congestion data from TomTom.
+
+          **Grain:** One row per (station_name, hour_utc) — aggregated from raw TomTom flow API responses.
+
+          **Aggregation Method:**
+          - Raw data: real-time congestion at 5-minute intervals
+          - Aggregation: hourly average of congestion_ratio values
+          - Quality flag: set based on completeness of hourly data
+
+          **Fields:**
+          - station_name: location identifier (geocoded from TomTom Search API)
+          - hour_utc: start of the hour being measured
+          - congestion_ratio: average congestion for this hour
+          - data_quality_flag: 'complete' (full hour), 'partial' (>50% coverage), 'sparse' (<50%)
+
+          **Freshness:**
+          - warn_after: 6 hours
+          - error_after: 12 hours
         freshness:
           warn_after: {count: 6, period: hour}
           error_after: {count: 12, period: hour}
         loaded_at_field: updated_at
         columns:
           - name: station_name
+            description: |
+              Traffic monitoring location name.
+              Format: "Ward, District, Province, Vietnam"
+              Geocoded via TomTom Search API to derive lat/lon.
             tests:
               - not_null
           - name: hour_utc
+            description: |
+              UTC timestamp for the start of the hour (e.g., 2026-04-13 10:00:00).
+              Represents the measurement window for this aggregation period.
             tests:
               - not_null
           - name: congestion_ratio
+            description: |
+              Average traffic congestion ratio for this hour.
+              Formula: (current travel time - free flow travel time) / free flow travel time
+              - 0.00 = free flow
+              - 0.50 = 50% longer than free flow
+              - 1.00 = 100% longer (doubled)
+              Source: TomTom Traffic Flow API
             tests:
               - not_null
-
+          - name: updated_at
+            description: |
+              Timestamp when this hourly aggregation was computed and written.
+              Used for freshness monitoring and deduplication.

@@ -1,0 +1,172 @@
+version: 2
+
+models:
+  - name: dm_aqi_weather_traffic_unified
+    description: |
+      The core unified dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.
+
+      **Grain:** One row per (station_name, datetime_hour) — station-level hourly snapshot with full environmental context.
+
+      **Business Rules:**
+      - AQI from `fct_air_quality_summary_hourly` (which aggregates by district, not station — province-level OpenWeather has NULL district)
+      - Weather from `stg_openweather__meteorology` joined on (province, timestamp_utc)
+      - Traffic from `int_traffic__pattern_enrichment` joined on (station_name, datetime_hour)
+      - Station metadata (lat/lon) from `unified_stations_metadata`
+      - Population from `stg_core__population` joined on province
+      - `population_exposure_score`: PM2.5 × provincial_population / 1,000,000 — high-population provinces score higher
+      - `traffic_pollution_ratio`: PM2.5 / congestion_index — indicates pollution efficiency of traffic
+      - `is_high_humidity_suppression`: 1 if humidity > 80% (can trap pollutants)
+      - `is_stagnant_air_risk`: 1 if wind_speed < 1.0 m/s (poor dispersion)
+      - Incremental: only processes new hourly data since last run
+
+      **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
+
+      **Caveats:**
+      - district-level AQI is broadcast to all stations within the district (not true station-level granularity)
+      - Traffic data only available for major cities — NULL for most stations
+      - Weather is province-level, not station-level
+  - name: dm_aqi_current_status
+    description: |
+      Latest air quality status per district (current conditions for real-time dashboard).
+
+      **Grain:** One row per (province, district) — the most recent reading per district.
+
+      **Business Rules:**
+      - Uses `argMax(col, datetime_hour)` to select the latest value for each column
+      - Incremental: only processes districts with new data since last run
+      - ReplacingMergeTree ensures only one record per (province, district)
+
+      **Downstream consumers:** Streamlit overview page, real-time status cards, alert triggers
+  - name: dm_platform_data_health
+    description: |
+      Data freshness and availability status for each monitoring station/district.
+
+      **Grain:** One row per (province, district, source) — current health status per data source per district.
+
+      **Business Rules:**
+      - lag_hours = hours since the most recent reading from this source at this district
+      - health_status derived from lag_hours:
+        - 'Fresh': ≤1 hour (green)
+        - 'Delayed': 1–3 hours (yellow)
+        - 'Stale': 3–24 hours (orange)
+        - 'Offline': >24 hours (red)
+      - is_reliable = TRUE if lag_hours ≤ 3 hours
+
+      **Downstream consumers:** Data quality dashboard tab, alerting on stale/offline sources, SLA reporting
+  - name: dm_aqi_compliance_standards
+    description: |
+      Daily compliance assessment against WHO guidelines and Vietnam national standards (TCVN 05:2023).
+
+      **Grain:** One row per (date, province, district) — compliance flags for each location-day.
+
+      **Business Rules:**
+      - WHO daily PM2.5 guideline: 15 µg/m³ (24-hour mean)
+      - WHO daily PM10 guideline: 45 µg/m³ (24-hour mean)
+      - Vietnam TCVN 05:2023 daily PM2.5: 50 µg/m³
+      - Vietnam TCVN 05:2023 daily PM10: 100 µg/m³
+      - compliance_status derived from pm25_avg:
+        - 'Good/Safe': pm25_avg ≤ 15
+        - 'Warning (WHO Breach)': 15 < pm25_avg ≤ 50
+        - 'Unhealthy (TCVN Breach)': pm25_avg > 50
+      - Incremental: processes only new daily records
+
+      **Reference Standards:**
+      - WHO Global Air Quality Guidelines (2021)
+      - TCVN 05:2023/BTNMT — QCVN 05:2023/BTNMT (Vietnamese national standard)
+
+      **Downstream consumers:** Compliance dashboard, regulatory reporting, health advisory triggers
+  - name: dm_aqi_health_impact_summary
+    description: |
+      Daily health risk assessment based on AQI categories and dominant pollutant health effects.
+
+      **Grain:** One row per (date, province, district) — aggregated health risk metrics per location-day.
+
+      **Business Rules:**
+      - aqi_category assigned per hour based on final_aqi_us:
+        - 'Good': 0–50
+        - 'Moderate': 51–100
+        - 'Unhealthy for Sensitive Groups': 101–150
+        - 'Unhealthy': 151–200
+        - 'Very Unhealthy': 201–300
+        - 'Hazardous': >300
+      - high_risk_hours: count of hours where aqi_category ∈ ('Unhealthy', 'Very Unhealthy', 'Hazardous')
+      - high_risk_exposure_pct: proportion of the day in high-risk conditions
+      - primary_health_advice: most common health advisory text from EPA breakpoints for this day
+
+      **Downstream consumers:** Health impact dashboard, public health alerts, sensitive group warnings
+  - name: dm_aqi_temporal_patterns
+    description: |
+      Time-of-day and day-of-week air quality patterns per province.
+
+      **Grain:** One row per (province, hour_of_day, day_of_week) — seasonal and weekly patterns.
+
+      **Business Rules:**
+      - Aggregates all historical data to compute average AQI and PM2.5/PM10 for each hour×day combination
+      - SummingMergeTree accumulates readings over time
+      - Used for anomaly detection (compare current readings vs. typical pattern)
+      - reading_count tracks sample size for confidence estimation
+
+      **Downstream consumers:** Anomaly detection, pattern comparison charts, "Is this normal?" dashboard feature
+  - name: dm_pollutant_source_fingerprint
+    description: |
+      Probabilistic source attribution based on PM2.5/PM10 ratio analysis.
+
+      **Grain:** One row per (date, province, district) — source classification per location-day.
+
+      **Business Rules:**
+      - pm25_pm10_ratio = avg(pm25) / avg(pm10):
+        - Ratio > 0.6: Combustion/Traffic source (fine particles from vehicle emissions, power plants)
+        - Ratio < 0.4: Dust/Construction source (coarse particles from road dust, building activities)
+        - Ratio 0.4–0.6: Mixed source
+      - Incremental: processes new daily records
+
+      **Caveats:**
+      - This is a heuristic, not a true source apportionment study
+      - Ratio can vary with meteorology and is location-specific
+      - Should be combined with wind direction data for better attribution
+
+      **Downstream consumers:** Source analysis dashboard, industrial permit monitoring, traffic policy evaluation
+  - name: dm_regional_health_risk_ranking
+    description: |
+      National health risk ranking of provinces based on population-weighted PM2.5 exposure.
+
+      **Grain:** One row per province (static table, regenerated daily via incremental).
+
+      **Business Rules:**
+      - time_weighted_pm25: Average PM2.5 concentration across all stations in the province
+      - total_exposure_index_m: PM2.5 × provincial_population / 1,000,000 — "population exposure mass" in tonnes
+      - risk_category:
+        - 'CRITICAL': avg_pm25 > 50 µg/m³
+        - 'HIGH RISK': 35–50 µg/m³
+        - 'MODERATE': 15–35 µg/m³
+        - 'LOW': <15 µg/m³
+      - national_risk_rank: Rank within all provinces (1 = highest risk)
+      - location_type derived from province name:
+        - Urban: Ha Noi, Ho Chi Minh, Da Nang, Hai Phong, Can Tho
+        - Industrial: Binh Duong, Dong Nai, Ba Ria - Vung Tau, Bac Ninh, Bac Giang, Hung Yen
+        - Rural: all other provinces
+
+      **Downstream consumers:** Risk ranking dashboard, priority province targeting, public health resource allocation
+  - name: fct_traffic_pollution_correlation_daily
+    description: |
+      Daily correlation statistics between traffic congestion and PM2.5 pollution by province and location type.
+
+      **Grain:** One row per (province, location_type) per day — computed from station-level daily aggregates.
+
+      **Business Rules:**
+      - location_type derived from province:
+        - 'Urban': major municipalities (Ha Noi, HCMC, Da Nang, Hai Phong, Can Tho)
+        - 'Industrial': manufacturing provinces (Binh Duong, Dong Nai, etc.)
+        - 'Rural': all others
+      - pm25_daily_avg: Average PM2.5 across all stations in province for the day
+      - congestion_daily_avg: Average congestion ratio across all stations in province for the day
+      - pollution_density_index: pm25 / congestion — indicates pollution efficiency per unit of traffic
+        - High index + high congestion = traffic is a major pollution driver
+        - Low index + high congestion = traffic is not the main source
+      - pollution_rank_in_type: Rank within geographic location type
+
+      **Caveats:**
+      - Traffic data only available for 5 major cities — rural/industrial provinces have no congestion data
+      - Correlation does not imply causation
+
+      **Downstream consumers:** Traffic impact analysis, urban planning dashboards, policy effectiveness tracking

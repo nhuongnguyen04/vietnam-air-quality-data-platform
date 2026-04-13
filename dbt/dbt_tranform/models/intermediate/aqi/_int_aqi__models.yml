@@ -1,0 +1,120 @@
+version: 2
+
+models:
+  - name: int_aqi__calculations
+    description: |
+      Air quality index (AQI) calculations for both US EPA and Vietnam national standards, with dominant pollutant identification.
+
+      **Grain:** One row per (station_name, timestamp_utc, parameter) — same as `int_core__measurements_unified` with computed columns added.
+
+      **Business Rules:**
+      - AQI US (EPA): Raw concentrations converted to species-specific units (ppm for CO, ppb for others) before applying breakpoint formula
+        - CO: µg/m³ ÷ 1145.0 = ppm
+        - NO2: µg/m³ × 0.532 = ppb
+        - SO2: µg/m³ × 0.382 = ppb
+        - O3: µg/m³ × 0.510 = ppb
+        - PM2.5, PM10: µg/m³ (no conversion)
+      - AQI VN: Raw µg/m³ concentrations applied directly to Vietnam TCVN 05:2023 breakpoints
+      - `calculate_aqi()` macro selects the correct breakpoint formula per pollutant
+      - `is_dominant_us/vn`: True if this pollutant's AQI is the maximum within the same (province, district, timestamp_utc) hour
+      - Only AQI-relevant parameters retained: pm25, pm10, co, no2, so2, o3 (temp/hum excluded)
+
+      **AQI Standards:**
+      - US EPA (AQI US): 0–500 scale with categories Good (0–50), Moderate (51–100), Unhealthy for Sensitive Groups (101–150), Unhealthy (151–200), Very Unhealthy (201–300), Hazardous (301–500)
+      - Vietnam TCVN 05:2023 (AQI VN): Similar scale but different breakpoints; stricter limits for PM2.5
+
+      **Caveats:**
+      - AQI computed at the raw measurement level; dashboard uses hourly averages from `fct_air_quality_summary_hourly`
+      - Dominant pollutant is per-parameter row, not aggregated to station level — `argMax(parameter, aqi_us)` in hourly fact model determines the station's dominant pollutant
+      - NULL AQI for parameters outside valid range (e.g., extremely high PM2.5 > 500.4 µg/m³)
+    columns:
+      - name: source
+        description: |
+          Data source: 'aqiin' or 'openweather'.
+          Preserved from upstream unified measurements.
+      - name: station_name
+        description: |
+          Station or province name from upstream.
+          Join key for station metadata and hourly fact tables.
+      - name: district
+        description: |
+          District name from station metadata.
+          NULL for OpenWeather records.
+      - name: province
+        description: |
+          Province name from station metadata.
+          Primary geographic dimension for AQI aggregation.
+      - name: timestamp_utc
+        description: |
+          UTC timestamp of the raw measurement.
+          Aligned to exact minutes; rounded to hour in hourly fact models.
+      - name: parameter
+        description: |
+          Pollutant parameter. Only pm25, pm10, co, no2, so2, o3 present (temp/hum excluded upstream).
+          Each pollutant has its own AQI breakpoint table.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2']
+      - name: value
+        description: |
+          Raw pollutant concentration in µg/m³ (original source unit).
+          This is the input to AQI calculations before unit conversion.
+        tests:
+          - not_null
+      - name: value_us_standard
+        description: |
+          Pollutant concentration converted to US EPA standard units.
+          - CO: ppm (÷ 1145.0)
+          - NO2: ppb (× 0.532)
+          - SO2: ppb (× 0.382)
+          - O3: ppb (× 0.510)
+          - PM2.5, PM10: µg/m³ (unchanged)
+          Used as input to `calculate_aqi()` macro for US AQI.
+      - name: aqi_us
+        description: |
+          US EPA Air Quality Index computed from `value_us_standard`.
+          Range: 0–500 (NULL if concentration out of breakpoints range).
+          Higher values indicate worse air quality.
+      - name: aqi_vn
+        description: |
+          Vietnam national AQI (TCVN 05:2023) computed from raw `value` in µg/m³.
+          Uses different breakpoints than US EPA — typically stricter for PM2.5.
+          Range: 0–500 (NULL if concentration out of range).
+      - name: aqi_reported
+        description: |
+          Source-reported AQI (from AQI.in widget or OpenWeather).
+          Reference field only — not used in calculations.
+      - name: quality_flag
+        description: |
+          Data quality indicator passed through from staging.
+          'valid' = use for analytics; 'suspect'/'missing'/'error' = flag in dashboards.
+      - name: max_aqi_us_in_hour
+        description: |
+          Maximum US AQI across all pollutants at the same (province, district, timestamp_utc).
+          Window function: `max(aqi_us) over (partition by province, district, timestamp_utc)`.
+          Used to determine which pollutant is dominant.
+      - name: max_aqi_vn_in_hour
+        description: |
+          Maximum Vietnam AQI across all pollutants at the same (province, district, timestamp_utc).
+          Window function: `max(aqi_vn) over (partition by province, district, timestamp_utc)`.
+      - name: is_dominant_us
+        description: |
+          Boolean flag — TRUE if this pollutant's US AQI equals the hourly maximum.
+          One dominant pollutant per (province, district, timestamp_utc) per AQI standard.
+      - name: is_dominant_vn
+        description: |
+          Boolean flag — TRUE if this pollutant's Vietnam AQI equals the hourly maximum.
+          One dominant pollutant per (province, district, timestamp_utc) per AQI standard.
+      - name: region_3
+        description: |
+          Vietnam's 3 major geographic regions (Northern, Central, Southern).
+          Passed through from `int_core__measurements_unified`.
+      - name: region_8
+        description: |
+          Vietnam's 8 administrative regions per GSO classification.
+          Passed through from `int_core__measurements_unified`.
+      - name: ingest_time
+        description: |
+          Ingest timestamp from the source staging model.
+          Used for incremental filtering in downstream incremental models.

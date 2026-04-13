@@ -1,0 +1,90 @@
+version: 2
+
+models:
+  - name: int_core__measurements_unified
+    description: |
+      Unified air quality measurements from all sources (AQI.in + OpenWeather) with Vietnam regional enrichment.
+
+      **Grain:** One row per (station_name, timestamp_utc, parameter) — union of deduplicated source records.
+
+      **Business Rules:**
+      - AQI.in and OpenWeather staged measurements are UNION ALL'd together
+      - Station metadata (district, province) joined from `stg_core__stations` — NULL if station not found
+      - `get_vietnam_region_3()` macro assigns major 3-region: Northern, Central, Southern
+      - `get_vietnam_region_8()` macro assigns 8-region: Red River Delta, Northeast, Northwest, etc.
+      - OpenWeather data is province-level; district is NULL for OpenWeather records
+
+      **Sources:** `stg_aqiin__measurements` + `stg_openweather__measurements`
+      **Downstream consumers:** `int_aqi__calculations` (primary), `fct_air_quality_summary_hourly`
+
+      **Caveats:**
+      - OpenWeather records have NULL district (no station-level granularity)
+      - AQI.in records from unrecognized stations also have NULL district/province
+      - Regional macros use case-insensitive matching; province names must match macro patterns
+    columns:
+      - name: source
+        description: |
+          Data source identifier: 'aqiin' or 'openweather'.
+          Used for source attribution in dashboards and quality analysis.
+      - name: station_name
+        description: |
+          Monitoring station name or province name (for OpenWeather).
+          Primary join key for downstream transformations.
+          AQI.in: full station location string; OpenWeather: province name.
+        tests:
+          - not_null
+      - name: district
+        description: |
+          District name extracted from station_name.
+          NULL for OpenWeather records (province-level data only).
+          NULL for AQI.in records where station name doesn't match metadata pattern.
+      - name: province
+        description: |
+          Province name from station metadata join.
+          Primary geographic dimension for most analytics.
+          NULL if station lookup fails (fall back to station_name for OpenWeather).
+        tests:
+          - not_null
+      - name: timestamp_utc
+        description: |
+          UTC measurement timestamp (at the hour boundary from toStartOfHour in sources).
+          Primary temporal dimension.
+        tests:
+          - not_null
+      - name: parameter
+        description: |
+          Pollutant parameter code.
+          Values: pm25, pm10, co, no2, o3, so2, temp, hum
+          temp and hum are excluded from AQI calculations in `int_aqi__calculations`.
+        tests:
+          - not_null
+      - name: value
+        description: |
+          Raw pollutant concentration in µg/m³ (all sources normalized to this unit).
+          AQI.in may report in µg/m³; OpenWeather concentrations converted accordingly.
+        tests:
+          - not_null
+      - name: aqi_reported
+        description: |
+          Source-reported AQI value (if available).
+          AQI.in: from widget; OpenWeather: OpenWeather scale (1–5).
+          Reference only — use calculated AQI from `int_aqi__calculations`.
+      - name: quality_flag
+        description: |
+          Data quality indicator from source ingestion pipeline.
+          Values: 'valid', 'suspect', 'missing', 'error'
+          Only 'valid' records should be used for production analytics.
+      - name: ingest_time
+        description: |
+          ClickHouse ingest timestamp from the source staging model.
+          Preserved for incremental logic (filtering on ingest_time in downstream models).
+      - name: region_3
+        description: |
+          Vietnam's 3 major geographic regions (Northern, Central, Southern).
+          Assigned via `get_vietnam_region_3(province)` macro.
+          Used for regional AQI summaries and comparative analysis.
+      - name: region_8
+        description: |
+          Vietnam's 8 administrative regions per GSO classification.
+          Assigned via `get_vietnam_region_8(province)` macro.
+          More granular than region_3 — used for detailed regional dashboards.

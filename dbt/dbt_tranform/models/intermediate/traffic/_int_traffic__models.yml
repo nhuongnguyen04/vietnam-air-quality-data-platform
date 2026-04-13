@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: int_traffic__pattern_enrichment
+    description: |
+      Enriched traffic flow data with quality flag and metadata passthrough.
+
+      **Grain:** One row per (station_name, timestamp_utc) — identical to `stg_tomtom__flow`.
+
+      **Business Rules:**
+      - This model is a pass-through of `stg_tomtom__flow` for downstream mart compatibility
+      - The modeling logic (hourly aggregation from raw TomTom data) has been moved to the Python job `calculate_hourly_traffic.py`
+      - Aliases added: `estimated_congestion_ratio` and `data_quality_flag` for clarity in dashboard joins
+
+      **Source:** `stg_tomtom__flow`
+      **Downstream consumers:** `dm_aqi_weather_traffic_unified` (traffic congestion join)
+
+      **Caveats:**
+      - This is a compatibility layer — actual traffic pattern analysis uses `fct_traffic_pollution_correlation_daily`
+      - Data coverage limited to major urban areas (Hanoi, HCMC, Da Nang, Hai Phong, Can Tho)
+    columns:
+      - name: station_name
+        description: |
+          Traffic monitoring location from TomTom.
+          Join key to station metadata for geographic enrichment.
+        tests:
+          - not_null
+      - name: latitude
+        description: |
+          Latitude of the TomTom monitoring point.
+          Source: TomTom Search API geocoding.
+      - name: longitude
+        description: |
+          Longitude of the TomTom monitoring point.
+          Source: TomTom Search API geocoding.
+      - name: timestamp_utc
+        description: |
+          UTC timestamp for the start of the hour being measured.
+        tests:
+          - not_null
+      - name: estimated_congestion_ratio
+        description: |
+          Alias for `value` from `stg_tomtom__flow` — renamed for semantic clarity.
+          Traffic congestion ratio: 0.0 = free flow, 1.0 = doubled travel time.
+          Used in `dm_aqi_weather_traffic_unified` to calculate traffic-pollution correlation.
+        tests:
+          - not_null
+          - range:
+              min_value: 0
+              max_value: 1
+      - name: data_quality_flag
+        description: |
+          Alias for `quality_flag` from `stg_tomtom__flow` — renamed for semantic clarity.
+          Indicates data quality from the TomTom ingestion pipeline.
+      - name: dbt_updated_at
+        description: |
+          Timestamp when dbt last processed this record.
+          Added by dbt for audit purposes.

@@ -2,24 +2,70 @@ version: 2
 
 models:
   - name: stg_aqiin__measurements
-    description: "Deduplicated real-time air quality measurements from aqi.in"
+    description: |
+      Deduplicated real-time air quality measurements from AQI.in Vietnam monitoring network.
+
+      **Grain:** One row per (station_name, timestamp_utc, parameter) — deduplicated to the latest ingest per combination.
+
+      **Business Rules:**
+      - Row_number partitioning keeps most recent record per unique key
+      - Only parameters relevant to AQI calculation are retained (co, no2, o3, pm10, pm25, so2, temp, hum)
+      - Weather parameters (temp, hum) included but excluded from AQI computation
+
+      **Source:** `raw_aqiin_measurements` — Web scraped from aqi.in widget endpoints (~540 Vietnam stations)
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [station_name, timestamp_utc, parameter]
     columns:
       - name: station_name
+        description: |
+          Full station location string from AQI.in (e.g. "Ward X, District Y, Province Z, Vietnam").
+          Used as the primary join key to station metadata.
+          Source: aqi.in station_name field (original, not split)
         tests:
           - not_null
       - name: timestamp_utc
+        description: |
+          UTC timestamp of the measurement reading.
+          Should be aligned to exact minutes; downstream models round to hour boundaries.
         tests:
           - not_null
       - name: parameter
+        description: |
+          Pollutant or environmental metric code.
+          Values: co, hum, no2, o3, pm10, pm25, so2, temp
+          Air quality indices use only: pm25, pm10, co, no2, o3, so2
+          Weather metrics (hum, temp) included for correlation analysis
         tests:
           - not_null
           - accepted_values:
               values: ['co', 'hum', 'no2', 'o3', 'pm10', 'pm25', 'so2', 'temp']
       - name: value
+        description: |
+          Measured concentration value. Units depend on parameter:
+          - pm25, pm10: µg/m³
+          - co: ppm (raw, converted to ppm for US AQI via /1145.0)
+          - no2, o3, so2: ppb (raw, converted via species-specific factors)
+          - temp: °C
+          - hum: %
         tests:
           - not_null
           - range:
-              min_value: -50  # Allow negative temp, but air quality stats usually non-negative. parameter aware ranges would be better.
+              min_value: -50
+      - name: aqi_reported
+        description: |
+          AQI value as reported by the source widget (if available).
+          Not used in calculations — reference only.
+          May be NULL if source did not include AQI computation.
+      - name: unit
+        description: |
+          Original unit string from source. Reference field — not used in transformation.
+      - name: quality_flag
+        description: |
+          Data quality indicator from source scraping pipeline.
+          Values: 'valid', 'suspect', 'missing', 'error'
+          Only 'valid' records should be used for production metrics.
+      - name: ingest_time
+        description: |
+          Timestamp when the record was written to ClickHouse.
+          Used for deduplication ordering (most recent wins).

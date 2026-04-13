@@ -1,0 +1,164 @@
+version: 2
+
+models:
+  - name: stg_core__stations
+    description: |
+      Enriched station metadata with parsed geographic hierarchy (ward, district, province).
+
+      **Grain:** One row per station_name — deduplicated in upstream `unified_stations_metadata`.
+
+      **Business Rules:**
+      - Station names from `unified_stations_metadata` are parsed using comma-split logic
+      - Names with 3 parts: [ward, district, province]
+      - Names with 2 parts: [district, province]
+      - Names with 1 part: [province]
+      - 'Thanh pho', 'District', 'Thi xa', ' Province', ' Vietnam' strings stripped for normalization
+      - Province names standardized (Vietnamese diacritics removed) for consistent joins
+
+      **Source:** `unified_stations_metadata` (consolidated from AQI.in + TomTom station lists)
+
+      **Caveats:**
+      - Station parsing depends on consistent naming conventions; non-standard names may result in NULL district/ward
+      - Stations without district information fall back to province-only record
+    columns:
+      - name: station_name
+        description: |
+          Original station name from source (e.g. "Ba Dinh, Ba Dinh, Ha Noi, Vietnam").
+          Primary key and join target from air quality measurements.
+        tests:
+          - not_null
+          - unique
+      - name: latitude
+        description: |
+          Latitude of the monitoring station.
+          Source: AQI.in or TomTom Search API geocoding.
+      - name: longitude
+        description: |
+          Longitude of the monitoring station.
+          Source: AQI.in or TomTom Search API geocoding.
+      - name: station_source
+        description: |
+          Original data source of this station.
+          Values: 'aqiin', 'tomtom', 'openweather'
+          Indicates which source API contributed this station record.
+      - name: ward
+        description: |
+          Extracted ward (phường/xã) from station_name.
+          May be NULL if station_name has fewer than 3 parts or non-standard format.
+      - name: district
+        description: |
+          Extracted district (quận/huyện) from station_name.
+          May be NULL if station_name has fewer than 2 parts.
+          Stripped of prefixes: 'Thanh pho ', 'District', 'Thi xa '
+      - name: province
+        description: |
+          Extracted province (tỉnh/thành phố) from station_name.
+          Always present (defaults to 'Unknown' if unparseable).
+          Province names stripped of ' Province' and ' Vietnam' suffixes.
+
+  - name: stg_core__pollutants
+    description: |
+      Reference table of criteria pollutants with EPA AQI breakpoint values and health effect descriptions.
+
+      **Grain:** One row per pollutant_key.
+
+      **Business Rules:**
+      - Source: EPA National Ambient Air Quality Standards breakpoints
+      - epa_aqi_bp_lo/hi and conc_bp_lo/hi are string columns cast to Float64 in SELECT
+      - Used by `dm_aqi_health_impact_summary` to join health effects based on AQI ranges
+
+      **Reference Standard:** US EPA AQI Technical Assistance Document (2018 revision)
+
+      **Pollutants Covered:**
+      - PM2.5: Fine particulate matter < 2.5 µm aerodynamic diameter
+      - PM10: Coarse particulate matter < 10 µm
+      - O3: Ground-level ozone (8-hour average)
+      - NO2: Nitrogen dioxide (1-hour average)
+      - SO2: Sulfur dioxide (1-hour average)
+      - CO: Carbon monoxide (8-hour average)
+    columns:
+      - name: pollutant_key
+        description: |
+          Unique pollutant identifier code.
+          Values: 'pm25', 'pm10', 'o3', 'no2', 'so2', 'co'
+        tests:
+          - not_null
+          - unique
+      - name: display_name
+        description: |
+          Human-readable pollutant name (e.g. "PM2.5", "Ozone").
+      - name: unit
+        description: |
+          Standard measurement unit for this pollutant.
+          µg/m³ for PM; ppb for O3, NO2, SO2; ppm for CO.
+      - name: epa_aqi_bp_lo
+        description: |
+          Lower bound of the EPA AQI breakpoint range (inclusive).
+          String type in seed — cast to Float64 in model.
+          Used for range lookups in health impact models.
+      - name: epa_aqi_bp_hi
+        description: |
+          Upper bound of the EPA AQI breakpoint range (inclusive).
+          String type in seed — cast to Float64 in model.
+      - name: conc_bp_lo
+        description: |
+          Lower bound of the concentration range corresponding to epa_aqi_bp_lo (µg/m³ or ppb/ppm).
+          String type in seed — cast to Float64 in model.
+      - name: conc_bp_hi
+        description: |
+          Upper bound of the concentration range corresponding to epa_aqi_bp_hi (µg/m³ or ppb/ppm).
+          String type in seed — cast to Float64 in model.
+      - name: health_effects
+        description: |
+          Health advisory text for AQI values within this breakpoint range.
+          Source: US EPA general health statements for AQI categories.
+          Used to populate health impact dashboard in `dm_aqi_health_impact_summary`.
+
+  - name: stg_core__population
+    description: |
+      Vietnam provincial population and area statistics with name standardization.
+
+      **Grain:** One row per province/location (63 provinces + national/regional aggregates).
+
+      **Business Rules:**
+      - Source: GSO Vietnam 2026 average population projections
+      - National-level and regional aggregate rows (e.g. "Cả Nước", "Đồng bằng sông Hồng") are EXCLUDED
+        to keep only provincial-level data for joins
+      - Population stored as persons (converted from thousand persons in seed)
+      - Location names standardized to remove diacritics (e.g. "Hà Nội" → "Ha Noi") for consistent joins
+
+      **Source:** Tổng cục Thống kê Việt Nam (GSO) — 2026 statistical yearbook
+      **Coverage:** 63 provinces and 3 centrally-run municipalities
+
+      **Caveats:**
+      - Population is a projection (2026 average), not actual census
+      - Some provinces have been split since the GSO 2026 projection base year
+    columns:
+      - name: location_name
+        description: |
+          Standardized province/municipality name (no diacritics, Title Case).
+          Primary join key to air quality and weather data.
+          Examples: "Ha Noi", "Ho Chi Minh", "Da Nang"
+        tests:
+          - not_null
+      - name: original_location_name
+        description: |
+          Original Vietnamese name from GSO source data.
+          Preserved for reference and audit trail.
+          Examples: "Hà Nội", "TP.Hồ Chí Minh", "Đà Nẵng"
+      - name: total_population
+        description: |
+          Provincial population in persons (2026 average projection).
+          Source: GSO "2026 Dân số trung bình (Nghìn người)" × 1000.
+          Used to calculate population exposure scores in marts.
+        tests:
+          - not_null
+      - name: area_km2
+        description: |
+          Provincial land area in square kilometers.
+          Source: GSO "2026 Diện tích(Km2)"
+      - name: density_per_km2
+        description: |
+          Population density (persons per km²).
+          Source: GSO "2026 Mật độ dân số (Người/km2)"
+          Reference field — not currently used in transformations.

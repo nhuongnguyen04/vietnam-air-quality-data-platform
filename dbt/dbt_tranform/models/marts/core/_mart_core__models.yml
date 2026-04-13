@@ -1,0 +1,446 @@
+version: 2
+
+models:
+  - name: fct_air_quality_summary_hourly
+    description: |
+      Hourly air quality summary at the district level — the primary fact table for real-time dashboards.
+
+      **Grain:** One row per (province, district, datetime_hour) — aggregated from all pollutant readings within the hour.
+
+      **Business Rules:**
+      - Takes the MAX of each pollutant's AQI and concentration within the hour (worst-case per district per hour)
+      - Dominant pollutant determined by `argMax(parameter, aqi_us)` — highest AQI determines the primary pollutant
+      - Only AQI-relevant pollutants included (pm25, pm10, co, no2, so2, o3); temp/hum excluded
+      - Incremental mode: only processes new data since last ingest (filters on `ingest_time > max(ingest_time)`)
+      - Materialized as ReplacingMergeTree for ClickHouse deduplication on (province, district, datetime_hour)
+
+      **Downstream consumers:** All Streamlit dashboard pages, Grafana real-time panels, alerting pipeline
+      **SLA:** Data should be available within 15 minutes of measurement ingestion
+
+      **Caveats:**
+      - Province-level data (from OpenWeather) has NULL district — aggregated at province level only
+      - district = NULL indicates province-level aggregate; district = 'Unknown' indicates unparseable station name
+    columns:
+      - name: datetime_hour
+        description: |
+          UTC timestamp rounded to the start of the hour.
+          Primary temporal dimension for hourly dashboards.
+          Example: 2026-04-13 10:00:00
+        tests:
+          - not_null
+      - name: date
+        description: |
+          Calendar date (no time component) derived from datetime_hour.
+          Derived via `toDate(datetime_hour)` for daily/monthly rollups.
+      - name: province
+        description: |
+          Province name from station metadata.
+          Primary geographic dimension.
+        tests:
+          - not_null
+      - name: district
+        description: |
+          District name from station metadata join.
+          NULL for OpenWeather province-level records.
+          'Unknown' for stations that couldn't be parsed.
+      - name: region_3
+        description: |
+          Vietnam's 3 major geographic regions (Northern, Central, Southern).
+          Assigned via `get_vietnam_region_3(province)` macro.
+      - name: region_8
+        description: |
+          Vietnam's 8 administrative regions per GSO classification.
+      - name: source
+        description: |
+          Data source contributing to this summary: 'aqiin' or 'openweather'.
+          Note: When multiple sources contribute to the same district-hour, one wins (implementation detail).
+      - name: final_aqi_us
+        description: |
+          US EPA AQI for this district-hour.
+          Value = max(AQI) across all pollutant readings in the hour.
+          Range: 0–500. NULL if no valid readings.
+        tests:
+          - range:
+              min_value: 0
+              max_value: 500
+      - name: final_aqi_vn
+        description: |
+          Vietnam national AQI (TCVN 05:2023) for this district-hour.
+          Uses Vietnam-specific breakpoints, typically stricter for PM2.5.
+          Range: 0–500. NULL if no valid readings.
+        tests:
+          - range:
+              min_value: 0
+              max_value: 500
+      - name: pm25_value
+        description: |
+          Maximum PM2.5 concentration (µg/m³) recorded in this district-hour.
+          `maxIf(value, parameter = 'pm25')` — NULL if no PM2.5 readings.
+      - name: pm10_value
+        description: |
+          Maximum PM10 concentration (µg/m³) recorded in this district-hour.
+      - name: co_value
+        description: |
+          Maximum CO concentration (µg/m³) recorded in this district-hour.
+      - name: no2_value
+        description: |
+          Maximum NO2 concentration (µg/m³) recorded in this district-hour.
+      - name: so2_value
+        description: |
+          Maximum SO2 concentration (µg/m³) recorded in this district-hour.
+      - name: o3_value
+        description: |
+          Maximum O3 concentration (µg/m³) recorded in this district-hour.
+      - name: dominant_pollutant_us
+        description: |
+          Pollutant with the highest US EPA AQI in this district-hour.
+          `argMax(parameter, aqi_us)` — the pollutant driving the overall AQI.
+          Reference field for dashboard pollutant badges.
+      - name: dominant_pollutant_vn
+        description: |
+          Pollutant with the highest Vietnam AQI in this district-hour.
+          `argMax(parameter, aqi_vn)`.
+      - name: ingest_time
+        description: |
+          Timestamp when the source record was ingested into ClickHouse.
+          Used for incremental filtering — new records have higher ingest_time.
+
+  - name: fct_air_quality_summary_hourly_province
+    description: |
+      Hourly air quality summary aggregated at the province level (rollup of `fct_air_quality_summary_hourly`).
+
+      **Grain:** One row per (datetime_hour, province) — average AQI across all districts within the province.
+
+      **Business Rules:**
+      - Averages final_aqi_us/final_aqi_vn across districts in the same province
+      - Takes max of pollutant concentrations (worst reading in province)
+      - Includes `district_count` to indicate data coverage density
+
+      **Downstream consumers:** Province-level dashboard tabs, geographic heatmaps
+    columns:
+      - name: datetime_hour
+        description: |
+          UTC timestamp rounded to the start of the hour.
+        tests:
+          - not_null
+      - name: date
+        description: |
+          Calendar date derived from datetime_hour.
+      - name: province
+        description: |
+          Province name. All districts within the province rolled up.
+        tests:
+          - not_null
+      - name: region_3
+        description: |
+          Vietnam's 3 major geographic regions.
+      - name: region_8
+        description: |
+          Vietnam's 8 administrative regions.
+      - name: avg_aqi_us
+        description: |
+          Average US EPA AQI across all districts in the province this hour.
+          `round(avg(final_aqi_us), 2)`.
+      - name: avg_aqi_vn
+        description: |
+          Average Vietnam AQI across all districts in the province this hour.
+      - name: max_aqi_us
+        description: |
+          Maximum US AQI across all districts in the province this hour.
+          Indicates worst air quality location in the province.
+      - name: max_aqi_vn
+        description: |
+          Maximum Vietnam AQI across all districts in the province this hour.
+      - name: pm25_avg
+        description: |
+          Average PM2.5 concentration (µg/m³) across all districts in the province.
+      - name: pm10_avg
+        description: |
+          Average PM10 concentration (µg/m³) across all districts in the province.
+      - name: co_avg
+        description: |
+          Average CO concentration (µg/m³) across all districts.
+      - name: no2_avg
+        description: |
+          Average NO2 concentration (µg/m³) across all districts.
+      - name: so2_avg
+        description: |
+          Average SO2 concentration (µg/m³) across all districts.
+      - name: o3_avg
+        description: |
+          Average O3 concentration (µg/m³) across all districts.
+      - name: district_count
+        description: |
+          Number of distinct districts with data in this province this hour.
+          Indicates data coverage — low count means sparse monitoring.
+
+  - name: fct_air_quality_summary_daily
+    description: |
+      Daily air quality summary at the district level — primary fact table for daily and trend dashboards.
+
+      **Grain:** One row per (date, province, district, source) — aggregated from hourly fact table.
+
+      **Business Rules:**
+      - avg_aqi_us/vn: Simple average of hourly final_aqi values (not time-weighted)
+      - max_aqi_us/vn: Maximum of hourly values (worst air quality in the day)
+      - Concentrations: Daily average (mean of hourly max concentrations)
+      - Max concentrations: Peak value recorded during the day
+      - dominant_pollutant: `argMax(dominant_pollutant_us, final_aqi_us)` — the pollutant with highest AQI on the worst hour
+      - hourly_count: Number of hours with data (should be ~24 for complete days)
+      - Incremental: processes last 2 days of hourly data to capture late-arriving records
+
+      **Downstream consumers:** Daily AQI trend charts, daily alerts, weekly reports
+    columns:
+      - name: date
+        description: |
+          Calendar date (UTC day).
+          Partition key: `toYYYYMM(date)` for efficient pruning.
+        tests:
+          - not_null
+      - name: province
+        description: |
+          Province name.
+        tests:
+          - not_null
+      - name: district
+        description: |
+          District name. NULL for province-level OpenWeather data.
+      - name: region_3
+        description: |
+          Vietnam's 3 major geographic regions.
+      - name: region_8
+        description: |
+          Vietnam's 8 administrative regions.
+      - name: source
+        description: |
+          Data source contributing to this summary.
+      - name: avg_aqi_us
+        description: |
+          Average US EPA AQI over the day.
+          Not time-weighted — simple average of hourly values.
+      - name: avg_aqi_vn
+        description: |
+          Average Vietnam AQI over the day.
+      - name: max_aqi_us
+        description: |
+          Maximum US EPA AQI recorded in the day.
+          The worst air quality hour for this district.
+      - name: max_aqi_vn
+        description: |
+          Maximum Vietnam AQI recorded in the day.
+      - name: pm25_avg
+        description: |
+          Average PM2.5 concentration (µg/m³) for the day.
+          `round(avg(pm25_value), 2)`.
+      - name: pm10_avg
+        description: |
+          Average PM10 concentration (µg/m³) for the day.
+      - name: co_avg
+        description: |
+          Average CO concentration (µg/m³) for the day.
+      - name: no2_avg
+        description: |
+          Average NO2 concentration (µg/m³) for the day.
+      - name: so2_avg
+        description: |
+          Average SO2 concentration (µg/m³) for the day.
+      - name: o3_avg
+        description: |
+          Average O3 concentration (µg/m³) for the day.
+      - name: pm25_max
+        description: |
+          Maximum PM2.5 concentration (µg/m³) recorded in the day.
+          Indicates peak exposure period.
+      - name: pm10_max
+        description: |
+          Maximum PM10 concentration (µg/m³) recorded in the day.
+      - name: dominant_pollutant_us
+        description: |
+          Pollutant with the highest AQI on the worst hour of the day.
+          `argMax(dominant_pollutant_us, final_aqi_us)`.
+      - name: dominant_pollutant_vn
+        description: |
+          Pollutant with the highest Vietnam AQI on the worst hour of the day.
+      - name: hourly_count
+        description: |
+          Number of hours with measurements in this day.
+          Reference for data completeness — low count indicates missing data or sensor outage.
+
+  - name: fct_air_quality_summary_daily_province
+    description: |
+      Daily air quality summary rolled up to the province level.
+
+      **Grain:** One row per (date, province) — province-wide average across all districts.
+
+      **Business Rules:**
+      - avg_aqi_us/vn: Average across district averages (not weighted by population)
+      - max_aqi_us/vn: Maximum across all districts in the province
+      - Concentrations: Average across district averages
+      - district_count: Number of districts with data (indicates coverage)
+
+      **Downstream consumers:** Province-level daily reports, regional comparisons
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: province
+        tests:
+          - not_null
+      - name: region_3
+      - name: region_8
+      - name: avg_aqi_us
+        description: |
+          Province-wide average US EPA AQI for the day.
+          Simple average of district averages, not population-weighted.
+      - name: avg_aqi_vn
+        description: |
+          Province-wide average Vietnam AQI for the day.
+      - name: max_aqi_us
+        description: |
+          Maximum US AQI recorded in any district in the province this day.
+          The worst location in the province.
+      - name: max_aqi_vn
+        description: |
+          Maximum Vietnam AQI in any district.
+      - name: pm25_avg
+        description: |
+          Province-wide average PM2.5 (µg/m³) for the day.
+      - name: pm10_avg
+      - name: co_avg
+      - name: no2_avg
+      - name: so2_avg
+      - name: o3_avg
+      - name: district_count
+        description: |
+          Number of districts contributing data to this province average.
+          Low count means province-level average may not represent full picture.
+
+  - name: fct_air_quality_summary_monthly
+    description: |
+      Monthly air quality summary at the district level.
+
+      **Grain:** One row per (month, province, district, source) — aggregated from daily fact table.
+
+      **Business Rules:**
+      - month = first day of month (toDate(toStartOfMonth(date)))
+      - day_count: Number of days with data in this month
+      - Incremental: only processes current and previous month to keep table current
+      - Partitioned by `toYYYYMM(month)` for efficient queries
+
+      **Downstream consumers:** Monthly AQI reports, seasonal trend analysis
+    columns:
+      - name: month
+        description: |
+          First day of the month (e.g., 2026-04-01).
+          Partition key for monthly queries.
+        tests:
+          - not_null
+      - name: province
+        tests:
+          - not_null
+      - name: district
+      - name: region_3
+      - name: region_8
+      - name: source
+      - name: avg_aqi_us
+        description: |
+          Monthly average US EPA AQI for this district.
+          Average of daily averages.
+      - name: avg_aqi_vn
+      - name: max_aqi_us
+        description: |
+          Maximum US AQI recorded in any day this month.
+      - name: max_aqi_vn
+      - name: pm25_avg
+        description: |
+          Monthly average PM2.5 concentration (µg/m³).
+      - name: pm10_avg
+      - name: co_avg
+      - name: no2_avg
+      - name: so2_avg
+      - name: o3_avg
+      - name: day_count
+        description: |
+          Number of days with measurements this month.
+          Should be 28–31 for complete months.
+          Low day_count indicates sensor downtime or data gaps.
+
+  - name: fct_air_quality_summary_monthly_province
+    description: |
+      Monthly air quality summary rolled up to the province level.
+
+      **Grain:** One row per (month, province) — province-wide average across all districts.
+    columns:
+      - name: month
+        tests:
+          - not_null
+      - name: province
+        tests:
+          - not_null
+      - name: region_3
+      - name: region_8
+      - name: avg_aqi_us
+      - name: avg_aqi_vn
+      - name: max_aqi_us
+      - name: max_aqi_vn
+      - name: pm25_avg
+      - name: pm10_avg
+      - name: co_avg
+      - name: no2_avg
+      - name: so2_avg
+      - name: o3_avg
+      - name: district_count
+        description: |
+          Average number of districts with data per day this month.
+          Indicates monitoring density for this province.
+
+  - name: fct_other_measurements_hourly
+    description: |
+      Hourly measurements for non-AQI parameters (temperature, humidity, and other auxiliary measurements).
+
+      **Grain:** One row per (province, district, datetime_hour, parameter) — same as hourly fact but for auxiliary parameters.
+
+      **Business Rules:**
+      - Includes only parameters NOT used in AQI calculation: temp, hum (and any other non-standard parameters)
+      - Separated from main fact table to keep `fct_air_quality_summary_hourly` focused on criteria pollutants
+      - Incremental: filters on `ingest_time > max(ingest_time)` to only process new records
+
+      **Downstream consumers:** Weather correlation charts, humidity/temperature overlays on AQI maps
+    columns:
+      - name: datetime_hour
+        tests:
+          - not_null
+      - name: date
+        description: |
+          Calendar date derived from datetime_hour.
+          Partition key: `toYYYYMM(date)`.
+      - name: province
+        tests:
+          - not_null
+      - name: district
+      - name: region_3
+      - name: region_8
+      - name: parameter
+        description: |
+          Auxiliary measurement parameter.
+          Values: temp, hum (and any other non-criteria pollutants from ingestion sources).
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['temp', 'hum']
+      - name: value
+        description: |
+          Measured value in original units.
+          temp: °C; hum: %
+        tests:
+          - not_null
+      - name: source
+        description: |
+          Data source: 'aqiin' or 'openweather'.
+      - name: quality_flag
+        description: |
+          Data quality indicator.
+          'valid' = use for analytics.
+      - name: ingest_time
+        description: |
+          Source ingest timestamp for incremental filtering.

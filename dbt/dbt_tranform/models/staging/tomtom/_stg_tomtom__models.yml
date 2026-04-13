@@ -2,21 +2,75 @@ version: 2
 
 models:
   - name: stg_tomtom__flow
-    description: "Hourly traffic flow measurements from TomTom"
+    description: |
+      Hourly traffic congestion measurements from TomTom Traffic API, enriched with station metadata.
+
+      **Grain:** One row per (station_name, timestamp_utc) — deduplicated to latest ingest per location per hour.
+
+      **Business Rules:**
+      - Station name parsed from TomTom location endpoint (ward, district, province format)
+      - congestion_ratio clamped to [0, 1] range (handles edge cases where TomTom returns values outside bounds)
+      - Traffic data used to calculate traffic-pollution correlation in analytics models
+      - Only Vietnam locations are present (filtered upstream in Python ingestion job)
+
+      **Source:** TomTom Traffic API (https://developer.tomtom.com/traffic-api)
+      **Coverage:** Major urban areas in Vietnam (Hanoi, Ho Chi Minh, Da Nang, Hai Phong, Can Tho)
+
+      **Caveats:**
+      - TomTom coverage is limited to major cities; rural provinces have no traffic data
+      - Traffic data represents TomTom user population, not all vehicles
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [station_name, timestamp_utc]
     columns:
+      - name: source
+        description: |
+          Source identifier. Always 'tomtom' for records from this model.
+          Used for source attribution in unified models.
       - name: station_name
+        description: |
+          Traffic monitoring location name from TomTom Search API.
+          Format: "Ward, District, Province, Vietnam" (e.g. "Ba Dinh, Ba Dinh, Ha Noi, Vietnam").
+          Join key to station metadata for geographic enrichment.
         tests:
           - not_null
+      - name: latitude
+        description: |
+          Latitude of the TomTom traffic monitoring point.
+          Source: TomTom Search API geocoding results.
+      - name: longitude
+        description: |
+          Longitude of the TomTom traffic monitoring point.
+          Source: TomTom Search API geocoding results.
       - name: timestamp_utc
+        description: |
+          UTC timestamp for the start of the hour being measured.
+          TomTom reports historical traffic data; this represents the measurement window.
         tests:
           - not_null
       - name: value
-        description: "Congestion ratio (0 to 1)"
+        description: |
+          Traffic congestion ratio at this location for this hour.
+          Formula: (current travel time - free flow travel time) / free flow travel time
+          - 0.00 = Free flow (no congestion)
+          - 0.50 = 50% longer travel time than free flow
+          - 1.00 = 100% longer (doubled travel time)
+          Clamped to [0, 1] range in this model.
+          Unit: dimensionless ratio
         tests:
           - not_null
           - range:
               min_value: 0
               max_value: 1
+      - name: parameter
+        description: |
+          Measurement type. Always 'congestion_ratio' for TomTom flow data.
+          Standardized to match the parameter naming convention used by air quality measurements.
+      - name: quality_flag
+        description: |
+          Data quality indicator from TomTom ingestion pipeline.
+          Passed through from raw table — reflects upstream processing validity checks.
+      - name: dbt_updated_at
+        description: |
+          Timestamp when dbt last processed this record.
+          Added by dbt for audit purposes.

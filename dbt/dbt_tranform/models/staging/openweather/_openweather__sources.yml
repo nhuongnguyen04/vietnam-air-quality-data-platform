@@ -2,21 +2,82 @@ version: 2
 
 sources:
   - name: openweather
-    description: "OpenWeather Air Pollution API — Secondary air quality source."
+    description: |
+      OpenWeather data products — Air Pollution API (measurements) and Weather API (meteorology).
+
+      **Data Sources:**
+      - Air Pollution API: https://openweathermap.org/api/air-pollution (forecast + history)
+      - Weather API: https://openweathermap.org/current (current conditions + 5-day/3-hour forecast)
+
+      **Coverage:** 62 Vietnam provinces (city-level centroids from OpenWeather city database)
+
+      **Ingestion:** Python job `python_jobs/jobs/openweather/ingest_measurements.py`
+      **Update Frequency:** Every 15 minutes (hourly forecast refreshed; historical updated daily)
+
+      **Granularity:**
+      - Province-level (city centroid), NOT station-level
+      - Meteorological data has no station-level granularity from OpenWeather
+      - District-level detail comes from AQI.in or TomTom only
+
+      **Authentication:** Requires `OPENWEATHER_API_TOKEN` environment variable
+
+      **Rate Limits:**
+      - Air Pollution: 60 requests/minute (rate limiter enforced in ingestion job)
+      - Weather: 60 requests/minute
+      - Free tier: 1,000,000 calls/month
+
+      **Caveats:**
+      - OpenWeather coordinates are city centroids, not province geographic centers
+      - Province naming may differ from internal conventions (e.g., "Hanoi" vs "Ha Noi")
+      - Air Pollution and Weather APIs are separate — joined on province and timestamp
     database: air_quality
     schema: air_quality
     tables:
       - name: raw_openweather_measurements
-        description: "Raw OpenWeather air pollution readings"
+        description: |
+          Air pollution measurements from OpenWeather Air Pollution API (current + forecast + history).
+
+          **Grain:** One row per (station_id, timestamp_utc, parameter) per ingest run.
+
+          **Data Types:**
+          - Current: real-time pollution readings
+          - Forecast: hourly forecasts up to 4 days ahead
+          - History: historical actual readings (updated daily)
+
+          **Parameters:** co (µg/m³), no2 (µg/m³), o3 (µg/m³), pm25 (µg/m³), pm10 (µg/m³), so2 (µg/m³)
+
+          **Caveats:**
+          - Historical data ingestion may lag by 24–48 hours
+          - Forecast data in this table is predictive, not actual measurements
+
+          **Freshness:**
+          - warn_after: 12 hours
+          - error_after: 24 hours
         freshness:
           warn_after: {count: 12, period: hour}
           error_after: {count: 24, period: hour}
         loaded_at_field: ingest_time
+
       - name: raw_openweather_meteorology
-        description: "Raw OpenWeather weather readings (Temp, Wind, Hum)"
+        description: |
+          Meteorological measurements from OpenWeather Weather API (current + forecast).
+
+          **Grain:** One row per (station_id, timestamp_utc) per ingest run.
+
+          **Data Types:**
+          - Current: real-time weather observations
+          - Forecast: 5-day/3-hour forecast
+
+          **Fields:** temp (°C), feels_like, humidity (%), pressure (hPa), wind_speed (m/s), wind_deg (°), clouds_all (%)
+
+          **Caveats:**
+          - Timestamp is rounded to 3-hour intervals for forecast data
+          - Current weather may not be available for all city IDs
+
+          **Freshness:**
+          - warn_after: 6 hours
+          - error_after: 12 hours
         freshness:
           warn_after: {count: 6, period: hour}
           error_after: {count: 12, period: hour}
         loaded_at_field: ingest_time
-
-
