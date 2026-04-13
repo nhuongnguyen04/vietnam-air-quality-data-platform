@@ -10,8 +10,8 @@ Pipeline Data Engineering end-to-end: AQICN + Sensors.Community + OpenWeather �
 - `dbt/`          → Data transformation models (staging → marts)
 - `airflow/`      → DAGs & orchestration
 - `python_jobs/`  → Python jobs for data ingestion
-- `grafana/`      → Grafana provisioning (dashboards, datasources, alerting)
-- `prometheus/`   → Prometheus configuration & scrape rules
+- `monitoring/grafana/`   → Grafana provisioning (dashboards, datasources, alerting)
+- `monitoring/prometheus/` → Prometheus configuration & scrape rules
 - `scripts/`      → Database initialization scripts
 
 ## Services

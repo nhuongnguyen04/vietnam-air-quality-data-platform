@@ -444,8 +444,8 @@ services:
     ports:
     - 3000:3000
     volumes:
-    - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+    - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     - grafana-data:/var/lib/grafana
     environment:
     - GF_AUTH_ANONYMOUS_ENABLED=true
@@ -493,9 +493,9 @@ services:
     ports:
     - 9090:9090
     volumes:
-    - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    - ./prometheus/rules:/etc/prometheus/rules:ro
-    - ./prometheus/queries-postgresql.yaml:/queries.yaml:ro
+    - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+    - ./monitoring/prometheus/queries-postgresql.yaml:/queries.yaml:ro
     - prometheus-data:/prometheus
     command:
     - '--config.file=/etc/prometheus/prometheus.yml'
@@ -564,7 +564,7 @@ services:
     command:
     - '--extend.query-path=/queries.yaml'
     volumes:
-    - ./prometheus/queries-postgresql.yaml:/queries.yaml:ro
+    - ./monitoring/prometheus/queries-postgresql.yaml:/queries.yaml:ro
     ports:
     - 9187:9187
     depends_on:
