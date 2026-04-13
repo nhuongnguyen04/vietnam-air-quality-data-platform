@@ -15,3 +15,5 @@ contactPoints:
         settings:
           bottoken: ${TELEGRAM_BOT_TOKEN}
           chatid: '5602934306'
+          message: '{{ template "telegram.message" . }}'
+          parse_mode: 'HTML'

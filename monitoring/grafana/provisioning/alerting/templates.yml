@@ -1,0 +1,38 @@
+apiVersion: 1
+templates:
+  - orgId: 1
+    name: telegram_clean_format
+    template: |
+      {{ define "telegram.message" }}
+      {{ range .Alerts -}}
+      {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ if eq .Status "resolved" }}[ĐÃ KHẮC PHỤC] {{ end }}{{ .Labels.alertname }}</b>
+      ---
+      {{ if eq .Labels.alertname "[CHẤT LƯỢNG][NGHIÊM TRỌNG] Chỉ số AQI nguy hại (>200)" -}}
+      📍 <b>Vị trí:</b> {{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}
+      📊 <b>Chỉ số AQI (US):</b> {{ .ValueString }}
+      ⚠️ <b>Khuyến cáo:</b> Chất lượng không khí đang ở mức nguy hại. Mọi người nên ở trong nhà và hạn chế tối đa các hoạt động ngoài trời.
+      {{- else if eq .Labels.alertname "[CHẤT LƯỢNG][CẢNH BÁO] Dữ liệu bị chậm cập nhật (>3 giờ)" -}}
+      📡 <b>Nguồn:</b> {{ .Labels.source }}
+      ⏱️ <b>Độ trễ:</b> {{ .ValueString }}
+      Vui lòng kiểm tra lại pipeline thu thập dữ liệu (Airflow/GitHub Actions).
+      {{- else if eq .Labels.alertname "[Advisory] Trạm dữ liệu bị gián đoạn (Adopted)" -}}
+      📍 <b>Khu vực:</b> {{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}
+      📡 <b>Nguồn:</b> {{ .Labels.source }}
+      ⏱️ <b>Độ trễ:</b> {{ .ValueString }}
+      🕒 <b>Lần cuối thấy:</b> {{ .Labels.last_seen }}
+      Vui lòng kiểm tra lại kết nối của trạm hoặc script thu thập.
+      {{- else if eq .Labels.alertname "[Warning] Chỉ số AQI vượt ngưỡng 150 (Adopted)" -}}
+      📍 <b>Vị trí:</b> {{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}
+      📊 <b>Chỉ số AQI (US):</b> {{ .ValueString }}
+      Khuyến cáo: Những người nhạy cảm nên hạn chế các hoạt động ngoài trời kéo dài.
+      {{- else if eq .Labels.alertname "[Warning] Nồng độ PM2.5 vượt ngưỡng 75 µg/m³ (Adopted)" -}}
+      📍 <b>Vị trí:</b> {{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}
+      📊 <b>Nồng độ PM2.5:</b> {{ .ValueString }}
+      Khuyến cáo: Nên sử dụng khẩu trang chống bụi khi ra ngoài.
+      {{- else -}}
+      {{ if .Annotations.summary }}<b>{{ .Annotations.summary }}</b>{{ end }}
+      {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+      {{- end }}
+
+      {{ end }}
+      {{ end }}
