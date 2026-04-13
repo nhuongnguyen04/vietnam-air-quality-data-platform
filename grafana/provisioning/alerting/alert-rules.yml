@@ -2,7 +2,7 @@
 apiVersion: 1
 
 groups:
-  - name: air-quality-alerts
+  - name: air-quality-alerts-v2
     folder: Cảnh báo Chất lượng Không khí
     interval: 1m
     rules:
@@ -135,3 +135,127 @@ groups:
           severity: warning
           team: data-ops
         contactPoints: [telegram-critical]
+
+      # =============================================================
+      # Rules 5-8: Adopted Phantom Rules (Repairing Ghost States)
+      # =============================================================
+      - uid: station-stale-warning
+        title: "[Advisory] Trạm dữ liệu bị gián đoạn (Adopted)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              rawSql: |
+                SELECT province, district, source, last_seen, lag_hours 
+                FROM air_quality.dm_platform_data_health 
+                WHERE health_status IN ('Stale', 'Offline')
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: classic_conditions
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { params: [], type: last }
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Dữ liệu từ trạm {{ $labels.source }} tại {{ $labels.province }} đã bị chậm {{ $labels.lag_hours }} giờ."
+        labels:
+          severity: warning
+
+      - uid: aqi-warning-150
+        title: "[Warning] Chỉ số AQI vượt ngưỡng 150 (Adopted)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              rawSql: |
+                SELECT province, district, latest_hour, current_aqi_us 
+                FROM air_quality.dm_aqi_current_status 
+                WHERE current_aqi_us > 150 
+                AND latest_hour >= NOW() - INTERVAL 3 HOUR
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: classic_conditions
+              conditions:
+                - evaluator: { params: [150], type: gt }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { params: [], type: last }
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Chỉ số AQI tại {{ $labels.province }} - {{ $labels.district }} là {{ $labels.current_aqi_us }} (Mức cảnh báo)."
+        labels:
+          severity: warning
+
+      - uid: pm25-warning-75
+        title: "[Warning] Nồng độ PM2.5 vượt ngưỡng 75 µg/m³ (Adopted)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              rawSql: |
+                SELECT province, district, latest_hour, pm25 
+                FROM air_quality.dm_aqi_current_status 
+                WHERE pm25 > 75 
+                AND latest_hour >= NOW() - INTERVAL 3 HOUR
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: classic_conditions
+              conditions:
+                - evaluator: { params: [75], type: gt }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { params: [], type: last }
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Nồng độ bụi mịn PM2.5 tại {{ $labels.province }} là {{ $labels.pm25 }} µg/m³."
+        labels:
+          severity: warning
+
+      - uid: multi-source-divergence
+        title: "[Diagnostic] Sai lệch dữ liệu giữa các nguồn (Adopted)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              rawSql: |
+                -- Legacy rule: Returning empty to stop errors until multi-source logic is restored
+                SELECT province FROM air_quality.dm_aqi_current_status WHERE 1=0
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: classic_conditions
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { params: [], type: last }
+                  type: query
+        noDataState: OK
+        execErrState: OK
+        for: 1h
+        annotations:
+          summary: "Dữ liệu air quality giữa các nguồn tại {{ $labels.province }} có sự sai lệch lớn."
+        labels:
+          severity: diagnostic

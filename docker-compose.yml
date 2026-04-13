@@ -17,6 +17,7 @@ services:
     volumes:
     - ./clickhouse-data:/var/lib/clickhouse
     - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql
+    - ./monitoring/clickhouse/config.d/prometheus_exporter.xml:/etc/clickhouse-server/config.d/prometheus_exporter.xml:ro
     environment:
     - CLICKHOUSE_DB=${CLICKHOUSE_DB}
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
