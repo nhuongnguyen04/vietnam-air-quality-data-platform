@@ -45,10 +45,10 @@ jobs:
           python python_jobs/jobs/openweather/ingest_weather.py &
           
           HOUR=$(date +%H)
-          if [ $((10#$HOUR % 3)) -eq 0 ]; then
+          if [ $((10#$HOUR)) -ge 7 ] && [ $((10#$HOUR)) -le 20 ]; then
             python python_jobs/jobs/traffic/ingest_tomtom_traffic.py &
           else
-            echo "Skipping TomTom (Hour $HOUR is not divisible by 3)"
+            echo "Skipping TomTom (Hour $HOUR is outside peak range 07:00-20:00)"
           fi
           
           wait

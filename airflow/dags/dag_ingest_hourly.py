@@ -133,7 +133,7 @@ def dag_ingest_hourly():
         data_interval_start = context.get('data_interval_start')
         hour = data_interval_start.hour if data_interval_start else datetime.now().hour
         
-        if hour % 3 == 0:
+        if 7 <= hour <= 20:
             env = os.environ.copy()
             env.update(get_job_env_vars())
 
@@ -146,7 +146,7 @@ def dag_ingest_hourly():
             print("TomTom Traffic ingestion completed")
             return True
         else:
-            print(f"Skipping traffic ingestion (Hour {hour} not divisible by 3)")
+            print(f"Skipping traffic ingestion (Hour {hour} is outside peak range 07:00-20:00)")
             return False
 
     @task

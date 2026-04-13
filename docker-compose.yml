@@ -7,6 +7,7 @@ services:
     - 8123:8123
     - 9000:9000
     - 9440:9440
+    - 9363:9363
     ulimits:
       nofile:
         soft: 262144
@@ -540,7 +541,7 @@ services:
     command:
     - '--housekeeping_interval=30s'
     - '--docker_only=true'
-    - '--disable_metrics=percpu,sched,tcp,udp,hwcard_bus,textfile'
+    - '--disable_metrics=percpu,sched,tcp,udp'
     volumes:
     - /:/rootfs:ro
     - /var/run:/var/run:ro
@@ -549,8 +550,8 @@ services:
     - /dev/disk/:/dev/disk:ro
     ports:
     - 8088:8080
-    mem_limit: 256m
-    cpus: '0.25'
+    mem_limit: 512m
+    cpus: '0.5'
     networks:
     - air-quality-network
   postgres-exporter:
