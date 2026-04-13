@@ -18,6 +18,7 @@ services:
     - ./clickhouse-data:/var/lib/clickhouse
     - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql
     - ./monitoring/clickhouse/config.d/prometheus_exporter.xml:/etc/clickhouse-server/config.d/prometheus_exporter.xml:ro
+    - ./monitoring/clickhouse/config.d/logger.xml:/etc/clickhouse-server/config.d/logger.xml:ro
     environment:
     - CLICKHOUSE_DB=${CLICKHOUSE_DB}
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -773,9 +774,16 @@ services:
     - DB_SCHEME=postgresql+psycopg2
     - DB_PASSWORD=${POSTGRES_OM_PASSWORD:-openmetadata_password}
     - AIRFLOW__CORE__PARALLELISM=4
+    - GDRIVE_ROOT_FOLDER_ID=${GDRIVE_ROOT_FOLDER_ID}
+    - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
+    - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
+    - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+    - PYTHONPATH=/opt/airflow/plugins
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - dbt-target:/opt/dbt-artifacts:ro
+    - ./openmetadata/custom_connectors:/opt/airflow/plugins/custom_connectors
+    - ./python_jobs/dashboard:/opt/airflow/plugins/dashboard:ro
     depends_on:
       postgres:
         condition: service_healthy
