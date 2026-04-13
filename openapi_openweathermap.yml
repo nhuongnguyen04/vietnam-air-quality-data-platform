@@ -1,0 +1,128 @@
+openapi: 3.0.0
+info:
+  title: OpenWeather Vietnam Air Quality API
+  version: "1.0.0"
+  description: >
+    API đặc tả cho dịch vụ OpenWeather dùng trong dự án Vietnam Air Quality Data Platform.
+    Bao gồm các endpoint về thời tiết hiện tại và chất lượng không khí (Air Pollution).
+servers:
+  - url: https://api.openweathermap.org/data/2.5
+    description: OpenWeather Production Server
+
+paths:
+  /weather:
+    get:
+      summary: Lấy dữ liệu thời tiết hiện tại
+      description: Cung cấp thông số nhiệt độ, độ ẩm, áp suất, tốc độ gió.
+      tags:
+        - Weather
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: Vĩ độ của vị trí cần đo.
+          schema:
+            type: number
+        - name: lon
+          in: query
+          required: true
+          description: Kinh độ của vị trí cần đo.
+          schema:
+            type: number
+        - name: units
+          in: query
+          description: Đơn vị đo (metric, imperial, standard).
+          schema:
+            type: string
+            default: metric
+        - name: appid
+          in: query
+          required: true
+          description: API Key của OpenWeather.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              example:
+                main: {temp: 25.5, humidity: 80}
+                wind: {speed: 3.5}
+
+  /air_pollution:
+    get:
+      summary: Lấy dữ liệu ô nhiễm không khí hiện tại
+      description: Trả về nồng độ PM2.5, PM10, NO2, SO2, CO, O3.
+      tags:
+        - Air Quality
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: appid
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              example:
+                list:
+                  - main: {aqi: 2}
+                    components: {pm2_5: 15.5, pm10: 25.0}
+
+  /air_pollution/history:
+    get:
+      summary: Lấy dữ liệu ô nhiễm không khí lịch sử
+      description: Trả về dữ liệu ô nhiễm trong một khoảng thời gian cụ thể (Unix timestamp).
+      tags:
+        - Air Quality
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: start
+          in: query
+          required: true
+          description: Unix timestamp bắt đầu.
+          schema:
+            type: integer
+        - name: end
+          in: query
+          required: true
+          description: Unix timestamp kết thúc.
+          schema:
+            type: integer
+        - name: appid
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thành công
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: appid
