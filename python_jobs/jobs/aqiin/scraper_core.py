@@ -47,52 +47,10 @@ import threading
 _TOKEN_LOCK = threading.Lock()
 
 def get_session_token() -> str:
-    """Automated token extraction from aqi.in homepage (Thread-safe)."""
-    global _TOKEN_CACHE
-    
-    # Double-checked locking pattern
-    if _TOKEN_CACHE:
-        return _TOKEN_CACHE
-        
-    with _TOKEN_LOCK:
-        if _TOKEN_CACHE:
-            return _TOKEN_CACHE
-            
-        try:
-            logger.info("Attempting to fetch fresh session token from aqi.in homepage...")
-            # Use more realistic browser-like headers for the homepage fetch
-            headers = {
-                "User-Agent": random.choice(USER_AGENTS),
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Cache-Control": "max-age=0",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none",
-                "Sec-Fetch-User": "?1",
-                "Upgrade-Insecure-Requests": "1"
-            }
-            
-            with httpx.Client(timeout=15.0, follow_redirects=True) as client:
-                r = client.get("https://www.aqi.in/", headers=headers)
-                r.raise_for_status()
-                
-                # Extract token2 using regex (flexible for escaped or non-escaped quotes)
-                import re
-                match = re.search(r'token2\\?":\\?"(eyJhbGci[^\\"]+)', r.text)
-                if match:
-                    _TOKEN_CACHE = match.group(1)
-                    logger.info("Successfully acquired fresh token from homepage.")
-                    return _TOKEN_CACHE
-                else:
-                    logger.error(f"Token pattern not found in HTML. Check if site structure changed.")
-                    raise Exception("Token pattern not found in HTML")
-                    
-        except Exception as e:
-            logger.warning(f"Auto-refresh failed: {e}. Falling back to default token for this session.")
-            # Cache the fallback token so we don't spam the homepage for every station
-            _TOKEN_CACHE = AQIIN_TOKEN
-            return _TOKEN_CACHE
+    """Return token from environment variable."""
+    if not AQIIN_TOKEN:
+        logger.warning("AQIIN_TOKEN is NOT set. Current requests will likely fail with 401.")
+    return AQIIN_TOKEN
 
 def get_headers():
     token = get_session_token()
@@ -101,7 +59,7 @@ def get_headers():
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate, br, zstd",
         "Accept-Language": "en-US,en;q=0.9",
-        "Authorization": f"Bearer {token}",
+        "authorization": f"bearer {token}",
         "Connection": "keep-alive",
         "Host": "apiserver.aqi.in",
         "Origin": "https://www.aqi.in",
