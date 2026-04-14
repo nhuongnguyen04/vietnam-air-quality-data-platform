@@ -25,16 +25,22 @@ calculated as (
     from normalized_for_us
 ),
 
-with_dominant as (
+max_values as (
     select
-        *,
-        max(aqi_us) over (partition by province, district, timestamp_utc) as max_aqi_us_in_hour,
-        max(aqi_vn) over (partition by province, district, timestamp_utc) as max_aqi_vn_in_hour
+        province,
+        district,
+        timestamp_utc,
+        max(aqi_us) as max_aqi_us_in_hour,
+        max(aqi_vn) as max_aqi_vn_in_hour
     from calculated
+    group by province, district, timestamp_utc
 )
 
 select
-    *,
-    case when aqi_us = max_aqi_us_in_hour then true else false end as is_dominant_us,
-    case when aqi_vn = max_aqi_vn_in_hour then true else false end as is_dominant_vn
-from with_dominant
+    c.*,
+    mv.max_aqi_us_in_hour,
+    mv.max_aqi_vn_in_hour,
+    case when c.aqi_us = mv.max_aqi_us_in_hour then true else false end as is_dominant_us,
+    case when c.aqi_vn = mv.max_aqi_vn_in_hour then true else false end as is_dominant_vn
+from calculated c
+inner join max_values mv using (province, district, timestamp_utc)

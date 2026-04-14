@@ -26,14 +26,14 @@ def get_pollutant_trend(days: int, province: str | None):
     q = f"""
     SELECT
         date,
-        round(avg(pm25_avg), 1)   AS pm25_avg,
-        round(avg(pm10_avg), 1)   AS pm10_avg,
-        round(avg(co_avg), 3)     AS co_avg,
-        round(avg(no2_avg), 2)    AS no2_avg,
-        round(avg(so2_avg), 2)    AS so2_avg,
-        round(avg(o3_avg), 1)     AS o3_avg
+        round(avg(pm25_aqi), 1)   AS pm25_aqi,
+        round(avg(pm10_aqi), 1)   AS pm10_aqi,
+        round(avg(co_aqi), 1)     AS co_aqi,
+        round(avg(no2_aqi), 1)    AS no2_aqi,
+        round(avg(so2_aqi), 1)    AS so2_aqi,
+        round(avg(o3_aqi), 1)     AS o3_aqi
     FROM air_quality.fct_air_quality_summary_daily
-    WHERE date >= today() - INTERVAL {days} DAY
+    WHERE date >= (SELECT max(date) FROM air_quality.fct_air_quality_summary_daily) - INTERVAL {days} DAY
       {where_clause}
     GROUP BY date
     ORDER BY date
@@ -49,7 +49,7 @@ def get_compliance_status(days: int, province: str | None):
         compliance_status,
         count(*) AS cnt
     FROM air_quality.dm_aqi_compliance_standards
-    WHERE date >= today() - INTERVAL {days} DAY
+    WHERE date >= (SELECT max(date) FROM air_quality.dm_aqi_compliance_standards) - INTERVAL {days} DAY
       {where_clause}
     GROUP BY province, compliance_status
     ORDER BY province, cnt DESC
@@ -84,28 +84,64 @@ with st.container():
 province_arg = selected_province if selected_province != national_label else None
 
 # ── Chart 1: Trends ──────────────────────────────────────────────────────────
-st.subheader(f"{t('nav_pollutants', lang)} — {TIME_OPTIONS[days]}")
+st.subheader(f"{t('nav_pollutants', lang)} (AQI VN) — {TIME_OPTIONS[days]}")
 trend = get_pollutant_trend(days, province_arg)
 
 if not trend.empty:
-    pollutants = ["pm25_avg", "pm10_avg", "o3_avg", "no2_avg", "co_avg", "so2_avg"]
-    fig = px.line(trend, x="date", y=pollutants, title=None)
+    # Map raw column names to localized display names
+    col_map = {
+        "pm25_aqi": t("pollutant_pm25", lang),
+        "pm10_aqi": t("pollutant_pm10", lang),
+        "o3_aqi": t("pollutant_o3", lang),
+        "no2_aqi": t("pollutant_no2", lang),
+        "so2_aqi": t("pollutant_so2", lang),
+        "co_aqi": t("pollutant_co", lang)
+    }
+    
+    # Rename columns in the dataframe for automatic Plotly localization
+    plot_df = trend.rename(columns=col_map)
+    display_pollutants = list(col_map.values())
+    
+    labels = {
+        "variable": t("chart_label_variable", lang),
+        "value": t("chart_label_aqi", lang),
+        "date": t("chart_label_date", lang)
+    }
+    
+    fig = px.line(plot_df, x="date", y=display_pollutants, labels=labels)
     fig.update_layout(get_plotly_layout(height=400))
+    fig.update_layout(
+        yaxis_title=t("chart_label_aqi", lang), 
+        xaxis_title=t("chart_label_date", lang),
+        hovermode="x unified"
+    )
+    
+    # Simple and clean localized tooltip
+    fig.update_traces(
+        hovertemplate=f"<b>{t('chart_label_aqi', lang)}</b>: %{{y:.1f}}<extra></extra>"
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
 
-# ── Row 2: Compliance & Health ───────────────────────────────────────────────
-c_compl, c_health = st.columns(2)
-
-with c_compl:
-    st.subheader(t("status_title", lang) if lang=="en" else "Tuân thủ tiêu chuẩn")
-    compliance = get_compliance_status(days, province_arg)
-    if not compliance.empty:
-        fig_comp = px.bar(compliance, x="province", y="cnt", color="compliance_status",
-                         color_discrete_map={"Good/Safe": "#09ab3b", "Warning (WHO Breach)": "#ffa500", "Unhealthy (TCVN Breach)": "#ff4b4b"})
-        fig_comp.update_layout(get_plotly_layout(height=350))
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-with c_health:
-    st.subheader(t("health_title", lang) if lang=="en" else "Rủi ro Sức khỏe")
-    # Using existing logic placeholder or similar
-    st.markdown('<div class="glass-card"><h4>Health Context</h4><p>Detailed regional health risk analysis based on cumulative pollutant exposure.</p></div>', unsafe_allow_html=True)
+# ── Row 2: Compliance (Full Width) ───────────────────────────────────────────
+st.subheader(t("status_title", lang) if lang=="en" else "Tuân thủ tiêu chuẩn")
+compliance = get_compliance_status(days, province_arg)
+if not compliance.empty:
+    fig_comp = px.bar(compliance, x="province", y="cnt", color="compliance_status",
+                     color_discrete_map={"Good/Safe": "#09ab3b", "Warning (WHO Breach)": "#ffa500", "Unhealthy (TCVN Breach)": "#ff4b4b"},
+                     category_orders={"compliance_status": ["Good/Safe", "Warning (WHO Breach)", "Unhealthy (TCVN Breach)"]},
+                     labels={"province": "", "cnt": "", "compliance_status": ""},
+                     barmode="stack")
+    
+    fig_comp.update_layout(get_plotly_layout(height=450))
+    fig_comp.update_layout(
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title_text=None,
+        margin={"r":10, "t":30, "l":10, "b":150}, # Increased bottom margin for rotated province names
+        bargap=0.15, # Ensures consistent bar widths
+        barnorm="percent", # Correctly set normalization in layout
+    )
+    st.plotly_chart(fig_comp, use_container_width=True)
+else:
+    st.info("No compliance data for the selected range.")

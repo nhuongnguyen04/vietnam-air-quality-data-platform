@@ -59,6 +59,39 @@ if not summary.empty:
     with col4:
         render_metric_card(t("metric_active", lang), f"{int(row.province_count or 0)}", icon="location")
 
+# ── Row 1.5: Major Cities Highlights (Pinned) ────────────────────────────────
+st.markdown("### " + ("Hiện trạng tại các đô thị lớn" if lang == "vi" else "Major Cities Outlook"))
+mc_col1, mc_col2, mc_col3, mc_col4, mc_col5 = st.columns(5)
+
+@st.cache_data(ttl=300)
+def get_major_cities_status():
+    q = """
+    SELECT 
+        province, 
+        avg(current_aqi_us) as avg_aqi,
+        max(current_aqi_us) as max_aqi
+    FROM air_quality.dm_aqi_current_status 
+    WHERE province IN ('Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ')
+    GROUP BY province
+    """
+    return query_df(q)
+
+mc_df = get_major_cities_status()
+
+if not mc_df.empty:
+    cities = ['Hà Nội', 'Hải Phòng', 'Đà Nẵng', 'TP. Hồ Chí Minh', 'Cần Thơ']
+    cols = [mc_col1, mc_col2, mc_col3, mc_col4, mc_col5]
+    for city, col_widget in zip(cities, cols):
+        city_data = mc_df[mc_df['province'] == city]
+        if not city_data.empty:
+            avg_val = int(city_data.iloc[0].avg_aqi)
+            max_val = int(city_data.iloc[0].max_aqi)
+            with col_widget:
+                st.metric(label=city, value=f"AQI {avg_val}", delta=f"Hotspot {max_val}", delta_color="inverse")
+        else:
+            with col_widget:
+                st.metric(label=city, value="N/A", delta="-")
+
 # ── Row 2: Real-time Map ─────────────────────────────────────────────────────
 st.subheader(t("map_title", lang))
 
@@ -145,12 +178,22 @@ with c1:
 
 with c2:
     st.subheader(t("chart_top_polluted", lang))
-    q_top = "SELECT province, current_aqi_us FROM air_quality.dm_aqi_current_status ORDER BY current_aqi_us DESC LIMIT 10"
+    # We use MAX AQI (Hotspots) to better represent pollution in large cities as per user request
+    q_top = """
+    SELECT 
+        province, 
+        max(current_aqi_us) as province_aqi 
+    FROM air_quality.dm_aqi_current_status 
+    WHERE province != '' AND province IS NOT NULL
+    GROUP BY province 
+    ORDER BY province_aqi DESC 
+    LIMIT 10
+    """
     df_top = query_df(q_top)
     if not df_top.empty:
-        fig_bar = px.bar(df_top, x='province', y='current_aqi_us', 
-                        color='current_aqi_us',
+        fig_bar = px.bar(df_top, x='province', y='province_aqi', 
+                        color='province_aqi',
                         color_continuous_scale='Reds',
-                        labels={'current_aqi_us': 'AQI', 'province': 'Province'})
+                        labels={'province_aqi': 'Hotspot (Max) AQI', 'province': 'Tỉnh thành'})
         fig_bar.update_layout(get_plotly_layout(height=450))
         st.plotly_chart(fig_bar, use_container_width=True)

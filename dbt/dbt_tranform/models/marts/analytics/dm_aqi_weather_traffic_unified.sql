@@ -55,8 +55,9 @@ SELECT
     a.province as province,
     a.district as district,
     a.station_name as station_name,
-    m.latitude as station_latitude,
-    m.longitude as station_longitude,
+    -- Fallback to extracting coordinates from station_name if metadata join fails
+    coalesce(nullIf(m.latitude, 0), toFloat64OrNull(splitByChar(':', a.station_name)[3])) as station_latitude,
+    coalesce(nullIf(m.longitude, 0), toFloat64OrNull(splitByChar(':', a.station_name)[4])) as station_longitude,
     
     -- Air Quality metrics
     a.aqi_us as aqi_us,

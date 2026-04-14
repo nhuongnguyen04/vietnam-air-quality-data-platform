@@ -35,6 +35,14 @@ pivoted as (
         maxIf(value, parameter = 'no2')  as no2_value,
         maxIf(value, parameter = 'so2')  as so2_value,
         maxIf(value, parameter = 'o3')   as o3_value,
+
+        -- Sub-AQI Indices (Vietnam Standard)
+        maxIf(aqi_vn, parameter = 'pm25') as pm25_aqi,
+        maxIf(aqi_vn, parameter = 'pm10') as pm10_aqi,
+        maxIf(aqi_vn, parameter = 'co')   as co_aqi,
+        maxIf(aqi_vn, parameter = 'no2')  as no2_aqi,
+        maxIf(aqi_vn, parameter = 'so2')  as so2_aqi,
+        maxIf(aqi_vn, parameter = 'o3')   as o3_aqi,
         
         -- Dominant Pollutants
         argMax(parameter, aqi_us) as dominant_pollutant_us,

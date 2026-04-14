@@ -35,6 +35,14 @@ select
     round(avg(so2_value), 2)  as so2_avg,
     round(avg(o3_value), 2)   as o3_avg,
     
+    -- Sub-AQI Indices (Daily Averages)
+    round(avg(pm25_aqi), 1)  as pm25_aqi,
+    round(avg(pm10_aqi), 1)  as pm10_aqi,
+    round(avg(co_aqi), 1)    as co_aqi,
+    round(avg(no2_aqi), 1)   as no2_aqi,
+    round(avg(so2_aqi), 1)   as so2_aqi,
+    round(avg(o3_aqi), 1)    as o3_aqi,
+    
     -- Max Concentrations
     max(pm25_value) as pm25_max,
     max(pm10_value) as pm10_max,

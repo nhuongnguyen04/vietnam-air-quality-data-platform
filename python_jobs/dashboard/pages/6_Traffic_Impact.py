@@ -10,23 +10,39 @@ lang = st.session_state.lang
 
 st.title(t("traffic_title", lang))
 
+@st.cache_data(ttl=3600)
+def get_provinces():
+    q = "SELECT DISTINCT province FROM air_quality.dm_aqi_weather_traffic_unified ORDER BY province"
+    return query_df(q)["province"].tolist()
+
 @st.cache_data(ttl=300)
-def get_traffic_correlation():
-    q = """
+def get_traffic_correlation(province: str | None = None):
+    where_clause = f"WHERE province = '{province}'" if province else ""
+    q = f"""
     SELECT
-        datetime_hour,
-        province,
+        toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh') as datetime_hour,
+        { " 'National' as province " if not province else " province " },
         avg(congestion_index) as avg_congestion,
         avg(pm25) as avg_pm25,
         avg(co) as avg_co
     FROM air_quality.dm_aqi_weather_traffic_unified
-    WHERE datetime_hour >= now() - INTERVAL 7 DAY
+    {where_clause}
     GROUP BY datetime_hour, province
     ORDER BY datetime_hour
     """
     return query_df(q)
 
-df = get_traffic_correlation()
+# ── Filters ──────────────────────────────────────────────────────────────────
+provinces = get_provinces()
+national_label = "National" if lang == "en" else "Toàn quốc"
+selected_province = st.selectbox(
+    "Select Province/City" if lang == "en" else "Chọn tỉnh/thành phố",
+    options=[national_label] + provinces,
+    index=0,
+)
+province_arg = selected_province if selected_province != national_label else None
+
+df = get_traffic_correlation(province_arg)
 
 if not df.empty:
     # Top Metrics
@@ -56,13 +72,51 @@ if not df.empty:
 
     st.markdown("---")
     
-    # Chart 1: Time Series Correlation
+    # Chart 1: Time Series Correlation (Dual Y-Axis)
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
     timeseries_label = "Hourly Trend: Traffic & PM2.5" if lang == "en" else "Tương quan theo giờ: Giao thông & PM2.5"
     st.subheader(timeseries_label)
-    fig = px.line(df, x="datetime_hour", y=["avg_congestion", "avg_pm25"], 
-                 labels={"value": "Level", "datetime_hour": "Time"})
-    fig.update_layout(get_plotly_layout())
-    st.plotly_chart(fig, use_container_width=True)
+    
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Traffic (Line)
+    fig.add_trace(
+        go.Scatter(x=df.datetime_hour, y=df.avg_congestion, name=t("nav_traffic", lang),
+                  line=dict(color='#1f77b4', width=3)),
+        secondary_y=True,
+    )
+
+    # PM2.5 (Area)
+    fig.add_trace(
+        go.Scatter(x=df.datetime_hour, y=df.avg_pm25, name="PM2.5",
+                  fill='tozeroy', line=dict(color='#ff7f0e', width=2)),
+        secondary_y=False,
+    )
+
+    # Use a custom height and more generous margins
+    fig.update_layout(get_plotly_layout(height=400))
+    fig.update_layout(
+        margin=dict(l=60, r=60, t=80, b=100), # Increased bottom margin for dates
+        hovermode="x unified",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.05,  # Push legend further up
+            xanchor="center",
+            x=0.5    # Center the legend
+        )
+    )
+    
+    fig.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=False)
+    fig.update_yaxes(title_text=t("nav_traffic", lang), secondary_y=True, 
+                     range=[0, max(df.avg_congestion.max() * 1.2, 0.2)])
+    
+    # Ensure X-axis doesn't have a rangeslider and labels are clear
+    fig.update_xaxes(rangeslider_visible=False)
+    
+    st.plotly_chart(fig, use_container_width=True, config={'responsive': True, 'displayModeBar': False})
 
     # Chart 2: Scatter Plot
     analysis_label = "Correlation Depth Analysis" if lang == "en" else "Phân tích mức độ tương quan"
@@ -72,9 +126,10 @@ if not df.empty:
     fig_scatter = px.scatter(
         df, x="avg_congestion", y="avg_pm25", color="province",
         trendline="ols" if has_variance else None,
-        labels={"avg_congestion": "Congestion", "avg_pm25": "PM2.5"}
+        labels={"avg_congestion": t("nav_traffic", lang), "avg_pm25": "PM2.5"}
     )
-    fig_scatter.update_layout(get_plotly_layout())
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    fig_scatter.update_layout(get_plotly_layout(height=400))
+    fig_scatter.update_layout(margin=dict(l=50, r=50, t=50, b=50))
+    st.plotly_chart(fig_scatter, use_container_width=True, config={'displayModeBar': False})
 else:
     st.info(t("status_no_data", lang))

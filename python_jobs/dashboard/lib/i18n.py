@@ -28,7 +28,16 @@ TRANSLATIONS = {
         "theme_dark": "Tối",
         "lang_en": "Tiếng Anh",
         "lang_vi": "Tiếng Việt",
-        "standard_guidelines": "Hướng dẫn Tiêu chuẩn"
+        "standard_guidelines": "Hướng dẫn Tiêu chuẩn",
+        "chart_label_date": "Ngày",
+        "chart_label_aqi": "Chỉ số AQI",
+        "chart_label_variable": "Chất",
+        "pollutant_pm25": "PM2.5",
+        "pollutant_pm10": "PM10",
+        "pollutant_o3": "O3",
+        "pollutant_no2": "NO2",
+        "pollutant_so2": "SO2",
+        "pollutant_co": "CO"
     },
     "en": {
         "nav_overview": "Overview",
@@ -59,7 +68,16 @@ TRANSLATIONS = {
         "theme_dark": "Dark",
         "lang_en": "English",
         "lang_vi": "Vietnamese",
-        "standard_guidelines": "Standard Guidelines"
+        "standard_guidelines": "Standard Guidelines",
+        "chart_label_date": "Date",
+        "chart_label_aqi": "AQI Index",
+        "chart_label_variable": "Pollutant",
+        "pollutant_pm25": "PM2.5",
+        "pollutant_pm10": "PM10",
+        "pollutant_o3": "O3",
+        "pollutant_no2": "NO2",
+        "pollutant_so2": "SO2",
+        "pollutant_co": "CO"
     }
 }
 

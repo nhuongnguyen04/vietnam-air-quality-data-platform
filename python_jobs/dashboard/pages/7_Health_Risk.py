@@ -33,19 +33,38 @@ if not df.empty:
     with col1:
         render_metric_card(t("nav_health", lang) if lang=="en" else "Tỉnh rủi ro cao nhất", top_risk.province, icon="health")
     with col2:
-        render_metric_card(t("metric_active", lang) if lang=="en" else "Chỉ số Phơi nhiễm TB", f"{df.total_exposure_index_m.mean():.1f}M", icon="location_on")
+        # Use simple mean now that data is fixed, or filter out truly missing sensors (index > 0)
+        mean_val = df[df.total_exposure_index_m > 0].total_exposure_index_m.mean()
+        render_metric_card(t("metric_active", lang) if lang=="en" else "Chỉ số Phơi nhiễm TB", f"{mean_val:.1f}M", icon="location_on")
     with col3:
-        render_metric_card(t("metric_worst", lang) if lang=="en" else "Khu vực Nguy cơ cao", str(len(df[df.risk_category == 'High'])), icon="error")
+        render_metric_card(t("metric_worst", lang) if lang=="en" else "Khu vực Nguy cơ cao", str(len(df[df.risk_category == 'CRITICAL'])), icon="error")
 
     st.markdown("---")
     
     # Risk Distribution Bar Chart
     st.subheader(t("chart_top_polluted", lang) if lang=="en" else "Xếp hạng Rủi ro Quốc gia (theo Chỉ số Phơi nhiễm)")
-    fig = px.bar(df, x="total_exposure_index_m", y="province", color="risk_category",
+    
+    # Sort descending for better UX (highest impact at top)
+    df_plot = df.sort_values("total_exposure_index_m", ascending=True)
+    
+    fig = px.bar(df_plot, x="total_exposure_index_m", y="province", color="risk_category",
                 orientation='h',
-                color_discrete_map={"High": "#ff4b4b", "Moderate": "#ffa500", "Low": "#09ab3b"})
-    fig.update_layout(get_plotly_layout(height=600))
-    fig.update_layout(yaxis={'categoryorder':'total ascending'})
+                color_discrete_map={
+                    "CRITICAL": "#ff4b4b",  # Red
+                    "HIGH RISK": "#ffa500", # Orange
+                    "MODERATE": "#09ab3b",  # Green
+                    "LOW": "#3b82f6"        # Blue
+                })
+    
+    # Increased height to fit all 63 provinces and fixed labels
+    fig.update_layout(get_plotly_layout(height=1200))
+    fig.update_layout(
+        yaxis={
+            'categoryorder':'total ascending',
+            'dtick': 1  # Force every tick to show
+        },
+        margin=dict(l=150) # Extra space for long province names
+    )
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("No Health Risk data found in ClickHouse.")
