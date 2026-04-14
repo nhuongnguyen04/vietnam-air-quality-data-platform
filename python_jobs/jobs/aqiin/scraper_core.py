@@ -27,22 +27,17 @@ PROXY_URL = os.environ.get("PROXY_URL", "")
 API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
 # Token provided by user (valid until 2026-04-20)
 DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc3NjEyODg1NSwiZXhwIjoxNzc2NzMzNjU1fQ.SvCWKEgmBagGRy8sGMYuAYgNU_ZCKzp_BHqh7Hh6X0E"
-AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN", DEFAULT_TOKEN)
-
-# ─── Config ────────────────────────────────────────────────────────────
-API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
+AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN") or DEFAULT_TOKEN
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/120.0.0.0",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
 ]
 
-# Token provided by user (Should be set as AQIIN_TOKEN environment variable/secret)
-AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN", "")
-
-# Token cache to avoid hitting homepage every request
+# ─── State ─────────────────────────────────────────────────────────────
+# Token cache or other runtime state if needed
 _TOKEN_CACHE = None
 import threading
 _TOKEN_LOCK = threading.Lock()
@@ -56,18 +51,13 @@ def get_session_token() -> str:
 def get_headers():
     token = get_session_token()
     return {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
+        "AQIIN-TOKEN": token,
         "authorization": f"bearer {token}",
-        "Connection": "keep-alive",
-        "Host": "apiserver.aqi.in",
         "Origin": "https://www.aqi.in",
         "Referer": "https://www.aqi.in/",
-        "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
         "Sec-Fetch-Dest": "empty",
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-site",
@@ -109,8 +99,17 @@ class LocationData:
 def parse_api_json(data: dict, slug: str) -> LocationData:
     """Parse aqi.in API JSON response."""
     try:
-        if not data or data.get("status") != "success" or not data.get("data"):
-            return LocationData(station_name="Unknown", aqi=0, success=False, error="Invalid API response")
+        if not data or not isinstance(data, dict):
+             return LocationData(station_name="Unknown", aqi=0, success=False, error=f"Invalid API response level: {type(data)}")
+
+        if data.get("status") == "failed":
+            return LocationData(
+                station_name="Unknown", aqi=0, success=False, 
+                error=data.get("message", "API returned failed status")
+            )
+            
+        if not data.get("data") or len(data["data"]) == 0:
+            return LocationData(station_name="Unknown", aqi=0, success=False, error="No data records in response")
 
         entry = data["data"][0]
         iaqi = entry.get("iaqi", {})
@@ -159,38 +158,51 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
     time.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
     
     # Manually construct URL to prevent encoding of / to %2F in the slug
-    # Many API servers (including aqi.in) are picky about encoded slashes in query params
-    full_url = f"{API_ENDPOINT}?slug={location_id}&type=3&source=web"
-    
-    last_error = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            r = client.get(full_url, headers=get_headers(), timeout=REQUEST_TIMEOUT)
+    # We try type=3 first (City level), then fallback to type=4 (Station level) if 404
+    for current_type in (3, 4):
+        full_url = f"{API_ENDPOINT}?slug={location_id}&type={current_type}&source=web"
+        
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                r = client.get(full_url, headers=get_headers(), timeout=REQUEST_TIMEOUT)
 
-            if r.status_code == 200:
-                data = r.json()
-                return location_id, parse_api_json(data, location_id)
+                if r.status_code == 200:
+                    data = r.json()
+                    # If success is false in the JSON even with HTTP 200, it might be a 'No data found' message
+                    if isinstance(data, dict) and data.get("status") == "failed" and current_type == 3:
+                        logger.debug(f"[{location_id}] Type 3 failed (failed status), will try Type 4")
+                        break # Break retry loop to try next type
 
-            elif r.status_code in (403, 429):
-                cool_down = 30 + random.uniform(0, 30) if attempt > 0 else (5 + random.uniform(0, 5))
-                logger.warning(f"[{location_id}] HTTP {r.status_code} on attempt {attempt + 1}. Cooling down {cool_down:.1f}s")
-                time.sleep(cool_down)
-                last_error = f"Rate limited: {r.status_code}"
-                continue
+                    return location_id, parse_api_json(data, location_id)
 
-            if r.status_code == 401:
-                logger.error("401 Unauthorized: The Bearer Token has likely expired or is invalid.")
-            elif r.status_code == 403:
-                logger.error("403 Forbidden: IP blocked or Cloudflare challenge triggered.")
-            elif r.status_code == 429:
-                logger.error("429 Too Many Requests: Rate limit exceeded.")
-            else:
-                logger.error(f"HTTP Error {r.status_code} for path {location_id}. Response: {r.text[:200]}")
-            return location_id, LocationData(station_name="Unknown", aqi=0, success=False, error=str(r.status_code))
+                elif r.status_code == 404 and current_type == 3:
+                    # Potential station level slug, try type 4 next
+                    break
 
-        except Exception as e:
-            last_error = str(e)
-            time.sleep(2)
+                elif r.status_code in (403, 429):
+                    cool_down = 30 + random.uniform(0, 30) if attempt > 0 else (5 + random.uniform(0, 5))
+                    logger.warning(f"[{location_id}] HTTP {r.status_code} on attempt {attempt + 1}. Cooling down {cool_down:.1f}s")
+                    time.sleep(cool_down)
+                    last_error = f"Rate limited: {r.status_code}"
+                    continue
+
+                if r.status_code == 401:
+                    logger.error("401 Unauthorized: The Bearer Token has likely expired or is invalid.")
+                elif r.status_code == 403:
+                    logger.error("403 Forbidden: IP blocked or Cloudflare challenge triggered.")
+                elif r.status_code == 429:
+                    logger.error("429 Too Many Requests: Rate limit exceeded.")
+                else:
+                    logger.error(f"HTTP Error {r.status_code} for path {location_id}. Response: {r.text[:200]}")
+                return location_id, LocationData(station_name="Unknown", aqi=0, success=False, error=str(r.status_code))
+
+            except Exception as e:
+                last_error = str(e)
+                time.sleep(2)
+        
+        # If we reached here because of a 404 or a 'failed' status in Type 3, the outer loop continues to Type 4
+        # If Type 4 also fails or we have a hard error, the inside return or finally the loop exit handles it.
 
     return location_id, LocationData(
         station_name="Unknown", aqi=0, success=False, 

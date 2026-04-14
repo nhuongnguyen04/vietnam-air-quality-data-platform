@@ -111,9 +111,8 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
 
 def create_progress_callback(logger: logging.Logger):
     def callback(finished: int, total: int, sid: str, result: LocationData):
-        if finished % 10 == 0 or finished == total:
-            status = "✅" if result.success else "❌"
-            logger.info(f"[{finished}/{total}] {status} {sid}: AQI={result.aqi}")
+        status = "✅" if result.success else "❌"
+        logger.info(f"[{finished}/{total}] {status} {sid}: AQI={result.aqi}")
     return callback
 
 def load_locations(limit: int = None) -> List[str]:
