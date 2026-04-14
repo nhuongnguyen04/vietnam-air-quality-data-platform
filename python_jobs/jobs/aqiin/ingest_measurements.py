@@ -26,9 +26,9 @@ from jobs.aqiin.scraper_core import (
 )
 
 # ─── Config ────────────────────────────────────────────────────────────
-BATCH_SIZE = 100
-BATCH_DELAY = 0.5
-WORKERS = 5
+BATCH_SIZE = 20
+BATCH_DELAY = 1.0
+WORKERS = 1
 LOCATIONS_FILE = Path(__file__).parent / "vietnam_locations.txt"
 
 # ─── ClickHouse Writer ───────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ def write_to_clickhouse(results: List[LocationData], batch_id: str):
 
 def create_progress_callback(logger: logging.Logger):
     def callback(finished: int, total: int, sid: str, result: LocationData):
-        if finished % 50 == 0 or finished == total:
+        if finished % 10 == 0 or finished == total:
             status = "✅" if result.success else "❌"
             logger.info(f"[{finished}/{total}] {status} {sid}: AQI={result.aqi}")
     return callback
@@ -136,7 +136,20 @@ async def run(mode: str, limit: int):
     )
     
     n_m = write_to_clickhouse(results, batch_id)
-    return {"successful": sum(1 for sid, r in results if r.success), "total": len(paths), "records": n_m}
+    
+    # GHA Notice for API monitoring
+    successful = sum(1 for sid, r in results if r.success)
+    failed = len(results) - successful
+    token_expired = any(r.error and "Token expired" in str(r.error) for sid, r in results)
+    
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        status_msg = "✅ Success" if failed == 0 else f"⚠️ {failed} failed"
+        if token_expired:
+            status_msg = "❌ TOKEN EXPIRED"
+            
+        print(f"::notice::AQI.in API Ingestion: {status_msg} ({successful}/{len(results)} stations), {n_m} records added")
+    
+    return {"successful": successful, "total": len(results), "records": n_m}
 
 def main():
     parser = argparse.ArgumentParser()

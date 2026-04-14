@@ -23,6 +23,7 @@ from typing import List, Optional
 import httpx
 
 # ─── Config ────────────────────────────────────────────────────────────
+PROXY_URL = os.environ.get("PROXY_URL", "")
 API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
 # Token provided by user (valid until 2026-04-20)
 DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc3NjEyODg1NSwiZXhwIjoxNzc2NzMzNjU1fQ.SvCWKEgmBagGRy8sGMYuAYgNU_ZCKzp_BHqh7Hh6X0E"
@@ -157,16 +158,14 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
     # Polite delay
     time.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
     
-    params = {
-        "slug": location_id,
-        "type": "3",
-        "source": "web"
-    }
+    # Manually construct URL to prevent encoding of / to %2F in the slug
+    # Many API servers (including aqi.in) are picky about encoded slashes in query params
+    full_url = f"{API_ENDPOINT}?slug={location_id}&type=3&source=web"
     
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
-            r = client.get(API_ENDPOINT, params=params, headers=get_headers(), timeout=REQUEST_TIMEOUT)
+            r = client.get(full_url, headers=get_headers(), timeout=REQUEST_TIMEOUT)
 
             if r.status_code == 200:
                 data = r.json()
@@ -179,13 +178,15 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
                 last_error = f"Rate limited: {r.status_code}"
                 continue
 
-            elif r.status_code == 401:
-                logger.error("401 Unauthorized: The Bearer Token has likely expired.")
-                return location_id, LocationData(station_name="Unknown", aqi=0, success=False, error="Token expired")
-
+            if r.status_code == 401:
+                logger.error("401 Unauthorized: The Bearer Token has likely expired or is invalid.")
+            elif r.status_code == 403:
+                logger.error("403 Forbidden: IP blocked or Cloudflare challenge triggered.")
+            elif r.status_code == 429:
+                logger.error("429 Too Many Requests: Rate limit exceeded.")
             else:
-                last_error = f"HTTP {r.status_code}"
-                time.sleep(2)
+                logger.error(f"HTTP Error {r.status_code} for path {location_id}. Response: {r.text[:200]}")
+            return location_id, LocationData(station_name="Unknown", aqi=0, success=False, error=str(r.status_code))
 
         except Exception as e:
             last_error = str(e)
@@ -200,11 +201,14 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
 # ─── Public APIs ────────────────────────────────────────────────────────
 
 def scrape_urls_sync(url_paths: List[str], workers: int = WORKERS, progress_callback=None) -> List[tuple]:
+    """Scrape URLs synchronously with Proxy support and stabilized settings."""
     results = []
     total = len(url_paths)
 
     def fetch_with_own_client(path: str) -> tuple:
-        with httpx.Client(http2=True, timeout=REQUEST_TIMEOUT) as client:
+        proxy = PROXY_URL if PROXY_URL else None
+        # Disable http2 for better compatibility with free proxies (avoid 400 Bad Request)
+        with httpx.Client(http2=False, timeout=REQUEST_TIMEOUT, proxy=proxy) as client:
             return fetch_one(path, client)
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
