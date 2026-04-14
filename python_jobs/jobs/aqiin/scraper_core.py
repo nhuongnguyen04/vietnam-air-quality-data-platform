@@ -1,59 +1,111 @@
 #!/usr/bin/env python3
 """
-AQI.in Widget Scraper — Core Engine (v2 - HTTPX Optimized).
+AQI.in API Scraper — Core Engine (v3 - JSON API Optimized).
 
-🎯 KEY DISCOVERY: Widget URLs bypass Cloudflare completely!
-→ httpx only — no Playwright needed
-→ 540 URLs × 0.1-0.2s avg = ~15-30 seconds total
-→ 0 Cloudflare challenge, full data (AQI + 6 pollutants + weather)
+🎯 KEY DISCOVERY: The official JSON API provides richer data and is more stable than widgets.
+→ httpx + JSON parsing
+→ Faster, lower bandwidth
+→ Full data (AQI + pollutants + detailed weather + lat/long)
 
 Usage:
     from scraper_core import scrape_urls_sync, scrape_urls_async, scrape_in_batches
 """
 
-import base64
-import json
 import logging
 import random
 import time
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import List, Optional
 
 import httpx
-from bs4 import BeautifulSoup
+
+# ─── Config ────────────────────────────────────────────────────────────
+API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
+# Token provided by user (valid until 2026-04-20)
+DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc3NjEyODg1NSwiZXhwIjoxNzc2NzMzNjU1fQ.SvCWKEgmBagGRy8sGMYuAYgNU_ZCKzp_BHqh7Hh6X0E"
+AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN", DEFAULT_TOKEN)
+
+# ─── Config ────────────────────────────────────────────────────────────
+API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/121.0.6167.160 Mobile/15E148 Safari/604.1"
 ]
 
+# Token provided by user (Should be set as AQIIN_TOKEN environment variable/secret)
+AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN", "")
+
+# Token cache to avoid hitting homepage every request
+_TOKEN_CACHE = None
+
+def get_session_token() -> str:
+    """Automated token extraction from aqi.in homepage."""
+    global _TOKEN_CACHE
+    if _TOKEN_CACHE:
+        return _TOKEN_CACHE
+        
+    try:
+        logger.info("Attempting to fetch fresh session token from aqi.in homepage...")
+        # Use more realistic browser-like headers for the homepage fetch
+        headers = {
+            "User-Agent": random.choice(USER_AGENTS),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "max-age=0",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1"
+        }
+        
+        with httpx.Client(timeout=15.0, follow_redirects=True) as client:
+            r = client.get("https://www.aqi.in/", headers=headers)
+            r.raise_for_status()
+            
+            # Extract token2 using regex (flexible for escaped or non-escaped quotes)
+            import re
+            match = re.search(r'token2\\?":\\?"(eyJhbGci[^\\"]+)', r.text)
+            if match:
+                _TOKEN_CACHE = match.group(1)
+                logger.info("Successfully acquired fresh token from homepage.")
+                return _TOKEN_CACHE
+            else:
+                logger.error(f"Token pattern not found in HTML. Check if site structure changed.")
+                raise Exception("Token pattern not found in HTML")
+                
+    except Exception as e:
+        logger.warning(f"Auto-refresh failed: {e}. Falling back to default token.")
+        # Fallback to the latest known token
+        return AQIIN_TOKEN
+
 def get_headers():
+    token = get_session_token()
     return {
         "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Authorization": f"Bearer {token}",
+        "Origin": "https://www.aqi.in",
+        "Referer": "https://www.aqi.in/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
         "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Referer": "https://www.aqi.in/vi/dashboard/",
     }
 
 logger = logging.getLogger(__name__)
 
-# ─── Config ────────────────────────────────────────────────────────────
-MAX_CONCURRENT = 2
+MAX_RETRIES = 3
 REQUEST_TIMEOUT = 15.0
 REQUEST_DELAY_MIN = 0.3
-REQUEST_DELAY_MAX = 1.0
-MAX_RETRIES = 3
+REQUEST_DELAY_MAX = 0.8
 WORKERS = 2
 
 # ─── Dataclasses ────────────────────────────────────────────────────────
@@ -62,181 +114,120 @@ WORKERS = 2
 class PollutantReading:
     parameter: str   # pm25, pm10, co, so2, no2, o3
     value: float
-    unit: str        # µg/m³, ppb
+    unit: str
 
 @dataclass
 class LocationData:
     station_name: str
     aqi: int
-    aqi_status: str = ""
     timestamp_utc: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_local: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     temperature: Optional[float] = None
     humidity: Optional[float] = None
-    wind_speed: Optional[float] = None
     pollutants: List[PollutantReading] = field(default_factory=list)
     raw_payload: str = ""
     success: bool = True
     error: Optional[str] = None
 
 
-# ─── Widget URL Generator ─────────────────────────────────────────────
+# ─── API Parser ────────────────────────────────────────────────────────
 
-def generate_widget_url(location_path: str) -> str:
-    """
-    Generate AQI.in widget URL for a Vietnam location.
-    location_path: 'ha-noi/hanoi' or full dashboard path
-    """
-    path = location_path
-    if 'dashboard/' in path:
-        path = path.split('dashboard/')[-1]
-        
-    config = {
-        "o_w": 1, "o_w_t_u": "c", "o_t": "l", "o_a_s": "us", "w_t_i": 2,
-        "ls": [{"s": path}]
-    }
-    encoded = base64.b64encode(json.dumps(config, separators=(',', ':')).encode()).decode()
-    return f"https://www.aqi.in/widget?p={encoded}"
-
-
-# ─── HTML Parser ────────────────────────────────────────────────────────
-
-def parse_widget_html(html: str, station_id: str, url: str = "") -> LocationData:
-    """Parse AQI.in widget HTML → extract AQI + 6 pollutants + weather."""
-    soup = BeautifulSoup(html, 'html.parser')
-    now = datetime.now(timezone.utc)
-
-    station_name = "Unknown"
-    aqi = 0
-    temperature = None
-    humidity = None
-    pollutants: List[PollutantReading] = []
-
+def parse_api_json(data: dict, slug: str) -> LocationData:
+    """Parse aqi.in API JSON response."""
     try:
-        # 1. Station name only
-        loc_elem = soup.select_one('header p.line-clamp-2')
-        if loc_elem:
-            station_name = loc_elem.get_text(strip=True)
+        if not data or data.get("status") != "success" or not data.get("data"):
+            return LocationData(station_name="Unknown", aqi=0, success=False, error="Invalid API response")
 
-        # 2. AQI value
-        aqi_elem = soup.find('span', class_=lambda c: c and 'text-[3.5em]' in c)
-        if aqi_elem:
-            text = aqi_elem.get_text(strip=True)
-            if text.isdigit():
-                aqi = int(text)
+        entry = data["data"][0]
+        iaqi = entry.get("iaqi", {})
+        weather = entry.get("weather", {})
+        
+        # Pollutants
+        pollutants = []
+        # Mapping API keys to our internal parameter names
+        mapping = {
+            "pm25": "pm25", "pm10": "pm10", "co": "co", 
+            "so2": "so2", "no2": "no2", "o3": "o3"
+        }
+        
+        for api_key, internal_name in mapping.items():
+            if api_key in iaqi:
+                # API usually returns CO in ppm and others in µg/m³ or ppb
+                unit = 'ppm' if internal_name == 'co' else ('µg/m³' if 'pm' in internal_name else 'ppb')
+                pollutants.append(PollutantReading(
+                    parameter=internal_name, 
+                    value=float(iaqi[api_key]), 
+                    unit=unit
+                ))
 
-        # 3. Pollutants - Precise div-based approach
-        for div in soup.select('div.flex.flex-col.items-center.justify-center'):
-            name_span = div.select_one('span.opacity-60')
-            val_span = div.select_one('span.truncate')
-            if not (name_span and val_span):
-                continue
-                
-            name = name_span.get_text(strip=True).upper()
-            val_text = val_span.get_text(strip=True)
-            param = None
-            
-            if "CO" == name: param = "co"
-            elif "NO2" in name or "NO₂" in name: param = "no2"
-            elif "O3" in name or "O₃" in name: param = "o3"
-            elif "SO2" in name or "SO₂" in name: param = "so2"
-            elif "PM10" in name or "PM₁₀" in name: param = "pm10"
-            elif "PM2.5" in name or "PM₂.₅" in name: param = "pm25"
-            
-            if param:
-                try:
-                    # Extracts number from "228ppb" or "9µg/m³"
-                    # We look for the first part that is numeric-ish
-                    import re
-                    match = re.search(r"([0-9.,]+)", val_text)
-                    if match:
-                        val = float(match.group(1).replace(',', ''))
-                        unit = val_text.replace(match.group(1), '').strip()
-                        pollutants.append(PollutantReading(parameter=param, value=val, unit=unit))
-                except (ValueError, IndexError):
-                    continue
-
-        # 4. Weather 
-        # Pattern: span with 'font-bold' containing °C or %
-        for w_span in soup.find_all('span', class_=lambda c: c and 'font-bold' in c):
-            text = w_span.get_text(strip=True)
-            try:
-                if '°C' in text:
-                    temperature = float(text.replace('°C', '').strip())
-                elif '%' in text:
-                    humidity = float(text.replace('%', '').strip())
-            except ValueError:
-                pass
+        return LocationData(
+            station_name=entry.get("station", "Unknown"),
+            aqi=iaqi.get("aqi", 0),
+            latitude=entry.get("latitude"),
+            longitude=entry.get("longitude"),
+            temperature=weather.get("temp_c"),
+            humidity=weather.get("humidity"),
+            pollutants=pollutants,
+            raw_payload=str(data),
+            success=True
+        )
 
     except Exception as e:
-        logger.warning(f"Parse error for {station_id}: {e}")
+        logger.error(f"Error parsing JSON for {slug}: {e}")
+        return LocationData(station_name="Unknown", aqi=0, success=False, error=f"Parse error: {e}")
 
-    success = aqi > 0
-    return LocationData(
-        station_name=station_name,
-        aqi=aqi,
-        timestamp_utc=now,
-        temperature=temperature,
-        humidity=humidity,
-        pollutants=pollutants,
-        raw_payload=html,
-        success=success,
-        error=None if success else "No AQI data found"
-    )
 
-# ─── Fetcher Config ────────────────────────────────────────────────────────
+# ─── Fetcher ───────────────────────────────────────────────────────────
 
 def fetch_one(location_id: str, client: httpx.Client) -> tuple:
-    """Fetch AQI data for one location, with exponential backoff retry on 403/429."""
-    # 1. Add randomized polite delay
+    """Fetch AQI data for one location using JSON API."""
+    # Polite delay
     time.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
     
-    url = generate_widget_url(location_id)
+    params = {
+        "slug": location_id,
+        "type": "3",
+        "source": "web"
+    }
+    
     last_error = None
-
     for attempt in range(MAX_RETRIES):
         try:
-            r = client.get(url, headers=get_headers(), timeout=REQUEST_TIMEOUT)
+            r = client.get(API_ENDPOINT, params=params, headers=get_headers(), timeout=REQUEST_TIMEOUT)
 
             if r.status_code == 200:
-                return location_id, parse_widget_html(r.text, location_id, url=url)
+                data = r.json()
+                return location_id, parse_api_json(data, location_id)
 
             elif r.status_code in (403, 429):
-                # 2. Substantial cool-down for rate limits
-                # First attempt: short backoff, Second+: long wait (30-60s)
                 cool_down = 30 + random.uniform(0, 30) if attempt > 0 else (5 + random.uniform(0, 5))
-                logger.warning(
-                    f"[{location_id}] HTTP {r.status_code} on attempt {attempt + 1}/{MAX_RETRIES}, "
-                    f"cooling down {cool_down:.1f}s"
-                )
+                logger.warning(f"[{location_id}] HTTP {r.status_code} on attempt {attempt + 1}. Cooling down {cool_down:.1f}s")
                 time.sleep(cool_down)
                 last_error = f"Rate limited: {r.status_code}"
-                continue  # retry
+                continue
+
+            elif r.status_code == 401:
+                logger.error("401 Unauthorized: The Bearer Token has likely expired.")
+                return location_id, LocationData(station_name="Unknown", aqi=0, success=False, error="Token expired")
 
             else:
-                raise Exception(f"HTTP {r.status_code}")
+                last_error = f"HTTP {r.status_code}"
+                time.sleep(2)
 
         except Exception as e:
             last_error = str(e)
-            if attempt < MAX_RETRIES - 1:
-                time.sleep((2 ** attempt) + random.uniform(0, 0.5))
+            time.sleep(2)
 
-    # All retries exhausted
     return location_id, LocationData(
-        station_name="Unknown",
-        aqi=0,
-        success=False,
-        error=f"Failed after {MAX_RETRIES} retries: {last_error}",
-        raw_payload=str(last_error),
+        station_name="Unknown", aqi=0, success=False, 
+        error=f"Failed after {MAX_RETRIES} retries: {last_error}"
     )
+
 
 # ─── Public APIs ────────────────────────────────────────────────────────
 
 def scrape_urls_sync(url_paths: List[str], workers: int = WORKERS, progress_callback=None) -> List[tuple]:
-    """Scrape URLs synchronously. Each thread gets its own httpx.Client to avoid
-    HTTP/2 connection sharing (which triggers 403 from AQI.in WAF)."""
     results = []
     total = len(url_paths)
 
@@ -264,10 +255,11 @@ def scrape_in_batches(url_paths: List[str], batch_size: int = 20, batch_delay: f
     return all_results
 
 if __name__ == "__main__":
-    test_paths = ["ha-noi/hanoi", "ho-chi-minh/ho-chi-minh-city"]
-    print(f"Testing scraper for {test_paths}...")
+    test_paths = ["vietnam/hanoi/chuong-my", "vietnam/ha-noi/hanoi/hanoi-us-embassy"]
+    print(f"Testing JSON API scraper for {test_paths}...")
     results = scrape_urls_sync(test_paths)
     for sid, r in results:
-        print(f"\n[{'✅' if r.success else '❌'}] {r.station_name} (ID: {sid}, AQI: {r.aqi})")
+        print(f"\n[{'✅' if r.success else '❌'}] {r.station_name} (AQI: {r.aqi})")
         print(f"Pollutants: {[(p.parameter, p.value) for p in r.pollutants]}")
         print(f"Weather: {r.temperature}°C, {r.humidity}%")
+        print(f"Coords: {r.latitude}, {r.longitude}")
