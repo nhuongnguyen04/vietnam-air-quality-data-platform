@@ -71,10 +71,11 @@ def inject_style():
             -webkit-backdrop-filter: {glass_blur};
             border: 1px solid {border_color};
             border-radius: 16px;
-            padding: 1.2rem;
+            padding: 1rem;
             margin-bottom: 1.5rem;
             box-shadow: {shadow};
             animation: fadeIn 0.4s ease-out;
+            overflow: hidden;
         }}
 
         .glass-card:hover {{
@@ -91,15 +92,15 @@ def inject_style():
         .metric-card {{
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 0.5rem 0;
+            gap: 0.8rem;
+            padding: 0.2rem 0;
         }}
         .metric-icon {{
             background: {bg_color};
             border: 1px solid {border_color};
             border-radius: 12px;
-            width: 48px;
-            height: 48px;
+            width: 42px;
+            height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -107,18 +108,55 @@ def inject_style():
         }}
         .metric-icon svg {{
             fill: {text_color};
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
         }}
         .metric-value {{
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
             line-height: 1.1;
         }}
         .metric-label {{
-            font-size: 0.9rem;
-            opacity: 0.7;
+            font-size: 0.85rem;
+            font-weight: 600;
+            opacity: 0.8;
             margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+
+        /* ── City Metric (Special Dual Value) ────────────── */
+        .city-card {{
+            padding: 0.8rem;
+        }}
+        .city-name {{
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }}
+        .city-main-val {{
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1;
+        }}
+        .city-sub-row {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 6px;
+            font-size: 0.75rem;
+        }}
+        .city-badge {{
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 600;
+        }}
+        .city-sub-label {{
+            opacity: 0.6;
         }}
 
         /* ── Buttons ────────────────────────────────────── */
@@ -177,6 +215,26 @@ def render_metric_card(label, value, delta=None, delta_color="normal", icon=None
                     <div class="metric-label">{label}</div>
                     <div class="metric-value">{value}</div>
                 </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+def render_city_metric(city_name, avg_aqi, hotspot_aqi, label_avg="Avg", label_hotspot="Hotspot"):
+    """Render a compact city-specific AQI metric card with dual values."""
+    theme = st.session_state.get("theme", "light")
+    badge_bg = "rgba(239, 68, 68, 0.15)"
+    badge_color = "#f87171" if theme == "dark" else "#ef4444"
+
+    st.markdown(f"""
+        <div class="glass-card city-card">
+            <div class="city-name">{city_name}</div>
+            <div class="city-sub-label">{label_avg}</div>
+            <div class="city-main-val">{avg_aqi}</div>
+            <div class="city-sub-row">
+                <span style="background: {badge_bg}; color: {badge_color}; padding: 2px 6px; border-radius: 6px; font-weight: 600;">
+                    ↑ {hotspot_aqi}
+                </span>
+                <span class="city-sub-label">{label_hotspot}</span>
             </div>
         </div>
     """, unsafe_allow_html=True)

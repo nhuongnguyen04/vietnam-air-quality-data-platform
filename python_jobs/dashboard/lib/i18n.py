@@ -37,7 +37,8 @@ TRANSLATIONS = {
         "pollutant_o3": "O3",
         "pollutant_no2": "NO2",
         "pollutant_so2": "SO2",
-        "pollutant_co": "CO"
+        "pollutant_co": "CO",
+        "province": "Tỉnh thành"
     },
     "en": {
         "nav_overview": "Overview",
@@ -77,7 +78,8 @@ TRANSLATIONS = {
         "pollutant_o3": "O3",
         "pollutant_no2": "NO2",
         "pollutant_so2": "SO2",
-        "pollutant_co": "CO"
+        "pollutant_co": "CO",
+        "province": "Province/City"
     }
 }
 
