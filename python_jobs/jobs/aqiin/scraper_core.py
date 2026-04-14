@@ -81,23 +81,29 @@ def get_session_token() -> str:
                 raise Exception("Token pattern not found in HTML")
                 
     except Exception as e:
-        logger.warning(f"Auto-refresh failed: {e}. Falling back to default token.")
-        # Fallback to the latest known token
-        return AQIIN_TOKEN
+        logger.warning(f"Auto-refresh failed: {e}. Falling back to default token for this session.")
+        # Cache the fallback token so we don't spam the homepage for every station
+        _TOKEN_CACHE = AQIIN_TOKEN
+        return _TOKEN_CACHE
 
 def get_headers():
     token = get_session_token()
     return {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "en-US,en;q=0.9",
         "Authorization": f"Bearer {token}",
+        "Connection": "keep-alive",
+        "Host": "apiserver.aqi.in",
         "Origin": "https://www.aqi.in",
         "Referer": "https://www.aqi.in/",
+        "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
         "Sec-Fetch-Dest": "empty",
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-site",
-        "Connection": "keep-alive",
     }
 
 logger = logging.getLogger(__name__)
