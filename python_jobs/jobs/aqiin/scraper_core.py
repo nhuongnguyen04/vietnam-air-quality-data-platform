@@ -190,6 +190,9 @@ def parse_widget_html(html: str, station_id: str, url: str = "") -> LocationData
 
 def fetch_one(location_id: str, client: httpx.Client) -> tuple:
     """Fetch AQI data for one location, with exponential backoff retry on 403/429."""
+    # 1. Add randomized polite delay
+    time.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
+    
     url = generate_widget_url(location_id)
     last_error = None
 
@@ -201,12 +204,14 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
                 return location_id, parse_widget_html(r.text, location_id, url=url)
 
             elif r.status_code in (403, 429):
-                backoff = (2 ** attempt) + random.uniform(0, 1)
+                # 2. Substantial cool-down for rate limits
+                # First attempt: short backoff, Second+: long wait (30-60s)
+                cool_down = 30 + random.uniform(0, 30) if attempt > 0 else (5 + random.uniform(0, 5))
                 logger.warning(
                     f"[{location_id}] HTTP {r.status_code} on attempt {attempt + 1}/{MAX_RETRIES}, "
-                    f"backing off {backoff:.1f}s"
+                    f"cooling down {cool_down:.1f}s"
                 )
-                time.sleep(backoff)
+                time.sleep(cool_down)
                 last_error = f"Rate limited: {r.status_code}"
                 continue  # retry
 
