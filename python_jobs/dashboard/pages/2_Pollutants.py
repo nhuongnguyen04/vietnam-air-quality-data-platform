@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from lib.clickhouse_client import query_df
 from lib.style import get_plotly_layout
+from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -22,6 +23,9 @@ def get_provinces():
 
 @st.cache_data(ttl=300)
 def get_pollutant_trend(days: int, province: str | None):
+    provinces = get_provinces()
+    if province and province not in provinces:
+        province = None
     where_clause = f"AND province = '{province}'" if province else ""
     q = f"""
     SELECT
@@ -42,6 +46,9 @@ def get_pollutant_trend(days: int, province: str | None):
 
 @st.cache_data(ttl=300)
 def get_compliance_status(days: int, province: str | None):
+    provinces = get_provinces()
+    if province and province not in provinces:
+        province = None
     where_clause = f"AND province = '{province}'" if province else ""
     q = f"""
     SELECT
@@ -122,8 +129,8 @@ if not trend.empty:
     )
     
     st.plotly_chart(fig, use_container_width=True)
-
-# ── Row 2: Compliance (Full Width) ───────────────────────────────────────────
+else:
+    st.plotly_chart(render_empty_chart("Không có dữ liệu xu hướng chất ô nhiễm trong khoảng thời gian đã chọn."), use_container_width=True)
 st.subheader(t("status_title", lang) if lang=="en" else "Tuân thủ tiêu chuẩn")
 compliance = get_compliance_status(days, province_arg)
 if not compliance.empty:
@@ -144,4 +151,4 @@ if not compliance.empty:
     )
     st.plotly_chart(fig_comp, use_container_width=True)
 else:
-    st.info("No compliance data for the selected range.")
+    st.plotly_chart(render_empty_chart("Không có dữ liệu tuân thủ tiêu chuẩn."), use_container_width=True)

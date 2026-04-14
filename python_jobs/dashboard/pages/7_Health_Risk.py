@@ -1,6 +1,7 @@
 import streamlit as st
 from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout
+from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
 import plotly.express as px
 
@@ -67,4 +68,4 @@ if not df.empty:
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning("No Health Risk data found in ClickHouse.")
+    st.plotly_chart(render_empty_chart("Không có dữ liệu rủi ro sức khỏe."), use_container_width=True)

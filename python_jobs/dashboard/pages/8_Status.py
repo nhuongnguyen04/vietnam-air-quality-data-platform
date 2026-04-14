@@ -1,6 +1,7 @@
 import streamlit as st
 from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout
+from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
 import plotly.express as px
 
@@ -49,4 +50,4 @@ if not df.empty:
     fig.update_layout(get_plotly_layout())
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning("No Health/Latency data found in ClickHouse.")
+    st.plotly_chart(render_empty_chart("Không có dữ liệu độ trễ hệ thống."), use_container_width=True)

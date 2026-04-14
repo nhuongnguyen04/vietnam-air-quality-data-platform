@@ -4,31 +4,34 @@ from lib.i18n import t
 def inject_style():
     """Inject custom CSS for premium UI look and feel."""
     theme = st.session_state.get("theme", "light")
-    
+
     if theme == "dark":
-        bg_color = "#0e1117"
-        text_color = "#f0f2f6"
-        card_bg = "rgba(17, 25, 40, 0.75)"
-        border_color = "rgba(255, 255, 255, 0.1)"
-        sidebar_bg = "#111b21"
-        shadow = "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
+        bg_color = "#020617"
+        text_color = "#cbd5e1"
+        card_bg = "rgba(15,23,42,0.6)"
+        border_color = "rgba(255,255,255,0.08)"
+        sidebar_bg = "#0f172a"
+        shadow = "0 8px 32px 0 rgba(0,0,0,0.4)"
+        glass_blur = "blur(16px)"
     else:
-        bg_color = "#f8f9fb"
-        text_color = "#1e293b"
-        card_bg = "rgba(255, 255, 255, 0.8)"
-        border_color = "rgba(226, 232, 240, 0.8)"
+        bg_color = "#f8fafb"
+        text_color = "#0f172a"
+        card_bg = "rgba(255,255,255,0.7)"
+        border_color = "rgba(226,232,240,0.8)"
         sidebar_bg = "#ffffff"
-        shadow = "0 8px 32px 0 rgba(31, 38, 135, 0.07)"
+        shadow = "0 8px 32px 0 rgba(31,38,135,0.07)"
+        glass_blur = "blur(12px)"
 
     st.markdown(f"""
     <style>
         /* ── Base Styles ─────────────────────────────────── */
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
         html, body, [data-testid="stAppViewContainer"], .stMarkdown {{
-            font-family: 'Montserrat', sans-serif !important;
+            font-family: 'Inter', sans-serif !important;
             background-color: {bg_color};
             color: {text_color};
+            transition: background-color 0.3s ease, color 0.3s ease;
         }}
 
         header[data-testid="stHeader"] {{ visibility: hidden; height: 0; }}
@@ -60,17 +63,28 @@ def inject_style():
         [data-testid="stHorizontalBlock"] {{
             align-items: center;
         }}
-        
+
         /* ── Glass Card & Charts ─────────────────────────── */
         .glass-card, .stPlotlyChart {{
             background: {card_bg};
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: {glass_blur};
+            -webkit-backdrop-filter: {glass_blur};
             border: 1px solid {border_color};
             border-radius: 16px;
             padding: 1.2rem;
             margin-bottom: 1.5rem;
             box-shadow: {shadow};
+            animation: fadeIn 0.4s ease-out;
+        }}
+
+        .glass-card:hover {{
+            box-shadow: 0 12px 40px rgba(31,38,135,0.12);
+            transition: box-shadow 0.3s ease;
+        }}
+
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(8px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
         }}
 
         /* ── Metric Card ─────────────────────────────────── */
@@ -113,6 +127,10 @@ def inject_style():
             font-weight: 600 !important;
             transition: all 0.2s ease;
         }}
+        .stButton > button:hover {{
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -120,15 +138,15 @@ def render_top_bar():
     """Render a persistent top bar for theme and language toggles on one row, aligned right."""
     theme = st.session_state.get("theme", "light")
     lang = st.session_state.get("lang", "vi")
-    
+
     # Use columns to align right and keep on one row
     c1, spacer, c2, c3 = st.columns([0.6, 0.2, 0.1, 0.1])
-    
+
     with c2:
         if st.button("🌙" if theme == "light" else "☀️", key="theme_toggle"):
             st.session_state.theme = "dark" if theme == "light" else "light"
             st.rerun()
-            
+
     with c3:
         if st.button("EN" if lang == "vi" else "VI", key="lang_toggle"):
             st.session_state.lang = "en" if lang == "vi" else "vi"
@@ -148,9 +166,9 @@ def render_metric_card(label, value, delta=None, delta_color="normal", icon=None
         "humidity_percentage": '<path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm2.42 13.84c-.39.11-.79-.12-.9-.51-.11-.39.12-.79.51-.9.51-.14.8-.62.8-1.2 0-.66-.54-1.2-1.2-1.2s-1.2.54-1.2 1.2c0 .35-.14.67-.37.9-.23.23-.55.37-.9.37-.35 0-.67-.14-.9-.37-.23-.23-.37-.55-.37-.9 0-1.99 1.61-3.6 3.6-3.6s3.6 1.61 3.6 3.6c0 1.25-.66 2.32-1.77 2.61z"/>',
         "air": '<path d="M13.96 12.29l.75-2.12c.11-.3.40-.51.72-.51h3.57v2h-2.92l-.71 2h3.63v2h-4.28c-.32 0-.61-.21-.72-.51l-.75-2.12c-.22-.62-.22-1.24 0-1.86zm-5.92 0l.75-2.12c.11-.3.40-.51.72-.51h3.57v2H10.16l-.71 2h3.63v2H9.00a.75.75 0 01-.72-.51l-.75-2.12c-.22-.62-.22-1.24 0-1.86zm-7.04 0l.75-2.12c.11-.3.40-.51.72-.51h3.57v2H3.12l-.71 2h3.63v2H2a.75.75 0 01-.72-.51L.53 14.15c-.22-.62-.22-1.24 0-1.86z"/>'
     }
-    
+
     icon_svg = f'<svg viewBox="0 0 24 24">{icons.get(icon, "")}</svg>' if icon in icons else ""
-    
+
     st.markdown(f"""
         <div class="glass-card">
             <div class="metric-card">
@@ -163,17 +181,17 @@ def render_metric_card(label, value, delta=None, delta_color="normal", icon=None
         </div>
     """, unsafe_allow_html=True)
 
-def get_plotly_layout(height=400):
+def get_plotly_layout(height=400, animate=False):
     """Return a polished Plotly layout consistent with the glassmorphism theme."""
     theme = st.session_state.get("theme", "light")
-    text_color = "#f0f2f6" if theme == "dark" else "#1e293b"
+    text_color = "#cbd5e1" if theme == "dark" else "#0f172a"
     grid_color = "rgba(255, 255, 255, 0.05)" if theme == "dark" else "rgba(0, 0, 0, 0.05)"
-    
-    return dict(
+
+    layout = dict(
         height=height,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='Montserrat', color=text_color),
+        font=dict(family='Inter, sans-serif', color=text_color),
         margin=dict(l=20, r=20, t=40, b=20),
         xaxis=dict(gridcolor=grid_color, zeroline=False),
         yaxis=dict(gridcolor=grid_color, zeroline=False),
@@ -186,3 +204,8 @@ def get_plotly_layout(height=400):
             title_text=None
         )
     )
+
+    if animate:
+        layout["transition"] = dict(duration=500, easing="cubic-in-out")
+
+    return layout

@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout
+from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -19,6 +20,9 @@ def get_provinces():
 
 @st.cache_data(ttl=300)
 def get_weather_correlation(province: str | None = None):
+    provinces = get_provinces()
+    if province and province not in provinces:
+        province = None
     where_clause = "WHERE datetime_hour >= now() - INTERVAL 7 DAY AND temp > 0 AND humidity > 0 AND wind_speed > 0"
     if province:
         where_clause += f" AND province = '{province}'"
@@ -191,4 +195,4 @@ if not df.empty:
     st.write(f"Correlation: **{hum_corr:.2f}**")
 
 else:
-    st.info(t("status_no_data", lang))
+    st.plotly_chart(render_empty_chart("Không có dữ liệu thời tiết cho khoảng thời gian đã chọn."), use_container_width=True)

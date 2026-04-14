@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout
+from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -132,4 +133,4 @@ if not df.empty:
     fig_scatter.update_layout(margin=dict(l=50, r=50, t=50, b=50))
     st.plotly_chart(fig_scatter, use_container_width=True, config={'displayModeBar': False})
 else:
-    st.info(t("status_no_data", lang))
+    st.plotly_chart(render_empty_chart("Không có dữ liệu giao thông cho khoảng thời gian đã chọn."), use_container_width=True)

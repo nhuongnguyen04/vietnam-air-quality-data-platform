@@ -9,7 +9,7 @@ import pandas as pd
 import plotly.express as px
 
 from lib.clickhouse_client import query_df
-from lib.aqi_utils import get_epa_continuous_scale
+from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart
 
 st.title("🚨 Cảnh báo & Tuân thủ Tiêu chuẩn")
 st.caption("Dữ liệu dựa trên WHO (2021) và TCVN 05:2023-BKHCN daily standards.")
@@ -107,25 +107,6 @@ def get_platform_health():
     return query_df(q)
 
 
-def render_empty_fig(message: str, height: int = 260):
-    fig = px.bar()
-    fig.update_layout(
-        height=height,
-        xaxis=dict(visible=False, showgrid=False),
-        yaxis=dict(visible=False, showgrid=False),
-        annotations=[dict(
-            text=f"<b>{message}</b>",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=13, color="#9CA3AF"),
-            xref="paper", yref="paper",
-        )],
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        margin=dict(l=0, r=0, t=10, b=10),
-    )
-    return fig
-
-
 # ── page body ─────────────────────────────────────────────────────────────────────
 
 try:
@@ -165,7 +146,7 @@ try:
         fig.update_layout(height=280, showlegend=True, margin=dict(l=0, r=0, t=10, b=40))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        fig = render_empty_fig("Không có dữ liệu tuân thủ. Mức AQI đang ở ngưỡng an toàn.")
+        fig = render_empty_chart("Không có dữ liệu tuân thủ. Mức AQI đang ở ngưỡng an toàn.")
         st.plotly_chart(fig, use_container_width=True)
         st.caption("dm_aqi_compliance_standards chưa có dữ liệu trong khoảng thời gian này.")
 
@@ -203,7 +184,7 @@ try:
             fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
             st.plotly_chart(fig, use_container_width=True)
         else:
-            fig = render_empty_fig("Không có dữ liệu vi phạm tiêu chuẩn.")
+            fig = render_empty_chart("Không có dữ liệu vi phạm tiêu chuẩn.")
             st.plotly_chart(fig, use_container_width=True)
             st.caption("Không có vi phạm WHO/TCVN trong khoảng thời gian đã chọn.")
 
@@ -232,7 +213,7 @@ try:
             st.plotly_chart(fig, use_container_width=True)
             st.caption("Fresh≤1h | Delayed≤3h | Stale≤24h | Offline>24h")
         else:
-            fig = render_empty_fig("Không có dữ liệu sức khỏe hệ thống.")
+            fig = render_empty_chart("Không có dữ liệu sức khỏe hệ thống.")
             st.plotly_chart(fig, use_container_width=True)
             st.caption("dm_platform_data_health chưa có dữ liệu.")
 
@@ -269,7 +250,7 @@ try:
         fig.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=30))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        fig = render_empty_fig("Không có giờ rủi ro cao. Chất lượng không khí đang tốt.")
+        fig = render_empty_chart("Không có giờ rủi ro cao. Chất lượng không khí đang tốt.")
         st.plotly_chart(fig, use_container_width=True)
         st.caption("dm_aqi_health_impact_summary chưa có dữ liệu trong khoảng thời gian này.")
 

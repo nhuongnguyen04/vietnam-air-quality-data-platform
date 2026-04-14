@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout
+from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -122,8 +123,8 @@ if not map_df.empty:
         size="pm25",
         hover_name="station_name",
         hover_data=["province", "current_aqi_us"],
-        color_continuous_scale="RdYlGn_r",
-        range_color=[0, 250],
+        color_continuous_scale=get_epa_continuous_scale(),
+        range_color=[0, 300],
         zoom=5,
         center={"lat": 16.0, "lon": 108.0},
     )
@@ -137,7 +138,7 @@ if not map_df.empty:
     )
     st.plotly_chart(fig_map, use_container_width=True)
 else:
-    st.info("No real-time station data available for the map.")
+    st.plotly_chart(render_empty_chart("Không có dữ liệu trạm thời gian thực cho bản đồ."), use_container_width=True)
 
 st.divider()
 

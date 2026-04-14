@@ -9,7 +9,7 @@ import pandas as pd
 import plotly.express as px
 
 from lib.clickhouse_client import query_df
-from lib.aqi_utils import get_epa_continuous_scale
+from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart
 
 st.title("📈 Xu hướng Chất lượng Không khí — Lịch sử")
 
@@ -123,25 +123,6 @@ def get_overall_stats(days: int):
     return query_df(q)
 
 
-def render_empty_fig(message: str, height: int = 280):
-    fig = px.bar()
-    fig.update_layout(
-        height=height,
-        xaxis=dict(visible=False, showgrid=False),
-        yaxis=dict(visible=False, showgrid=False),
-        annotations=[dict(
-            text=f"<b>{message}</b>",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=13, color="#9CA3AF"),
-            xref="paper", yref="paper",
-        )],
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        margin=dict(l=0, r=0, t=10, b=10),
-    )
-    return fig
-
-
 # ── page body ─────────────────────────────────────────────────────────────────────
 
 try:
@@ -189,7 +170,7 @@ try:
         fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=40))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        fig = render_empty_fig("Không có dữ liệu xu hướng quốc gia.")
+        fig = render_empty_chart("Không có dữ liệu xu hướng quốc gia.")
         st.plotly_chart(fig, use_container_width=True)
         st.caption("fct_air_quality_summary_daily chưa có dữ liệu. Chạy dbt transform.")
 
@@ -208,7 +189,7 @@ try:
             fig.update_layout(height=280, margin=dict(l=0, r=0, t=10, b=40))
             st.plotly_chart(fig, use_container_width=True)
         else:
-            fig = render_empty_fig(f"Không có dữ liệu cho {province_arg}.")
+            fig = render_empty_chart(f"Không có dữ liệu cho {province_arg}.")
             st.plotly_chart(fig, use_container_width=True)
             st.caption("Chưa có dữ liệu cho tỉnh đã chọn trong khoảng thời gian này.")
 
@@ -231,7 +212,7 @@ try:
         fig.update_traces(textposition="outside")
         st.plotly_chart(fig, use_container_width=True)
     else:
-        fig = render_empty_fig("Không có dữ liệu monthly.")
+        fig = render_empty_chart("Không có dữ liệu monthly.")
         st.plotly_chart(fig, use_container_width=True)
         st.caption("Chưa có dữ liệu tổng hợp hàng tháng.")
 
@@ -257,7 +238,7 @@ try:
         fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=30))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        fig = render_empty_fig("Không có dữ liệu bản đồ nhiệt PM2.5.")
+        fig = render_empty_chart("Không có dữ liệu bản đồ nhiệt PM2.5.")
         st.plotly_chart(fig, use_container_width=True)
         st.caption("Chưa có dữ liệu tổng hợp theo ngày cho bản đồ nhiệt.")
 

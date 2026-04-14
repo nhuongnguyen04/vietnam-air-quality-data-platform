@@ -148,33 +148,33 @@ def apply_epa_template(fig, height: int = 400):
 
 
 def render_empty_chart(message: str, height: int = 250):
-    """Return an empty Plotly figure with a descriptive message.
-
-    Args:
-        message: Vietnamese text to display in chart area
-        height: figure height
-
-    Returns:
-        plotly.graph_objects.Figure with empty axes + centered annotation
-    """
+    """Return an empty Plotly figure with a descriptive message (theme-aware)."""
     import plotly.graph_objects as go
+    import streamlit as st
+
+    theme = st.session_state.get("theme", "light")
+    if theme == "dark":
+        text_color = "#94a3b8"   # slate-400
+        bg_color = "rgba(15,23,42,0.6)"
+    else:
+        text_color = "#64748b"   # slate-500
+        bg_color = "rgba(255,255,255,0.7)"
 
     fig = go.Figure()
     fig.update_layout(
         xaxis=dict(visible=False, showgrid=False),
         yaxis=dict(visible=False, showgrid=False),
-        annotations=[
-            dict(
-                text=message,
-                x=0.5, y=0.5,
-                showarrow=False,
-                font=dict(size=14, color="#888888"),
-                xref="paper", yref="paper",
-            )
-        ],
+        annotations=[dict(
+            text=message,
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=14, color=text_color),
+            xref="paper", yref="paper",
+        )],
         height=height,
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="white",
+        paper_bgcolor=bg_color,
+        plot_bgcolor=bg_color,
         margin=dict(l=10, r=10, t=30, b=10),
+        transition=dict(duration=300, easing="cubic-in-out"),
     )
     return fig
