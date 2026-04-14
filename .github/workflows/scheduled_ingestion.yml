@@ -17,6 +17,7 @@ jobs:
       GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
       GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
       GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
+      AQIIN_TOKEN: ${{ secrets.AQIIN_TOKEN }}
       PYTHONPATH: .
 
     steps:
