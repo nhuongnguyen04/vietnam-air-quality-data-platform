@@ -77,24 +77,35 @@ def get_major_cities_status(col):
         avg({col}) as avg_aqi,
         max({col}) as max_aqi
     FROM air_quality.dm_aqi_current_status FINAL
-    WHERE province IN ('Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ')
+    WHERE province IN ('TP.Hà Nội', 'TP.Hồ Chí Minh', 'TP.Đà Nẵng', 'TP.Hải Phòng', 'TP.Cần Thơ')
     GROUP BY province
     """
     return query_df(q)
 
 mc_df = get_major_cities_status(aqi_col)
 
+# Mapping từ province_key trong DB → display name
+CITY_DB_NAMES = {
+    'Hà Nội':       'TP.Hà Nội',
+    'Hải Phòng':    'TP.Hải Phòng',
+    'Đà Nẵng':      'TP.Đà Nẵng',
+    'TP. Hồ Chí Minh': 'TP.Hồ Chí Minh',
+    'Cần Thơ':      'TP.Cần Thơ',
+}
+
+label_avg = "Trung bình" if lang == "vi" else "Avg"
+label_hotspot = "Điểm nóng" if lang == "vi" else "Hotspot"
+
 if not mc_df.empty:
     cities = ['Hà Nội', 'Hải Phòng', 'Đà Nẵng', 'TP. Hồ Chí Minh', 'Cần Thơ']
     cols = [mc_col1, mc_col2, mc_col3, mc_col4, mc_col5]
     for city, col_widget in zip(cities, cols):
-        city_data = mc_df[mc_df['province'] == city]
+        # Lookup bằng tên DB (có prefix TP.) nhưng hiển thị display name
+        db_key = CITY_DB_NAMES.get(city, city)
+        city_data = mc_df[mc_df['province'] == db_key]
         if not city_data.empty:
             avg_val = int(city_data.iloc[0].avg_aqi)
             max_val = int(city_data.iloc[0].max_aqi)
-            # Labels in VN or EN
-            label_avg = "Trung bình" if lang == "vi" else "Avg"
-            label_hotspot = "Điểm nóng" if lang == "vi" else "Hotspot"
             with col_widget:
                 render_city_metric(city, avg_val, max_val, label_avg, label_hotspot)
         else:

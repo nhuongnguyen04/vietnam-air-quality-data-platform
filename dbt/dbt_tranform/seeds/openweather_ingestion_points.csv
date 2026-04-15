@@ -1,94 +1,94 @@
 point_id,latitude,longitude,layer_type,province,district
-L1_Hanoi_0,20.8934,105.7191,CityCluster,Hà Nội,Xã Quảng Bị
-L1_Hanoi_1,20.8934,105.8092,CityCluster,Hà Nội,Xã Tam Hưng
+L1_Hanoi_0,20.8934,105.7191,CityCluster,TP.Hà Nội,Xã Quảng Bị
+L1_Hanoi_1,20.8934,105.8092,CityCluster,TP.Hà Nội,Xã Tam Hưng
 L1_Hanoi_2,20.8934,105.8992,CityCluster,Hưng Yên,Xã Mễ Sở
 L1_Hanoi_3,20.8934,105.9893,CityCluster,Hưng Yên,Xã Việt Yên
-L1_Hanoi_4,20.9835,105.7191,CityCluster,Hà Nội,Xã An Khánh
-L1_Hanoi_5,20.9835,105.8092,CityCluster,Hà Nội,Phường Khương Đình
-L1_Hanoi_6,20.9835,105.8992,CityCluster,Hà Nội,Phường Lĩnh Nam
+L1_Hanoi_4,20.9835,105.7191,CityCluster,TP.Hà Nội,Xã An Khánh
+L1_Hanoi_5,20.9835,105.8092,CityCluster,TP.Hà Nội,Phường Khương Đình
+L1_Hanoi_6,20.9835,105.8992,CityCluster,TP.Hà Nội,Phường Lĩnh Nam
 L1_Hung Yen_7,20.9835,105.9893,CityCluster,Hưng Yên,Xã Như Quỳnh
-L1_Hanoi_8,21.0735,105.7191,CityCluster,Hà Nội,Xã Ô Diên
-L1_Hanoi_9,21.0735,105.8092,CityCluster,Hà Nội,Phường Phú Thượng
-L1_Hanoi_10,21.0735,105.8992,CityCluster,Hà Nội,Phường Việt Hưng
+L1_Hanoi_8,21.0735,105.7191,CityCluster,TP.Hà Nội,Xã Ô Diên
+L1_Hanoi_9,21.0735,105.8092,CityCluster,TP.Hà Nội,Phường Phú Thượng
+L1_Hanoi_10,21.0735,105.8992,CityCluster,TP.Hà Nội,Phường Việt Hưng
 L1_Hanoi_11,21.0735,105.9893,CityCluster,Bắc Ninh,Xã Đại Đồng
-L1_Hanoi_12,21.1636,105.7191,CityCluster,Hà Nội,Xã Mê Linh
-L1_Hanoi_13,21.1636,105.8092,CityCluster,Hà Nội,Xã Phúc Thịnh
-L1_Hanoi_14,21.1636,105.8992,CityCluster,Hà Nội,Xã Thư Lâm
+L1_Hanoi_12,21.1636,105.7191,CityCluster,TP.Hà Nội,Xã Mê Linh
+L1_Hanoi_13,21.1636,105.8092,CityCluster,TP.Hà Nội,Xã Phúc Thịnh
+L1_Hanoi_14,21.1636,105.8992,CityCluster,TP.Hà Nội,Xã Thư Lâm
 L1_Tay Ninh_15,10.688,106.4946,CityCluster,Tây Ninh,Xã Bến Lức
-L1_Ho Chi Minh_16,10.688,106.5847,CityCluster,TP Hồ Chí Minh,Xã Tân Nhựt
-L1_Ho Chi Minh_17,10.688,106.6747,CityCluster,TP Hồ Chí Minh,Xã Bình Hưng
+L1_Ho Chi Minh_16,10.688,106.5847,CityCluster,TP.Hồ Chí Minh,Xã Tân Nhựt
+L1_Ho Chi Minh_17,10.688,106.6747,CityCluster,TP.Hồ Chí Minh,Xã Bình Hưng
 L1_Dong Nai_18,10.688,106.7648,CityCluster,Đồng Nai,Xã Đại Phước
-L1_Ho Chi Minh_19,10.7781,106.4946,CityCluster,TP Hồ Chí Minh,Xã Bình Lợi
-L1_Ho Chi Minh_20,10.7781,106.5847,CityCluster,TP Hồ Chí Minh,Xã Tân Vĩnh Lộc
-L1_Ho Chi Minh_21,10.7781,106.6747,CityCluster,TP Hồ Chí Minh,Phường Hòa Hưng
-L1_Ho Chi Minh_22,10.7781,106.7648,CityCluster,TP Hồ Chí Minh,Phường Cát Lái
+L1_Ho Chi Minh_19,10.7781,106.4946,CityCluster,TP.Hồ Chí Minh,Xã Bình Lợi
+L1_Ho Chi Minh_20,10.7781,106.5847,CityCluster,TP.Hồ Chí Minh,Xã Tân Vĩnh Lộc
+L1_Ho Chi Minh_21,10.7781,106.6747,CityCluster,TP.Hồ Chí Minh,Phường Hòa Hưng
+L1_Ho Chi Minh_22,10.7781,106.7648,CityCluster,TP.Hồ Chí Minh,Phường Cát Lái
 L1_Tay Ninh_23,10.8681,106.4946,CityCluster,Tây Ninh,Xã Mỹ Hạnh
-L1_Ho Chi Minh_24,10.8681,106.5847,CityCluster,TP Hồ Chí Minh,Xã Xuân Thới Sơn
-L1_Ho Chi Minh_25,10.8681,106.6747,CityCluster,TP Hồ Chí Minh,Phường Thới An
-L1_Ho Chi Minh_26,10.8681,106.7648,CityCluster,TP Hồ Chí Minh,Phường Long Thạnh Mỹ
-L1_Ho Chi Minh_27,10.9582,106.4946,CityCluster,TP Hồ Chí Minh,Xã Tân An Hội
-L1_Ho Chi Minh_28,10.9582,106.5847,CityCluster,TP Hồ Chí Minh,Xã Phú Hòa Đông
-L1_Ho Chi Minh_29,10.9582,106.6747,CityCluster,TP Hồ Chí Minh,Phường Thuận An
-L1_Hai Phong_30,20.7098,106.553,CityCluster,Hải Phòng,Xã Tân Minh
-L1_Hai Phong_31,20.7098,106.6431,CityCluster,Hải Phòng,Xã Kiến Hưng
-L1_Hai Phong_32,20.7098,106.7331,CityCluster,Hải Phòng,Xã Kiến Hải
-L1_Hai Phong_33,20.7098,106.8232,CityCluster,Hải Phòng,Phường Lưu Kiếm
-L1_Hai Phong_34,20.7999,106.553,CityCluster,Hải Phòng,Xã An Quang
-L1_Hai Phong_35,20.7999,106.6431,CityCluster,Hải Phòng,Phường Phù Liễn
-L1_Hai Phong_36,20.7999,106.7331,CityCluster,Hải Phòng,Phường Hải An
-L1_Hai Phong_37,20.7999,106.8232,CityCluster,Hải Phòng,Phường Đông Hải
-L1_Hai Phong_38,20.8899,106.553,CityCluster,Hải Phòng,Phường An Phong
-L1_Hai Phong_39,20.8899,106.6431,CityCluster,Hải Phòng,Phường Thiên Hương
-L1_Da Nang_40,15.9643,108.1121,CityCluster,Đà Nẵng,Xã Hòa Tiến
-L1_Da Nang_41,15.9643,108.2022,CityCluster,Đà Nẵng,Phường Hòa Xuân
-L1_Da Nang_43,16.0544,108.1121,CityCluster,Đà Nẵng,Phường Hòa Khánh
-L1_Da Nang_44,16.0544,108.2022,CityCluster,Đà Nẵng,Phường Hòa Cường
-L1_Da Nang_45,16.0544,108.2923,CityCluster,Đà Nẵng,Phường Hòa Hải
-L1_Da Nang_46,16.1445,108.1121,CityCluster,Đà Nẵng,Phường Hải Vân
-L1_Can Tho_47,9.9551,105.6568,CityCluster,Cần Thơ,Xã Tân Hòa
-L1_Can Tho_48,9.9551,105.7469,CityCluster,Cần Thơ,Xã Đông Phước
-L1_Can Tho_49,9.9551,105.837,CityCluster,Cần Thơ,Xã Châu Thành
-L1_Can Tho_50,10.0452,105.6568,CityCluster,Cần Thơ,Xã Phong Điền
-L1_Can Tho_51,10.0452,105.7469,CityCluster,Cần Thơ,Phường Long Tuyền
+L1_Ho Chi Minh_24,10.8681,106.5847,CityCluster,TP.Hồ Chí Minh,Xã Xuân Thới Sơn
+L1_Ho Chi Minh_25,10.8681,106.6747,CityCluster,TP.Hồ Chí Minh,Phường Thới An
+L1_Ho Chi Minh_26,10.8681,106.7648,CityCluster,TP.Hồ Chí Minh,Phường Long Thạnh Mỹ
+L1_Ho Chi Minh_27,10.9582,106.4946,CityCluster,TP.Hồ Chí Minh,Xã Tân An Hội
+L1_Ho Chi Minh_28,10.9582,106.5847,CityCluster,TP.Hồ Chí Minh,Xã Phú Hòa Đông
+L1_Ho Chi Minh_29,10.9582,106.6747,CityCluster,TP.Hồ Chí Minh,Phường Thuận An
+L1_Hai Phong_30,20.7098,106.553,CityCluster,TP.Hải Phòng,Xã Tân Minh
+L1_Hai Phong_31,20.7098,106.6431,CityCluster,TP.Hải Phòng,Xã Kiến Hưng
+L1_Hai Phong_32,20.7098,106.7331,CityCluster,TP.Hải Phòng,Xã Kiến Hải
+L1_Hai Phong_33,20.7098,106.8232,CityCluster,TP.Hải Phòng,Phường Lưu Kiếm
+L1_Hai Phong_34,20.7999,106.553,CityCluster,TP.Hải Phòng,Xã An Quang
+L1_Hai Phong_35,20.7999,106.6431,CityCluster,TP.Hải Phòng,Phường Phù Liễn
+L1_Hai Phong_36,20.7999,106.7331,CityCluster,TP.Hải Phòng,Phường Hải An
+L1_Hai Phong_37,20.7999,106.8232,CityCluster,TP.Hải Phòng,Phường Đông Hải
+L1_Hai Phong_38,20.8899,106.553,CityCluster,TP.Hải Phòng,Phường An Phong
+L1_Hai Phong_39,20.8899,106.6431,CityCluster,TP.Hải Phòng,Phường Thiên Hương
+L1_Da Nang_40,15.9643,108.1121,CityCluster,TP.Đà Nẵng,Xã Hòa Tiến
+L1_Da Nang_41,15.9643,108.2022,CityCluster,TP.Đà Nẵng,Phường Hòa Xuân
+L1_Da Nang_43,16.0544,108.1121,CityCluster,TP.Đà Nẵng,Phường Hòa Khánh
+L1_Da Nang_44,16.0544,108.2022,CityCluster,TP.Đà Nẵng,Phường Hòa Cường
+L1_Da Nang_45,16.0544,108.2923,CityCluster,TP.Đà Nẵng,Phường Hòa Hải
+L1_Da Nang_46,16.1445,108.1121,CityCluster,TP.Đà Nẵng,Phường Hải Vân
+L1_Can Tho_47,9.9551,105.6568,CityCluster,TP.Cần Thơ,Xã Tân Hòa
+L1_Can Tho_48,9.9551,105.7469,CityCluster,TP.Cần Thơ,Xã Đông Phước
+L1_Can Tho_49,9.9551,105.837,CityCluster,TP.Cần Thơ,Xã Châu Thành
+L1_Can Tho_50,10.0452,105.6568,CityCluster,TP.Cần Thơ,Xã Phong Điền
+L1_Can Tho_51,10.0452,105.7469,CityCluster,TP.Cần Thơ,Phường Long Tuyền
 L1_Can Tho_52,10.0452,105.837,CityCluster,Vĩnh Long,Phường Đông Thành
-L1_Can Tho_53,10.1353,105.6568,CityCluster,Cần Thơ,Phường Ô Môn
-L1_Ha Noi_54,20.9867,105.9429,CityCluster,Hà Nội,Xã Gia Lâm
+L1_Can Tho_53,10.1353,105.6568,CityCluster,TP.Cần Thơ,Phường Ô Môn
+L1_Ha Noi_54,20.9867,105.9429,CityCluster,TP.Hà Nội,Xã Gia Lâm
 L1_Hung Yen_55,20.9867,106.033,CityCluster,Hưng Yên,Xã Lạc Đạo
 L1_Hung Yen_56,20.9867,106.123,CityCluster,Hưng Yên,Xã Nghĩa Trụ
-L1_Hai Phong_57,20.9867,106.2131,CityCluster,Hải Phòng,Phường Thạch Khôi
-L1_Ha Noi_58,21.0768,105.9429,CityCluster,Hà Nội,Xã Phù Đổng
-L1_Ha Noi_59,21.0768,106.033,CityCluster,Hà Nội,Phường Giang Biên
+L1_Hai Phong_57,20.9867,106.2131,CityCluster,TP.Hải Phòng,Phường Thạch Khôi
+L1_Ha Noi_58,21.0768,105.9429,CityCluster,TP.Hà Nội,Xã Phù Đổng
+L1_Ha Noi_59,21.0768,106.033,CityCluster,TP.Hà Nội,Phường Giang Biên
 L1_Bac Ninh_60,21.0768,106.123,CityCluster,Bắc Ninh,Phường Phù Chẩn
 L1_Bac Ninh_61,21.0768,106.2131,CityCluster,Bắc Ninh,Phường Thuận Thành
-L1_Ha Noi_62,21.1668,105.9429,CityCluster,Hà Nội,Xã Phù Lỗ
-L1_Ha Noi_63,21.1668,106.033,CityCluster,Hà Nội,Xã Thư Lâm
+L1_Ha Noi_62,21.1668,105.9429,CityCluster,TP.Hà Nội,Xã Phù Lỗ
+L1_Ha Noi_63,21.1668,106.033,CityCluster,TP.Hà Nội,Xã Thư Lâm
 L1_Bac Ninh_64,21.1668,106.123,CityCluster,Bắc Ninh,Xã Tam Giang
 L1_Bac Ninh_65,21.1668,106.2131,CityCluster,Bắc Ninh,Xã Cao Đức
 L1_Bac Ninh_66,21.1383,106.1872,CityCluster,Bắc Ninh,Phường Quế Võ
 L1_Bac Ninh_67,21.1383,106.2773,CityCluster,Bắc Ninh,Phường Mão Điền
-L1_Hai Phong_68,21.1383,106.3673,CityCluster,Hải Phòng,Xã Cẩm Giàng
-L1_Hai Phong_69,21.1383,106.4574,CityCluster,Hải Phòng,Phường Trần Nhân Tông
+L1_Hai Phong_68,21.1383,106.3673,CityCluster,TP.Hải Phòng,Xã Cẩm Giàng
+L1_Hai Phong_69,21.1383,106.4574,CityCluster,TP.Hải Phòng,Phường Trần Nhân Tông
 L1_Bac Ninh_70,21.2284,106.1872,CityCluster,Bắc Ninh,Phường Tiền Phong
 L1_Bac Ninh_71,21.2284,106.2773,CityCluster,Bắc Ninh,Phường Tân An
 L1_Bac Ninh_72,21.2284,106.3673,CityCluster,Bắc Ninh,Xã Cẩm Lý
-L1_Hai Phong_73,21.2284,106.4574,CityCluster,Hải Phòng,Phường Nguyễn Trãi
+L1_Hai Phong_73,21.2284,106.4574,CityCluster,TP.Hải Phòng,Phường Nguyễn Trãi
 L1_Bac Ninh_74,21.3184,106.1872,CityCluster,Bắc Ninh,Xã Mỹ Thái
 L1_Bac Ninh_75,21.3184,106.2773,CityCluster,Bắc Ninh,Xã Lạng Giang
-L1_Hai Phong_76,20.8505,106.2308,CityCluster,Hải Phòng,Xã Nguyễn Lương Bằng
-L1_Hai Phong_77,20.8505,106.3209,CityCluster,Hải Phòng,Xã Gia Phúc
-L1_Hai Phong_78,20.8505,106.411,CityCluster,Hải Phòng,Xã Hà Tây
-L1_Hai Phong_79,20.9406,106.2308,CityCluster,Hải Phòng,Xã Mao Điền
-L1_Hai Phong_80,20.9406,106.3209,CityCluster,Hải Phòng,Phường Lê Thanh Nghị
-L1_Hai Phong_81,20.9406,106.411,CityCluster,Hải Phòng,Xã Hà Bắc
+L1_Hai Phong_76,20.8505,106.2308,CityCluster,TP.Hải Phòng,Xã Nguyễn Lương Bằng
+L1_Hai Phong_77,20.8505,106.3209,CityCluster,TP.Hải Phòng,Xã Gia Phúc
+L1_Hai Phong_78,20.8505,106.411,CityCluster,TP.Hải Phòng,Xã Hà Tây
+L1_Hai Phong_79,20.9406,106.2308,CityCluster,TP.Hải Phòng,Xã Mao Điền
+L1_Hai Phong_80,20.9406,106.3209,CityCluster,TP.Hải Phòng,Phường Lê Thanh Nghị
+L1_Hai Phong_81,20.9406,106.411,CityCluster,TP.Hải Phòng,Xã Hà Bắc
 L1_Bac Ninh_82,21.0307,106.2308,CityCluster,Bắc Ninh,Xã Lương Tài
-L1_Hai Phong_83,21.0307,106.3209,CityCluster,Hải Phòng,Xã Trần Phú
+L1_Hai Phong_83,21.0307,106.3209,CityCluster,TP.Hải Phòng,Xã Trần Phú
 L1_Ninh Binh_84,20.5563,105.9637,CityCluster,Ninh Bình,Phường Hà Nam
 L1_Ninh Binh_85,20.5563,106.0538,CityCluster,Ninh Bình,Xã Vĩnh Trụ
 L1_Ninh Binh_86,20.5563,106.1439,CityCluster,Ninh Bình,Xã Nhân Hà
 L1_Ninh Binh_87,20.6464,105.9637,CityCluster,Ninh Bình,Phường Đồng Văn
 L1_Hung Yen_88,20.6464,106.0538,CityCluster,Hưng Yên,Phường Phố Hiến
 L1_Hung Yen_89,20.6464,106.1439,CityCluster,Hưng Yên,Xã Long Hưng
-L1_Ha Noi_90,20.7365,105.9637,CityCluster,Hà Nội,Xã Đại Xuyên
+L1_Ha Noi_90,20.7365,105.9637,CityCluster,TP.Hà Nội,Xã Đại Xuyên
 L1_Hung Yen_91,20.7365,106.0538,CityCluster,Hưng Yên,Xã Lương Bằng
 L1_Phu Tho_92,21.2708,105.5072,CityCluster,Phú Thọ,Xã Vĩnh Hưng
 L1_Phu Tho_93,21.2708,105.5973,CityCluster,Phú Thọ,Xã Yên Lạc
@@ -106,18 +106,18 @@ L1_Thai Nguyen_104,21.5941,105.8481,CityCluster,Thái Nguyên,Vùng lân cận
 L1_Thai Nguyen_105,21.5941,105.9382,CityCluster,Thái Nguyên,Xã Trại Cau
 L1_Thai Nguyen_106,21.6842,105.758,CityCluster,Thái Nguyên,Xã Vô Tranh
 L1_Thai Nguyen_107,21.6842,105.8481,CityCluster,Thái Nguyên,Xã Đồng Hỷ
-L1_Ho Chi Minh_108,10.9339,106.5189,CityCluster,TP Hồ Chí Minh,Xã Củ Chi
-L1_Ho Chi Minh_109,10.9339,106.609,CityCluster,TP Hồ Chí Minh,Xã Phú Hòa Đông
-L1_Ho Chi Minh_110,10.9339,106.699,CityCluster,TP Hồ Chí Minh,Phường Lái Thiêu
+L1_Ho Chi Minh_108,10.9339,106.5189,CityCluster,TP.Hồ Chí Minh,Xã Củ Chi
+L1_Ho Chi Minh_109,10.9339,106.609,CityCluster,TP.Hồ Chí Minh,Xã Phú Hòa Đông
+L1_Ho Chi Minh_110,10.9339,106.699,CityCluster,TP.Hồ Chí Minh,Phường Lái Thiêu
 L1_Dong Nai_111,10.9339,106.7891,CityCluster,Đồng Nai,Phường Biên Hòa
-L1_Ho Chi Minh_112,11.024,106.5189,CityCluster,TP Hồ Chí Minh,Xã Nhuận Đức
-L1_Ho Chi Minh_113,11.024,106.609,CityCluster,TP Hồ Chí Minh,Phường Phú An
-L1_Ho Chi Minh_114,11.024,106.699,CityCluster,TP Hồ Chí Minh,Phường Bình Dương
-L1_Ho Chi Minh_115,11.024,106.7891,CityCluster,TP Hồ Chí Minh,Phường Tân Uyên
-L1_Ho Chi Minh_116,11.114,106.5189,CityCluster,TP Hồ Chí Minh,Xã An Nhơn Tây
-L1_Ho Chi Minh_117,11.114,106.609,CityCluster,TP Hồ Chí Minh,Phường Thới Hòa
-L1_Ho Chi Minh_118,11.114,106.699,CityCluster,TP Hồ Chí Minh,Phường Vĩnh Tân
-L1_Ho Chi Minh_119,11.114,106.7891,CityCluster,TP Hồ Chí Minh,Xã Bắc Tân Uyên
+L1_Ho Chi Minh_112,11.024,106.5189,CityCluster,TP.Hồ Chí Minh,Xã Nhuận Đức
+L1_Ho Chi Minh_113,11.024,106.609,CityCluster,TP.Hồ Chí Minh,Phường Phú An
+L1_Ho Chi Minh_114,11.024,106.699,CityCluster,TP.Hồ Chí Minh,Phường Bình Dương
+L1_Ho Chi Minh_115,11.024,106.7891,CityCluster,TP.Hồ Chí Minh,Phường Tân Uyên
+L1_Ho Chi Minh_116,11.114,106.5189,CityCluster,TP.Hồ Chí Minh,Xã An Nhơn Tây
+L1_Ho Chi Minh_117,11.114,106.609,CityCluster,TP.Hồ Chí Minh,Phường Thới Hòa
+L1_Ho Chi Minh_118,11.114,106.699,CityCluster,TP.Hồ Chí Minh,Phường Vĩnh Tân
+L1_Ho Chi Minh_119,11.114,106.7891,CityCluster,TP.Hồ Chí Minh,Xã Bắc Tân Uyên
 L1_Dong Nai_120,10.9335,107.0319,CityCluster,Đồng Nai,Xã An Viễn
 L1_Dong Nai_121,10.9335,107.122,CityCluster,Đồng Nai,Xã Dầu Giây
 L1_Dong Nai_122,10.9335,107.212,CityCluster,Đồng Nai,Phường Bình Lộc
@@ -130,13 +130,13 @@ L1_Dong Nai_128,11.1136,107.0319,CityCluster,Đồng Nai,Xã Trị An
 L1_Dong Nai_129,11.1136,107.122,CityCluster,Đồng Nai,Xã Thống Nhất
 L1_Dong Nai_130,11.1136,107.212,CityCluster,Đồng Nai,Xã La Ngà
 L1_Dong Nai_131,11.1136,107.3021,CityCluster,Đồng Nai,Xã Định Quán
-L1_Ho Chi Minh_132,10.4516,107.1524,CityCluster,TP Hồ Chí Minh,Phường Phước Thắng
-L1_Ho Chi Minh_133,10.4516,107.2425,CityCluster,TP Hồ Chí Minh,Xã Long Điền
-L1_Ho Chi Minh_134,10.4516,107.3326,CityCluster,TP Hồ Chí Minh,Xã Phước Hải
-L1_Ho Chi Minh_135,10.5417,107.1524,CityCluster,TP Hồ Chí Minh,Xã Châu Pha
-L1_Ho Chi Minh_136,10.5417,107.2425,CityCluster,TP Hồ Chí Minh,Xã Nghĩa Thành
-L1_Ho Chi Minh_137,10.5417,107.3326,CityCluster,TP Hồ Chí Minh,Xã Đất Đỏ
-L1_Ho Chi Minh_138,10.6318,107.1524,CityCluster,TP Hồ Chí Minh,Phường Tân Thành
+L1_Ho Chi Minh_132,10.4516,107.1524,CityCluster,TP.Hồ Chí Minh,Phường Phước Thắng
+L1_Ho Chi Minh_133,10.4516,107.2425,CityCluster,TP.Hồ Chí Minh,Xã Long Điền
+L1_Ho Chi Minh_134,10.4516,107.3326,CityCluster,TP.Hồ Chí Minh,Xã Phước Hải
+L1_Ho Chi Minh_135,10.5417,107.1524,CityCluster,TP.Hồ Chí Minh,Xã Châu Pha
+L1_Ho Chi Minh_136,10.5417,107.2425,CityCluster,TP.Hồ Chí Minh,Xã Nghĩa Thành
+L1_Ho Chi Minh_137,10.5417,107.3326,CityCluster,TP.Hồ Chí Minh,Xã Đất Đỏ
+L1_Ho Chi Minh_138,10.6318,107.1524,CityCluster,TP.Hồ Chí Minh,Phường Tân Thành
 L2_Sa_Pa_(Mountain),22.3364,103.8438,SpecialRegion,Lào Cai,Phường Sa Pa
 L2_Ha_Giang_(Mountain),22.8024,104.9844,SpecialRegion,Tuyên Quang,Xã Phú Linh
 L2_Dalat_(Mountain),11.9404,108.4583,SpecialRegion,Lâm Đồng,Phường Xuân Hương - Đà Lạt
@@ -154,19 +154,19 @@ L3_General_15,9.2378,104.8928,General,Cà Mau,Xã Đá Bạc
 L3_General_16,9.2378,105.1721,General,Cà Mau,Phường An Xuyên
 L3_General_17,9.2378,105.4514,General,Cà Mau,Phường Giá Rai
 L3_General_18,9.2378,105.7306,General,Cà Mau,Phường Hiệp Thành
-L3_General_19,9.2378,106.0099,General,Cần Thơ, Phường Vĩnh Châu
+L3_General_19,9.2378,106.0099,General,TP.Cần Thơ, Phường Vĩnh Châu
 L3_General_23,9.5171,104.8928,General,An Giang,Xã Vân Khánh
 L3_General_24,9.5171,105.1721,General,An Giang,Xã Vĩnh Thuận
 L3_General_25,9.5171,105.4514,General,Cà Mau,Xã Hồng Dân
-L3_General_26,9.5171,105.7306,General,Cần Thơ,Xã Tân Long
-L3_General_27,9.5171,106.0099,General,Cần Thơ,Xã Thạnh Thới An
-L3_General_28,9.5171,106.2892,General,Cần Thơ, xã An Thạnh
+L3_General_26,9.5171,105.7306,General,TP.Cần Thơ,Xã Tân Long
+L3_General_27,9.5171,106.0099,General,TP.Cần Thơ,Xã Thạnh Thới An
+L3_General_28,9.5171,106.2892,General,TP.Cần Thơ, xã An Thạnh
 L3_General_29,9.5171,106.5685,General,Vĩnh Long,Phường Duyên Hải
 L3_General_31,9.7964,104.6135,General,An Giang,Đặc khu Kiên Hải
 L3_General_32,9.7964,104.8928,General,An Giang,Xã Tân Thạnh
 L3_General_33,9.7964,105.1721,General,An Giang,Xã Định Hòa
-L3_General_34,9.7964,105.4514,General,Cần Thơ,Phường Vị Tân
-L3_General_35,9.7964,106.0099,General,Cần Thơ,Xã Nhơn Mỹ
+L3_General_34,9.7964,105.4514,General,TP.Cần Thơ,Phường Vị Tân
+L3_General_35,9.7964,106.0099,General,TP.Cần Thơ,Xã Nhơn Mỹ
 L3_General_36,9.7964,106.2892,General,Vĩnh Long,Xã Hùng Hòa
 L3_General_37,9.7964,106.5685,General,Vĩnh Long,Phường Trường Long Hòa
 L3_General_41,10.0757,104.6135,General,An Giang,Xã Kiên Lương
@@ -286,20 +286,20 @@ L3_General_206,14.8234,108.5234,General,Quảng Ngãi,Xã Sơn Kỳ
 L3_General_207,14.8234,108.8027,General,Quảng Ngãi,Xã Ba Động
 L3_General_208,14.734027,109.01543,General,Quảng Ngãi,Xã Khánh Cường
 \L3_General_210,15.1027,107.9649,General,Quảng Ngãi,Xã Ngọc Linh
-L3_General_211,15.1027,108.2441,General,Đà Nẵng,Xã Trà Vân
+L3_General_211,15.1027,108.2441,General,TP.Đà Nẵng,Xã Trà Vân
 L3_General_212,15.1027,108.5234,General,Quảng Ngãi,Xã Sơn Hạ
 L3_General_213,15.1027,108.8027,General,Quảng Ngãi,Phường Nghĩa Lộ
-L3_General_216,15.382,107.9649,General,Đà Nẵng,Xã Phước Hiệp
-L3_General_217,15.382,108.2441,General,Đà Nẵng,Xã Trà My
-L3_General_218,15.382,108.5234,General,Đà Nẵng,Xã Tam Mỹ
+L3_General_216,15.382,107.9649,General,TP.Đà Nẵng,Xã Phước Hiệp
+L3_General_217,15.382,108.2441,General,TP.Đà Nẵng,Xã Trà My
+L3_General_218,15.382,108.5234,General,TP.Đà Nẵng,Xã Tam Mỹ
 L3_General_219,15.382,108.8027,General,Quảng Ngãi,Xã Vạn Tường
-L3_General_220,15.38187,109.115711,General,Quảng Ngãi, Đặc khu Lý Sơn
-L3_General_222,15.6613,107.6856,General,Đà Nẵng,Xã Bến Giằng
-L3_General_223,15.6613,107.9649,General,Đà Nẵng,Xã Quế Phước
-L3_General_224,15.6613,108.2441,General,Đà Nẵng,Xã Quế Sơn
-L3_General_225,15.691463,108.461628,General,Đà Nẵng,Xã Thăng Trường
-L3_General_230,15.9405,107.6856,General,Đà Nẵng,Xã Đông Giang
-L3_General_231,15.9405,108.5234,General,Đà Nẵng,Xã Tân Hiệp
+L3_General_220,15.38187,109.115711,General,Quảng Ngãi,Đặc khu Lý Sơn
+L3_General_222,15.6613,107.6856,General,TP.Đà Nẵng,Xã Bến Giằng
+L3_General_223,15.6613,107.9649,General,TP.Đà Nẵng,Xã Quế Phước
+L3_General_224,15.6613,108.2441,General,TP.Đà Nẵng,Xã Quế Sơn
+L3_General_225,15.691463,108.461628,General,TP.Đà Nẵng,Xã Thăng Trường
+L3_General_230,15.9405,107.6856,General,TP.Đà Nẵng,Xã Đông Giang
+L3_General_231,15.9405,108.5234,General,TP.Đà Nẵng,Xã Tân Hiệp
 L3_General_237,16.2198,107.4063,General,Huế,Xã A Lưới 5
 L3_General_238,16.2198,107.6856,General,Huế,Xã Khe Tre
 L3_General_243,16.4991,107.127,General,Huế,Phường Phong Điền
@@ -371,7 +371,7 @@ L3_General_365,20.6883,104.6135,General,Sơn La,Xã Chiềng Sơn
 L3_General_366,20.6883,104.8928,General,Phú Thọ,Xã Pà Cò
 L3_General_367,20.6883,105.1721,General,Phú Thọ,Xã Mường Hoa
 L3_General_368,20.6883,105.4514,General,Phú Thọ,Xã Mường Động
-L3_General_369,20.801752,106.869547,General,Hải Phòng,Đặc khu Cát Hải
+L3_General_369,20.801752,106.869547,General,TP.Hải Phòng,Đặc khu Cát Hải
 L3_General_370,20.6883,107.4063,General,Quảng Ninh,Đặc khu Vân Đồn
 L3_General_376,20.9676,103.2171,General,Điện Biên,Xã Mường Nhà
 L3_General_377,20.9676,103.4964,General,Sơn La,Xã Púng Bánh
@@ -381,7 +381,7 @@ L3_General_380,20.9676,104.3342,General,Sơn La,Xã Chiềng Hặc
 L3_General_381,20.9676,104.6135,General,Sơn La,Xã Tân Yên
 L3_General_382,20.9676,104.8928,General,Sơn La,Xã Song Khủa
 L3_General_383,20.9676,105.1721,General,Phú Thọ,Xã Khả Cửu
-L3_General_384,20.9676,105.4514,General,Hà Nội,Xã Yên Xuân
+L3_General_384,20.9676,105.4514,General,TP.Hà Nội,Xã Yên Xuân
 L3_General_385,20.9676,107.4063,General,Quảng Ninh,Đặc khu Vân Đồn
 L3_General_386,20.9676,107.6856,General,Quảng Ninh,Đặc khu Cô Tô
 L3_General_390,21.2468,102.9378,General,Điện Biên,Xã Sam Mứn

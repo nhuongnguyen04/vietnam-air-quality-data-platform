@@ -43,8 +43,8 @@ normalized as (
         u.source,
         u.station_name,
         u.district,
-        -- Using seed-based mapping for consistent, accented names
-        coalesce(pn.target_name, u.province) as province,
+        -- Apply normalization first
+        coalesce(pn.target_name, u.province) as normalized_province,
         u.timestamp_utc,
         u.parameter,
         u.value,
@@ -56,9 +56,19 @@ normalized as (
     where u.province is not null and u.province != ''
 ),
 
+mapped as (
+    select
+        n.*,
+        -- Then map legacy provinces to the 34 target units
+        coalesce(pm.target_unit_34, n.normalized_province) as province
+    from normalized n
+    left join {{ ref('province_to_unit_34') }} pm on n.normalized_province = pm.legacy_province
+),
+
 filtered as (
-    -- Strict alignment with the 34 target provinces of the 2026 Northern & North Central scope
-    select * from normalized
+    -- Strict alignment with the 34 target provinces of the 2026 scope
+    -- All legacy data has been mapped to these 34 parents
+    select * from mapped
     where province in (
         select distinct province from {{ ref('openweather_ingestion_points') }}
     )
