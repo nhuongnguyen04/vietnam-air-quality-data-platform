@@ -7,7 +7,7 @@ from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart, EPA_BREA
 from lib.i18n import t
 
 # ── Translation & Standard Helpers ─────────────────────────────────────────────
-lang = st.session_state.lang
+lang = st.session_state.get("lang", "vi")
 theme = st.session_state.get("theme", "light")
 standard = st.session_state.get("standard", "TCVN")
 

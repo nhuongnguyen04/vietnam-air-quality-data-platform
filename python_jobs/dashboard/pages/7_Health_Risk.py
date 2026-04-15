@@ -6,7 +6,7 @@ from lib.i18n import t
 import plotly.express as px
 
 # ── Translation Helper ────────────────────────────────────────────────────────
-lang = st.session_state.lang
+lang = st.session_state.get("lang", "vi")
 
 st.title(t("health_title", lang))
 

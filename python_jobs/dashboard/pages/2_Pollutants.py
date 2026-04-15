@@ -7,7 +7,7 @@ from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
-lang = st.session_state.lang
+lang = st.session_state.get("lang", "vi")
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
 

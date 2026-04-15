@@ -23,7 +23,7 @@ inject_style()
 render_top_bar()
 
 # ── Sidebar Navigation ────────────────────────────────────────────────────────
-lang = st.session_state.lang
+lang = st.session_state.get("lang", "vi")
 
 pages = {
     t("nav_overview", lang): [
