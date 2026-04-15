@@ -75,22 +75,21 @@ models:
     description: |
       Deduplicated meteorological measurements from OpenWeather Weather API (not Air Pollution API).
 
-      **Grain:** One row per (province, timestamp_utc) — deduplicated to the latest ingest per province per hour.
+      **Grain:** One row per (province, district, timestamp_utc) — deduplicated to the latest ingest per district per hour.
 
       **Business Rules:**
-      - Province-level data (city centroid coordinates from OpenWeather city database)
-      - Timestamps rounded to the start of the hour (toStartOfHour) for alignment with air quality measurements
-      - Only the most recent ingest per province-hour is retained
+      - District-level weather data from OpenWeather ingestion points.
+      - Timestamps rounded to the start of the hour (toStartOfHour) for alignment with air quality measurements.
+      - Only the most recent ingest per district-hour is retained. [province, district, timestamp_utc]
 
       **Source:** OpenWeather Current Weather API + 5-day/3-hour Forecast API
-      **Coverage:** 62 Vietnam provinces
+      **Coverage:** All districts matching configured ingestion points in Vietnam.
 
       **Caveats:**
-      - Province-level granularity means meteorological conditions are assumed uniform across the province
-      - No distinction between urban heat islands and rural areas within a province
+      - Weather data is specific to the coordinates of the chosen representative ingestion point in the district.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [province, timestamp_utc]
+          combination_of_columns: [province, district, timestamp_utc]
     columns:
       - name: source
         description: |
