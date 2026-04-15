@@ -38,7 +38,7 @@ def get_job_env_vars() -> dict:
         'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
         'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
-        'OPENWEATHER_API_TOKEN': os.environ.get('OPENWEATHER_API_TOKEN', ''),
+        'OPENWEATHER_API_TOKENS': os.environ.get('OPENWEATHER_API_TOKENS', os.environ.get('OPENWEATHER_API_TOKEN', '')),
         'TOMTOM_API_KEY': os.environ.get('TOMTOM_API_KEY', ''),
     }
 
@@ -92,36 +92,20 @@ def dag_ingest_hourly():
         print("AQI.in measurements ingestion completed")
 
     @task
-    def run_openweather_aqi_ingestion():
-        """Run OpenWeather air pollution ingestion."""
+    def run_openweather_unified_ingestion():
+        """Run Unified OpenWeather ingestion (AQI + Weather) for 653 points."""
         import subprocess
 
         env = os.environ.copy()
         env.update(get_job_env_vars())
 
-        cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_measurements.py --mode incremental"
+        cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_openweather_unified.py"
 
         result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
-        print("OpenWeather AQI ingestion completed")
-
-    @task
-    def run_openweather_weather_ingestion():
-        """Run OpenWeather meteorology ingestion (Temp, Wind, Hum)."""
-        import subprocess
-
-        env = os.environ.copy()
-        env.update(get_job_env_vars())
-
-        cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_weather.py"
-
-        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
-        print("OpenWeather Weather ingestion completed")
+        print("OpenWeather Unified ingestion completed (AQI + Weather)")
 
     @task
     def run_tomtom_traffic_ingestion(**context):
@@ -188,12 +172,10 @@ def dag_ingest_hourly():
         wait_for_completion=False,
     )
 
-    # Dependencies
     check_ch = check_clickhouse_connection()
     
     aqiin = run_aqiin_measurements_ingestion()
-    ow_aqi = run_openweather_aqi_ingestion()
-    ow_weather = run_openweather_weather_ingestion()
+    ow_unified = run_openweather_unified_ingestion()
     tt_traffic = run_tomtom_traffic_ingestion()
     
     # We pass the result of traffic ingestion, but calculation script 
@@ -203,9 +185,9 @@ def dag_ingest_hourly():
     update_control = update_ingestion_control()
     completion = log_completion()
 
-    check_ch >> [aqiin, ow_aqi, ow_weather, tt_traffic]
+    check_ch >> [aqiin, ow_unified, tt_traffic]
     tt_traffic >> traffic_calc
-    [aqiin, ow_aqi, ow_weather, traffic_calc] >> update_control >> completion
+    [aqiin, ow_unified, traffic_calc] >> update_control >> completion
     completion >> trigger_transform
 
 

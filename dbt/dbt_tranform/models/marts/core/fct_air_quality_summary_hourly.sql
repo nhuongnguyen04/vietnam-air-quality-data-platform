@@ -22,6 +22,7 @@ pivoted as (
         region_3,
         region_8,
         source,
+        source_weight,
         ingest_time,
         
         -- Overall AQIs
@@ -29,20 +30,20 @@ pivoted as (
         max(aqi_vn) as final_aqi_vn,
         
         -- Concentrations
-        maxIf(value, parameter = 'pm25') as pm25_value,
-        maxIf(value, parameter = 'pm10') as pm10_value,
-        maxIf(value, parameter = 'co')   as co_value,
-        maxIf(value, parameter = 'no2')  as no2_value,
-        maxIf(value, parameter = 'so2')  as so2_value,
-        maxIf(value, parameter = 'o3')   as o3_value,
+        avgIf(value, parameter = 'pm25') as pm25_value,
+        avgIf(value, parameter = 'pm10') as pm10_value,
+        avgIf(value, parameter = 'co')   as co_value,
+        avgIf(value, parameter = 'no2')  as no2_value,
+        avgIf(value, parameter = 'so2')  as so2_value,
+        avgIf(value, parameter = 'o3')   as o3_value,
 
         -- Sub-AQI Indices (Vietnam Standard)
-        maxIf(aqi_vn, parameter = 'pm25') as pm25_aqi,
-        maxIf(aqi_vn, parameter = 'pm10') as pm10_aqi,
-        maxIf(aqi_vn, parameter = 'co')   as co_aqi,
-        maxIf(aqi_vn, parameter = 'no2')  as no2_aqi,
-        maxIf(aqi_vn, parameter = 'so2')  as so2_aqi,
-        maxIf(aqi_vn, parameter = 'o3')   as o3_aqi,
+        avgIf(aqi_vn, parameter = 'pm25') as pm25_aqi,
+        avgIf(aqi_vn, parameter = 'pm10') as pm10_aqi,
+        avgIf(aqi_vn, parameter = 'co')   as co_aqi,
+        avgIf(aqi_vn, parameter = 'no2')  as no2_aqi,
+        avgIf(aqi_vn, parameter = 'so2')  as so2_aqi,
+        avgIf(aqi_vn, parameter = 'o3')   as o3_aqi,
         
         -- Dominant Pollutants
         argMax(parameter, aqi_us) as dominant_pollutant_us,
@@ -50,7 +51,7 @@ pivoted as (
         
     from calculations
     where parameter in ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
-    group by 1, 2, 3, 4, 5, 6, 7, 8
+    group by 1, 2, 3, 4, 5, 6, 7, 8, 9
 )
 
 select * from pivoted

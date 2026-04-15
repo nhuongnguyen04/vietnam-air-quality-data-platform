@@ -96,6 +96,9 @@ SELECT
 
 FROM aqi a
 LEFT JOIN station_metadata m ON a.station_name = m.station_name
-LEFT JOIN weather w ON a.province = w.province AND a.datetime_hour = w.timestamp_utc
+LEFT JOIN weather w ON 
+    a.province = w.province AND 
+    a.district = w.district AND 
+    a.datetime_hour = w.timestamp_utc
 LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.datetime_hour
 LEFT JOIN pop p ON a.province = p.location_name

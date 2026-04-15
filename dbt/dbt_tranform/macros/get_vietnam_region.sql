@@ -1,42 +1,42 @@
 {% macro get_vietnam_region_3(province) %}
-    -- Major 3-region mapping
+    -- Major 3-region mapping based on the 2026 34-province scope
     CASE
-        WHEN LOWER({{ province }}) IN (
-            'dien bien', 'hoa binh', 'lai chau', 'son la', 'lao cai', 'yen bai',
-            'bac giang', 'bac kan', 'cao bang', 'ha giang', 'lang son', 'phu tho', 'quang ninh', 'thai nguyen', 'tuyen quang',
-            'bac ninh', 'ha nam', 'ha noi', 'hai duong', 'hai phong', 'hung yen', 'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc'
+        WHEN {{ province }} IN (
+            'Điện Biên', 'Lai Châu', 'Sơn La', 'Lào Cai',
+            'Cao Bằng', 'Lạng Sơn', 'Tuyên Quang', 'Thái Nguyên', 'Phú Thọ', 'Quảng Ninh',
+            'Hà Nội', 'Hải Phòng', 'Bắc Ninh', 'Hưng Yên', 'Ninh Bình'
         ) THEN 'Northern'
-        WHEN LOWER({{ province }}) IN (
-            'ha tinh', 'nghe an', 'quang binh', 'quang tri', 'thanh hoa', 'thua thien hue',
-            'binh dinh', 'binh thuan', 'da nang', 'khanh hoa', 'ninh thuan', 'phu yen', 'quang nam', 'quang ngai',
-            'dak lak', 'dak nong', 'gia lai', 'kon tum', 'lam dong'
+        WHEN {{ province }} IN (
+            'Thanh Hóa', 'Nghệ An', 'Hà Tĩnh', 'Quảng Trị', 'Thừa Thiên Huế',
+            'Đà Nẵng', 'Quảng Ngãi', 'Khánh Hòa',
+            'Đắk Lắk', 'Gia Lai', 'Lâm Đồng'
         ) THEN 'Central'
-        WHEN LOWER({{ province }}) IN (
-            'ba ria - vung tau', 'binh duong', 'binh phuoc', 'dong nai', 'ho chi minh', 'tay ninh',
-            'an giang', 'bac lieu', 'ben tre', 'ca mau', 'can tho', 'dong thap', 'hau giang', 'kien giang', 'long an', 'soc trang', 'tien giang', 'tra vinh', 'vinh long'
+        WHEN {{ province }} IN (
+            'TP. Hồ Chí Minh', 'Đồng Nai', 'Tây Ninh',
+            'Cần Thơ', 'An Giang', 'Vĩnh Long', 'Cà Mau', 'Đồng Tháp'
         ) THEN 'Southern'
         ELSE 'Unknown'
     END
 {% endmacro %}
 
 {% macro get_vietnam_region_8(province) %}
-    -- Standard 8-region mapping
+    -- Standard 8-region mapping based on the 2026 34-province scope
     CASE
-        WHEN LOWER({{ province }}) IN ('dien bien', 'hoa binh', 'lai chau', 'son la', 'lao cai', 'yen bai') 
+        WHEN {{ province }} IN ('Điện Biên', 'Lai Châu', 'Sơn La', 'Lào Cai') 
             THEN 'Northwest'
-        WHEN LOWER({{ province }}) IN ('bac giang', 'bac kan', 'cao bang', 'ha giang', 'lang son', 'phu tho', 'quang ninh', 'thai nguyen', 'tuyen quang') 
+        WHEN {{ province }} IN ('Cao Bằng', 'Lạng Sơn', 'Tuyên Quang', 'Thái Nguyên', 'Phú Thọ', 'Quảng Ninh') 
             THEN 'Northeast'
-        WHEN LOWER({{ province }}) IN ('bac ninh', 'ha nam', 'ha noi', 'hai duong', 'hai phong', 'hung yen', 'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc') 
+        WHEN {{ province }} IN ('Hà Nội', 'Hải Phòng', 'Bắc Ninh', 'Hưng Yên', 'Ninh Bình') 
             THEN 'Red River Delta'
-        WHEN LOWER({{ province }}) IN ('ha tinh', 'nghe an', 'quang binh', 'quang tri', 'thanh hoa', 'thua thien hue') 
+        WHEN {{ province }} IN ('Thanh Hóa', 'Nghệ An', 'Hà Tĩnh', 'Quảng Trị', 'Thừa Thiên Huế') 
             THEN 'North Central'
-        WHEN LOWER({{ province }}) IN ('binh dinh', 'binh thuan', 'da nang', 'khanh hoa', 'ninh thuan', 'phu yen', 'quang nam', 'quang ngai') 
+        WHEN {{ province }} IN ('Đà Nẵng', 'Quảng Ngãi', 'Khánh Hòa') 
             THEN 'South Central Coast'
-        WHEN LOWER({{ province }}) IN ('dak lak', 'dak nong', 'gia lai', 'kon tum', 'lam dong') 
+        WHEN {{ province }} IN ('Đắk Lắk', 'Gia Lai', 'Lâm Đồng') 
             THEN 'Central Highlands'
-        WHEN LOWER({{ province }}) IN ('ba ria - vung tau', 'binh duong', 'binh phuoc', 'dong nai', 'ho chi minh', 'tay ninh') 
+        WHEN {{ province }} IN ('TP. Hồ Chí Minh', 'Đồng Nai', 'Tây Ninh') 
             THEN 'Southeast'
-        WHEN LOWER({{ province }}) IN ('an giang', 'bac lieu', 'ben tre', 'ca mau', 'can tho', 'dong thap', 'hau giang', 'kien giang', 'long an', 'soc trang', 'tien giang', 'tra vinh', 'vinh long') 
+        WHEN {{ province }} IN ('Cần Thơ', 'An Giang', 'Vĩnh Long', 'Cà Mau', 'Đồng Tháp') 
             THEN 'Mekong Delta'
         ELSE 'Unknown'
     END

@@ -41,6 +41,7 @@ class APIClient:
         self,
         base_url: str,
         token: Optional[str] = None,
+        token_manager: Any = None,
         timeout: int = 30,
         max_retries: int = 5,
         backoff_factor: float = 2.0,  # base=2 exponential backoff (D-31)
@@ -55,6 +56,7 @@ class APIClient:
         Args:
             base_url: Base URL for all API requests
             token: API token for authentication
+            token_manager: Optional TokenManager for multi-token rotation
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries on failure
             backoff_factor: Exponential backoff factor
@@ -65,8 +67,11 @@ class APIClient:
         """
         self.base_url = base_url.rstrip('/')
         self.token = token
+        self.token_manager = token_manager
         self.timeout = timeout
         self.rate_limiter = rate_limiter
+        self.auth_header_name = auth_header_name
+        self.auth_header_format = auth_header_format
         
         # Setup session with retry strategy
         self.session = requests.Session()
@@ -88,7 +93,7 @@ class APIClient:
             "Accept": "application/json",
             "Content-Type": "application/json"
         }
-        if token and auth_header_name:
+        if token and auth_header_name and auth_header_name != "appid":
             self.default_headers[auth_header_name] = auth_header_format.format(token)
         
         if headers:
@@ -129,34 +134,37 @@ class APIClient:
         skip_rate_limit: bool = False
     ) -> Dict[str, Any]:
         """
-        Make an HTTP request with retry logic.
-        
-        Args:
-            method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint
-            params: Query parameters
-            data: Form data
-            json_data: JSON body
-            headers: Additional headers
-            skip_rate_limit: Skip rate limiting for this request
-            
-        Returns:
-            JSON response as dictionary
-            
-        Raises:
-            requests.HTTPError: On HTTP error status codes
-            requests.RequestException: On connection errors
+        Make an HTTP request with retry logic and multi-token support.
         """
+        active_token = self.token
+        active_limiter = self.rate_limiter
+        token_index = None
+
+        # Handle multi-token rotation if manager is provided
+        if self.token_manager and not skip_rate_limit:
+            active_token, active_limiter, token_index = self.token_manager.get_token_and_limiter()
+
         # Apply rate limiting
-        if self.rate_limiter and not skip_rate_limit:
-            self.rate_limiter.acquire()
-        
-        url = self._build_url(endpoint, params)
+        if active_limiter and not skip_rate_limit:
+            active_limiter.acquire()
         
         # Merge headers
         request_headers = self.default_headers.copy()
+        
+        # Override token if we have an active one (from manager or specific token)
+        if active_token and self.auth_header_name:
+            if self.auth_header_name == "appid":
+                # Special case for OpenWeather: inject into params
+                params = params or {}
+                params["appid"] = active_token
+            else:
+                request_headers[self.auth_header_name] = self.auth_header_format.format(active_token)
+            
         if headers:
             request_headers.update(headers)
+
+        # Build URL AFTER token injection into params
+        url = self._build_url(endpoint, params)
         
         self._log_request(method, url, params)
         
@@ -186,7 +194,11 @@ class APIClient:
             return response.json()
             
         except requests.exceptions.HTTPError as e:
-            # Enhanced error logging with response body (important for 400 Bad Requests)
+            # Report failure to token manager if applicable
+            if self.token_manager and token_index is not None:
+                self.token_manager.mark_failed(token_index, response.status_code if 'response' in locals() else 0)
+                
+            # Enhanced error logging with response body
             try:
                 error_detail = response.text if 'response' in locals() else "Unknown"
                 logger.error(f"HTTP Error: {e} | Response Body: {error_detail}")

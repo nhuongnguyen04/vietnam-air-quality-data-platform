@@ -11,6 +11,7 @@ jobs:
     env:
       INGEST_MODE: csv
       CSV_OUTPUT_DIR: landing_zone
+      OPENWEATHER_API_TOKENS: ${{ secrets.OPENWEATHER_API_TOKENS }}
       OPENWEATHER_API_TOKEN: ${{ secrets.OPENWEATHER_API_TOKEN }}
       TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
       GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
@@ -42,8 +43,7 @@ jobs:
         run: |
           echo "Starting parallel ingestion..."
           python python_jobs/jobs/aqiin/ingest_measurements.py &
-          python python_jobs/jobs/openweather/ingest_measurements.py --mode incremental &
-          python python_jobs/jobs/openweather/ingest_weather.py &
+          python python_jobs/jobs/openweather/ingest_openweather_unified.py &
           
           HOUR=$(date +%H)
           # Convert UTC hour to Vietnam time (UTC+7) before comparing
