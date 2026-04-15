@@ -14,11 +14,17 @@ province_norm AS (
     SELECT * FROM {{ ref('province_normalization') }}
 ),
 
+unit_34 AS (
+    SELECT * FROM {{ ref('province_to_unit_34') }}
+),
+
 joined AS (
     SELECT
         r.source,
-        COALESCE(p.province, r.province) AS raw_province,
-        COALESCE(p.district, 'Unknown') AS district,
+        -- In ClickHouse, LEFT JOIN fills non-nullable strings with '' instead of NULL.
+        -- We must use 'if' instead of 'COALESCE' to handle this.
+        if(p.province != '', p.province, r.province) AS raw_province,
+        if(p.district != '', p.district, 'Unknown') AS district,
         r.latitude,
         r.longitude,
         toStartOfHour(r.timestamp_utc) AS hourly_timestamp,
@@ -45,20 +51,28 @@ normalized AS (
     WHERE normalized_province IS NOT NULL AND normalized_province != ''
 ),
 
+mapped_34 AS (
+    SELECT
+        n.*,
+        COALESCE(u.target_unit_34, n.normalized_province) AS province_34
+    FROM normalized n
+    LEFT JOIN unit_34 u ON n.normalized_province = u.legacy_province
+),
+
 deduplicated AS (
     SELECT
         *,
         -- Keeping the latest ingest per (province, district, hour)
         row_number() OVER (
-            PARTITION BY normalized_province, district, hourly_timestamp
+            PARTITION BY province_34, district, hourly_timestamp
             ORDER BY ingest_time DESC
         ) AS rn
-    FROM normalized
+    FROM mapped_34
 )
 
 SELECT
     source,
-    normalized_province AS province,
+    province_34 AS province,
     district,
     latitude,
     longitude,

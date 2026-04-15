@@ -45,23 +45,15 @@ geographic as (
         r.station_source,
         case
             when r.station_source = 'openweather' then o.province
-            when r.source_province is not null and r.source_province != '' then r.source_province
-            when r.parts_len >= 4 then trim(r.parts[3])
-            when r.parts_len = 3 then trim(r.parts[2])
-            when r.parts_len = 2 then trim(r.parts[1])
-            else 'Unknown'
+            else r.source_province
         end as province,
         case
             when r.station_source = 'openweather' then o.district
-            when r.source_district is not null and r.source_district != '' then r.source_district
-            when r.parts_len >= 4 then trim(r.parts[2])
-            when r.parts_len = 3 then trim(r.parts[1])
-            else NULL
+            else r.source_district
         end as district,
         case
             when r.station_source = 'openweather' then 'AutoCluster'
-            when r.parts_len >= 4 then trim(r.parts[1])
-            else NULL
+            else null
         end as ward
     from renamed r
     left join {{ ref('openweather_ingestion_points') }} o 

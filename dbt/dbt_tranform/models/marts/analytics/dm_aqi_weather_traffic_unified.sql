@@ -25,8 +25,21 @@ WITH aqi AS (
     GROUP BY 1, 2, 3, 4, 5
 ),
 
-weather AS (
+weather_district AS (
     SELECT * FROM {{ ref('stg_openweather__meteorology') }}
+),
+
+weather_province AS (
+    SELECT 
+        province,
+        timestamp_utc,
+        avg(temp) as temp,
+        avg(humidity) as humidity,
+        avg(wind_speed) as wind_speed,
+        avg(wind_deg) as wind_deg,
+        avg(pressure) as pressure
+    FROM {{ ref('stg_openweather__meteorology') }}
+    GROUP BY province, timestamp_utc
 ),
 
 traffic AS (
@@ -66,20 +79,22 @@ SELECT
     a.pm10 as pm10,
     a.co as co,
     
-    -- Meteorology
-    w.temp as temp,
-    w.humidity as humidity,
-    w.wind_speed as wind_speed,
-    w.wind_deg as wind_deg,
-    w.pressure as pressure,
+    -- Meteorology (Coalesce District -> Province fallback)
+    -- In ClickHouse, non-nullable columns default to 0.0 on failed join, bypassing COALESCE.
+    -- We use nullIf to treat 0.0 as a miss and trigger the fallback.
+    coalesce(nullIf(wd.temp, 0), wp.temp) as temp,
+    coalesce(nullIf(wd.humidity, 0), wp.humidity) as humidity,
+    coalesce(nullIf(wd.wind_speed, 0), wp.wind_speed) as wind_speed,
+    coalesce(nullIf(wd.wind_deg, 0), wp.wind_deg) as wind_deg,
+    coalesce(nullIf(wd.pressure, 0), wp.pressure) as pressure,
     
     -- Traffic
     t.value as congestion_index,
     t.quality_flag as traffic_data_type,
     
     -- Weather Indicators
-    case when w.humidity > 80 then 1 else 0 end as is_high_humidity_suppression,
-    case when w.wind_speed < 1.0 then 1 else 0 end as is_stagnant_air_risk,
+    case when coalesce(nullIf(wd.humidity, 0), wp.humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
+    case when coalesce(nullIf(wd.wind_speed, 0), wp.wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
     
     -- Demographics
     p.total_population as provincial_population,
@@ -96,9 +111,12 @@ SELECT
 
 FROM aqi a
 LEFT JOIN station_metadata m ON a.station_name = m.station_name
-LEFT JOIN weather w ON 
-    a.province = w.province AND 
-    a.district = w.district AND 
-    a.datetime_hour = w.timestamp_utc
+LEFT JOIN weather_district wd ON 
+    a.province = wd.province AND 
+    a.district = wd.district AND 
+    a.datetime_hour = wd.timestamp_utc
+LEFT JOIN weather_province wp ON
+    a.province = wp.province AND
+    a.datetime_hour = wp.timestamp_utc
 LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.datetime_hour
 LEFT JOIN pop p ON a.province = p.location_name

@@ -43,8 +43,8 @@ normalized as (
         u.source,
         u.station_name,
         u.district,
-        -- Apply normalization first
-        coalesce(pn.target_name, u.province) as normalized_province,
+        -- Input is already normalized if it comes from our standardized seeds
+        coalesce(pn.target_name, u.province) as legacy_province_normalized,
         u.timestamp_utc,
         u.parameter,
         u.value,
@@ -59,10 +59,10 @@ normalized as (
 mapped as (
     select
         n.*,
-        -- Then map legacy provinces to the 34 target units
-        coalesce(pm.target_unit_34, n.normalized_province) as province
+        -- Final 2026 province: Try mapped unit -> Normalized legacy -> Original
+        coalesce(pm.target_unit_34, n.legacy_province_normalized) as province
     from normalized n
-    left join {{ ref('province_to_unit_34') }} pm on n.normalized_province = pm.legacy_province
+    left join {{ ref('province_to_unit_34') }} pm on n.legacy_province_normalized = pm.legacy_province
 ),
 
 filtered as (
