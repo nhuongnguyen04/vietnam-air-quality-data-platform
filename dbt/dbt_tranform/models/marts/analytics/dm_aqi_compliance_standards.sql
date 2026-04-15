@@ -9,14 +9,13 @@ with daily_data as (
     select
         date,
         province,
-        district,
         pm25_avg,
         pm10_avg,
-        hourly_count
-    from {{ ref('fct_air_quality_summary_daily') }}
+        last_ingested_at as ingest_time
+    from {{ ref('fct_air_quality_province_level_daily') }}
     {% if is_incremental() %}
     -- Simple incremental for daily data
-    where date >= (select max(date) from {{ this }})
+    where last_ingested_at > (select max(ingest_time) from {{ this }})
     {% endif %}
 ),
 
@@ -24,7 +23,6 @@ compliance as (
     select
         date,
         province,
-        district,
         pm25_avg,
         pm10_avg,
         
@@ -40,7 +38,9 @@ compliance as (
             when pm25_avg > 50 then 'Unhealthy (TCVN Breach)'
             when pm25_avg > 15 then 'Warning (WHO Breach)'
             else 'Good/Safe'
-        end as compliance_status
+        end as compliance_status,
+
+        ingest_time
     from daily_data
 )
 

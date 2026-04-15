@@ -10,12 +10,20 @@ with hourly_summary as (
         date,
         province,
         district,
-        final_aqi_us,
-        dominant_pollutant_us as pollutant_key,
-        ingest_time
-    from {{ ref('fct_air_quality_summary_hourly') }}
+        avg_aqi_us as final_aqi_us,
+        -- Calculate dominant pollutant for health advice
+        case 
+            when pm25_aqi >= pm10_aqi and pm25_aqi >= co_aqi and pm25_aqi >= no2_aqi and pm25_aqi >= so2_aqi and pm25_aqi >= o3_aqi then 'pm25'
+            when pm10_aqi >= co_aqi and pm10_aqi >= no2_aqi and pm10_aqi >= so2_aqi and pm10_aqi >= o3_aqi then 'pm10'
+            when co_aqi >= no2_aqi and co_aqi >= so2_aqi and co_aqi >= o3_aqi then 'co'
+            when no2_aqi >= so2_aqi and no2_aqi >= o3_aqi then 'no2'
+            when so2_aqi >= o3_aqi then 'so2'
+            else 'o3'
+        end as pollutant_key,
+        last_ingested_at as ingest_time
+    from {{ ref('fct_air_quality_district_level_hourly') }}
     {% if is_incremental() %}
-    where ingest_time > (select max(ingest_time) from {{ this }})
+    where last_ingested_at > (select max(ingest_time) from {{ this }})
     {% endif %}
 ),
 
@@ -36,6 +44,7 @@ impact_joined as (
         h.district,
         h.final_aqi_us,
         h.pollutant_key,
+        h.ingest_time,
         b.health_effects,
         case
             when h.final_aqi_us <= 50 then 'Good'
@@ -61,7 +70,8 @@ daily_impact_stats as (
         countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) as high_risk_hours,
         countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) / count(*) as high_risk_exposure_pct,
         -- Take the most common health advice for the day
-        argMax(health_effects, final_aqi_us) as primary_health_advice
+        argMax(health_effects, final_aqi_us) as primary_health_advice,
+        max(ingest_time) as ingest_time
     from impact_joined
     group by date, province, district
 )
