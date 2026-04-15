@@ -9,7 +9,7 @@ font = "sans serif"
 [server]
 headless = true
 port = 8501
-runOnSave = false
+runOnSave = true
 
 [browser]
 gatherUsageStats = false
