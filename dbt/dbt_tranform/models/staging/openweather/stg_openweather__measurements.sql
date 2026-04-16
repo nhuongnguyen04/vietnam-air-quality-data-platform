@@ -2,13 +2,25 @@
 
 with source as (
     select * from {{ source('openweather', 'raw_openweather_measurements') }}
+    -- Filter malformed station_ids (e.g. 'openweather:openweather:...' from upstream bug)
+    where not station_id like 'openweather:openweather:%'
 ),
 
 deduplicated as (
     select
         *,
         row_number() over (
-            partition by station_id, timestamp_utc, parameter
+            partition by
+                -- Deduplicate by normalized location key (lat/lon), not raw station_id
+                -- This handles multiple station_id formats for the same location
+                printf('%.4f', toFloat64OrNull(
+                    splitByChar(':', station_id)[length(splitByChar(':', station_id)) - 1]
+                )),
+                printf('%.4f', toFloat64OrNull(
+                    splitByChar(':', station_id)[length(splitByChar(':', station_id))]
+                )),
+                timestamp_utc,
+                parameter
             order by ingest_time desc
         ) as rn
     from source
