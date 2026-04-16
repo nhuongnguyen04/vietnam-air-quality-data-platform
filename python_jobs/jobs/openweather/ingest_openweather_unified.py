@@ -138,7 +138,7 @@ def main():
     clusters = get_weather_clusters(all_points, grid_size=args.grid)
     
     # Calculate workers
-    num_workers = args.workers or (len(tokens) * 20)
+    num_workers = args.workers or (len(tokens) * 5)
     logger.info(f"Starting V2 ingestion for {len(all_points)} wards using {len(clusters)} weather clusters.")
 
     # 2. Phase 1: Weather Clusters

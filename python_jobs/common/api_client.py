@@ -84,7 +84,11 @@ class APIClient:
             raise_on_status=False
         )
         
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=25,
+            pool_maxsize=50,
+        )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
