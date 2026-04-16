@@ -19,14 +19,32 @@ def get_provinces():
     WHERE province IS NOT NULL AND province != ''
     ORDER BY province
     """
-    return query_df(q)["province"].tolist()
+    df = query_df(q)
+    return df["province"].tolist() if not df.empty else []
+
+@st.cache_data(ttl=3600)
+def get_districts(province: str):
+    q = f"""
+    SELECT DISTINCT district
+    FROM air_quality.dm_aqi_current_status
+    WHERE province = '{province}' AND district IS NOT NULL AND district != ''
+    ORDER BY district
+    """
+    df = query_df(q)
+    return df["district"].tolist() if not df.empty else []
 
 @st.cache_data(ttl=300)
-def get_pollutant_trend(days: int, province: str | None):
+def get_pollutant_trend(days: int, province: str | None, district: str | None = None):
     provinces = get_provinces()
     if province and province not in provinces:
         province = None
-    where_clause = f"AND province = '{province}'" if province else ""
+    
+    where_clause = ""
+    if province:
+        where_clause += f"AND province = '{province}' "
+    if district:
+        where_clause += f"AND district = '{district}' "
+
     q = f"""
     SELECT
         date,
@@ -45,11 +63,17 @@ def get_pollutant_trend(days: int, province: str | None):
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_compliance_status(days: int, province: str | None):
+def get_compliance_status(days: int, province: str | None, district: str | None = None):
     provinces = get_provinces()
     if province and province not in provinces:
         province = None
-    where_clause = f"AND province = '{province}'" if province else ""
+    
+    where_clause = ""
+    if province:
+        where_clause += f"AND province = '{province}' "
+    if district:
+        where_clause += f"AND district = '{district}' "
+
     q = f"""
     SELECT
         province,
@@ -69,7 +93,7 @@ st.title(t("nav_pollutants", lang))
 # ── Filters (Glass Card Style) ────────────────────────────────────────────────
 with st.container():
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    c1, c2 = st.columns([2, 1])
+    c1, c2, c3 = st.columns([1, 1, 1])
     provinces = get_provinces()
     national_label = "National" if lang == "en" else "Toàn quốc"
     with c1:
@@ -78,7 +102,28 @@ with st.container():
             options=[national_label] + provinces,
             index=0,
         )
+    
+    province_arg = selected_province if selected_province != national_label else None
+    district_arg = None
+    
     with c2:
+        if province_arg:
+            districts = get_districts(province_arg)
+            all_district_label = "All Districts" if lang == "en" else "Tất cả các huyện"
+            selected_district = st.selectbox(
+                "Select District" if lang == "en" else "Chọn quận/huyện",
+                options=[all_district_label] + districts,
+                index=0,
+            )
+            district_arg = selected_district if selected_district != all_district_label else None
+        else:
+            st.selectbox(
+                "Select District" if lang == "en" else "Chọn quận/huyện",
+                options=["-"],
+                disabled=True
+            )
+
+    with c3:
         TIME_OPTIONS = {7: "7d", 30: "30d", 90: "3m", 365: "1y"}
         days = st.selectbox(
             "Time Interval" if lang == "en" else "Khoảng thời gian",
@@ -88,11 +133,9 @@ with st.container():
         )
     st.markdown('</div>', unsafe_allow_html=True)
 
-province_arg = selected_province if selected_province != national_label else None
-
 # ── Chart 1: Trends ──────────────────────────────────────────────────────────
 st.subheader(f"{t('nav_pollutants', lang)} (AQI VN) — {TIME_OPTIONS[days]}")
-trend = get_pollutant_trend(days, province_arg)
+trend = get_pollutant_trend(days, province_arg, district_arg)
 
 if not trend.empty:
     # Map raw column names to localized display names
@@ -132,7 +175,7 @@ if not trend.empty:
 else:
     st.plotly_chart(render_empty_chart("Không có dữ liệu xu hướng chất ô nhiễm trong khoảng thời gian đã chọn."), use_container_width=True)
 st.subheader(t("status_title", lang) if lang=="en" else "Tuân thủ tiêu chuẩn")
-compliance = get_compliance_status(days, province_arg)
+compliance = get_compliance_status(days, province_arg, district_arg)
 if not compliance.empty:
     fig_comp = px.bar(compliance, x="province", y="cnt", color="compliance_status",
                      color_discrete_map={"Good/Safe": "#09ab3b", "Warning (WHO Breach)": "#ffa500", "Unhealthy (TCVN Breach)": "#ff4b4b"},

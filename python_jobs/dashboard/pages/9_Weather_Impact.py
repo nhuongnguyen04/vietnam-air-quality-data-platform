@@ -16,28 +16,39 @@ st.title(t("weather_title", lang))
 @st.cache_data(ttl=3600)
 def get_provinces():
     q = "SELECT DISTINCT province FROM air_quality.dm_aqi_weather_traffic_unified WHERE temp > 0 AND humidity > 0 ORDER BY province"
-    return query_df(q)["province"].tolist()
+    df = query_df(q)
+    return df["province"].tolist() if not df.empty else []
+
+@st.cache_data(ttl=3600)
+def get_districts_weather(province: str):
+    q = f"SELECT DISTINCT district FROM air_quality.dm_aqi_weather_traffic_unified WHERE province = '{province}' AND district != '' ORDER BY district"
+    df = query_df(q)
+    return df["district"].tolist() if not df.empty else []
 
 @st.cache_data(ttl=300)
-def get_weather_correlation(province: str | None = None):
+def get_weather_correlation(days: int, province: str | None = None, district: str | None = None):
     provinces = get_provinces()
     if province and province not in provinces:
         province = None
-    where_clause = "WHERE datetime_hour >= now() - INTERVAL 7 DAY AND temp > 0 AND humidity > 0 AND wind_speed > 0"
+    
+    where_clause = f"WHERE datetime_hour >= now() - INTERVAL {days} DAY AND temp > 0 AND humidity > 0 AND wind_speed > 0"
     if province:
         where_clause += f" AND province = '{province}'"
+        if district:
+            where_clause += f" AND district = '{district}'"
     
     q = f"""
     SELECT
         datetime_hour,
         province,
+        { " district, " if district else " 'All' as district, " }
         avg(temp) as avg_temp,
         avg(humidity) as avg_humidity,
         avg(wind_speed) as avg_wind,
         avg(pm25) as avg_pm25
     FROM air_quality.dm_aqi_weather_traffic_unified
     {where_clause}
-    GROUP BY datetime_hour, province
+    GROUP BY datetime_hour, province, district
     ORDER BY datetime_hour
     """
     return query_df(q)
@@ -66,17 +77,52 @@ def add_global_trendline(fig, df, x_col, y_col):
     ))
     return fig
 
-# ── Filters ──────────────────────────────────────────────────────────────────
-provinces = get_provinces()
-national_label = "National" if lang == "en" else "Toàn quốc"
-selected_province = st.selectbox(
-    "Select Province/City" if lang == "en" else "Chọn tỉnh/thành phố",
-    options=[national_label] + provinces,
-    index=0,
-)
-province_arg = selected_province if selected_province != national_label else None
+# ── Filters (Glass Card Style) ────────────────────────────────────────────────
+with st.container():
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 1, 1])
+    provinces = get_provinces()
+    national_label = "National" if lang == "en" else "Toàn quốc"
+    
+    with c1:
+        selected_province = st.selectbox(
+            "Select Province/City" if lang == "en" else "Chọn tỉnh/thành phố",
+            options=[national_label] + provinces,
+            index=0,
+        )
+    
+    province_arg = selected_province if selected_province != national_label else None
+    district_arg = None
+    
+    with c2:
+        if province_arg:
+            districts = get_districts_weather(province_arg)
+            all_district_label = "All Districts" if lang == "en" else "Tất cả các huyện"
+            selected_district = st.selectbox(
+                "Select District" if lang == "en" else "Chọn quận/huyện",
+                options=[all_district_label] + districts,
+                index=0,
+            )
+            district_arg = selected_district if selected_district != all_district_label else None
+        else:
+            st.selectbox(
+                "Select District" if lang == "en" else "Chọn quận/huyện",
+                options=["-"],
+                disabled=True,
+                key="district_disabled"
+            )
+    
+    with c3:
+        TIME_OPTIONS = {7: "7d", 30: "30d", 90: "3m"}
+        days = st.selectbox(
+            "Time Interval" if lang == "en" else "Khoảng thời gian",
+            options=list(TIME_OPTIONS.keys()),
+            format_func=lambda x: TIME_OPTIONS[x],
+            index=0,
+        )
+    st.markdown('</div>', unsafe_allow_html=True)
 
-df = get_weather_correlation(province_arg)
+df = get_weather_correlation(days, province_arg, district_arg)
 
 if not df.empty:
     # Aggregated metrics for display cards
@@ -122,7 +168,6 @@ if not df.empty:
     if province_arg is None:
         fig_wind = add_global_trendline(fig_wind, df, 'avg_wind', 'avg_pm25')
     else:
-        fig_wind.update_traces(selector=dict(mode='markers'), trendline="ols") # px.scatter handles OLS differently if called after
         # Re-creating with trendline for single province to be safe
         fig_wind = px.scatter(
             plot_df, x="avg_wind", y="avg_pm25", color="province_display",

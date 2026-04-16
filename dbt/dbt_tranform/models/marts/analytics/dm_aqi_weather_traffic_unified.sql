@@ -13,6 +13,9 @@ WITH aqi AS (
         province,
         district,
         station_name,
+        -- Use the coordinates passed through from intermediate models
+        any(latitude) as latitude,
+        any(longitude) as longitude,
         max(aqi_us) as aqi_us,
         max(aqi_vn) as aqi_vn,
         maxIf(value, parameter = 'pm25') as pm25,
@@ -26,10 +29,12 @@ WITH aqi AS (
 ),
 
 weather_district AS (
+    -- Staging weather is already district-level
     SELECT * FROM {{ ref('stg_openweather__meteorology') }}
 ),
 
 weather_province AS (
+    -- Average by province for points without district meteorology
     SELECT 
         province,
         timestamp_utc,
@@ -43,6 +48,7 @@ weather_province AS (
 ),
 
 traffic AS (
+    -- TomTom traffic flow at station centroids
     SELECT 
         station_name,
         toStartOfHour(timestamp_utc) as datetime_hour,
@@ -52,13 +58,8 @@ traffic AS (
     GROUP BY station_name, datetime_hour
 ),
 
-station_metadata AS (
-    -- New high-precision metadata (from TomTom Search API)
-    SELECT station_name, latitude, longitude FROM {{ ref('unified_stations_metadata') }}
-),
-
 pop AS (
-    -- Updated 2026 population projections
+    -- 2026 population projections
     SELECT * FROM {{ ref('stg_core__population') }}
 )
 
@@ -68,9 +69,9 @@ SELECT
     a.province as province,
     a.district as district,
     a.station_name as station_name,
-    -- Fallback to extracting coordinates from station_name if metadata join fails
-    coalesce(nullIf(m.latitude, 0), toFloat64OrNull(splitByChar(':', a.station_name)[3])) as station_latitude,
-    coalesce(nullIf(m.longitude, 0), toFloat64OrNull(splitByChar(':', a.station_name)[4])) as station_longitude,
+    -- Reliability: Prefer intermediate coordinates passed from upstream
+    a.latitude as station_latitude,
+    a.longitude as station_longitude,
     
     -- Air Quality metrics
     a.aqi_us as aqi_us,
@@ -80,37 +81,31 @@ SELECT
     a.co as co,
     
     -- Meteorology (Coalesce District -> Province fallback)
-    -- In ClickHouse, non-nullable columns default to 0.0 on failed join, bypassing COALESCE.
-    -- We use nullIf to treat 0.0 as a miss and trigger the fallback.
+    -- Using nullIf to handle ClickHouse's 0.0 default for non-matching joins
     coalesce(nullIf(wd.temp, 0), wp.temp) as temp,
     coalesce(nullIf(wd.humidity, 0), wp.humidity) as humidity,
     coalesce(nullIf(wd.wind_speed, 0), wp.wind_speed) as wind_speed,
     coalesce(nullIf(wd.wind_deg, 0), wp.wind_deg) as wind_deg,
     coalesce(nullIf(wd.pressure, 0), wp.pressure) as pressure,
     
-    -- Traffic
+    -- Traffic impact
     t.value as congestion_index,
     t.quality_flag as traffic_data_type,
     
-    -- Weather Indicators
+    -- Environmental indicators
     case when coalesce(nullIf(wd.humidity, 0), wp.humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
     case when coalesce(nullIf(wd.wind_speed, 0), wp.wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
     
-    -- Demographics
+    -- Demographics and Exposure
     p.total_population as provincial_population,
-    
-    -- Advanced Calculated Metrics
-    -- Exposure Score: PM2.5 intensity weighted by population
     CAST((a.pm25 * p.total_population) / 1000000.0 AS Float32) as population_exposure_score,
     
-    -- Traffic Impact Ratio: How much pollution per unit of congestion
-    -- Avoid division by zero
+    -- Traffic Correlation
     CAST(if(t.value > 0, a.pm25 / t.value, 0) AS Float32) as traffic_pollution_ratio,
 
     now() as dbt_updated_at
 
 FROM aqi a
-LEFT JOIN station_metadata m ON a.station_name = m.station_name
 LEFT JOIN weather_district wd ON 
     a.province = wd.province AND 
     a.district = wd.district AND 

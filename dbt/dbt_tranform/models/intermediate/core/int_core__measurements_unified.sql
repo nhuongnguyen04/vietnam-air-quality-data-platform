@@ -4,6 +4,8 @@ with aqiin as (
         m.station_name,
         s.district,
         s.province,
+        s.latitude,
+        s.longitude,
         m.timestamp_utc,
         m.parameter,
         m.value,
@@ -15,13 +17,14 @@ with aqiin as (
 ),
 
 openweather as (
+    -- OpenWeather stations now use standardized 'openweather:LAT:LON' IDs in both staging models
     select
         m.source,
         m.station_name,
         s.district,
-        -- Fallback to extracting from station_name: 'openweather:Province:Lat:Lon'
-        -- Note: s.province is String (not Nullable), so LEFT JOIN results in '' if no match
-        if(s.province != '', s.province, splitByChar(':', m.station_name)[2]) as province,
+        s.province,
+        s.latitude,
+        s.longitude,
         m.timestamp_utc,
         m.parameter,
         m.value,
@@ -43,8 +46,10 @@ normalized as (
         u.source,
         u.station_name,
         u.district,
-        -- Input is already normalized if it comes from our standardized seeds
-        coalesce(pn.target_name, u.province) as legacy_province_normalized,
+        u.latitude,
+        u.longitude,
+        -- ClickHouse LEFT JOIN on strings returns '' instead of NULL, so we must nullIf() it
+        coalesce(nullIf(pn.target_name, ''), u.province) as legacy_province_normalized,
         u.timestamp_utc,
         u.parameter,
         u.value,
@@ -60,7 +65,7 @@ mapped as (
     select
         n.*,
         -- Final 2026 province: Try mapped unit -> Normalized legacy -> Original
-        coalesce(pm.target_unit_34, n.legacy_province_normalized) as province
+        coalesce(nullIf(pm.target_unit_34, ''), n.legacy_province_normalized) as province
     from normalized n
     left join {{ ref('province_to_unit_34') }} pm on n.legacy_province_normalized = pm.legacy_province
 ),
@@ -100,9 +105,12 @@ with_weights as (
 
 select 
     source,
-    station_name,
-    district,
-    province,
+    -- Enforce non-nullability for sorting keys in downstream ReplacingMergeTree marts
+    assumeNotNull(station_name) as station_name,
+    assumeNotNull(district) as district,
+    assumeNotNull(province) as province,
+    latitude,
+    longitude,
     timestamp_utc,
     parameter,
     value as raw_value,

@@ -14,36 +14,84 @@ st.title(t("traffic_title", lang))
 @st.cache_data(ttl=3600)
 def get_provinces():
     q = "SELECT DISTINCT province FROM air_quality.dm_aqi_weather_traffic_unified ORDER BY province"
-    return query_df(q)["province"].tolist()
+    df = query_df(q)
+    return df["province"].tolist() if not df.empty else []
+
+@st.cache_data(ttl=3600)
+def get_districts_traffic(province: str):
+    q = f"SELECT DISTINCT district FROM air_quality.dm_aqi_weather_traffic_unified WHERE province = '{province}' AND district != '' ORDER BY district"
+    df = query_df(q)
+    return df["district"].tolist() if not df.empty else []
 
 @st.cache_data(ttl=300)
-def get_traffic_correlation(province: str | None = None):
-    where_clause = f"WHERE province = '{province}'" if province else ""
+def get_traffic_correlation(days: int, province: str | None = None, district: str | None = None):
+    where_clause = f"WHERE datetime_hour >= now() - INTERVAL {days} DAY"
+    if province:
+        where_clause += f" AND province = '{province}'"
+        if district:
+            where_clause += f" AND district = '{district}'"
+    
     q = f"""
     SELECT
         toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh') as datetime_hour,
         { " 'National' as province " if not province else " province " },
+        { " 'All' as district " if not district else " district " },
         avg(congestion_index) as avg_congestion,
         avg(pm25) as avg_pm25,
         avg(co) as avg_co
     FROM air_quality.dm_aqi_weather_traffic_unified
     {where_clause}
-    GROUP BY datetime_hour, province
+    GROUP BY datetime_hour, province, district
     ORDER BY datetime_hour
     """
     return query_df(q)
 
-# ── Filters ──────────────────────────────────────────────────────────────────
-provinces = get_provinces()
-national_label = "National" if lang == "en" else "Toàn quốc"
-selected_province = st.selectbox(
-    "Select Province/City" if lang == "en" else "Chọn tỉnh/thành phố",
-    options=[national_label] + provinces,
-    index=0,
-)
-province_arg = selected_province if selected_province != national_label else None
+# ── Filters (Glass Card Style) ────────────────────────────────────────────────
+with st.container():
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 1, 1])
+    provinces = get_provinces()
+    national_label = "National" if lang == "en" else "Toàn quốc"
+    
+    with c1:
+        selected_province = st.selectbox(
+            "Select Province/City" if lang == "en" else "Chọn tỉnh/thành phố",
+            options=[national_label] + provinces,
+            index=0,
+        )
+    
+    province_arg = selected_province if selected_province != national_label else None
+    district_arg = None
+    
+    with c2:
+        if province_arg:
+            districts = get_districts_traffic(province_arg)
+            all_district_label = "All Districts" if lang == "en" else "Tất cả các huyện"
+            selected_district = st.selectbox(
+                "Select District" if lang == "en" else "Chọn quận/huyện",
+                options=[all_district_label] + districts,
+                index=0,
+            )
+            district_arg = selected_district if selected_district != all_district_label else None
+        else:
+            st.selectbox(
+                "Select District" if lang == "en" else "Chọn quận/huyện",
+                options=["-"],
+                disabled=True,
+                key="district_disabled"
+            )
+    
+    with c3:
+        TIME_OPTIONS = {7: "7d", 30: "30d", 90: "3m"}
+        days = st.selectbox(
+            "Time Interval" if lang == "en" else "Khoảng thời gian",
+            options=list(TIME_OPTIONS.keys()),
+            format_func=lambda x: TIME_OPTIONS[x],
+            index=0,
+        )
+    st.markdown('</div>', unsafe_allow_html=True)
 
-df = get_traffic_correlation(province_arg)
+df = get_traffic_correlation(days, province_arg, district_arg)
 
 if not df.empty:
     # Top Metrics

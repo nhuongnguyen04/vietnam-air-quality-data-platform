@@ -175,19 +175,39 @@ def inject_style():
 def render_top_bar():
     """Render a persistent top bar for theme and language toggles on one row, aligned right."""
     theme = st.session_state.get("theme", "light")
-    lang = st.session_state.get("lang", "vi")
+    lang = st.session_state.get("lang", "vi").upper()
 
-    # Use columns to align right and keep on one row
-    c1, spacer, c2, c3 = st.columns([0.6, 0.2, 0.1, 0.1])
-
-    with c2:
-        if st.button("🌙" if theme == "light" else "☀️", key="theme_toggle"):
-            st.session_state.theme = "dark" if theme == "light" else "light"
+    # Use a single row of columns for more reliable alignment
+    # c_spacer: pushes everything right
+    # c_globe: icon
+    # c_lang: segmented control
+    # c_theme: toggle button
+    c_spacer, c_globe, c_lang, c_theme = st.columns(
+        [0.8, 0.03, 0.12, 0.05], 
+        vertical_alignment="center", 
+        gap="small"
+    )
+    
+    with c_globe:
+        st.markdown("🌐")
+        
+    with c_lang:
+        new_lang = st.segmented_control(
+            label="Language",
+            options=["EN", "VI"],
+            default=lang,
+            key="lang_segmented",
+            label_visibility="collapsed"
+        )
+        if new_lang and new_lang.lower() != st.session_state.lang:
+            st.session_state.lang = new_lang.lower()
             st.rerun()
 
-    with c3:
-        if st.button("EN" if lang == "vi" else "VI", key="lang_toggle"):
-            st.session_state.lang = "en" if lang == "vi" else "vi"
+    with c_theme:
+        # Standard button for the theme toggle
+        mode_icon = "🌙" if theme == "light" else "☀️"
+        if st.button(mode_icon, key="theme_toggle"):
+            st.session_state.theme = "dark" if theme == "light" else "light"
             st.rerun()
 
 def render_metric_card(label, value, delta=None, delta_color="normal", icon=None):

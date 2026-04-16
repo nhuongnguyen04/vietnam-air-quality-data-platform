@@ -45,7 +45,7 @@ joined AS (
 normalized AS (
     SELECT
         j.*,
-        COALESCE(pn.target_name, j.raw_province) AS normalized_province
+        coalesce(nullIf(pn.target_name, ''), j.raw_province) AS normalized_province
     FROM joined j
     LEFT JOIN province_norm pn ON j.raw_province = pn.raw_name
     WHERE normalized_province IS NOT NULL AND normalized_province != ''
@@ -54,7 +54,7 @@ normalized AS (
 mapped_34 AS (
     SELECT
         n.*,
-        COALESCE(u.target_unit_34, n.normalized_province) AS province_34
+        coalesce(nullIf(u.target_unit_34, ''), n.normalized_province) AS province_34
     FROM normalized n
     LEFT JOIN unit_34 u ON n.normalized_province = u.legacy_province
 ),

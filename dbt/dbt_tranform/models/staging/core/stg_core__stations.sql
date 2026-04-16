@@ -13,7 +13,14 @@ with source as (
     union all
     
     select
-        concat('openweather:', province, ':', toString(latitude), ':', toString(longitude)) as station_name,
+        -- Standardized ID format: openweather:LAT:LON 
+        -- Using printf to ensure fixed precision (e.g. 21.0000) for consistent string joining
+        concat(
+            'openweather:', 
+            printf('%.4f', latitude), 
+            ':', 
+            printf('%.4f', longitude)
+        ) as station_name,
         latitude,
         longitude,
         'openweather' as station_source,
@@ -29,15 +36,11 @@ renamed as (
         longitude,
         station_source,
         source_province,
-        source_district,
-        -- Parsing original station name if needed
-        splitByString(', ', station_name) as parts,
-        length(parts) as parts_len
+        source_district
     from source
 ),
 
 geographic as (
-    -- Strategy: Use station names for old stations, but join the new seed for OpenWeather points
     select
         r.station_name,
         r.latitude,
@@ -57,7 +60,13 @@ geographic as (
         end as ward
     from renamed r
     left join {{ ref('openweather_ingestion_points') }} o 
-        on r.station_name = concat('openweather:', o.province, ':', toString(o.latitude), ':', toString(o.longitude))
+        -- Join using the regenerated standardized ID to ensure 1:1 metadata match
+        on r.station_name = concat(
+            'openweather:', 
+            printf('%.4f', o.latitude), 
+            ':', 
+            printf('%.4f', o.longitude)
+        )
 ),
 
 normalized as (
@@ -67,7 +76,6 @@ normalized as (
         longitude,
         station_source,
         ward,
-        -- We now rely on the Reverse Geocoding script to provide fully normalized names
         district,
         province
     from geographic

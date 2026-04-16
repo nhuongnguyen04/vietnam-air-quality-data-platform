@@ -14,18 +14,37 @@ deduplicated as (
     from source
 ),
 
+parts_extracted as (
+    -- Extract coordinate parts first to keep the main query clean
+    select
+        *,
+        splitByChar(':', station_id) as _parts
+    from deduplicated
+    where rn = 1
+),
+
 cleaned as (
     select
         'openweather' as source,
-        station_id as station_name,
+        -- Standardize station_name format to: openweather:LAT:LON
+        -- Using printf('%.4f') to ensure bit-perfect string matching with stg_core__stations
+        case
+            when length(_parts) >= 2 then
+                concat(
+                    'openweather:',
+                    printf('%.4f', toFloat64OrNull(_parts[length(_parts)-1])),
+                    ':',
+                    printf('%.4f', toFloat64OrNull(_parts[length(_parts)]))
+                )
+            else station_id
+        end as station_name,
         timestamp_utc,
         parameter,
         value,
         aqi_reported,
         'valid' as quality_flag,
         ingest_time
-    from deduplicated
-    where rn = 1
+    from parts_extracted
 )
 
 select * from cleaned
