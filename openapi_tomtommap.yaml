@@ -1,0 +1,503 @@
+openapi: 3.0.0
+servers:
+  - url: https://api.tomtom.com
+info:
+  contact:
+    x-twitter: TomTom
+  description: |-
+    The TomTom Traffic API provides real-time traffic flow and incident data.
+    This spec covers the Flow Segment Data endpoints used by the Vietnam Air Quality platform
+    to correlate traffic congestion with air quality measurements.
+  title: TomTom Traffic API
+  version: 1.0.0
+  x-apisguru-categories:
+    - location
+  x-origin:
+    - converter:
+        url: https://github.com/lucybot/api-spec-converter
+        version: 2.7.31
+      format: openapi
+      version: "3.0"
+  x-providerName: tomtom.com
+  x-serviceName: traffic
+security:
+  - api_key: []
+paths:
+  "/traffic/services/4/flowSegmentData/absolute/{zoom}/json":
+    get:
+      description: |-
+        Returns the speed and travel time of the traffic on the road segments
+        near a given point. The point is specified by coordinates (latitude, longitude).
+
+        This is an ABSOLUTE speed call — returns actual speeds in km/h, not normalized.
+        Used by the Vietnam Air Quality platform for traffic congestion correlation.
+
+        **Zoom level**: Fixed at 22 for best precision when snapping to road segments.
+        Some points off-road may return HTTP 400 with "Point too far from road" error.
+      operationId: getFlowSegmentDataAbsolute
+      parameters:
+        - description: Zoom level of the tile. Only zoom level 22 is supported for this endpoint.
+          in: path
+          name: zoom
+          required: true
+          schema:
+            enum:
+              - 22
+            type: integer
+        - description: |-
+            The point of interest to get the traffic information for, specified as
+            comma-separated latitude and longitude coordinates.
+            Example: 21.0285,105.8542
+          example: "21.0285,105.8542"
+          in: query
+          name: point
+          required: true
+          schema:
+            pattern: ^-?\d+\.*\d*,-?\d+\.*\d*$
+            type: string
+        - description: Your API key for calling this service.
+          in: query
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: <b>OK</b> — Traffic flow data successfully retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowSegmentDataAbsoluteResponse"
+        "400":
+          description: |-
+            <b>Bad Request</b>: Possible causes:
+              - Point too far from road network
+              - Invalid zoom level (only 22 supported)
+              - Malformed point coordinates
+        "403":
+          description: "<b>Forbidden</b>: Supplied API key is not valid for this request"
+        "503":
+          description: <b>Service currently unavailable</b>
+        "500":
+          description: "<b>Internal Server Error</b>: There is a problem with the TomTom Traffic API service"
+      summary: Flow Segment Data (Absolute Speed)
+      tags:
+        - Traffic Flow
+  "/traffic/services/4/flowSegmentData/absolute/{zoom}/{X}/{Y}/json":
+    get:
+      description: |-
+        Returns the speed and travel time of the traffic on the road segments
+        within a tile specified by zoom level and tile coordinates (X, Y).
+        Tile-based variant for batch traffic data retrieval.
+
+        **Zoom level**: Supported range 0-22.
+      operationId: getFlowSegmentDataAbsoluteTile
+      parameters:
+        - description: Zoom level of the tile.
+          in: path
+          name: zoom
+          required: true
+          schema:
+            enum:
+              - 0
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+              - 7
+              - 8
+              - 9
+              - 10
+              - 11
+              - 12
+              - 13
+              - 14
+              - 15
+              - 16
+              - 17
+              - 18
+              - 19
+              - 20
+              - 21
+              - 22
+            type: integer
+        - description: X coordinate of the tile on zoom grid.
+          in: path
+          name: X
+          required: true
+          schema:
+            type: integer
+        - description: Y coordinate of the tile on zoom grid.
+          in: path
+          name: Y
+          required: true
+          schema:
+            type: integer
+        - description: Your API key for calling this service.
+          in: query
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: <b>OK</b>
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowSegmentDataAbsoluteResponse"
+        "400":
+          description: "<b>Bad Request</b>: Malformed syntax or out-of-range parameters"
+        "403":
+          description: "<b>Forbidden</b>: Supplied API key is not valid for this request"
+        "503":
+          description: <b>Service currently unavailable</b>
+        "500":
+          description: "<b>Internal Server Error</b>"
+      summary: Flow Segment Data by Tile
+      tags:
+        - Traffic Flow
+  "/traffic/services/5/flowSegmentData/normalized/{zoom}/json":
+    get:
+      description: |-
+        Returns the normalized speed of the traffic on the road segments
+        near a given point. Normalized speed is a value from 0 to 100,
+        where 0 means very slow traffic and 100 means free flow.
+      operationId: getFlowSegmentDataNormalized
+      parameters:
+        - description: Zoom level of the tile.
+          in: path
+          name: zoom
+          required: true
+          schema:
+            type: integer
+        - description: Point of interest as comma-separated lat,lon.
+          example: "21.0285,105.8542"
+          in: query
+          name: point
+          required: true
+          schema:
+            type: string
+        - description: Your API key for calling this service.
+          in: query
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: <b>OK</b>
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowSegmentDataNormalizedResponse"
+        "400":
+          description: "<b>Bad Request</b>"
+        "403":
+          description: "<b>Forbidden</b>: Supplied API key is not valid for this request"
+        "503":
+          description: <b>Service currently unavailable</b>
+        "500":
+          description: "<b>Internal Server Error</b>"
+      summary: Flow Segment Data (Normalized)
+      tags:
+        - Traffic Flow
+  "/traffic/services/incident/details/json":
+    get:
+      description: |-
+        Returns detailed information about traffic incidents (accidents, road closures,
+        construction, etc.) in a specified bounding box area.
+      operationId: getIncidentDetails
+      parameters:
+        - description: Your API key for calling this service.
+          in: query
+          name: key
+          required: true
+          schema:
+            type: string
+        - description: Bounding box to search for incidents (minLon,minLat,maxLon,maxLat).
+          example: "105.5,20.9,106.0,21.5"
+          in: query
+          name: bbox
+          required: true
+          schema:
+            type: string
+        - description: Zoom level to filter incidents by size/importance.
+          in: query
+          name: zoom
+          required: false
+          schema:
+            default: 13
+            type: integer
+      responses:
+        "200":
+          description: <b>OK</b>
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentDetailsResponse"
+        "400":
+          description: "<b>Bad Request</b>"
+        "403":
+          description: "<b>Forbidden</b>: Supplied API key is not valid for this request"
+        "503":
+          description: <b>Service currently unavailable</b>
+        "500":
+          description: "<b>Internal Server Error</b>"
+      summary: Traffic Incident Details
+      tags:
+        - Traffic Incidents
+  "/traffic/services/6/flowsegmentdata/absolute/{zoom}/json":
+    get:
+      description: |-
+        Returns additional current speed information for a road segment near a given point.
+        This service provides more detailed speed data than service 4.
+      operationId: getFlowSegmentDataAbsoluteV6
+      parameters:
+        - description: Zoom level of the tile. Only zoom level 22 is supported.
+          in: path
+          name: zoom
+          required: true
+          schema:
+            enum:
+              - 22
+            type: integer
+        - description: Point of interest as comma-separated lat,lon.
+          example: "21.0285,105.8542"
+          in: query
+          name: point
+          required: true
+          schema:
+            type: string
+        - description: Your API key for calling this service.
+          in: query
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: <b>OK</b>
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowSegmentDataAbsoluteResponse"
+        "400":
+          description: "<b>Bad Request</b>"
+        "403":
+          description: "<b>Forbidden</b>: Supplied API key is not valid for this request"
+        "503":
+          description: <b>Service currently unavailable</b>
+        "500":
+          description: "<b>Internal Server Error</b>"
+      summary: Flow Segment Data V6 (Extended)
+      tags:
+        - Traffic Flow
+  "/traffic/services/7/flowsegmentdata/absolute/{zoom}/json":
+    get:
+      description: |-
+        Returns traffic flow data for a road segment with additional link information.
+        Includes extra attributes about the road segment.
+      operationId: getFlowSegmentDataAbsoluteV7
+      parameters:
+        - description: Zoom level of the tile. Only zoom level 22 is supported.
+          in: path
+          name: zoom
+          required: true
+          schema:
+            enum:
+              - 22
+            type: integer
+        - description: Point of interest as comma-separated lat,lon.
+          example: "21.0285,105.8542"
+          in: query
+          name: point
+          required: true
+          schema:
+            type: string
+        - description: Your API key for calling this service.
+          in: query
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: <b>OK</b>
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowSegmentDataAbsoluteV7Response"
+        "400":
+          description: "<b>Bad Request</b>"
+        "403":
+          description: "<b>Forbidden</b>: Supplied API key is not valid for this request"
+        "503":
+          description: <b>Service currently unavailable</b>
+        "500":
+          description: "<b>Internal Server Error</b>"
+      summary: Flow Segment Data V7 (With Link Info)
+      tags:
+        - Traffic Flow
+components:
+  securitySchemes:
+    api_key:
+      in: query
+      name: key
+      type: apiKey
+  schemas:
+    FlowSegmentDataAbsoluteResponse:
+      type: object
+      description: Flow segment data response from TomTom Traffic API (Service 4)
+      properties:
+        flowSegmentData:
+          $ref: "#/components/schemas/FlowSegmentData"
+    FlowSegmentDataNormalizedResponse:
+      type: object
+      description: Normalized flow segment data (0-100 scale)
+      properties:
+        flowSegmentData:
+          $ref: "#/components/schemas/FlowSegmentDataNormalized"
+    FlowSegmentDataAbsoluteV7Response:
+      type: object
+      description: Extended flow segment data with link information (Service 7)
+      properties:
+        flowSegmentData:
+          $ref: "#/components/schemas/FlowSegmentDataV7"
+    FlowSegmentData:
+      type: object
+      required:
+        - currentSpeed
+        - freeFlowSpeed
+        - currentTravelTime
+        - freeFlowTravelTime
+      description: Traffic flow segment data fields used by Vietnam Air Quality platform
+      properties:
+        currentSpeed:
+          description: Current speed on the road segment in km/h
+          example: 45
+          type: number
+        freeFlowSpeed:
+          description: Free flow speed on the road segment in km/h (no traffic)
+          example: 60
+          type: number
+        currentTravelTime:
+          description: Current travel time to traverse the segment in seconds
+          example: 120
+          type: number
+        freeFlowTravelTime:
+          description: Free flow travel time to traverse the segment in seconds
+          example: 90
+          type: number
+        confidence:
+          description: Confidence level of the traffic data (0.0 to 1.0)
+          example: 0.87
+          type: number
+        roadClosure:
+          description: Whether the road is closed
+          example: false
+          type: boolean
+    FlowSegmentDataNormalized:
+      type: object
+      required:
+        - normalizedCurrentSpeed
+      description: Normalized flow segment data (0-100 scale)
+      properties:
+        normalizedCurrentSpeed:
+          description: Current speed normalized from 0 (congested) to 100 (free flow)
+          example: 75
+          type: number
+        normalizedFreeFlowSpeed:
+          description: Free flow speed normalized to 100
+          example: 100
+          type: number
+        currentTravelTime:
+          description: Current travel time in seconds
+          type: number
+        freeFlowTravelTime:
+          description: Free flow travel time in seconds
+          type: number
+        confidence:
+          description: Confidence level of the data (0.0 to 1.0)
+          type: number
+    FlowSegmentDataV7:
+      type: object
+      required:
+        - currentSpeed
+        - freeFlowSpeed
+        - currentTravelTime
+        - freeFlowTravelTime
+      description: Extended flow segment data with link attribution (Service 7)
+      properties:
+        currentSpeed:
+          description: Current speed in km/h
+          type: number
+        freeFlowSpeed:
+          description: Free flow speed in km/h
+          type: number
+        currentTravelTime:
+          description: Current travel time in seconds
+          type: number
+        freeFlowTravelTime:
+          description: Free flow travel time in seconds
+          type: number
+        confidence:
+          description: Confidence level (0.0 to 1.0)
+          type: number
+        roadClosure:
+          description: Whether the road is closed
+          type: boolean
+        roadClosureInformation:
+          description: Extended closure information
+          type: object
+          properties:
+            description:
+              type: string
+            from:
+              type: string
+            to:
+              type: string
+    IncidentDetailsResponse:
+      type: object
+      description: Traffic incident details response
+      properties:
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+    Incident:
+      type: object
+      description: Individual traffic incident
+      properties:
+        id:
+          type: string
+        type:
+          description: Incident type (ACCIDENT, ROADWORKS, CONGESTION, etc.)
+          type: string
+        severity:
+          description: Severity level
+          type: string
+        geometry:
+          description: WGS84 coordinates of the incident
+          type: object
+          properties:
+            type:
+              type: string
+            coordinates:
+              type: array
+              items:
+                type: number
+        startTime:
+          description: When the incident started (ISO 8601)
+          type: string
+        endTime:
+          description: When the incident ended or expected to end (ISO 8601)
+          type: string
+        delay:
+          description: Expected delay in seconds
+          type: number
+        description:
+          description: Human-readable incident description
+          type: string
