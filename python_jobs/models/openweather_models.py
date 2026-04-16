@@ -14,33 +14,91 @@ logger = logging.getLogger(__name__)
 
 def load_ingestion_points() -> Dict[str, Dict[str, Any]]:
     """
-    Load ingestion points from dbt seed CSV.
-    Returns a dictionary mapping point_id -> {lat, lon, province, district, layer_type}
+    Load ingestion points from Vietnam Wards CSV (recovery file).
+    Returns a dictionary mapping point_id -> {lat, lon, province, ward, code}
     """
-    # Use absolute path or relative to project root
-    seeds_path = os.path.join(
+    csv_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "dbt/dbt_tranform/seeds/openweather_ingestion_points.csv"
+        "dbt/dbt_tranform/seeds/vietnam_wards_2026.csv"
     )
     
     points = {}
+    if not os.path.exists(csv_path):
+        logger.warning(f"CSV path {csv_path} does not exist. Falling back to dbt seed.")
+        # Fallback to legacy path if needed
+        csv_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "dbt/dbt_tranform/seeds/openweather_ingestion_points.csv"
+        )
+
     try:
-        with open(seeds_path, mode='r', encoding='utf-8') as f:
+        with open(csv_path, mode='r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                pid = row['point_id']
-                points[pid] = {
-                    "lat": float(row['latitude']),
-                    "lon": float(row['longitude']),
-                    "province": row['province'],
-                    "district": row['district'],
-                    "layer_type": row['layer_type']
-                }
+                # Handle both new and old CSV headers
+                code = row.get('code', row.get('point_id', 'unknown'))
+                ward = row.get('ward', '')
+                province = row.get('province', '')
+                
+                lat_str = row.get('lat', row.get('latitude', ''))
+                lon_str = row.get('lon', row.get('longitude', ''))
+                
+                if not lat_str or not lon_str:
+                    logger.debug(f"Skipping row with missing coordinates: {province}-{ward}")
+                    continue
+                
+                # Create a stable ID
+                pid = code if code != 'unknown' else f"{province}:{ward}"
+                
+                try:
+                    points[pid] = {
+                        "lat": float(lat_str),
+                        "lon": float(lon_str),
+                        "province": province,
+                        "ward": ward,
+                        "code": code
+                    }
+                except ValueError:
+                    logger.warning(f"Skipping row with invalid coordinates: {province}-{ward} ({lat_str}, {lon_str})")
+                    continue
     except Exception as e:
-        logger.error(f"Failed to load ingestion points from {seeds_path}: {e}")
+        logger.error(f"Failed to load ingestion points from {csv_path}: {e}")
         return {}
         
     return points
+
+
+def get_weather_clusters(points: Dict[str, Dict[str, Any]], grid_size: float = 0.2) -> Dict[str, Dict[str, Any]]:
+    """
+    Group points into clusters based on a spatial grid to minimize weather API calls.
+    Returns a dictionary of representative points for weather ingestion.
+    """
+    clusters = {}
+    for pid, data in points.items():
+        # Round lat/lon to grid size to find cluster key
+        # e.g. 21.0285 -> 21.0 (with 0.2 grid, 21.0285 -> 21.0, 21.19 -> 21.2)
+        grid_lat = round(data["lat"] / grid_size) * grid_size
+        grid_lon = round(data["lon"] / grid_size) * grid_size
+        cluster_id = f"grid_{grid_lat:.1f}_{grid_lon:.1f}"
+        
+        if cluster_id not in clusters:
+            clusters[cluster_id] = {
+                "lat": data["lat"],
+                "lon": data["lon"],
+                "province": data["province"],
+                "cluster_id": cluster_id,
+                "member_ids": [pid]
+            }
+        else:
+            clusters[cluster_id]["member_ids"].append(pid)
+            
+    # Add cluster_id back to original points for mapping
+    for cluster_id, cluster_data in clusters.items():
+        for pid in cluster_data["member_ids"]:
+            points[pid]["cluster_id"] = cluster_id
+            
+    logger.info(f"Clustered {len(points)} points into {len(clusters)} weather segments (grid={grid_size})")
+    return clusters
 
 # Vietnam provinces and municipalities — centroid coordinates.
 # 34 provincial-level administrative units as of the 2025 reorganization.
@@ -114,19 +172,14 @@ def assign_quality_flag(parameter: str, value: float) -> str:
 
 def transform_city_response(
     response: Dict[str, Any],
-    city_name: str,
+    province_name: str,
+    ward_name: str,
+    ward_code: str,
     lat: float,
     lon: float,
 ) -> List[Dict[str, Any]]:
     """
-    Transform OpenWeather /air_pollution response for a single city 
-    into a list of measurement records.
-
-    Args:
-        response: API JSON response
-        city_name: City display name
-        lat: Latitude
-        lon: Longitude
+    Transform OpenWeather /air_pollution response (V2 schema).
     """
     records = []
     items = response.get("list", [])
@@ -134,14 +187,9 @@ def transform_city_response(
 
     for item in items:
         dt = item.get("dt")
-        if dt:
-            timestamp_utc = datetime.fromtimestamp(dt, tz=timezone.utc)
-        else:
-            timestamp_utc = now
+        timestamp_utc = datetime.fromtimestamp(dt, tz=timezone.utc) if dt else now
         
-        # Guard: Skip forecast data (timestamps in the future)
         if timestamp_utc > now + timedelta(minutes=5):
-            logger.warning(f"Skipping forecast record for {city_name}: {timestamp_utc} (ingest time: {now})")
             continue
 
         aqi_reported = item.get("main", {}).get("aqi")
@@ -152,21 +200,19 @@ def transform_city_response(
             if value is None:
                 continue
 
-            quality_flag = assign_quality_flag(canonical_name, value)
-
             record: Dict[str, Any] = {
-                "station_id": f"openweather:{city_name}:{lat}:{lon}",
-                "city_name": city_name,
+                "ward_code": ward_code,
+                "ward_name": ward_name,
+                "province_name": province_name,
                 "latitude": lat,
                 "longitude": lon,
                 "timestamp_utc": timestamp_utc,
                 "parameter": canonical_name,
                 "value": float(value),
                 "aqi_reported": aqi_reported,
-                "quality_flag": quality_flag,
+                "quality_flag": assign_quality_flag(canonical_name, value),
                 "raw_payload": str(item),
             }
-
             records.append(record)
 
     return records
@@ -174,13 +220,13 @@ def transform_city_response(
 
 def transform_history_response(
     response: Dict[str, Any],
-    city_name: str,
+    province_name: str,
+    ward_name: str,
+    ward_code: str,
     lat: float,
     lon: float,
 ) -> List[Dict[str, Any]]:
     """
-    Transform OpenWeather /air_pollution/history response.
-    Same as transform_city_response but extracts from 'list' array.
-    Historical data = past observations.
+    Transform OpenWeather /air_pollution/history response (V2 schema).
     """
-    return transform_city_response(response, city_name, lat, lon)
+    return transform_city_response(response, province_name, ward_name, ward_code, lat, lon)

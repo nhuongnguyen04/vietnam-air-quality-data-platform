@@ -29,6 +29,7 @@ pages = {
     t("nav_overview", lang): [
         st.Page("pages/1_Overview.py", title=t("nav_overview", lang), icon=":material/dashboard:"),
         st.Page("pages/2_Pollutants.py", title=t("nav_pollutants", lang), icon=":material/analytics:"),
+        st.Page("pages/4_Historical_Trend.py", title=t("nav_trends", lang), icon=":material/history:"),
     ],
     t("nav_environment", lang): [
         st.Page("pages/6_Traffic_Impact.py", title=t("nav_traffic", lang), icon=":material/traffic:"),
@@ -38,6 +39,8 @@ pages = {
         st.Page("pages/7_Health_Risk.py", title=t("nav_health", lang), icon=":material/health_and_safety:"),
     ],
     t("nav_status", lang): [
+        st.Page("pages/5_Alerts.py", title=t("nav_alerts", lang), icon=":material/notification_important:"),
+        st.Page("pages/3_Source_Comparison.py", title=t("nav_comparison", lang), icon=":material/compare:"),
         st.Page("pages/8_Status.py", title=t("nav_status", lang), icon=":material/settings_suggest:"),
     ]
 }

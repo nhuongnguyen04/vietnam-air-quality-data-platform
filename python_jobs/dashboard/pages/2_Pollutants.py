@@ -35,10 +35,6 @@ def get_districts(province: str):
 
 @st.cache_data(ttl=300)
 def get_pollutant_trend(days: int, province: str | None, district: str | None = None):
-    provinces = get_provinces()
-    if province and province not in provinces:
-        province = None
-    
     where_clause = ""
     if province:
         where_clause += f"AND province = '{province}' "
@@ -63,11 +59,23 @@ def get_pollutant_trend(days: int, province: str | None, district: str | None = 
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_compliance_status(days: int, province: str | None, district: str | None = None):
-    provinces = get_provinces()
-    if province and province not in provinces:
-        province = None
+def get_source_fingerprint(days: int, province: str | None):
+    where_clause = f"WHERE date >= today() - INTERVAL {days} DAY"
+    if province:
+        where_clause += f" AND province = '{province}'"
     
+    q = f"""
+    SELECT
+        probable_source,
+        count(*) as cnt
+    FROM air_quality.dm_pollutant_source_fingerprint
+    {where_clause}
+    GROUP BY probable_source
+    """
+    return query_df(q)
+
+@st.cache_data(ttl=300)
+def get_compliance_status(days: int, province: str | None, district: str | None = None):
     where_clause = ""
     if province:
         where_clause += f"AND province = '{province}' "
@@ -133,65 +141,56 @@ with st.container():
         )
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ── Chart 1: Trends ──────────────────────────────────────────────────────────
+# ── Row 1: Trends ─────────────────────────────────────────────────────────────
 st.subheader(f"{t('nav_pollutants', lang)} (AQI VN) — {TIME_OPTIONS[days]}")
 trend = get_pollutant_trend(days, province_arg, district_arg)
 
 if not trend.empty:
-    # Map raw column names to localized display names
     col_map = {
-        "pm25_aqi": t("pollutant_pm25", lang),
-        "pm10_aqi": t("pollutant_pm10", lang),
-        "o3_aqi": t("pollutant_o3", lang),
-        "no2_aqi": t("pollutant_no2", lang),
-        "so2_aqi": t("pollutant_so2", lang),
-        "co_aqi": t("pollutant_co", lang)
+        "pm25_aqi": t("pollutant_pm25", lang), "pm10_aqi": t("pollutant_pm10", lang),
+        "o3_aqi": t("pollutant_o3", lang), "no2_aqi": t("pollutant_no2", lang),
+        "so2_aqi": t("pollutant_so2", lang), "co_aqi": t("pollutant_co", lang)
     }
-    
-    # Rename columns in the dataframe for automatic Plotly localization
     plot_df = trend.rename(columns=col_map)
     display_pollutants = list(col_map.values())
-    
-    labels = {
-        "variable": t("chart_label_variable", lang),
-        "value": t("chart_label_aqi", lang),
-        "date": t("chart_label_date", lang)
-    }
-    
-    fig = px.line(plot_df, x="date", y=display_pollutants, labels=labels)
-    fig.update_layout(get_plotly_layout(height=400))
-    fig.update_layout(
-        yaxis_title=t("chart_label_aqi", lang), 
-        xaxis_title=t("chart_label_date", lang),
-        hovermode="x unified"
-    )
-    
-    # Simple and clean localized tooltip
-    fig.update_traces(
-        hovertemplate=f"<b>{t('chart_label_aqi', lang)}</b>: %{{y:.1f}}<extra></extra>"
-    )
-    
+    fig = px.line(plot_df, x="date", y=display_pollutants)
+    fig.update_layout(get_plotly_layout(height=400), hovermode="x unified")
     st.plotly_chart(fig, use_container_width=True)
-else:
-    st.plotly_chart(render_empty_chart("Không có dữ liệu xu hướng chất ô nhiễm trong khoảng thời gian đã chọn."), use_container_width=True)
-st.subheader(t("status_title", lang) if lang=="en" else "Tuân thủ tiêu chuẩn")
-compliance = get_compliance_status(days, province_arg, district_arg)
-if not compliance.empty:
-    fig_comp = px.bar(compliance, x="province", y="cnt", color="compliance_status",
-                     color_discrete_map={"Good/Safe": "#09ab3b", "Warning (WHO Breach)": "#ffa500", "Unhealthy (TCVN Breach)": "#ff4b4b"},
-                     category_orders={"compliance_status": ["Good/Safe", "Warning (WHO Breach)", "Unhealthy (TCVN Breach)"]},
-                     labels={"province": "", "cnt": "", "compliance_status": ""},
-                     barmode="stack")
-    
-    fig_comp.update_layout(get_plotly_layout(height=450))
-    fig_comp.update_layout(
-        xaxis_title=None,
-        yaxis_title=None,
-        legend_title_text=None,
-        margin={"r":10, "t":30, "l":10, "b":150}, # Increased bottom margin for rotated province names
-        bargap=0.15, # Ensures consistent bar widths
-        barnorm="percent", # Correctly set normalization in layout
-    )
-    st.plotly_chart(fig_comp, use_container_width=True)
-else:
-    st.plotly_chart(render_empty_chart("Không có dữ liệu tuân thủ tiêu chuẩn."), use_container_width=True)
+
+st.markdown("---")
+
+# ── Row 2: Source Fingerprint (New) ───────────────────────────────────────────
+c1, c2 = st.columns([1, 1.5])
+with c1:
+    st.subheader("Source Attribution" if lang=="en" else "Nguồn gốc Ô nhiễm")
+    df_source = get_source_fingerprint(days, province_arg)
+    if not df_source.empty:
+        fig_pie = px.pie(
+            df_source, 
+            values='cnt', 
+            names='probable_source',
+            color='probable_source',
+            hole=0.4,
+            color_discrete_map={
+                'Combustion/Traffic': '#ff7f0e', 
+                'Dust/Construction': '#8c564b', 
+                'Mixed': '#7f7f7f'
+            }
+        )
+        fig_pie.update_layout(margin=dict(l=20, r=20, t=20, b=20), height=350)
+        st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.caption("Chưa có dữ liệu phân tích nguồn.")
+
+with c2:
+    st.subheader("Compliance Status" if lang=="en" else "Tuân thủ tiêu chuẩn")
+    compliance = get_compliance_status(days, province_arg, district_arg)
+    if not compliance.empty:
+        fig_comp = px.bar(compliance, x="province", y="cnt", color="compliance_status",
+                         color_discrete_map={"Good/Safe": "#09ab3b", "Warning (WHO Breach)": "#ffa500", "Unhealthy (TCVN Breach)": "#ff4b4b"},
+                         category_orders={"compliance_status": ["Good/Safe", "Warning (WHO Breach)", "Unhealthy (TCVN Breach)"]},
+                         barmode="stack")
+        fig_comp.update_layout(get_plotly_layout(height=350), barnorm="percent")
+        st.plotly_chart(fig_comp, use_container_width=True)
+
+st.info("Phân tích nguồn dựa trên tỷ lệ PM2.5/PM10. Tỷ lệ > 0.6 gợi ý hoạt động đốt cháy/giao thông, < 0.4 gợi ý bụi/xây dựng.")

@@ -12,7 +12,7 @@ from lib.clickhouse_client import query_df
 from lib.aqi_utils import EPA_COLORS, render_empty_chart
 
 st.title("🔗 So sánh Nguồn dữ liệu")
-st.caption("Độ tươi dữ liệu: AQI.in ~15 phút | OpenWeather ~60 phút")
+st.caption("Độ tươi dữ liệu: AQI.in ~60 phút | OpenWeather ~60 phút")
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
 

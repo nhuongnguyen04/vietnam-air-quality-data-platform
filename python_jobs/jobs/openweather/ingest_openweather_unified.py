@@ -26,12 +26,13 @@ from common import get_data_writer
 from common.ingestion_control import update_control
 from models.openweather_models import (
     load_ingestion_points,
+    get_weather_clusters,
     transform_city_response,
 )
 
-# Reuse transform from ingest_weather.py logic (embedded here for independence)
-def transform_weather_response(resp: Dict[str, Any], point_id: str, province: str, lat: float, lon: float) -> Dict[str, Any]:
-    """Transform OpenWeather /weather response to ClickHouse schema."""
+# Reuse transform from ingest_weather.py logic
+def transform_weather_response(resp: Dict[str, Any], cluster_id: str, province: str, lat: float, lon: float) -> Dict[str, Any]:
+    """Transform OpenWeather /weather response to V2 meteorology schema."""
     main = resp.get("main", {})
     wind = resp.get("wind", {})
     clouds = resp.get("clouds", {})
@@ -39,10 +40,10 @@ def transform_weather_response(resp: Dict[str, Any], point_id: str, province: st
     return {
         "source": "openweather",
         "ingest_time": datetime.now(timezone.utc),
-        "ingest_batch_id": f"ow_unified_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
-        "province": province,
-        "latitude": lat,
-        "longitude": lon,
+        "province_name": province,
+        "weather_cluster": cluster_id,
+        "cluster_lat": lat,
+        "cluster_lon": lon,
         "timestamp_utc": datetime.fromtimestamp(resp.get("dt"), tz=timezone.utc) if resp.get("dt") else datetime.now(timezone.utc),
         "temp": main.get("temp"),
         "feels_like": main.get("feels_like"),
@@ -57,100 +58,70 @@ def transform_weather_response(resp: Dict[str, Any], point_id: str, province: st
         "raw_payload": str(resp)
     }
 
-def process_point(point_id: str, data: Dict[str, Any], client: APIClient) -> Tuple[Optional[Dict], Optional[List]]:
-    """Fetch both weather and pollution for a single point."""
+def fetch_weather_for_cluster(cid: str, data: Dict[str, Any], client: APIClient) -> Tuple[str, Optional[Dict]]:
+    """Fetch weather for a cluster representative."""
     lat, lon = data["lat"], data["lon"]
     province = data["province"]
+    try:
+        resp = client.get("/weather", params={"lat": lat, "lon": lon, "units": "metric"})
+        record = transform_weather_response(resp, cid, province, lat, lon)
+        return cid, record
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Cluster weather failed for {cid}: {e}")
+        return cid, None
+
+def fetch_pollution_for_point(pid: str, data: Dict[str, Any], client: APIClient, cluster_weather_lookup: Dict[str, Dict]) -> Tuple[Optional[List], Optional[Dict]]:
+    """Fetch pollution for a point and associate with cluster weather."""
+    lat, lon = data["lat"], data["lon"]
+    province = data["province"]
+    ward = data.get("ward", "")
+    code = data.get("code", pid)
+    cluster_id = data.get("cluster_id")
     
-    weather_record = None
     pollution_records = []
-    
-    # 1. Fetch Weather
-    try:
-        # Note: APIClient with TokenManager handles 'appid' rotation if we pass it in params? 
-        # Actually, APIClient.request overrides auth headers, but OpenWeather uses 'appid' param.
-        # I should probably update APIClient to support 'appid' as a query param rotation too.
-        # For now, let's assume we use headers if supported or we manually handle appid.
-        
-        # OpenWeather traditionally uses 'appid' in params. 
-        # My refactored APIClient adds it to HEADERS. 
-        # OpenWeather DOES support 'Authorization' header in some products, 
-        # but for 2.5/AirPollution it usually expects appid param.
-        
-        # Let's check how the TokenManager returns the token.
-        # I'll modify the call to use the active token from the request context if possible.
-        
-        # Actually, let's perform a minor tweak to ingest_openweather_unified.py 
-        # to ensure the 'appid' param is always present and correct.
-        
-        # I will fetch the token from the client's internal state if it was just rotated.
-        # But wait, the client rotates INSIDE .get().
-        
-        # Solution: I'll update APIClient to optionally inject the token into params.
-        
-        resp_w = client.get(
-            "/weather",
-            params={"lat": lat, "lon": lon, "units": "metric"}
-        )
-        weather_record = transform_weather_response(resp_w, point_id, province, lat, lon)
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"[{point_id}] Weather failed: {e}")
 
-    # 2. Fetch Pollution
+    # 1. Fetch Pollution
     try:
-        resp_p = client.get(
-            "/air_pollution",
-            params={"lat": lat, "lon": lon}
-        )
-        station_name = province
-        pollution_records = transform_city_response(resp_p, station_name, lat, lon)
-        
-        # Add missing columns for ClickHouse schema
-        batch_id = f"ow_unified_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-        for r in pollution_records:
-            r["ingest_batch_id"] = batch_id
+        resp_p = client.get("/air_pollution", params={"lat": lat, "lon": lon})
+        pollution_records = transform_city_response(resp_p, province, ward, code, lat, lon)
     except Exception as e:
-        logging.getLogger(__name__).warning(f"[{point_id}] Pollution failed: {e}")
+        logging.getLogger(__name__).warning(f"[{code}] Pollution failed: {e}")
 
-    return weather_record, pollution_records
+    # 2. Get Weather from Cluster Cache
+    weather_record = None
+    if cluster_id and cluster_id in cluster_weather_lookup:
+        # Clone the cluster weather
+        weather_record = cluster_weather_lookup[cluster_id].copy()
+
+    return pollution_records, weather_record
 
 def main():
-    parser = argparse.ArgumentParser(description="Unified High-Speed OpenWeather Ingestion")
+    parser = argparse.ArgumentParser(description="High-Resolution OpenWeather Ingestion V2")
     parser.add_argument("--workers", type=int, default=None, help="Force number of workers")
-    parser.add_argument("--limit", type=int, default=None, help="Limit number of points to ingest (for testing)")
+    parser.add_argument("--limit", type=int, default=None, help="Limit points")
+    parser.add_argument("--grid", type=float, default=0.2, help="Weather cluster grid size (degrees)")
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logger = logging.getLogger(__name__)
 
-    # Load environment variables from .env if present
     load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env'))
 
-    # Load tokens
     tokens = []
-    
-    # Check for plural comma-separated format
     token_str = os.environ.get("OPENWEATHER_API_TOKENS") or os.environ.get("OPENWEATHER_API_TOKEN")
     if token_str:
         tokens.extend([t.strip() for t in token_str.split(",") if t.strip()])
-    
-    # Check for numbered format (e.g. OPENWEATHER_API_TOKEN_1)
-    for i in range(1, 21):  # Support up to 20 keys
-        key = f"OPENWEATHER_API_TOKEN_{i}"
-        val = os.environ.get(key)
-        if val:
-            tokens.append(val.strip())
+    for i in range(1, 21):
+        val = os.environ.get(f"OPENWEATHER_API_TOKEN_{i}")
+        if val: tokens.append(val.strip())
 
     if not tokens:
-        logger.error("No OpenWeather tokens found in environment (tried OPENWEATHER_API_TOKENS, OPENWEATHER_API_TOKEN, or OPENWEATHER_API_TOKEN_1...n)")
+        logger.error("No OpenWeather tokens found.")
         sys.exit(1)
     
-    tokens = list(set(tokens)) # Deduplicate
+    tokens = list(set(tokens))
     token_manager = TokenManager(tokens)
-    
-    # Create client with TokenManager
-    # Note: OpenWeather expects 'appid' param. We'll tell APIClient to use 'appid' param instead of Authorization header.
     client = APIClient(
         base_url="https://api.openweathermap.org/data/2.5",
         token_manager=token_manager,
@@ -160,55 +131,71 @@ def main():
 
     writer = get_data_writer()
     all_points = load_ingestion_points()
-    
-    # Apply limit if specified
     if args.limit:
-        logger.info(f"Test mode: limiting ingestion to first {args.limit} points")
-        points = dict(list(all_points.items())[:args.limit])
-    else:
-        points = all_points
+        all_points = dict(list(all_points.items())[:args.limit])
     
-    all_weather = []
-    all_pollution = []
-    chunk_size = 50
-    processed_count = 0
+    # 1. Clustering
+    clusters = get_weather_clusters(all_points, grid_size=args.grid)
     
-    # Calculate workers: roughly 10 per token is safe
-    num_workers = args.workers or (len(tokens) * 15)
-    logger.info(f"Starting ingestion for {len(points)} points using {len(tokens)} tokens and {num_workers} workers.")
+    # Calculate workers
+    num_workers = args.workers or (len(tokens) * 20)
+    logger.info(f"Starting V2 ingestion for {len(all_points)} wards using {len(clusters)} weather clusters.")
+
+    # 2. Phase 1: Weather Clusters
+    cluster_weather_lookup = {}
+    with ThreadPoolExecutor(max_workers=min(num_workers, len(clusters) or 1)) as executor:
+        futures = {executor.submit(fetch_weather_for_cluster, cid, d, client): cid for cid, d in clusters.items()}
+        for future in as_completed(futures):
+            cid, record = future.result()
+            if record:
+                cluster_weather_lookup[cid] = record
+    
+    logger.info(f"Weather clusters fetched: {len(cluster_weather_lookup)}")
+
+    # 3. Phase 2: Pollution for all points
+    all_weather_records = []
+    all_pollution_records = []
+    chunk_size = 100
+    processed = 0
+    batch_id = f"ow_v2_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(process_point, pid, d, client): pid for pid, d in points.items()}
+        futures = {executor.submit(fetch_pollution_for_point, pid, d, client, cluster_weather_lookup): pid for pid, d in all_points.items()}
         
         for future in as_completed(futures):
-            w, p = future.result()
-            if w: all_weather.append(w)
-            if p: all_pollution.extend(p)
+            p_list, w_rec = future.result()
+            if p_list:
+                for p in p_list:
+                    p["ingest_batch_id"] = batch_id
+                all_pollution_records.extend(p_list)
+            if w_rec:
+                # Note: Meteorology V2 table uses cluster_lat/cluster_lon but doesn't strictly need duplicating for every ward
+                # however, if we want to query by ward_code join weather, we might want to store ward_code in meteorology v2 too?
+                # User said: "cluster_lat, cluster_lon thay cho lat lon hiện tại".
+                # To minimize data volume, we keep 1 record per cluster in meteorology_v2.
+                # Actually, the user's DDL doesn't have ward_code in meteorology_v2.
+                pass
             
-            processed_count += 1
-            if processed_count % chunk_size == 0:
-                if all_weather:
-                    writer.write_batch("raw_openweather_meteorology", all_weather, source="openweather")
-                    all_weather = []
-                if all_pollution:
-                    writer.write_batch("raw_openweather_measurements", all_pollution, source="openweather")
-                    all_pollution = []
-                logger.info(f"Persisted chunk: {processed_count}/{len(points)} points completed.")
+            processed += 1
+            if processed % chunk_size == 0:
+                if all_pollution_records:
+                    writer.write_batch("raw_openweather_measurements", all_pollution_records, source="openweather")
+                    all_pollution_records = []
+                logger.info(f"Progress: {processed}/{len(all_points)} wards processed.")
 
-    # Write to ClickHouse
-    weather_count = 0
-    pollution_count = 0
-    
-    if all_weather:
-        writer.write_batch("raw_openweather_meteorology", all_weather, source="openweather")
-        weather_count = len(all_weather)
-        
-    if all_pollution:
-        writer.write_batch("raw_openweather_measurements", all_pollution, source="openweather")
-        pollution_count = len(all_pollution)
+    # Write weather clusters (unique per cluster)
+    if cluster_weather_lookup:
+        weather_list = list(cluster_weather_lookup.values())
+        for w in weather_list:
+            w["ingest_batch_id"] = batch_id
+        writer.write_batch("raw_openweather_meteorology", weather_list, source="openweather")
 
-    logger.info(f"Ingestion complete. Weather: {weather_count}, Pollution: {pollution_count}")
-    update_control(source="openweather_unified", records_ingested=weather_count + pollution_count, success=True)
+    # Final write
+    if all_pollution_records:
+        writer.write_batch("raw_openweather_measurements", all_pollution_records, source="openweather")
+
+    logger.info(f"Ingestion complete. Total wards: {processed}, Clusters: {len(cluster_weather_lookup)}")
+    update_control(source="openweather_unified", records_ingested=processed, success=True)
 
 if __name__ == "__main__":
     main()

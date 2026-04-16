@@ -6,35 +6,53 @@ WITH daily_stats AS (
     SELECT
         date,
         province,
-        station_name,
-        -- Derive location_type from province classification
+        district,
+        -- Derive location_type
         case
-            when province IN ('Ha Noi', 'Ho Chi Minh', 'Da Nang', 'Hai Phong', 'Can Tho') then 'Urban'
-            when province IN ('Binh Duong', 'Dong Nai', 'Ba Ria - Vung Tau', 'Bac Ninh', 'Bac Giang', 'Hung Yen') then 'Industrial'
+            when province IN ('TP.Hà Nội', 'TP.Hồ Chí Minh', 'TP.Đà Nẵng', 'TP.Hải Phòng', 'TP.Cần Thơ') then 'Urban'
+            when province IN ('Bình Dương', 'Đồng Nai', 'Bà Rịa - Vung Tau', 'Bắc Ninh', 'Bắc Giang', 'Hưng Yên', 'Quảng Ninh', 'Thái Nguyên') then 'Industrial'
             else 'Rural'
         end as location_type,
         avg(pm25) as avg_pm25,
-        avg(congestion_index) as avg_congestion,
-        max(pm25) as peak_pm25,
-        max(congestion_index) as peak_congestion
+        avg(congestion_index) as avg_congestion
     FROM {{ ref('dm_aqi_weather_traffic_unified') }}
     GROUP BY 1, 2, 3
+),
+
+baseline_stats AS (
+    SELECT
+        province,
+        district,
+        avg(pm25) as background_pm25
+    FROM {{ ref('dm_aqi_weather_traffic_unified') }}
+    WHERE toHour(datetime_hour) BETWEEN 2 AND 4
+    GROUP BY 1, 2
+),
+
+final_metrics AS (
+    SELECT
+        d.province,
+        d.district,
+        d.location_type,
+        avg(d.avg_pm25) as pm25_daily_avg,
+        avg(d.avg_congestion) as congestion_daily_avg,
+        -- Traffic Impact Score (P * C)
+        CAST(avg(d.avg_pm25) * avg(d.avg_congestion) AS Float32) as traffic_pollution_impact_score,
+        
+        -- Traffic Contribution % (Simplified Source Apportionment)
+        CAST(
+            coalesce(
+                (avg(d.avg_pm25) - b.background_pm25) / nullif(avg(d.avg_pm25), 0), 0
+            ) * 100 AS Float32
+        ) as traffic_contribution_pct
+    FROM daily_stats d
+    LEFT JOIN baseline_stats b ON d.province = b.province AND d.district = b.district
+    GROUP BY 1, 2, 3, b.background_pm25
 )
 
 SELECT
-    province,
-    location_type,
-    count(DISTINCT station_name) as stations_count,
-    
-    -- Correlation indicator: How much pollution varies with congestion at the aggregate level
-    coalesce(avg(avg_pm25), 0) as pm25_daily_avg,
-    coalesce(avg(avg_congestion), 0) as congestion_daily_avg,
-    
-    -- Pollution per congestion unit (Exploitation metric)
-    CAST(coalesce(avg(avg_pm25) / nullif(avg(avg_congestion), 0), 0) AS Float32) as pollution_density_index,
-    
-    -- Rank provinces by pollution within their geography type
-    rank() OVER (PARTITION BY location_type ORDER BY avg(avg_pm25) DESC) as pollution_rank_in_type
-
-FROM daily_stats
-GROUP BY 1, 2
+    *,
+    rank() OVER (PARTITION BY province ORDER BY traffic_pollution_impact_score DESC) as traffic_impact_rank_in_province,
+    rank() OVER (ORDER BY traffic_pollution_impact_score DESC) as overall_traffic_impact_rank
+FROM final_metrics
+WHERE congestion_daily_avg > 0.005

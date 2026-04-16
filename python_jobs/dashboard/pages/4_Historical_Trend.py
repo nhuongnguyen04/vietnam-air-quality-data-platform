@@ -108,6 +108,30 @@ def get_heatmap_data(days: int, province: str | None):
     """
     return query_df(q)
 
+@st.cache_data(ttl=3600)
+def get_temporal_patterns(province: str | None = None):
+    where_clause = ""
+    if province:
+        where_clause = f"WHERE province = '{province}'"
+    
+    q = f"""
+    SELECT
+        hour_of_day,
+        day_of_week,
+        avg(avg_aqi_us) as avg_aqi
+    FROM air_quality.dm_aqi_temporal_patterns
+    {where_clause}
+    GROUP BY hour_of_day, day_of_week
+    ORDER BY day_of_week, hour_of_day
+    """
+    df = query_df(q)
+    if not df.empty:
+        # Map day numbers to names
+        day_map = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
+        df["day_name"] = df["day_of_week"].map(day_map)
+        # Ensure correct ordering in plot
+        df["day_name"] = pd.Categorical(df["day_name"], categories=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], ordered=True)
+    return df
 
 @st.cache_data(ttl=300)
 def get_overall_stats(days: int):
@@ -174,8 +198,31 @@ try:
         st.plotly_chart(fig, use_container_width=True)
         st.caption("fct_air_quality_summary_daily chưa có dữ liệu. Chạy dbt transform.")
 
+    # ── Temporal Patterns Heatmap (New) ──────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Phân tích theo thời gian (Diurnal Patterns)")
+    with st.spinner("Đang tải bản đồ nhiệt thời gian..."):
+        df_temporal = get_temporal_patterns(province_arg)
+    
+    if not df_temporal.empty:
+        fig_temp = px.density_heatmap(
+            df_temporal,
+            x="hour_of_day",
+            y="day_name",
+            z="avg_aqi",
+            color_continuous_scale=get_epa_continuous_scale(),
+            labels={"hour_of_day": "Giờ trong ngày", "day_name": "Thứ", "avg_aqi": "AQI US"},
+            category_orders={"day_name": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+        )
+        fig_temp.update_layout(height=350, margin=dict(l=0, r=0, t=10, b=30))
+        st.plotly_chart(fig_temp, use_container_width=True)
+        st.info("Bản đồ nhiệt cho thấy các khung giờ ô nhiễm cao điểm (ví dụ: giờ đi làm/về làm).")
+    else:
+        st.caption("Chưa có dữ liệu temporal patterns.")
+
     # ── province daily trend (khi chọn tỉnh) ─────────────────────────────────
     if province_arg:
+        st.markdown("---")
         st.subheader(f"AQI {province_arg} — {TIME_OPTIONS[days]}")
         prov_trend = get_province_daily_trend(days, province_arg)
         if not prov_trend.empty:
@@ -191,9 +238,9 @@ try:
         else:
             fig = render_empty_chart(f"Không có dữ liệu cho {province_arg}.")
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("Chưa có dữ liệu cho tỉnh đã chọn trong khoảng thời gian này.")
 
     # ── monthly trend ─────────────────────────────────────────────────────────
+    st.markdown("---")
     st.subheader("Xu hướng hàng tháng")
     monthly_df, monthly_source = get_monthly_trend(days)
     if not monthly_df.empty:
@@ -211,12 +258,9 @@ try:
         fig.update_layout(height=280, showlegend=False, margin=dict(l=0, r=0, t=10, b=40))
         fig.update_traces(textposition="outside")
         st.plotly_chart(fig, use_container_width=True)
-    else:
-        fig = render_empty_chart("Không có dữ liệu monthly.")
-        st.plotly_chart(fig, use_container_width=True)
-        st.caption("Chưa có dữ liệu tổng hợp hàng tháng.")
 
     # ── heatmap ───────────────────────────────────────────────────────────────
+    st.markdown("---")
     st.subheader("Bản đồ nhiệt PM2.5 — tỉnh × ngày")
     heatmap_data = get_heatmap_data(days, province_arg)
     if not heatmap_data.empty:
@@ -237,10 +281,6 @@ try:
         )
         fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=30))
         st.plotly_chart(fig, use_container_width=True)
-    else:
-        fig = render_empty_chart("Không có dữ liệu bản đồ nhiệt PM2.5.")
-        st.plotly_chart(fig, use_container_width=True)
-        st.caption("Chưa có dữ liệu tổng hợp theo ngày cho bản đồ nhiệt.")
 
 except Exception as e:
     st.error(f"Truy vấn thất bại: {e}")
