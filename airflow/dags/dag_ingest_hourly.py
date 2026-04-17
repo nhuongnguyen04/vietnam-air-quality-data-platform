@@ -108,48 +108,34 @@ def dag_ingest_hourly():
         print("OpenWeather Unified ingestion completed (AQI + Weather)")
 
     @task
-    def run_tomtom_traffic_ingestion(**context):
-        """Run TomTom Traffic Ingestion (Every 3 hours)."""
+    def run_traffic_processing(**context):
+        """Run TomTom Traffic Ingestion (Peak) or Off-peak Generation."""
         import subprocess
         from datetime import datetime
+        import os
         
-        # Logic to run only every 3 hours to stay within API limits
+        # Get Vietnam Hour
         data_interval_start = context.get('data_interval_start')
-        hour = data_interval_start.hour if data_interval_start else datetime.now().hour
+        # Airflow data_interval_start is in UTC, convert to VN (UTC+7)
+        hour = (data_interval_start.hour + 7) % 24 if data_interval_start else (datetime.now().hour + 7) % 24
         
-        if 7 <= hour <= 20:
-            env = os.environ.copy()
-            env.update(get_job_env_vars())
-
-            cmd = f"cd {PYTHON_PATH} && python jobs/traffic/ingest_tomtom_traffic.py"
-
-            result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"Error: {result.stderr}")
-                raise Exception(f"Command failed: {cmd}")
-            print("TomTom Traffic ingestion completed")
-            return True
-        else:
-            print(f"Skipping traffic ingestion (Hour {hour} is outside peak range 07:00-20:00)")
-            return False
-
-    @task
-    def run_traffic_calculation(should_run_calc: bool):
-        """Run Traffic Pattern Enrichment calculation in Python."""
-        import subprocess
-        
-        # We always run the calculation to ensure we interpolate against last 24h
-        # even if we didn't ingest new raw data this hour (to fill the 1h/2h slots)
         env = os.environ.copy()
         env.update(get_job_env_vars())
-
-        cmd = f"cd {PYTHON_PATH} && python jobs/traffic/calculate_hourly_traffic.py"
+        
+        if 7 <= hour <= 20:
+            print(f"Peak Hour ({hour}:00 VN): Running TomTom V2 Ingestion...")
+            cmd = f"cd {PYTHON_PATH} && python jobs/traffic/ingest_tomtom.py"
+        else:
+            print(f"Off-Peak Hour ({hour}:00 VN): Running Simulated Traffic Generation...")
+            cmd = f"cd {PYTHON_PATH} && python jobs/traffic/generate_offpeak_traffic.py"
 
         result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
-        print("Traffic Hourly Calculation completed")
+            
+        print(f"Traffic processing completed for hour {hour}")
+        return True
 
     @task
     def update_ingestion_control():
@@ -176,18 +162,13 @@ def dag_ingest_hourly():
     
     aqiin = run_aqiin_measurements_ingestion()
     ow_unified = run_openweather_unified_ingestion()
-    tt_traffic = run_tomtom_traffic_ingestion()
-    
-    # We pass the result of traffic ingestion, but calculation script 
-    # handles lookback itself, so it can run every hour.
-    traffic_calc = run_traffic_calculation(tt_traffic)
+    tt_processing = run_traffic_processing()
     
     update_control = update_ingestion_control()
     completion = log_completion()
 
-    check_ch >> [aqiin, ow_unified, tt_traffic]
-    tt_traffic >> traffic_calc
-    [aqiin, ow_unified, traffic_calc] >> update_control >> completion
+    check_ch >> [aqiin, ow_unified, tt_processing]
+    [aqiin, ow_unified, tt_processing] >> update_control >> completion
     completion >> trigger_transform
 
 

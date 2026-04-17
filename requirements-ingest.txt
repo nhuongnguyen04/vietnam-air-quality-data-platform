@@ -12,3 +12,8 @@ google-api-python-client>=2.155.0
 google-auth-httplib2>=0.2.0
 google-auth-oauthlib>=1.2.1
 PyYAML
+
+# TomTom V2 Spatial & Data Logic
+pandas
+numpy
+scipy

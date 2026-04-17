@@ -157,10 +157,10 @@ class APIClient:
         
         # Override token if we have an active one (from manager or specific token)
         if active_token and self.auth_header_name:
-            if self.auth_header_name == "appid":
-                # Special case for OpenWeather: inject into params
+            if self.auth_header_name in ["appid", "key"]:
+                # Special case for OpenWeather (appid) and TomTom (key): inject into params
                 params = params or {}
-                params["appid"] = active_token
+                params[self.auth_header_name] = active_token
             else:
                 request_headers[self.auth_header_name] = self.auth_header_format.format(active_token)
             
@@ -198,9 +198,11 @@ class APIClient:
             return response.json()
             
         except requests.exceptions.HTTPError as e:
-            # Report failure to token manager if applicable
+            # Report failure to token manager if applicable (exclude 400 as it is usually data-related)
             if self.token_manager and token_index is not None:
-                self.token_manager.mark_failed(token_index, response.status_code if 'response' in locals() else 0)
+                status_code = response.status_code if 'response' in locals() else 0
+                if status_code != 400:
+                    self.token_manager.mark_failed(token_index, status_code)
                 
             # Enhanced error logging with response body
             try:

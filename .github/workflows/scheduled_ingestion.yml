@@ -13,11 +13,15 @@ jobs:
       CSV_OUTPUT_DIR: landing_zone
       OPENWEATHER_API_TOKENS: ${{ secrets.OPENWEATHER_API_TOKENS }}
       OPENWEATHER_API_TOKEN: ${{ secrets.OPENWEATHER_API_TOKEN }}
-      TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+      TOMTOM_API_KEYS: ${{ secrets.TOMTOM_API_KEYS }}
       GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
       GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
       GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
       GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
+      # ClickHouse credentials (Optional, for direct write if needed)
+      CLICKHOUSE_HOST: ${{ secrets.CLICKHOUSE_HOST }}
+      CLICKHOUSE_USER: ${{ secrets.CLICKHOUSE_USER }}
+      CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
       AQIIN_TOKEN: ${{ secrets.AQIIN_TOKEN }}
       PYTHONPATH: .
 
@@ -48,10 +52,13 @@ jobs:
           HOUR=$(date +%H)
           # Convert UTC hour to Vietnam time (UTC+7) before comparing
           VietnamHour=$(( (10#$HOUR + 7) % 24 ))
+          
           if [ $VietnamHour -ge 7 ] && [ $VietnamHour -le 20 ]; then
-            python python_jobs/jobs/traffic/ingest_tomtom_traffic.py &
+            echo "Peak Hour ($VietnamHour:00 VN): Running TomTom V2 Ingestion..."
+            python python_jobs/jobs/traffic/ingest_tomtom.py &
           else
-            echo "Skipping TomTom (Vietnam hour $VietnamHour is outside peak range 07:00-20:00)"
+            echo "Off-Peak Hour ($VietnamHour:00 VN): Generating Simulated Traffic..."
+            python python_jobs/jobs/traffic/generate_offpeak_traffic.py &
           fi
           
           wait
