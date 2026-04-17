@@ -3,34 +3,72 @@
 ) }}
 
 WITH raw_data AS (
-    -- Use the Python-calculated hourly table as primary source
-    SELECT * FROM {{ source('tomtom', 'raw_tomtom_traffic_hourly') }}
-),
-
-deduplicated AS (
     SELECT
         source,
-        station_name,
+        traffic_source,
+        ward_code,
+        ward_name,
+        province_name,
         latitude,
         longitude,
-        hour_utc,
-        congestion_ratio,
-        data_quality_flag,
-        updated_at,
-        ROW_NUMBER() OVER (PARTITION BY station_name, hour_utc ORDER BY updated_at DESC) as rn
+        toStartOfHour(timestamp_utc) as hourly_timestamp,
+        current_travel_time,
+        free_flow_travel_time,
+        current_speed,
+        free_flow_speed,
+        confidence,
+        ingest_time
+    FROM {{ source('tomtom', 'raw_tomtom_traffic_v2') }}
+),
+
+calculated_ratios AS (
+    SELECT
+        *,
+        -- Formula: (current travel time - free flow travel time) / free flow travel time
+        -- Fallback: (free flow speed / current speed) - 1
+        CASE
+            WHEN free_flow_travel_time > 0 AND current_travel_time > 0 
+                THEN (CAST(current_travel_time, 'Float64') - CAST(free_flow_travel_time, 'Float64')) / CAST(free_flow_travel_time, 'Float64')
+            WHEN free_flow_speed > 0 AND current_speed > 0
+                THEN (CAST(free_flow_speed, 'Float64') / CAST(current_speed, 'Float64')) - 1
+            ELSE 0
+        END as raw_congestion_ratio
     FROM raw_data
+),
+
+hourly_aggregated AS (
+    SELECT
+        source,
+        ward_code,
+        hourly_timestamp,
+        -- Use argMax to get the coordinates associated with the most recent sample
+        argMax(latitude, ingest_time) as latitude,
+        argMax(longitude, ingest_time) as longitude,
+        avg(raw_congestion_ratio) as avg_congestion_ratio,
+        avg(confidence) as avg_confidence,
+        argMax(traffic_source, ingest_time) as primary_traffic_source,
+        argMax(ward_name, ingest_time) as ward_name,
+        argMax(province_name, ingest_time) as province_name,
+        max(ingest_time) as max_ingest_time
+    FROM calculated_ratios
+    GROUP BY
+        source,
+        ward_code,
+        hourly_timestamp
 )
 
 SELECT
     source,
-    station_name,
+    ward_code,
+    ward_name,
+    province_name,
     latitude,
     longitude,
-    hour_utc as timestamp_utc,
-    clamp(congestion_ratio, 0, 1) as value,
+    hourly_timestamp as timestamp_utc,
+    clamp(avg_congestion_ratio, 0, 5) as value,
     'congestion_ratio' as parameter,
-    data_quality_flag as quality_flag,
-    updated_at as ingest_time,
+    primary_traffic_source as traffic_source,
+    avg_confidence as quality_flag,
+    max_ingest_time as ingest_time,
     now() as dbt_updated_at
-FROM deduplicated
-WHERE rn = 1
+FROM hourly_aggregated

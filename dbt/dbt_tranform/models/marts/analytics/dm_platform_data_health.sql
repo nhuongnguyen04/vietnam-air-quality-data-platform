@@ -5,12 +5,12 @@
 with station_stats as (
     select
         province,
-        district,
+        ward_code,
         source,
         max(datetime_hour) as last_seen,
         dateDiff('hour', max(datetime_hour), now()) as lag_hours
     from {{ ref('fct_air_quality_summary_hourly') }}
-    group by province, district, source
+    group by province, ward_code, source
 )
 
 select

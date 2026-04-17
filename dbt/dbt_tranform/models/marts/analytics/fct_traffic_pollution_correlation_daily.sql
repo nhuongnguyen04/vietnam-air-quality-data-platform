@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('dm_aqi_weather_traffic_unified') }}
 {{ config(
     materialized='table'
 ) }}
@@ -6,7 +7,7 @@ WITH daily_stats AS (
     SELECT
         date,
         province,
-        district,
+        ward_code,
         -- Derive location_type
         case
             when province IN ('TP.Hà Nội', 'TP.Hồ Chí Minh', 'TP.Đà Nẵng', 'TP.Hải Phòng', 'TP.Cần Thơ') then 'Urban'
@@ -22,7 +23,7 @@ WITH daily_stats AS (
 baseline_stats AS (
     SELECT
         province,
-        district,
+        ward_code,
         avg(pm25) as background_pm25
     FROM {{ ref('dm_aqi_weather_traffic_unified') }}
     WHERE toHour(datetime_hour) BETWEEN 2 AND 4
@@ -32,7 +33,7 @@ baseline_stats AS (
 final_metrics AS (
     SELECT
         d.province,
-        d.district,
+        d.ward_code,
         d.location_type,
         avg(d.avg_pm25) as pm25_daily_avg,
         avg(d.avg_congestion) as congestion_daily_avg,
@@ -46,7 +47,7 @@ final_metrics AS (
             ) * 100 AS Float32
         ) as traffic_contribution_pct
     FROM daily_stats d
-    LEFT JOIN baseline_stats b ON d.province = b.province AND d.district = b.district
+    LEFT JOIN baseline_stats b ON d.province = b.province AND d.ward_code = b.ward_code
     GROUP BY 1, 2, 3, b.background_pm25
 )
 

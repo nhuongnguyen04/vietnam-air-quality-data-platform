@@ -28,12 +28,12 @@ calculated as (
 max_values as (
     select
         province,
-        district,
+        ward_code,
         timestamp_utc,
         max(aqi_us) as max_aqi_us_in_hour,
         max(aqi_vn) as max_aqi_vn_in_hour
     from calculated
-    group by province, district, timestamp_utc
+    group by province, ward_code, timestamp_utc
 )
 
 select
@@ -43,4 +43,4 @@ select
     case when c.aqi_us = mv.max_aqi_us_in_hour then true else false end as is_dominant_us,
     case when c.aqi_vn = mv.max_aqi_vn_in_hour then true else false end as is_dominant_vn
 from calculated c
-inner join max_values mv using (province, district, timestamp_utc)
+inner join max_values mv using (province, ward_code, timestamp_utc)

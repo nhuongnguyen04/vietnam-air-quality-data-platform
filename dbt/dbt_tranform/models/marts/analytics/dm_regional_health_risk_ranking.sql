@@ -6,8 +6,8 @@ WITH provincial_daily AS (
     SELECT
         date,
         province,
-        pm25_avg,
-        avg_aqi_vn as aqi_avg
+        pm25_prov_avg as pm25_avg,
+        prov_avg_aqi_vn as aqi_avg
     FROM {{ ref('fct_air_quality_province_level_daily') }}
 ),
 

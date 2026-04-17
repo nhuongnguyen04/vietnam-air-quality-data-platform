@@ -1,8 +1,8 @@
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
-    unique_key='(station_name, datetime_hour)',
-    order_by='(province, datetime_hour, station_name)',
+    unique_key='(ward_code, datetime_hour)',
+    order_by='(province, datetime_hour, ward_code)',
     partition_by='toYYYYMM(date)'
 ) }}
 
@@ -11,9 +11,8 @@ WITH aqi AS (
         toStartOfHour(timestamp_utc) as datetime_hour,
         toDate(timestamp_utc) as date,
         province,
-        district,
-        station_name,
-        -- Use the coordinates passed through from intermediate models
+        ward_code,
+        -- Use any() for coordinates as they are ward-fixed
         any(latitude) as latitude,
         any(longitude) as longitude,
         max(aqi_us) as aqi_us,
@@ -25,16 +24,16 @@ WITH aqi AS (
     {% if is_incremental() %}
     WHERE timestamp_utc >= (SELECT max(datetime_hour) FROM {{ this }}) - interval 3 hour
     {% endif %}
-    GROUP BY 1, 2, 3, 4, 5
+    GROUP BY 1, 2, 3, 4
 ),
 
-weather_district AS (
-    -- Staging weather is already district-level
+weather_ward AS (
+    -- Staging weather at ward level
     SELECT * FROM {{ ref('stg_openweather__meteorology') }}
 ),
 
 weather_province AS (
-    -- Average by province for points without district meteorology
+    -- Average by province for points without specific meteorology
     SELECT 
         province,
         timestamp_utc,
@@ -48,14 +47,14 @@ weather_province AS (
 ),
 
 traffic AS (
-    -- TomTom traffic flow at station centroids
+    -- TomTom traffic flow at ward level
     SELECT 
-        station_name,
+        ward_code,
         toStartOfHour(timestamp_utc) as datetime_hour,
         avg(value) as value,
         any(quality_flag) as quality_flag
     FROM {{ ref('stg_tomtom__flow') }}
-    GROUP BY station_name, datetime_hour
+    GROUP BY ward_code, datetime_hour
 ),
 
 pop AS (
@@ -67,11 +66,10 @@ SELECT
     a.datetime_hour as datetime_hour,
     a.date as date,
     a.province as province,
-    a.district as district,
-    a.station_name as station_name,
+    a.ward_code as ward_code,
     -- Reliability: Prefer intermediate coordinates passed from upstream
-    a.latitude as station_latitude,
-    a.longitude as station_longitude,
+    a.latitude as latitude,
+    a.longitude as longitude,
     
     -- Air Quality metrics
     a.aqi_us as aqi_us,
@@ -80,21 +78,20 @@ SELECT
     a.pm10 as pm10,
     a.co as co,
     
-    -- Meteorology (Coalesce District -> Province fallback)
-    -- Using nullIf to handle ClickHouse's 0.0 default for non-matching joins
-    coalesce(nullIf(wd.temp, 0), wp.temp) as temp,
-    coalesce(nullIf(wd.humidity, 0), wp.humidity) as humidity,
-    coalesce(nullIf(wd.wind_speed, 0), wp.wind_speed) as wind_speed,
-    coalesce(nullIf(wd.wind_deg, 0), wp.wind_deg) as wind_deg,
-    coalesce(nullIf(wd.pressure, 0), wp.pressure) as pressure,
+    -- Meteorology (Coalesce Ward -> Province fallback)
+    coalesce(nullIf(ww.temp, 0), wp.temp) as temp,
+    coalesce(nullIf(ww.humidity, 0), wp.humidity) as humidity,
+    coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) as wind_speed,
+    coalesce(nullIf(ww.wind_deg, 0), wp.wind_deg) as wind_deg,
+    coalesce(nullIf(ww.pressure, 0), wp.pressure) as pressure,
     
     -- Traffic impact
     t.value as congestion_index,
     t.quality_flag as traffic_data_type,
     
     -- Environmental indicators
-    case when coalesce(nullIf(wd.humidity, 0), wp.humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
-    case when coalesce(nullIf(wd.wind_speed, 0), wp.wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
+    case when coalesce(nullIf(ww.humidity, 0), wp.humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
+    case when coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
     
     -- Demographics and Exposure
     p.total_population as provincial_population,
@@ -106,12 +103,11 @@ SELECT
     now() as dbt_updated_at
 
 FROM aqi a
-LEFT JOIN weather_district wd ON 
-    a.province = wd.province AND 
-    a.district = wd.district AND 
-    a.datetime_hour = wd.timestamp_utc
+LEFT JOIN weather_ward ww ON 
+    a.ward_code = ww.ward_code AND 
+    a.datetime_hour = ww.timestamp_utc
 LEFT JOIN weather_province wp ON
     a.province = wp.province AND
     a.datetime_hour = wp.timestamp_utc
-LEFT JOIN traffic t ON a.station_name = t.station_name AND a.datetime_hour = t.datetime_hour
+LEFT JOIN traffic t ON a.ward_code = t.ward_code AND a.datetime_hour = t.datetime_hour
 LEFT JOIN pop p ON a.province = p.location_name

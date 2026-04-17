@@ -26,21 +26,15 @@ models:
         description: |
           Data source identifier: 'aqiin' or 'openweather'.
           Used for source attribution in dashboards and quality analysis.
-      - name: station_name
+      - name: ward_code
         description: |
-          Monitoring station name or province name (for OpenWeather).
+          Unique identifier for the administrative ward.
           Primary join key for downstream transformations.
-          AQI.in: full station location string; OpenWeather: province name.
         tests:
           - not_null
-      - name: district
-        description: |
-          District name extracted from station_name.
-          NULL for OpenWeather records (province-level data only).
-          NULL for AQI.in records where station name doesn't match metadata pattern.
       - name: province
         description: |
-          Province name from station metadata join.
+          Province name.
           Primary geographic dimension for most analytics.
           NULL if station lookup fails (fall back to station_name for OpenWeather).
         tests:

@@ -1,8 +1,8 @@
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
-    unique_key='(province, district, datetime_hour, parameter)',
-    order_by='(province, date, assumeNotNull(district))',
+    unique_key='(province, ward_code, datetime_hour, parameter)',
+    order_by='(province, date, assumeNotNull(ward_code))',
     partition_by='toYYYYMM(date)'
 ) }}
 
@@ -17,7 +17,7 @@ select
     timestamp_utc as datetime_hour,
     toDate(timestamp_utc) as date,
     province,
-    district,
+    ward_code,
     region_3,
     region_8,
     parameter,

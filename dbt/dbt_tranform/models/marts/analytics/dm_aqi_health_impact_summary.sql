@@ -9,19 +9,19 @@ with hourly_summary as (
     select
         date,
         province,
-        district,
-        avg_aqi_us as final_aqi_us,
+        ward_code,
+        hourly_avg_aqi_us as final_aqi_us,
         -- Calculate dominant pollutant for health advice
         case 
-            when pm25_aqi >= pm10_aqi and pm25_aqi >= co_aqi and pm25_aqi >= no2_aqi and pm25_aqi >= so2_aqi and pm25_aqi >= o3_aqi then 'pm25'
-            when pm10_aqi >= co_aqi and pm10_aqi >= no2_aqi and pm10_aqi >= so2_aqi and pm10_aqi >= o3_aqi then 'pm10'
-            when co_aqi >= no2_aqi and co_aqi >= so2_aqi and co_aqi >= o3_aqi then 'co'
-            when no2_aqi >= so2_aqi and no2_aqi >= o3_aqi then 'no2'
-            when so2_aqi >= o3_aqi then 'so2'
+            when pm25_hourly_aqi >= pm10_hourly_aqi and pm25_hourly_aqi >= co_hourly_aqi and pm25_hourly_aqi >= no2_hourly_aqi and pm25_hourly_aqi >= so2_hourly_aqi and pm25_hourly_aqi >= o3_hourly_aqi then 'pm25'
+            when pm10_hourly_aqi >= co_hourly_aqi and pm10_hourly_aqi >= no2_hourly_aqi and pm10_hourly_aqi >= so2_hourly_aqi and pm10_hourly_aqi >= o3_hourly_aqi then 'pm10'
+            when co_hourly_aqi >= no2_hourly_aqi and co_hourly_aqi >= so2_hourly_aqi and co_hourly_aqi >= o3_hourly_aqi then 'co'
+            when no2_hourly_aqi >= so2_hourly_aqi and no2_hourly_aqi >= o3_hourly_aqi then 'no2'
+            when so2_hourly_aqi >= o3_hourly_aqi then 'so2'
             else 'o3'
         end as pollutant_key,
         last_ingested_at as ingest_time
-    from {{ ref('fct_air_quality_district_level_hourly') }}
+    from {{ ref('fct_air_quality_ward_level_hourly') }}
     {% if is_incremental() %}
     where last_ingested_at > (select max(ingest_time) from {{ this }})
     {% endif %}
@@ -41,7 +41,7 @@ impact_joined as (
     select
         h.date,
         h.province,
-        h.district,
+        h.ward_code,
         h.final_aqi_us,
         h.pollutant_key,
         h.ingest_time,
@@ -65,7 +65,7 @@ daily_impact_stats as (
     select
         date,
         province,
-        district,
+        ward_code,
         count(*) as total_hours,
         countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) as high_risk_hours,
         countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) / count(*) as high_risk_exposure_pct,
@@ -73,7 +73,7 @@ daily_impact_stats as (
         argMax(health_effects, final_aqi_us) as primary_health_advice,
         max(ingest_time) as ingest_time
     from impact_joined
-    group by date, province, district
+    group by date, province, ward_code
 )
 
 select * from daily_impact_stats

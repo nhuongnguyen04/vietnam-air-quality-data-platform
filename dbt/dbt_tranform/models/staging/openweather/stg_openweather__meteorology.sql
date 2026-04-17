@@ -2,88 +2,89 @@
     materialized='view'
 ) }}
 
-WITH raw_data AS (
-    SELECT * FROM {{ source('openweather', 'raw_openweather_meteorology') }}
+with raw_data as (
+    select * from {{ source('openweather', 'raw_openweather_meteorology') }}
 ),
 
-ingestion_points AS (
-    SELECT * FROM {{ ref('openweather_ingestion_points') }}
+admin_units as (
+    select
+        ward_code,
+        province,
+        lat as ward_lat,
+        lon as ward_lon
+    from {{ ref('stg_core__administrative_units') }}
 ),
 
-province_norm AS (
-    SELECT * FROM {{ ref('province_normalization') }}
-),
-
-unit_34 AS (
-    SELECT * FROM {{ ref('province_to_unit_34') }}
-),
-
-joined AS (
-    SELECT
+-- Map meteorological data to the nearest ward using cluster centroids
+-- Optimized: Join on province name first to reduce spatial search space significantly
+mapped_data as (
+    select
         r.source,
-        -- In ClickHouse, LEFT JOIN fills non-nullable strings with '' instead of NULL.
-        -- We must use 'if' instead of 'COALESCE' to handle this.
-        if(p.province != '', p.province, r.province) AS raw_province,
-        if(p.district != '', p.district, 'Unknown') AS district,
-        r.latitude,
-        r.longitude,
-        toStartOfHour(r.timestamp_utc) AS hourly_timestamp,
+        r.cluster_lat as latitude,
+        r.cluster_lon as longitude,
+        toStartOfHour(r.timestamp_utc) as hourly_timestamp,
         r.temp,
+        r.temp_min,
+        r.temp_max,
         r.feels_like,
         r.humidity,
         r.pressure,
+        r.visibility as visibility_meters,
         r.wind_speed,
         r.wind_deg,
         r.clouds_all,
-        r.ingest_time
-    FROM raw_data r
-    LEFT JOIN ingestion_points p ON 
-        toDecimal32(r.latitude, 4) = toDecimal32(p.latitude, 4) AND 
-        toDecimal32(r.longitude, 4) = toDecimal32(p.longitude, 4)
+        r.ingest_time,
+        -- Find the nearest ward code WITHIN the same province
+        argMin(admin.ward_code, greatCircleDistance(r.cluster_lon, r.cluster_lat, admin.ward_lon, admin.ward_lat)) as ward_code,
+        admin.province
+    from raw_data r
+    inner join admin_units admin on r.province_name = admin.province
+    group by 
+        r.source,
+        latitude,
+        longitude,
+        hourly_timestamp,
+        r.temp,
+        r.temp_min,
+        r.temp_max,
+        r.feels_like,
+        r.humidity,
+        r.pressure,
+        visibility_meters,
+        r.wind_speed,
+        r.wind_deg,
+        r.clouds_all,
+        r.ingest_time,
+        admin.province
 ),
 
-normalized AS (
-    SELECT
-        j.*,
-        coalesce(nullIf(pn.target_name, ''), j.raw_province) AS normalized_province
-    FROM joined j
-    LEFT JOIN province_norm pn ON j.raw_province = pn.raw_name
-    WHERE normalized_province IS NOT NULL AND normalized_province != ''
-),
-
-mapped_34 AS (
-    SELECT
-        n.*,
-        coalesce(nullIf(u.target_unit_34, ''), n.normalized_province) AS province_34
-    FROM normalized n
-    LEFT JOIN unit_34 u ON n.normalized_province = u.legacy_province
-),
-
-deduplicated AS (
-    SELECT
+deduplicated as (
+    select
         *,
-        -- Keeping the latest ingest per (province, district, hour)
-        row_number() OVER (
-            PARTITION BY province_34, district, hourly_timestamp
-            ORDER BY ingest_time DESC
-        ) AS rn
-    FROM mapped_34
+        row_number() over (
+            partition by ward_code, hourly_timestamp
+            order by ingest_time desc
+        ) as rn
+    from mapped_data
 )
 
-SELECT
+select
     source,
-    province_34 AS province,
-    district,
+    ward_code,
+    province,
     latitude,
     longitude,
-    hourly_timestamp AS timestamp_utc,
+    hourly_timestamp as timestamp_utc,
     temp,
+    temp_min,
+    temp_max,
     feels_like,
     humidity,
     pressure,
+    visibility_meters,
     wind_speed,
     wind_deg,
     clouds_all,
-    now() AS dbt_updated_at
-FROM deduplicated
-WHERE rn = 1
+    now() as dbt_updated_at
+from deduplicated
+where rn = 1

@@ -6,31 +6,29 @@
     partition_by='toYYYYMM(month)'
 ) }}
 
-with summary as (
-    select * from {{ ref('fct_air_quality_summary_daily') }}
+with ward_daily as (
+    select * from {{ ref('fct_air_quality_ward_level_daily') }}
     {% if is_incremental() %}
-    where date >= (select max(month) - interval 1 month from {{ this }})
+    where date >= toStartOfMonth(today()) - interval 1 month
     {% endif %}
 ),
 
-pivoted as (
+monthly_agg as (
     select
         toStartOfMonth(date) as month,
         province,
         ward_code,
         region_3,
         region_8,
-        source,
         
-        -- Monthly averages
         avg(daily_avg_aqi_us) as monthly_avg_aqi_us,
-        avg(daily_avg_aqi_vn) as monthly_avg_aqi_vn,
-        
-        -- Max/Min
         max(daily_max_aqi_us) as monthly_max_aqi_us,
-        min(daily_avg_aqi_us) as monthly_min_aqi_us,
+        min(daily_min_aqi_us) as monthly_min_aqi_us,
         
-        -- Concentrations
+        avg(daily_avg_aqi_vn) as monthly_avg_aqi_vn,
+        max(daily_max_aqi_vn) as monthly_max_aqi_vn,
+        min(daily_min_aqi_vn) as monthly_min_aqi_vn,
+        
         avg(pm25_daily_avg) as pm25_monthly_avg,
         avg(pm10_daily_avg) as pm10_monthly_avg,
         avg(co_daily_avg)   as co_monthly_avg,
@@ -38,11 +36,11 @@ pivoted as (
         avg(so2_daily_avg)  as so2_monthly_avg,
         avg(o3_daily_avg)   as o3_monthly_avg,
         
-        -- Dominant Pollutant (Most frequent in month)
-        topK(1)(dominant_pollutant_vn)[1] as dominant_pollutant_vn
+        count(*) as samples_count,
+        max(last_ingested_at) as last_ingested_at
         
-    from summary
-    group by 1, 2, 3, 4, 5, 6
+    from ward_daily
+    group by 1, 2, 3, 4, 5
 )
 
-select * from pivoted
+select * from monthly_agg

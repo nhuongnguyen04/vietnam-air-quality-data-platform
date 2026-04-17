@@ -9,8 +9,8 @@ with daily_data as (
     select
         date,
         province,
-        pm25_avg,
-        pm10_avg,
+        pm25_prov_avg as pm25_avg,
+        pm10_prov_avg as pm10_avg,
         last_ingested_at as ingest_time
     from {{ ref('fct_air_quality_province_level_daily') }}
     {% if is_incremental() %}

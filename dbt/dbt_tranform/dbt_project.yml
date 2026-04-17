@@ -33,7 +33,7 @@ models:
     staging:
       +materialized: view
     intermediate:
-      +materialized: view
+      +materialized: table
     marts:
       core:
         +materialized: incremental
@@ -46,3 +46,8 @@ seeds:
         conc_bp_hi: String
         epa_aqi_bp_lo: String
         epa_aqi_bp_hi: String
+    vietnam_wards_with_osm:
+      +column_types:
+        code: String
+        population: Float64
+        area_km2: Float64

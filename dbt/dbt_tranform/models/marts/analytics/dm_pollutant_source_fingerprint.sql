@@ -9,7 +9,7 @@ with hourly_data as (
     select
         date,
         province,
-        district,
+        ward_code,
         -- Need both to calculate ratio
         pm25_value,
         pm10_value,
@@ -25,7 +25,7 @@ source_calc as (
     select
         date,
         province,
-        district,
+        ward_code,
         avg(pm25_value) as avg_pm25,
         avg(pm10_value) as avg_pm10,
         avg(pm25_value) / avg(pm10_value) as pm25_pm10_ratio,
@@ -36,7 +36,7 @@ source_calc as (
         end as probable_source,
         max(ingest_time) as ingest_time
     from hourly_data
-    group by date, province, district
+    group by date, province, ward_code
 )
 
 select * from source_calc

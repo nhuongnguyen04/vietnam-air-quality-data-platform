@@ -1,4 +1,4 @@
-station_name,latitude,longitude,province,source,district
+station_name,latitude,longitude,province,source,ward
 "An Xuan, Thanh pho Tam Ky, Quang Nam, Vietnam",15.577400207519531,108.4740982055664,TP.Đà Nẵng,original,Xã Thăng Trường
 "Ba Dinh, Hanoi, Hanoi, Vietnam",21.03862953186035,105.83805084228516,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
 "Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành

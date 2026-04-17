@@ -1,8 +1,7 @@
 with aqiin as (
     select
         m.source,
-        m.station_name,
-        s.district,
+        s.ward_code,
         s.province,
         s.latitude,
         s.longitude,
@@ -11,28 +10,27 @@ with aqiin as (
         m.value,
         m.aqi_reported,
         m.quality_flag,
-        m.ingest_time
+        m.ingest_time,
+        s.station_name -- Keep for internal prioritization logic
     from {{ ref('stg_aqiin__measurements') }} m
-    left join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
+    join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
 ),
 
 openweather as (
-    -- OpenWeather stations now use standardized 'openweather:LAT:LON' IDs in both staging models
     select
-        m.source,
-        m.station_name,
-        s.district,
-        s.province,
-        s.latitude,
-        s.longitude,
-        m.timestamp_utc,
-        m.parameter,
-        m.value,
-        m.aqi_reported,
-        m.quality_flag,
-        m.ingest_time
-    from {{ ref('stg_openweather__measurements') }} m
-    left join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
+        source,
+        ward_code,
+        province,
+        latitude,
+        longitude,
+        timestamp_utc,
+        parameter,
+        value,
+        aqi_reported,
+        quality_flag,
+        ingest_time,
+        '' as station_name
+    from {{ ref('stg_openweather__measurements') }}
 ),
 
 unified as (
@@ -41,45 +39,53 @@ unified as (
     select * from openweather
 ),
 
-normalized as (
+admin_units as (
     select
-        u.source,
-        u.station_name,
-        u.district,
-        u.latitude,
-        u.longitude,
-        -- ClickHouse LEFT JOIN on strings returns '' instead of NULL, so we must nullIf() it
-        coalesce(nullIf(pn.target_name, ''), u.province) as legacy_province_normalized,
-        u.timestamp_utc,
-        u.parameter,
-        u.value,
-        u.aqi_reported,
-        u.quality_flag,
-        u.ingest_time
-    from unified u
-    left join {{ ref('province_normalization') }} pn on u.province = pn.raw_name
-    where u.province is not null and u.province != ''
+        ward_code,
+        ward_name,
+        province,
+        lat as ward_lat,
+        lon as ward_lon
+    from {{ ref('stg_core__administrative_units') }}
 ),
 
-mapped as (
-    select
-        n.*,
-        -- Final 2026 province: Try mapped unit -> Normalized legacy -> Original
-        coalesce(nullIf(pm.target_unit_34, ''), n.legacy_province_normalized) as province
-    from normalized n
-    left join {{ ref('province_to_unit_34') }} pm on n.legacy_province_normalized = pm.legacy_province
+-- Identify physical stations and their distance to ward centroids
+physical_station_info as (
+    select distinct
+        s.ward_code,
+        s.station_name,
+        greatCircleDistance(s.longitude, s.latitude, a.ward_lon, a.ward_lat) as dist_to_centroid
+    from {{ ref('stg_core__stations') }} s
+    join admin_units a on s.ward_code = a.ward_code
+    where s.station_source = 'aqiin'
 ),
 
+-- Rule: In the same ward, at the same time, if there is a physical station (Aqiin) 
+-- that is close (<= 2000m) to the ward centroid, we drop the OpenWeather (satellite) data.
+-- If the physical station is far (> 2000m), we keep both.
 filtered as (
-    -- Strict alignment with the 34 target provinces of the 2026 scope
-    -- All legacy data has been mapped to these 34 parents
-    select * from mapped
-    where province in (
-        select distinct province from {{ ref('openweather_ingestion_points') }}
+    select 
+        u.*
+    from unified u
+    left join physical_station_info p on u.ward_code = p.ward_code
+    -- We filter OUT OpenWeather records if:
+    -- There is an Aqiin station for that ward AND it's within 2km of centroid
+    where not (
+        u.source = 'openweather' 
+        and p.station_name is not null 
+        and p.dist_to_centroid <= 2000
     )
 ),
 
-with_weights as (
+with_regions as (
+    select
+        f.*,
+        {{ get_vietnam_region_3('f.province') }} as region_3,
+        {{ get_vietnam_region_8('f.province') }} as region_8
+    from filtered f
+),
+
+calibrated as (
     select
         *,
         case 
@@ -97,17 +103,13 @@ with_weights as (
                     else value
                 end
             else value
-        end as calibrated_value,
-        {{ get_vietnam_region_3('province') }} as region_3,
-        {{ get_vietnam_region_8('province') }} as region_8
-    from filtered
+        end as calibrated_value
+    from with_regions
 )
 
 select 
     source,
-    -- Enforce non-nullability for sorting keys in downstream ReplacingMergeTree marts
-    assumeNotNull(station_name) as station_name,
-    assumeNotNull(district) as district,
+    assumeNotNull(ward_code) as ward_code,
     assumeNotNull(province) as province,
     latitude,
     longitude,
@@ -121,4 +123,4 @@ select
     ingest_time,
     region_3,
     region_8
-from with_weights
+from calibrated

@@ -5,155 +5,141 @@ models:
     description: |
       Deduplicated air pollution measurements from OpenWeather Air Pollution API.
 
-      **Grain:** One row per (station_name, timestamp_utc, parameter) — deduplicated to the latest ingest.
+      **Grain:** One row per (ward_code, timestamp_utc, parameter) — deduplicated to the latest ingest.
 
       **Business Rules:**
-      - OpenWeather provides air pollution data at province-level (city centroid), not station-level
-      - station_id from OpenWeather is mapped to station_name for compatibility with staging conventions
-      - quality_flag is hardcoded to 'valid' since OpenWeather API provides quality-checked data
-      - Only air quality parameters retained: co, no2, o3, pm25, pm10, so2
+      - OpenWeather provides air pollution data mapped to specific ward_codes.
+      - quality_flag is hardcoded to 'valid' since OpenWeather API provides quality-checked data.
+      - Only air quality parameters retained: co, no2, o3, pm25, pm10, so2.
 
       **Source:** OpenWeather Air Pollution API (https://openweathermap.org/api/air-pollution)
-      **Coverage:** 62 Vietnam provinces
+      **Coverage:** All configured wards in Vietnam.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [station_name, timestamp_utc, parameter]
+          combination_of_columns: [ward_code, timestamp_utc, parameter]
     columns:
       - name: source
         description: |
           Source identifier. Always 'openweather' for records from this model.
-          Used to distinguish from AQI.in and TomTom sources during union.
-      - name: station_name
+      - name: ward_code
         description: |
-          Province name from OpenWeather city ID lookup (e.g. "Hanoi", "Ho Chi Minh City").
-          Note: OpenWeather data is province-level, not station-level — join on province for district-level analysis.
+          Standardized ward code for the measurement point.
+        tests:
+          - not_null
+      - name: ward_name
+        description: |
+          Name of the ward/commune.
+      - name: province
+        description: |
+          Province name.
         tests:
           - not_null
       - name: timestamp_utc
         description: |
           UTC timestamp of the OpenWeather forecast or actual reading.
-          OpenWeather provides both forecast (hourly, up to 4 days) and historical data.
         tests:
           - not_null
       - name: parameter
         description: |
           Pollutant code from OpenWeather Air Pollution API.
-          Values: co, no2, o3, pm25, pm10, so2, no (nitrogen monoxide), nh3 (ammonia).
-          Note: OpenWeather does not report temp/humidity — use `stg_openweather__meteorology` for weather data.
+          Values: co, no2, o3, pm25, pm10, so2, no, nh3.
         tests:
           - not_null
           - accepted_values:
               values: ['co', 'no2', 'o3', 'pm10', 'pm25', 'so2', 'no', 'nh3']
       - name: value
         description: |
-          Concentration value in OpenWeather units:
-          - CO: µg/m³ (custom unit)
-          - NO2: µg/m³
-          - O3: µg/m³
-          - PM2.5: µg/m³
-          - PM10: µg/m³
-          - SO2: µg/m³
-
-          These are converted to ppb/ppm in `int_aqi__calculations` before AQI computation.
+          Concentration value in µg/m³.
         tests:
           - not_null
       - name: aqi_reported
         description: |
-          AQI value as computed and returned by OpenWeather API.
-          Uses OpenWeather's own AQI scale (1=Good to 5=Very Poor), not US EPA or Vietnam scale.
-          Reference only — use calculated US AQI from `int_aqi__calculations` for dashboards.
+          AQI value as computed and returned by OpenWeather API (scale 1-5).
       - name: quality_flag
         description: |
-          Data quality flag. Hardcoded to 'valid' for all OpenWeather records.
-          OpenWeather API returns validated data; no quality scoring available.
+          Data quality flag. Hardcoded to 'valid'.
       - name: ingest_time
         description: |
           Timestamp when the record was written to ClickHouse.
-          Used for deduplication — most recent ingest wins per unique key.
 
   - name: stg_openweather__meteorology
     description: |
-      Deduplicated meteorological measurements from OpenWeather Weather API (not Air Pollution API).
+      Deduplicated meteorological measurements from OpenWeather Weather API.
 
-      **Grain:** One row per (province, district, timestamp_utc) — deduplicated to the latest ingest per district per hour.
+      **Grain:** One row per (ward_code, timestamp_utc) — deduplicated to the latest ingest per ward per hour.
 
       **Business Rules:**
-      - District-level weather data from OpenWeather ingestion points.
-      - Timestamps rounded to the start of the hour (toStartOfHour) for alignment with air quality measurements.
-      - Only the most recent ingest per district-hour is retained. [province, district, timestamp_utc]
+      - Timestamps rounded to the start of the hour (toStartOfHour).
+      - Mapped to nearest ward centroid.
 
-      **Source:** OpenWeather Current Weather API + 5-day/3-hour Forecast API
-      **Coverage:** All districts matching configured ingestion points in Vietnam.
-
-      **Caveats:**
-      - Weather data is specific to the coordinates of the chosen representative ingestion point in the district.
+      **Source:** OpenWeather Current Weather API
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [province, district, timestamp_utc]
+          combination_of_columns: [ward_code, timestamp_utc]
     columns:
       - name: source
         description: |
           Source identifier. Always 'openweather' for this model.
-          Used in joins and data lineage tracking.
+      - name: ward_code
+        description: |
+          Unique identifier for the administrative ward.
+        tests:
+          - not_null
       - name: province
         description: |
-          Province name as returned by OpenWeather city database.
-          Note: May differ slightly from internal naming (e.g. "Hanoi" vs "Ha Noi").
-          Province name used as join key for air quality and traffic data.
+          Province name.
         tests:
           - not_null
       - name: latitude
         description: |
-          Latitude of the OpenWeather city/grid point for this province.
-          Approximate centroid — not the geographic center of the province.
-          Used for geospatial joins if station-level lat/lon not available.
+          Latitude of the measurement point.
       - name: longitude
         description: |
-          Longitude of the OpenWeather city/grid point for this province.
-          Approximate centroid — not the geographic center of the province.
+          Longitude of the measurement point.
       - name: timestamp_utc
         description: |
           UTC timestamp rounded to the start of the hour.
-          Aligned with hourly air quality summaries for LEFT JOIN on (province, datetime_hour).
         tests:
           - not_null
       - name: temp
         description: |
           Temperature in Celsius.
-          From OpenWeather Current Weather API 'temp' field.
         tests:
           - not_null
           - range:
               min_value: -10
               max_value: 60
+      - name: temp_min
+        description: |
+          Minimum temperature at the moment of measurement.
+      - name: temp_max
+        description: |
+          Maximum temperature at the moment of measurement.
       - name: feels_like
         description: |
-          "Feels like" temperature in Celsius (wind chill / heat index applied).
-          From OpenWeather 'feels_like' field.
+          Physically felt temperature in Celsius.
       - name: humidity
         description: |
-          Relative humidity as a percentage (0–100).
-          High humidity (>80%) can suppress pollutant dispersion and is used in `dm_aqi_weather_traffic_unified`.
+          Relative humidity percentage (0–100).
         tests:
           - range:
               min_value: 0
               max_value: 100
       - name: pressure
         description: |
-          Atmospheric pressure in hPa (hectopascals).
-          Reference field for meteorological analysis.
+          Atmospheric pressure in hPa.
+      - name: visibility_meters
+        description: |
+          Visibility in meters.
       - name: wind_speed
         description: |
-          Wind speed in meters per second (m/s).
-          Low wind speed (<1.0 m/s) used as stagnant air indicator in `dm_aqi_weather_traffic_unified`.
+          Wind speed in meters per second.
       - name: wind_deg
         description: |
-          Wind direction in meteorological degrees (0–360, where 0/360 = North).
-          Reference field — not currently used in AQI calculations.
+          Wind direction in degrees.
       - name: clouds_all
         description: |
-          Cloudiness percentage (0–100).
-          Reference field for meteorological completeness.
+          Cloudiness percentage.
       - name: dbt_updated_at
         description: |
           Timestamp when dbt last processed this record.

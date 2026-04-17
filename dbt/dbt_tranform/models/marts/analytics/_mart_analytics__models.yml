@@ -8,7 +8,7 @@ models:
       **Grain:** One row per (station_name, datetime_hour) — station-level hourly snapshot with full environmental context.
 
       **Business Rules:**
-      - AQI from `fct_air_quality_summary_hourly` (which aggregates by district, not station — province-level OpenWeather has NULL district)
+      - AQI from `fct_air_quality_summary_hourly` (which aggregates by ward_code, not station — province-level OpenWeather has NULL ward_code)
       - Weather from `stg_openweather__meteorology` joined on (province, timestamp_utc)
       - Traffic from `int_traffic__pattern_enrichment` joined on (station_name, datetime_hour)
       - Station metadata (lat/lon) from `unified_stations_metadata`
@@ -22,29 +22,29 @@ models:
       **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
 
       **Caveats:**
-      - district-level AQI is broadcast to all stations within the district (not true station-level granularity)
+      - ward_code-level AQI is broadcast to all stations within the ward_code (not true station-level granularity)
       - Traffic data only available for major cities — NULL for most stations
       - Weather is province-level, not station-level
   - name: dm_aqi_current_status
     description: |
-      Latest air quality status per district (current conditions for real-time dashboard).
+      Latest air quality status per ward_code (current conditions for real-time dashboard).
 
-      **Grain:** One row per (province, district) — the most recent reading per district.
+      **Grain:** One row per (province, ward_code) — the most recent reading per ward_code.
 
       **Business Rules:**
       - Uses `argMax(col, datetime_hour)` to select the latest value for each column
-      - Incremental: only processes districts with new data since last run
-      - ReplacingMergeTree ensures only one record per (province, district)
+      - Incremental: only processes ward_codes with new data since last run
+      - ReplacingMergeTree ensures only one record per (province, ward_code)
 
       **Downstream consumers:** Streamlit overview page, real-time status cards, alert triggers
   - name: dm_platform_data_health
     description: |
-      Data freshness and availability status for each monitoring station/district.
+      Data freshness and availability status for each monitoring station/ward_code.
 
-      **Grain:** One row per (province, district, source) — current health status per data source per district.
+      **Grain:** One row per (province, ward_code, source) — current health status per data source per ward_code.
 
       **Business Rules:**
-      - lag_hours = hours since the most recent reading from this source at this district
+      - lag_hours = hours since the most recent reading from this source at this ward_code
       - health_status derived from lag_hours:
         - 'Fresh': ≤1 hour (green)
         - 'Delayed': 1–3 hours (yellow)
@@ -57,7 +57,7 @@ models:
     description: |
       Daily compliance assessment against WHO guidelines and Vietnam national standards (TCVN 05:2023).
 
-      **Grain:** One row per (date, province, district) — compliance flags for each location-day.
+      **Grain:** One row per (date, province, ward_code) — compliance flags for each location-day.
 
       **Business Rules:**
       - WHO daily PM2.5 guideline: 15 µg/m³ (24-hour mean)
@@ -79,7 +79,7 @@ models:
     description: |
       Daily health risk assessment based on AQI categories and dominant pollutant health effects.
 
-      **Grain:** One row per (date, province, district) — aggregated health risk metrics per location-day.
+      **Grain:** One row per (date, province, ward_code) — aggregated health risk metrics per location-day.
 
       **Business Rules:**
       - aqi_category assigned per hour based on final_aqi_us:
@@ -111,7 +111,7 @@ models:
     description: |
       Probabilistic source attribution based on PM2.5/PM10 ratio analysis.
 
-      **Grain:** One row per (date, province, district) — source classification per location-day.
+      **Grain:** One row per (date, province, ward_code) — source classification per location-day.
 
       **Business Rules:**
       - pm25_pm10_ratio = avg(pm25) / avg(pm10):

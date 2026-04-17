@@ -37,7 +37,7 @@ sources:
         description: |
           Air pollution measurements from OpenWeather Air Pollution API (current + forecast + history).
 
-          **Grain:** One row per (station_id, timestamp_utc, parameter) per ingest run.
+          **Grain:** One row per (ward_code, timestamp_utc, parameter) per ingest run.
 
           **Data Types:**
           - Current: real-time pollution readings
@@ -62,7 +62,7 @@ sources:
         description: |
           Meteorological measurements from OpenWeather Weather API (current + forecast).
 
-          **Grain:** One row per (station_id, timestamp_utc) per ingest run.
+          **Grain:** One row per (ward_code, timestamp_utc) per ingest run.
 
           **Data Types:**
           - Current: real-time weather observations

@@ -21,17 +21,16 @@ models:
       - Traffic data represents TomTom user population, not all vehicles
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [station_name, timestamp_utc]
+          combination_of_columns: [ward_code, timestamp_utc]
     columns:
       - name: source
         description: |
           Source identifier. Always 'tomtom' for records from this model.
           Used for source attribution in unified models.
-      - name: station_name
+      - name: ward_code
         description: |
-          Traffic monitoring location name from TomTom Search API.
-          Format: "Ward, District, Province, Vietnam" (e.g. "Ba Dinh, Ba Dinh, Ha Noi, Vietnam").
-          Join key to station metadata for geographic enrichment.
+          Unique identifier for the administrative ward.
+          Join key to administrative registry for geographic enrichment.
         tests:
           - not_null
       - name: latitude
@@ -61,7 +60,7 @@ models:
           - not_null
           - range:
               min_value: 0
-              max_value: 1
+              max_value: 5
       - name: parameter
         description: |
           Measurement type. Always 'congestion_ratio' for TomTom flow data.

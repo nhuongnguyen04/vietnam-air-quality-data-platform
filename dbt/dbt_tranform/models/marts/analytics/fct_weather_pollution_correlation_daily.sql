@@ -6,7 +6,7 @@ WITH daily_stats AS (
     SELECT
         date,
         province,
-        district,
+        ward_code,
         avg(pm25) as avg_pm25,
         avg(temp) as avg_temp,
         avg(humidity) as avg_humidity,
@@ -18,7 +18,7 @@ WITH daily_stats AS (
 weather_modes AS (
     SELECT
         province,
-        district,
+        ward_code,
         avgIf(pm25, wind_speed < 1.0) as stagnant_pm25_avg,
         avgIf(pm25, wind_speed >= 2.0) as dispersive_pm25_avg,
         countIf(wind_speed < 1.0) / count(*) as stagnant_air_probability
@@ -29,7 +29,7 @@ weather_modes AS (
 final_metrics AS (
     SELECT
         d.province,
-        d.district,
+        d.ward_code,
         avg(d.avg_pm25) as pm25_daily_avg,
         avg(d.avg_temp) as temp_daily_avg,
         avg(d.avg_humidity) as humidity_daily_avg,
@@ -47,7 +47,7 @@ final_metrics AS (
         
         m.stagnant_air_probability
     FROM daily_stats d
-    LEFT JOIN weather_modes m ON d.province = m.province AND d.district = m.district
+    LEFT JOIN weather_modes m ON d.province = m.province AND d.ward_code = m.ward_code
     GROUP BY 1, 2, m.stagnant_pm25_avg, m.dispersive_pm25_avg, m.stagnant_air_probability
 )
 

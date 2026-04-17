@@ -78,3 +78,29 @@ sources:
             description: |
               Timestamp when this hourly aggregation was computed and written.
               Used for freshness monitoring and deduplication.
+      - name: raw_tomtom_traffic_v2
+        description: |
+          New ward-centric traffic flow data from TomTom.
+          Includes high-precision coordinates and road-specific metrics.
+        loaded_at_field: ingest_time
+        columns:
+          - name: ward_code
+            description: "Vietnam National Administrative Unit Code (Commune-level)"
+            tests:
+              - not_null
+          - name: timestamp_utc
+            description: "Observation timestamp"
+          - name: current_speed
+            description: "Current traffic speed in km/h"
+          - name: free_flow_speed
+            description: "Free flow speed in km/h"
+          - name: current_travel_time
+            description: "Current travel time in seconds"
+          - name: free_flow_travel_time
+            description: "Free flow travel time in seconds"
+          - name: confidence
+            description: "Measure of data quality (0.0 to 1.0)"
+          - name: road_closure
+            description: "Boolean indicating if the road is closed"
+          - name: traffic_source
+            description: "Source of traffic data: 'api', 'interpolated', or 'offpeak_model'"
