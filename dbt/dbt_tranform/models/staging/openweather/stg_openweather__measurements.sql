@@ -1,4 +1,9 @@
-{{ config(materialized='view') }}
+{{ config(
+    engine='ReplacingMergeTree',
+    unique_key='(ward_code, timestamp_utc, parameter)',
+    order_by='(province, timestamp_utc, ward_code, parameter)',
+    partition_by='toYYYYMM(timestamp_utc)'
+) }}
 
 with source as (
     select * from {{ source('openweather', 'raw_openweather_measurements') }}

@@ -9,6 +9,10 @@ with daily_data as (
     select
         date,
         province,
+        region_3,
+        region_8,
+        prov_avg_aqi_us,
+        prov_avg_aqi_vn,
         pm25_prov_avg as pm25_avg,
         pm10_prov_avg as pm10_avg,
         last_ingested_at as ingest_time
@@ -23,14 +27,16 @@ compliance as (
     select
         date,
         province,
+        region_3,
+        region_8,
         pm25_avg,
         pm10_avg,
         
-        -- WHO Standards (Daily)
+        -- WHO Standards (Daily Limits: PM2.5=15, PM10=45)
         if(pm25_avg > 15, 1, 0) as who_pm25_breach,
         if(pm10_avg > 45, 1, 0) as who_pm10_breach,
         
-        -- Vietnam National Standards (TCVN 05:2023 - Daily)
+        -- Vietnam National Standards (TCVN 05:2023 - Daily Limits: PM2.5=50, PM10=100)
         if(pm25_avg > 50, 1, 0) as tcvn_pm25_breach,
         if(pm10_avg > 100, 1, 0) as tcvn_pm10_breach,
         

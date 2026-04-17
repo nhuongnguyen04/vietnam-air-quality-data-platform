@@ -76,35 +76,14 @@ def dag_sync_gdrive():
         
         return False
 
-    @task
-    def run_traffic_calculation():
-        """Run Traffic Pattern Enrichment calculation in Python."""
-        import subprocess
-        
-        script_path = os.path.join('/opt/python/jobs', 'jobs/traffic/calculate_hourly_traffic.py')
-        
-        # Ensure we have the necessary environment variables
-        env = os.environ.copy()
-        env['CLICKHOUSE_HOST'] = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
-        env['CLICKHOUSE_PORT'] = os.environ.get('CLICKHOUSE_PORT', '8123')
-        env['CLICKHOUSE_USER'] = os.environ.get('CLICKHOUSE_USER', 'admin')
-        env['CLICKHOUSE_PASSWORD'] = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
-        env['CLICKHOUSE_DB'] = os.environ.get('CLICKHOUSE_DB', 'air_quality')
+    # Dependencies
+    sync_has_data = sync_data()
 
-        result = subprocess.run(
-            ['python', script_path],
-            env=env,
-            cwd='/opt/python/jobs',
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode != 0:
-            print(f"Calculation Script Error: {result.stderr}")
-            raise Exception(f"Calculation script failed with return code {result.returncode}")
-            
-        print(f"Calculation Script Output: {result.stdout}")
-        return True
+    check_sync = ShortCircuitOperator(
+        task_id='check_sync_data',
+        python_callable=lambda x: x,
+        op_args=[sync_has_data],
+    )
 
     @task
     def log_completion():
@@ -116,19 +95,9 @@ def dag_sync_gdrive():
         wait_for_completion=False,
     )
 
-    # Dependencies
-    sync_has_data = sync_data()
-    
-    check_sync = ShortCircuitOperator(
-        task_id='check_sync_data',
-        python_callable=lambda x: x,
-        op_args=[sync_has_data],
-    )
-    
-    calc = run_traffic_calculation()
     completion = log_completion()
-    
+
     # Linear flow: Only proceed if check_sync passes
-    sync_has_data >> check_sync >> calc >> completion >> trigger_transform
+    sync_has_data >> check_sync >> completion >> trigger_transform
 
 dag_sync_gdrive = dag_sync_gdrive()

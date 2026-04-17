@@ -41,7 +41,7 @@ def get_source_trend(days: int, province: str | None):
     SELECT
         date,
         source,
-        round(avg(avg_aqi_us), 1) AS avg_aqi
+        round(avg(daily_avg_aqi_us), 1) AS avg_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
       AND source IN ('aqiin', 'openweather')
@@ -61,7 +61,7 @@ def get_source_distribution(days: int, province: str | None):
     q = f"""
     SELECT
         source,
-        avg_aqi_us AS avg_aqi
+        daily_avg_aqi_us AS avg_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
       AND source IN ('aqiin', 'openweather')
@@ -75,11 +75,11 @@ def get_source_stats(days: int):
     q = f"""
     SELECT
         source,
-        round(avg(avg_aqi_us), 1)            AS avg_aqi,
-        round(max(max_aqi_us), 0)             AS max_aqi,
-        round(min(avg_aqi_us), 1)             AS min_aqi,
+        round(avg(daily_avg_aqi_us), 1)            AS avg_aqi,
+        round(max(daily_max_aqi_us), 0)             AS max_aqi,
+        round(min(daily_avg_aqi_us), 1)             AS min_aqi,
         count(*)                              AS day_count,
-        sum(if(avg_aqi_us <= 50, 1, 0))       AS good_days
+        sum(if(daily_avg_aqi_us <= 50, 1, 0))       AS good_days
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
       AND source IN ('aqiin', 'openweather')

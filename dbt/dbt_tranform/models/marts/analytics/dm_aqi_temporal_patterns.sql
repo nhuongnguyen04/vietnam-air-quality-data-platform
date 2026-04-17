@@ -5,15 +5,11 @@
     order_by='(province, hour_of_day, day_of_week)'
 ) }}
 
--- In ClickHouse, SummingMergeTree will aggregate rows based on the unique_key.
--- For non-numeric columns, it will pick the first value encountered.
--- For numeric columns (avg_aqi_us, avg_aqi_vn, etc.), we should technically be using 
--- an AggregatingMergeTree if we wanted precise averages of averages, 
--- but since this is for "Temporal Patterns", we'll stick to a simple averaging logic.
-
 with hourly_data as (
     select
         province,
+        region_3,
+        region_8,
         toHour(datetime_hour) as hour_of_day,
         toDayOfWeek(datetime_hour) as day_of_week,
         prov_avg_aqi_us,
@@ -30,6 +26,8 @@ with hourly_data as (
 aggregates as (
     select
         province,
+        region_3,
+        region_8,
         hour_of_day,
         day_of_week,
         avg(prov_avg_aqi_us) as avg_aqi_us,
@@ -39,7 +37,7 @@ aggregates as (
         count(*) as reading_count,
         max(last_ingested_at) as ingest_time
     from hourly_data
-    group by province, hour_of_day, day_of_week
+    group by province, region_3, region_8, hour_of_day, day_of_week
 )
 
 select * from aggregates

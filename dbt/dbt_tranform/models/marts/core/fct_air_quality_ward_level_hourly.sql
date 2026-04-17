@@ -52,6 +52,33 @@ consolidated as (
         ward_code,
         region_3,
         region_8
+),
+
+ward_coords as (
+    select
+        ward_code,
+        any(lat) as latitude,
+        any(lon) as longitude
+    from {{ ref('stg_core__administrative_units') }}
+    group by ward_code
+),
+
+final as (
+    select
+        c.*,
+        w.latitude,
+        w.longitude,
+        -- Logic for main pollutant at ward level
+        case 
+            when pm25_hourly_aqi >= pm10_hourly_aqi and pm25_hourly_aqi >= co_hourly_aqi and pm25_hourly_aqi >= no2_hourly_aqi and pm25_hourly_aqi >= so2_hourly_aqi and pm25_hourly_aqi >= o3_hourly_aqi then 'pm25'
+            when pm10_hourly_aqi >= co_hourly_aqi and pm10_hourly_aqi >= no2_hourly_aqi and pm10_hourly_aqi >= so2_hourly_aqi and pm10_hourly_aqi >= o3_hourly_aqi then 'pm10'
+            when co_hourly_aqi >= no2_hourly_aqi and co_hourly_aqi >= so2_hourly_aqi and co_hourly_aqi >= o3_hourly_aqi then 'co'
+            when no2_hourly_aqi >= so2_hourly_aqi and no2_hourly_aqi >= o3_hourly_aqi then 'no2'
+            when so2_hourly_aqi >= o3_hourly_aqi then 'so2'
+            else 'o3'
+        end as main_pollutant
+    from consolidated c
+    left join ward_coords w on c.ward_code = w.ward_code
 )
 
-select * from consolidated
+select * from final

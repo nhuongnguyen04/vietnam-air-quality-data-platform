@@ -1,3 +1,11 @@
+{{ config(
+    materialized='incremental',
+    engine='ReplacingMergeTree',
+    unique_key='(source, ward_code, timestamp_utc, parameter)',
+    order_by='(province, timestamp_utc, ward_code, source, parameter)',
+    partition_by='toYYYYMM(timestamp_utc)'
+) }}
+
 with aqiin as (
     select
         m.source,
@@ -14,6 +22,9 @@ with aqiin as (
         s.station_name -- Keep for internal prioritization logic
     from {{ ref('stg_aqiin__measurements') }} m
     join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
+    {% if is_incremental() %}
+    where m.ingest_time > (select max(ingest_time) from {{ this }})
+    {% endif %}
 ),
 
 openweather as (
@@ -31,6 +42,9 @@ openweather as (
         ingest_time,
         '' as station_name
     from {{ ref('stg_openweather__measurements') }}
+    {% if is_incremental() %}
+    where ingest_time > (select max(ingest_time) from {{ this }})
+    {% endif %}
 ),
 
 unified as (
@@ -68,11 +82,12 @@ filtered as (
         u.*
     from unified u
     left join physical_station_info p on u.ward_code = p.ward_code
-    -- We filter OUT OpenWeather records if:
-    -- There is an Aqiin station for that ward AND it's within 2km of centroid
+    -- We filter OUT OpenWeather records ONLY IF:
+    -- 1. There is a valid Aqiin station for that ward (station_name != '')
+    -- 2. AND it is within 2km of the ward centroid
     where not (
         u.source = 'openweather' 
-        and p.station_name is not null 
+        and p.station_name != '' 
         and p.dist_to_centroid <= 2000
     )
 ),

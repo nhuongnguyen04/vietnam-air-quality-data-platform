@@ -1,4 +1,9 @@
-{{ config(materialized='view') }}
+{{ config(
+    engine='ReplacingMergeTree',
+    unique_key='(station_name, timestamp_utc, parameter)',
+    order_by='(timestamp_utc, station_name, parameter)',
+    partition_by='toYYYYMM(timestamp_utc)'
+) }}
 
 with source as (
     select * from {{ source('aqiin', 'raw_aqiin_measurements') }}

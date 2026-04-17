@@ -51,6 +51,21 @@ province_hourly as (
         province,
         region_3,
         region_8
+),
+
+final as (
+    select
+        *,
+        -- Provincial main pollutant based on averaged sub-AQIs
+        case 
+            when pm25_prov_aqi >= pm10_prov_aqi and pm25_prov_aqi >= co_prov_aqi and pm25_prov_aqi >= no2_prov_aqi and pm25_prov_aqi >= so2_prov_aqi and pm25_prov_aqi >= o3_prov_aqi then 'pm25'
+            when pm10_prov_aqi >= co_prov_aqi and pm10_prov_aqi >= no2_prov_aqi and pm10_prov_aqi >= so2_prov_aqi and pm10_prov_aqi >= o3_prov_aqi then 'pm10'
+            when co_prov_aqi >= no2_prov_aqi and co_prov_aqi >= so2_prov_aqi and co_prov_aqi >= o3_prov_aqi then 'co'
+            when no2_prov_aqi >= so2_prov_aqi and no2_prov_aqi >= o3_prov_aqi then 'no2'
+            when so2_prov_aqi >= o3_prov_aqi then 'so2'
+            else 'o3'
+        end as main_pollutant
+    from province_hourly
 )
 
-select * from province_hourly
+select * from final

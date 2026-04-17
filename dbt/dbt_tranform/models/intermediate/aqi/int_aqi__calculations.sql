@@ -1,5 +1,17 @@
+{{ config(
+    materialized='incremental',
+    engine='ReplacingMergeTree',
+    unique_key='(source, ward_code, timestamp_utc, parameter)',
+    order_by='(province, timestamp_utc, ward_code, source, parameter)',
+    partition_by='toYYYYMM(timestamp_utc)'
+) }}
+
 with measurements as (
     select * from {{ ref('int_core__measurements_unified') }}
+    {% if is_incremental() %}
+    -- Process last 6 hours to ensure window functions capture all pollutants for an hour
+    where timestamp_utc >= (select max(timestamp_utc) - interval 6 hour from {{ this }})
+    {% endif %}
 ),
 
 normalized_for_us as (
@@ -25,22 +37,16 @@ calculated as (
     from normalized_for_us
 ),
 
-max_values as (
+with_max as (
     select
-        province,
-        ward_code,
-        timestamp_utc,
-        max(aqi_us) as max_aqi_us_in_hour,
-        max(aqi_vn) as max_aqi_vn_in_hour
+        *,
+        max(aqi_us) over (partition by province, ward_code, timestamp_utc) as max_aqi_us_in_hour,
+        max(aqi_vn) over (partition by province, ward_code, timestamp_utc) as max_aqi_vn_in_hour
     from calculated
-    group by province, ward_code, timestamp_utc
 )
 
 select
-    c.*,
-    mv.max_aqi_us_in_hour,
-    mv.max_aqi_vn_in_hour,
-    case when c.aqi_us = mv.max_aqi_us_in_hour then true else false end as is_dominant_us,
-    case when c.aqi_vn = mv.max_aqi_vn_in_hour then true else false end as is_dominant_vn
-from calculated c
-inner join max_values mv using (province, ward_code, timestamp_utc)
+    *,
+    case when aqi_us = max_aqi_us_in_hour then true else false end as is_dominant_us,
+    case when aqi_vn = max_aqi_vn_in_hour then true else false end as is_dominant_vn
+from with_max

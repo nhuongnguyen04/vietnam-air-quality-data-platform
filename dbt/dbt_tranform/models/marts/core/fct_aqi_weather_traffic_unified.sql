@@ -1,39 +1,40 @@
+-- depends_on: {{ ref('fct_air_quality_ward_level_hourly') }}
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
     unique_key='(ward_code, datetime_hour)',
     order_by='(province, datetime_hour, ward_code)',
-    partition_by='toYYYYMM(date)'
+    partition_by='toYYYYMM(date)',
+    overwrite=true
 ) }}
 
 WITH aqi AS (
     SELECT 
-        toStartOfHour(timestamp_utc) as datetime_hour,
-        toDate(timestamp_utc) as date,
+        datetime_hour,
+        date,
         province,
         ward_code,
-        -- Use any() for coordinates as they are ward-fixed
-        any(latitude) as latitude,
-        any(longitude) as longitude,
-        max(aqi_us) as aqi_us,
-        max(aqi_vn) as aqi_vn,
-        maxIf(value, parameter = 'pm25') as pm25,
-        maxIf(value, parameter = 'pm10') as pm10,
-        maxIf(value, parameter = 'co') as co
-    FROM {{ ref('int_aqi__calculations') }}
+        region_3,
+        region_8,
+        latitude,
+        longitude,
+        hourly_avg_aqi_us as aqi_us,
+        hourly_avg_aqi_vn as aqi_vn,
+        pm25_hourly_avg as pm25,
+        pm10_hourly_avg as pm10,
+        co_hourly_avg as co,
+        main_pollutant
+    FROM {{ ref('fct_air_quality_ward_level_hourly') }}
     {% if is_incremental() %}
-    WHERE timestamp_utc >= (SELECT max(datetime_hour) FROM {{ this }}) - interval 3 hour
+    WHERE datetime_hour >= (SELECT max(datetime_hour) FROM {{ this }}) - interval 3 hour
     {% endif %}
-    GROUP BY 1, 2, 3, 4
 ),
 
 weather_ward AS (
-    -- Staging weather at ward level
     SELECT * FROM {{ ref('stg_openweather__meteorology') }}
 ),
 
 weather_province AS (
-    -- Average by province for points without specific meteorology
     SELECT 
         province,
         timestamp_utc,
@@ -47,7 +48,6 @@ weather_province AS (
 ),
 
 traffic AS (
-    -- TomTom traffic flow at ward level
     SELECT 
         ward_code,
         toStartOfHour(timestamp_utc) as datetime_hour,
@@ -58,25 +58,26 @@ traffic AS (
 ),
 
 pop AS (
-    -- 2026 population projections
     SELECT * FROM {{ ref('stg_core__population') }}
 )
 
 SELECT
-    a.datetime_hour as datetime_hour,
-    a.date as date,
-    a.province as province,
-    a.ward_code as ward_code,
-    -- Reliability: Prefer intermediate coordinates passed from upstream
-    a.latitude as latitude,
-    a.longitude as longitude,
+    a.datetime_hour AS datetime_hour,
+    a.date AS date,
+    assumeNotNull(a.province) as province,
+    assumeNotNull(a.ward_code) as ward_code,
+    a.region_3 AS region_3,
+    a.region_8 AS region_8,
+    a.latitude AS latitude,
+    a.longitude AS longitude,
     
     -- Air Quality metrics
-    a.aqi_us as aqi_us,
-    a.aqi_vn as aqi_vn,
-    a.pm25 as pm25,
-    a.pm10 as pm10,
-    a.co as co,
+    a.aqi_us AS aqi_us,
+    a.aqi_vn AS aqi_vn,
+    a.pm25 AS pm25,
+    a.pm10 AS pm10,
+    a.co AS co,
+    a.main_pollutant AS main_pollutant,
     
     -- Meteorology (Coalesce Ward -> Province fallback)
     coalesce(nullIf(ww.temp, 0), wp.temp) as temp,

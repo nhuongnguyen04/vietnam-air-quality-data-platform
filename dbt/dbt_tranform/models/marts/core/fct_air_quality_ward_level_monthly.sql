@@ -35,12 +35,35 @@ monthly_agg as (
         avg(no2_daily_avg)  as no2_monthly_avg,
         avg(so2_daily_avg)  as so2_monthly_avg,
         avg(o3_daily_avg)   as o3_monthly_avg,
+
+        -- Monthly average sub-AQIs
+        avg(pm25_daily_aqi) as pm25_monthly_aqi,
+        avg(pm10_daily_aqi) as pm10_monthly_aqi,
+        avg(co_daily_aqi)   as co_monthly_aqi,
+        avg(no2_daily_aqi)  as no2_monthly_aqi,
+        avg(so2_daily_aqi)  as so2_monthly_aqi,
+        avg(o3_daily_aqi)   as o3_monthly_aqi,
         
         count(*) as samples_count,
         max(last_ingested_at) as last_ingested_at
         
     from ward_daily
     group by 1, 2, 3, 4, 5
+),
+
+final as (
+    select
+        *,
+        -- Monthly main pollutant
+        case 
+            when pm25_monthly_aqi >= pm10_monthly_aqi and pm25_monthly_aqi >= co_monthly_aqi and pm25_monthly_aqi >= no2_monthly_aqi and pm25_monthly_aqi >= so2_monthly_aqi and pm25_monthly_aqi >= o3_monthly_aqi then 'pm25'
+            when pm10_monthly_aqi >= co_monthly_aqi and pm10_monthly_aqi >= no2_monthly_aqi and pm10_monthly_aqi >= so2_monthly_aqi and pm10_monthly_aqi >= o3_monthly_aqi then 'pm10'
+            when co_monthly_aqi >= no2_monthly_aqi and co_monthly_aqi >= so2_monthly_aqi and co_monthly_aqi >= o3_monthly_aqi then 'co'
+            when no2_monthly_aqi >= so2_monthly_aqi and no2_monthly_aqi >= so2_monthly_aqi and no2_monthly_aqi >= o3_monthly_aqi then 'no2'
+            when so2_monthly_aqi >= o3_monthly_aqi then 'so2'
+            else 'o3'
+        end as main_pollutant
+    from monthly_agg
 )
 
-select * from monthly_agg
+select * from final

@@ -23,7 +23,6 @@ pivoted as (
         region_8,
         source,
         source_weight,
-        ingest_time,
         
         -- Overall AQIs
         max(aqi_us) as final_aqi_us,
@@ -47,11 +46,12 @@ pivoted as (
         
         -- Dominant Pollutants
         argMax(parameter, aqi_us) as dominant_pollutant_us,
-        argMax(parameter, aqi_vn) as dominant_pollutant_vn
+        argMax(parameter, aqi_vn) as dominant_pollutant_vn,
+        max(ingest_time) as ingest_time
         
     from calculations
     where parameter in ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
-    group by 1, 2, 3, 4, 5, 6, 7, 8, 9
+    group by 1, 2, 3, 4, 5, 6, 7, 8
 )
 
 select * from pivoted

@@ -3,8 +3,9 @@
 with admin_units as (
     select
         ward_code,
-        ward_name,
         province,
+        lower(trim(ward_name)) as normalized_ward_name,
+        lower(trim(province)) as normalized_admin_province,
         lat as ward_lat,
         lon as ward_lon
     from {{ ref('stg_core__administrative_units') }}
@@ -16,19 +17,19 @@ aqicn_stations as (
         latitude,
         longitude,
         -- Normalize province names for joining
-        case 
+        lower(trim(case 
             when province = 'TP.Hà Nội' then 'Hà Nội'
             when province = 'TP.Hồ Chí Minh' then 'Thành phố Hồ Chí Minh'
             when province = 'TP.Đà Nẵng' then 'Đà Nẵng'
             when province = 'TP.Hải Phòng' then 'Hải Phòng'
             when province = 'TP.Cần Thơ' then 'Cần Thơ'
             else province
-        end as normalized_province,
-        ward as source_ward_name
+        end)) as normalized_station_province,
+        lower(trim(ward)) as normalized_source_ward_name
     from {{ ref('unified_stations_metadata') }}
 ),
 
--- 1. Try to map by name
+-- 1. Try to map by name (Case-insensitive)
 mapped_by_name as (
     select
         s.station_name,
@@ -36,11 +37,11 @@ mapped_by_name as (
         s.longitude,
         'aqiin' as station_source,
         a.ward_code,
-        a.province
+        a.province as province
     from aqicn_stations s
     left join admin_units a 
-        on s.normalized_province = a.province 
-        and s.source_ward_name = a.ward_name
+        on s.normalized_station_province = a.normalized_admin_province 
+        and s.normalized_source_ward_name = a.normalized_ward_name
 ),
 
 -- 2. Fallback for those that didn't match by name

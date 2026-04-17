@@ -34,12 +34,35 @@ monthly_agg as (
         avg(no2_monthly_avg)  as no2_prov_monthly_avg,
         avg(so2_monthly_avg)  as so2_prov_monthly_avg,
         avg(o3_monthly_avg)   as o3_prov_monthly_avg,
+
+        -- Monthly average sub-AQIs for the province
+        avg(pm25_monthly_aqi) as pm25_prov_monthly_aqi,
+        avg(pm10_monthly_aqi) as pm10_prov_monthly_aqi,
+        avg(co_monthly_aqi)   as co_prov_monthly_aqi,
+        avg(no2_monthly_aqi)  as no2_prov_monthly_aqi,
+        avg(so2_monthly_aqi)  as so2_prov_monthly_aqi,
+        avg(o3_monthly_aqi)   as o3_prov_monthly_aqi,
         
         sum(samples_count) as total_samples,
         max(last_ingested_at) as last_ingested_at
         
     from ward_monthly
     group by 1, 2, 3, 4
+),
+
+final as (
+    select
+        *,
+        -- Provincial monthly main pollutant
+        case 
+            when pm25_prov_monthly_aqi >= pm10_prov_monthly_aqi and pm25_prov_monthly_aqi >= co_prov_monthly_aqi and pm25_prov_monthly_aqi >= no2_prov_monthly_aqi and pm25_prov_monthly_aqi >= so2_prov_monthly_aqi and pm25_prov_monthly_aqi >= o3_prov_monthly_aqi then 'pm25'
+            when pm10_prov_monthly_aqi >= co_prov_monthly_aqi and pm10_prov_monthly_aqi >= no2_prov_monthly_aqi and pm10_prov_monthly_aqi >= so2_prov_monthly_aqi and pm10_prov_monthly_aqi >= o3_prov_monthly_aqi then 'pm10'
+            when co_prov_monthly_aqi >= no2_prov_monthly_aqi and co_prov_monthly_aqi >= so2_prov_monthly_aqi and co_prov_monthly_aqi >= o3_prov_monthly_aqi then 'co'
+            when no2_prov_monthly_aqi >= so2_prov_monthly_aqi and no2_prov_monthly_aqi >= so2_prov_monthly_aqi and no2_prov_monthly_aqi >= o3_prov_monthly_aqi then 'no2'
+            when so2_prov_monthly_aqi >= o3_prov_monthly_aqi then 'so2'
+            else 'o3'
+        end as main_pollutant
+    from monthly_agg
 )
 
-select * from monthly_agg
+select * from final

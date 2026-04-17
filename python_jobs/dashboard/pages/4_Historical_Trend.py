@@ -31,8 +31,8 @@ def get_national_daily_trend(days: int):
     q = f"""
     SELECT
         date,
-        round(avg(avg_aqi_us), 1)  AS avg_aqi,
-        round(max(max_aqi_us), 0)  AS max_aqi
+        round(avg(daily_avg_aqi_us), 1)  AS avg_aqi,
+        round(max(daily_max_aqi_us), 0)  AS max_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
     GROUP BY date
@@ -46,8 +46,8 @@ def get_province_daily_trend(days: int, province: str):
     q = f"""
     SELECT
         date,
-        round(avg(avg_aqi_us), 1)  AS avg_aqi,
-        round(max(max_aqi_us), 0)  AS max_aqi
+        round(avg(daily_avg_aqi_us), 1)  AS avg_aqi,
+        round(max(daily_max_aqi_us), 0)  AS max_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
       AND province = '{province}'
@@ -63,8 +63,8 @@ def get_monthly_trend(days: int):
     q = f"""
     SELECT
         month,
-        round(avg(avg_aqi_us), 1)  AS avg_aqi,
-        round(max(max_aqi_us), 0)  AS max_aqi
+        round(avg(monthly_avg_aqi_us), 1)  AS avg_aqi,
+        round(max(monthly_max_aqi_us), 0)  AS max_aqi
     FROM air_quality.fct_air_quality_summary_monthly
     WHERE month >= today() - INTERVAL {months_back} MONTH
     GROUP BY month
@@ -77,8 +77,8 @@ def get_monthly_trend(days: int):
     fallback_q = f"""
     SELECT
         toStartOfMonth(date) AS month,
-        round(avg(avg_aqi_us), 1)  AS avg_aqi,
-        round(max(max_aqi_us), 0)  AS max_aqi
+        round(avg(daily_avg_aqi_us), 1)  AS avg_aqi,
+        round(max(daily_max_aqi_us), 0)  AS max_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
     GROUP BY month
@@ -98,7 +98,7 @@ def get_heatmap_data(days: int, province: str | None):
     SELECT
         province,
         toString(date)           AS date_str,
-        round(avg(pm25_avg), 1) AS pm25_avg
+        round(avg(pm25_daily_avg), 1) AS pm25_avg
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
       AND province IS NOT NULL AND province != ''
@@ -138,9 +138,9 @@ def get_overall_stats(days: int):
     q = f"""
     SELECT
         count(distinct date)            AS total_days,
-        round(avg(avg_aqi_us), 1)      AS overall_avg,
-        round(min(avg_aqi_us), 1)      AS overall_min,
-        round(max(max_aqi_us), 0)      AS overall_max
+        round(avg(daily_avg_aqi_us), 1)      AS overall_avg,
+        round(min(daily_avg_aqi_us), 1)      AS overall_min,
+        round(max(daily_max_aqi_us), 0)      AS overall_max
     FROM air_quality.fct_air_quality_summary_daily
     WHERE date >= today() - INTERVAL {days} DAY
     """

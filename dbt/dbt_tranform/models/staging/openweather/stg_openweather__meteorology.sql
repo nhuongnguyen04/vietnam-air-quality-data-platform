@@ -1,28 +1,60 @@
 {{ config(
-    materialized='view'
+    engine='ReplacingMergeTree',
+    unique_key='(ward_code, timestamp_utc)',
+    order_by='(province, timestamp_utc, ward_code)',
+    partition_by='toYYYYMM(timestamp_utc)'
 ) }}
 
 with raw_data as (
-    select * from {{ source('openweather', 'raw_openweather_meteorology') }}
-),
-
-admin_units as (
     select
-        ward_code,
-        province,
-        lat as ward_lat,
-        lon as ward_lon
-    from {{ ref('stg_core__administrative_units') }}
+        source,
+        cluster_lat,
+        cluster_lon,
+        province_name,
+        toStartOfHour(timestamp_utc) as hourly_timestamp,
+        temp,
+        temp_min,
+        temp_max,
+        feels_like,
+        humidity,
+        pressure,
+        visibility,
+        wind_speed,
+        wind_deg,
+        clouds_all,
+        ingest_time
+    from {{ source('openweather', 'raw_openweather_meteorology') }}
 ),
 
--- Map meteorological data to the nearest ward using cluster centroids
--- Optimized: Join on province name first to reduce spatial search space significantly
+-- Step 1: For each (province, cluster) find the nearest ward.
+-- Computing greatCircleDistance inline inside argMin keeps it out of GROUP BY state.
+-- Province-filtered subquery replaces cross join to satisfy ClickHouse syntax.
+nearest_ward as (
+    select
+        r.province_name,
+        r.cluster_lat,
+        r.cluster_lon,
+        r.hourly_timestamp,
+        r.ingest_time,
+        argMin(ward_code, greatCircleDistance(r.cluster_lon, r.cluster_lat, admin.ward_lon, admin.ward_lat)) as nearest_ward_code,
+        argMin(province,     greatCircleDistance(r.cluster_lon, r.cluster_lat, admin.ward_lon, admin.ward_lat)) as province
+    from raw_data r
+    inner join (
+        select ward_code, province, lat as ward_lat, lon as ward_lon
+        from {{ ref('stg_core__administrative_units') }}
+    ) admin on r.province_name = admin.province
+    group by r.province_name, r.cluster_lat, r.cluster_lon, r.hourly_timestamp, r.ingest_time
+),
+
+-- Step 2: Attach meteorological columns to nearest ward (simple left join, no heavy functions)
 mapped_data as (
     select
         r.source,
+        nw.nearest_ward_code as ward_code,
+        nw.province,
         r.cluster_lat as latitude,
         r.cluster_lon as longitude,
-        toStartOfHour(r.timestamp_utc) as hourly_timestamp,
+        r.hourly_timestamp as timestamp_utc,
         r.temp,
         r.temp_min,
         r.temp_max,
@@ -33,36 +65,21 @@ mapped_data as (
         r.wind_speed,
         r.wind_deg,
         r.clouds_all,
-        r.ingest_time,
-        -- Find the nearest ward code WITHIN the same province
-        argMin(admin.ward_code, greatCircleDistance(r.cluster_lon, r.cluster_lat, admin.ward_lon, admin.ward_lat)) as ward_code,
-        admin.province
+        r.ingest_time
     from raw_data r
-    inner join admin_units admin on r.province_name = admin.province
-    group by 
-        r.source,
-        latitude,
-        longitude,
-        hourly_timestamp,
-        r.temp,
-        r.temp_min,
-        r.temp_max,
-        r.feels_like,
-        r.humidity,
-        r.pressure,
-        visibility_meters,
-        r.wind_speed,
-        r.wind_deg,
-        r.clouds_all,
-        r.ingest_time,
-        admin.province
+    inner join nearest_ward nw
+        on  r.province_name = nw.province_name
+        and r.cluster_lat = nw.cluster_lat
+        and r.cluster_lon = nw.cluster_lon
+        and r.hourly_timestamp = nw.hourly_timestamp
+        and r.ingest_time = nw.ingest_time
 ),
 
 deduplicated as (
     select
         *,
         row_number() over (
-            partition by ward_code, hourly_timestamp
+            partition by ward_code, timestamp_utc
             order by ingest_time desc
         ) as rn
     from mapped_data
@@ -74,7 +91,7 @@ select
     province,
     latitude,
     longitude,
-    hourly_timestamp as timestamp_utc,
+    timestamp_utc,
     temp,
     temp_min,
     temp_max,

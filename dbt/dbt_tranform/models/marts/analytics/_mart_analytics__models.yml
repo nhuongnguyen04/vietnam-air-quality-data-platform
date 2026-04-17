@@ -1,11 +1,11 @@
 version: 2
 
 models:
-  - name: dm_aqi_weather_traffic_unified
+  - name: fct_aqi_weather_traffic_unified
     description: |
-      The core unified dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.
+      The core unified fact dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.
 
-      **Grain:** One row per (station_name, datetime_hour) — station-level hourly snapshot with full environmental context.
+      **Grain:** One row per (ward_code, datetime_hour) — ward-level hourly snapshot with full environmental context.
 
       **Business Rules:**
       - AQI from `fct_air_quality_summary_hourly` (which aggregates by ward_code, not station — province-level OpenWeather has NULL ward_code)
@@ -22,14 +22,21 @@ models:
       **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
 
       **Caveats:**
-      - ward_code-level AQI is broadcast to all stations within the ward_code (not true station-level granularity)
-      - Traffic data only available for major cities — NULL for most stations
-      - Weather is province-level, not station-level
+      - ward_code-level summary combines readings from all stations within the ward
+      - Traffic data only available for major cities — NULL for most wards
+      - Weather is province-level, not ward-level
+    columns:
+      - name: region_3
+        description: "Macro-regional classification: Bac Bo (North), Trung Bo (Central), Nam Bo (South)."
+      - name: region_8
+        description: "Standard 8 economic regions of Vietnam (e.g., Red River Delta, Southeast)."
+      - name: population_exposure_score
+        description: "Relative exposure index: PM2.5 × provincial_population / 1M. Useful for ranking public health priority."
   - name: dm_aqi_current_status
     description: |
       Latest air quality status per ward_code (current conditions for real-time dashboard).
 
-      **Grain:** One row per (province, ward_code) — the most recent reading per ward_code.
+      **Grain:** One row per (province, ward_code) — the most recent reading per ward.
 
       **Business Rules:**
       - Uses `argMax(col, datetime_hour)` to select the latest value for each column
@@ -41,7 +48,7 @@ models:
     description: |
       Data freshness and availability status for each monitoring station/ward_code.
 
-      **Grain:** One row per (province, ward_code, source) — current health status per data source per ward_code.
+      **Grain:** One row per (province, ward_code, source) — current health status per data source per ward.
 
       **Business Rules:**
       - lag_hours = hours since the most recent reading from this source at this ward_code
@@ -111,7 +118,7 @@ models:
     description: |
       Probabilistic source attribution based on PM2.5/PM10 ratio analysis.
 
-      **Grain:** One row per (date, province, ward_code) — source classification per location-day.
+      **Grain:** One row per (date, province, ward_code) — source classification per ward-day.
 
       **Business Rules:**
       - pm25_pm10_ratio = avg(pm25) / avg(pm10):
@@ -126,6 +133,11 @@ models:
       - Should be combined with wind direction data for better attribution
 
       **Downstream consumers:** Source analysis dashboard, industrial permit monitoring, traffic policy evaluation
+    columns:
+      - name: pm25
+        description: "Daily average PM2.5 concentration."
+      - name: pm10
+        description: "Daily average PM10 concentration."
   - name: dm_regional_health_risk_ranking
     description: |
       National health risk ranking of provinces based on population-weighted PM2.5 exposure.
@@ -147,7 +159,7 @@ models:
         - Rural: all other provinces
 
       **Downstream consumers:** Risk ranking dashboard, priority province targeting, public health resource allocation
-  - name: fct_traffic_pollution_correlation_daily
+  - name: dm_traffic_pollution_correlation_daily
     description: |
       Daily correlation statistics between traffic congestion and PM2.5 pollution by province and location type.
 
@@ -170,3 +182,15 @@ models:
       - Correlation does not imply causation
 
       **Downstream consumers:** Traffic impact analysis, urban planning dashboards, policy effectiveness tracking
+  - name: dm_weather_pollution_correlation_daily
+    description: |
+      Daily correlation statistics between meteorological conditions (wind, temp, humidity) and PM2.5 pollution.
+      
+      **Grain:** One row per (date, province, ward_code).
+      
+      **Business Rules:**
+      - stagnant_air_probability: % of day with wind < 1.0 m/s
+      - wind_dispersal_risk_index: pm25 / wind_speed (higher = higher risk)
+      - weather_influence_pct: PM2.5 difference between stagnant and dispersive conditions
+      
+      **Downstream consumers:** Weather impact analysis, stagnation forecasting

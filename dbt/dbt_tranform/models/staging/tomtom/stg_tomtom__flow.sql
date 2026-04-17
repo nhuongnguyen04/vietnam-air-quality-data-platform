@@ -1,5 +1,8 @@
 {{ config(
-    materialized='view'
+    engine='ReplacingMergeTree',
+    unique_key='(ward_code, timestamp_utc, parameter)',
+    order_by='(province_name, timestamp_utc, ward_code)',
+    partition_by='toYYYYMM(timestamp_utc)'
 ) }}
 
 WITH raw_data AS (

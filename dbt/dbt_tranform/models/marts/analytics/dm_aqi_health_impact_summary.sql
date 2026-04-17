@@ -10,16 +10,10 @@ with hourly_summary as (
         date,
         province,
         ward_code,
+        region_3,
+        region_8,
         hourly_avg_aqi_us as final_aqi_us,
-        -- Calculate dominant pollutant for health advice
-        case 
-            when pm25_hourly_aqi >= pm10_hourly_aqi and pm25_hourly_aqi >= co_hourly_aqi and pm25_hourly_aqi >= no2_hourly_aqi and pm25_hourly_aqi >= so2_hourly_aqi and pm25_hourly_aqi >= o3_hourly_aqi then 'pm25'
-            when pm10_hourly_aqi >= co_hourly_aqi and pm10_hourly_aqi >= no2_hourly_aqi and pm10_hourly_aqi >= so2_hourly_aqi and pm10_hourly_aqi >= o3_hourly_aqi then 'pm10'
-            when co_hourly_aqi >= no2_hourly_aqi and co_hourly_aqi >= so2_hourly_aqi and co_hourly_aqi >= o3_hourly_aqi then 'co'
-            when no2_hourly_aqi >= so2_hourly_aqi and no2_hourly_aqi >= o3_hourly_aqi then 'no2'
-            when so2_hourly_aqi >= o3_hourly_aqi then 'so2'
-            else 'o3'
-        end as pollutant_key,
+        main_pollutant as pollutant_key,
         last_ingested_at as ingest_time
     from {{ ref('fct_air_quality_ward_level_hourly') }}
     {% if is_incremental() %}
@@ -28,7 +22,6 @@ with hourly_summary as (
 ),
 
 health_benchmarks as (
-    -- Casting String columns to Float64 for ClickHouse comparison
     select
         pollutant_key,
         health_effects,
@@ -42,6 +35,8 @@ impact_joined as (
         h.date,
         h.province,
         h.ward_code,
+        h.region_3,
+        h.region_8,
         h.final_aqi_us,
         h.pollutant_key,
         h.ingest_time,
@@ -66,14 +61,16 @@ daily_impact_stats as (
         date,
         province,
         ward_code,
+        region_3,
+        region_8,
         count(*) as total_hours,
         countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) as high_risk_hours,
-        countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) / count(*) as high_risk_exposure_pct,
+        CAST(countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) AS Float32) / count(*) as high_risk_exposure_pct,
         -- Take the most common health advice for the day
         argMax(health_effects, final_aqi_us) as primary_health_advice,
         max(ingest_time) as ingest_time
     from impact_joined
-    group by date, province, ward_code
+    group by date, province, ward_code, region_3, region_8
 )
 
 select * from daily_impact_stats

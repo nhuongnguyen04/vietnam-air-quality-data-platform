@@ -15,49 +15,48 @@ st.title(t("weather_title", lang))
 
 @st.cache_data(ttl=3600)
 def get_provinces():
-    q = "SELECT DISTINCT province FROM air_quality.dm_aqi_weather_traffic_unified ORDER BY province"
+    q = "SELECT DISTINCT province FROM air_quality.fct_aqi_weather_traffic_unified ORDER BY province"
     df = query_df(q)
     return df["province"].tolist() if not df.empty else []
 
 @st.cache_data(ttl=3600)
-def get_districts_weather(province: str):
-    q = f"SELECT DISTINCT district FROM air_quality.dm_aqi_weather_traffic_unified WHERE province = '{province}' AND district != '' ORDER BY district"
+def get_wards_weather(province: str):
+    q = f"SELECT DISTINCT ward_code, ward_name FROM air_quality.stg_core__administrative_units WHERE province = '{province}' AND ward_code != '' ORDER BY ward_name"
     df = query_df(q)
-    return df["district"].tolist() if not df.empty else []
+    return df if not df.empty else pd.DataFrame(columns=["ward_code", "ward_name"])
 
 @st.cache_data(ttl=300)
-def get_weather_impact_daily(province: str | None = None, district: str | None = None):
+def get_weather_impact_daily(province: str | None = None, ward_code: str | None = None):
     where_clause = ""
     if province:
         where_clause = f"WHERE province = '{province}'"
-        if district:
-            where_clause += f" AND district = '{district}'"
+        if ward_code:
+            where_clause += f" AND ward_code = '{ward_code}'"
     
     q = f"""
     SELECT
         province,
-        district,
+        ward_code,
         pm25_daily_avg,
         temp_daily_avg,
         humidity_daily_avg,
         wind_daily_avg,
         wind_dispersal_risk_index,
         weather_influence_pct,
-        stagnant_air_probability,
-        overall_weather_impact_rank
-    FROM air_quality.fct_weather_pollution_correlation_daily
+        stagnant_air_probability
+    FROM air_quality.dm_weather_pollution_correlation_daily
     {where_clause}
     ORDER BY wind_dispersal_risk_index DESC
     """
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_weather_hourly_trend(days: int, province: str | None = None, district: str | None = None):
+def get_weather_hourly_trend(days: int, province: str | None = None, ward_code: str | None = None):
     where_clause = f"WHERE datetime_hour >= now() - INTERVAL {days} DAY"
     if province:
         where_clause += f" AND province = '{province}'"
-        if district:
-            where_clause += f" AND district = '{district}'"
+        if ward_code:
+            where_clause += f" AND ward_code = '{ward_code}'"
             
     q = f"""
     SELECT
@@ -65,7 +64,7 @@ def get_weather_hourly_trend(days: int, province: str | None = None, district: s
         avg(pm25) as avg_pm25,
         avg(wind_speed) as avg_wind,
         avg(humidity) as avg_hum
-    FROM air_quality.dm_aqi_weather_traffic_unified
+    FROM air_quality.fct_aqi_weather_traffic_unified
     {where_clause}
     GROUP BY datetime_hour
     ORDER BY datetime_hour
@@ -86,24 +85,27 @@ with st.container():
             index=0,
         )
     province_arg = selected_province if selected_province != national_label else None
-    district_arg = None
+    ward_code_arg = None
     
     with c2:
         if province_arg:
-            districts = get_districts_weather(province_arg)
-            all_district_label = "All Districts" if lang == "en" else "Tất cả các huyện"
-            selected_district = st.selectbox(
-                "Select District" if lang == "en" else "Chọn quận/huyện",
-                options=[all_district_label] + districts,
+            wards_df = get_wards_weather(province_arg)
+            all_ward_label = "All Wards" if lang == "en" else "Tất cả các phường"
+            # Create a display list of "Name (Code)" or just Name
+            ward_options = [all_ward_label] + wards_df["ward_name"].tolist()
+            selected_ward_name = st.selectbox(
+                "Select Ward" if lang == "en" else "Chọn phường/xã",
+                options=ward_options,
                 index=0,
             )
-            district_arg = selected_district if selected_district != all_district_label else None
+            if selected_ward_name != all_ward_label:
+                ward_code_arg = wards_df[wards_df["ward_name"] == selected_ward_name]["ward_code"].iloc[0]
         else:
             st.selectbox(
-                "Select District" if lang == "en" else "Chọn quận/huyện",
+                "Select Ward" if lang == "en" else "Chọn phường/xã",
                 options=["-"],
                 disabled=True,
-                key="weather_dist_disabled"
+                key="weather_ward_disabled"
             )
     
     with c3:
@@ -117,8 +119,8 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Data Fetching ─────────────────────────────────────────────────────────────
-df_daily = get_weather_impact_daily(province_arg, district_arg)
-df_hourly = get_weather_hourly_trend(days, province_arg, district_arg)
+df_daily = get_weather_impact_daily(province_arg, ward_code_arg)
+df_hourly = get_weather_hourly_trend(days, province_arg, ward_code_arg)
 
 if not df_daily.empty:
     # ── Row 1: KPI Cards ──────────────────────────────────────────────────────
@@ -166,7 +168,7 @@ if not df_daily.empty:
     with col_text:
         st.write("")
         st.write("")
-        location_name = district_arg if district_arg else (province_arg if province_arg else "Toàn quốc")
+        location_name = selected_ward_name if ward_code_arg else (province_arg if province_arg else "Toàn quốc")
         if influence_pct > 30:
             msg = f"Độ nhạy cảm tại {location_name} rất cao. Thời tiết đóng vai trò then chốt trong ô nhiễm." if lang == "vi" else f"Weather sensitivity in {location_name} is very high."
             st.warning(msg)
@@ -183,9 +185,12 @@ if not df_daily.empty:
     
     full_ranking = get_weather_impact_daily()
     if not full_ranking.empty:
-        # If province selected, show districts. If national, show top districts nationwide.
+        # If province selected, show wards. If national, show top provinces nationwide.
         rank_df = df_daily.head(15) if province_arg else full_ranking.head(15)
-        y_col = "district" if province_arg else "province"
+        
+        # When province is selected, we want to show ward names, but dm only has ward_code
+        # Join with administrative units if necessary, or just use ward_code for now
+        y_col = "ward_code" if province_arg else "province"
         
         fig_rank = px.bar(
             rank_df, 
