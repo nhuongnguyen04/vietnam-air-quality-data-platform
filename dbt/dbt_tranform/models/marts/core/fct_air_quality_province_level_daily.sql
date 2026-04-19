@@ -6,60 +6,74 @@
     partition_by='toYYYYMM(date)'
 ) }}
 
-with ward_daily as (
-    select * from {{ ref('fct_air_quality_ward_level_daily') }}
+with province_hourly as (
+    select * from {{ ref('fct_air_quality_province_level_hourly') }}
     {% if is_incremental() %}
     where date >= (select max(date) - interval 2 day from {{ this }})
     {% endif %}
 ),
 
-daily as (
+daily_agg as (
     select
         date,
         province,
         region_3,
         region_8,
         
-        avg(daily_avg_aqi_us) as prov_avg_aqi_us,
-        avg(daily_avg_aqi_vn) as prov_avg_aqi_vn,
+        avg(avg_aqi_us) as _avg_aqi_us,
+        max(avg_aqi_us) as _max_aqi_us,
+        min(avg_aqi_us) as _min_aqi_us,
         
-        -- Daily metrics for the province
-        max(pm25_daily_avg) as pm25_prov_max,
-        avg(pm25_daily_avg) as pm25_prov_avg,
-        avg(pm10_daily_avg) as pm10_prov_avg,
+        avg(avg_aqi_vn) as _avg_aqi_vn,
+        max(avg_aqi_vn) as _max_aqi_vn,
+        min(avg_aqi_vn) as _min_aqi_vn,
         
-        avg(co_daily_avg)   as co_prov_avg,
-        avg(no2_daily_avg)  as no2_prov_avg,
-        avg(so2_daily_avg)  as so2_prov_avg,
-        avg(o3_daily_avg)   as o3_prov_avg,
+        -- Concentrations
+        avg(pm25_avg) as _pm25_avg,
+        avg(pm10_avg) as _pm10_avg,
+        avg(co_avg)   as _co_avg,
+        avg(no2_avg)  as _no2_avg,
+        avg(so2_avg)  as _so2_avg,
+        avg(o3_avg)   as _o3_avg,
 
-        -- Daily average sub-AQIs for the province
-        avg(pm25_daily_aqi) as pm25_prov_aqi,
-        avg(pm10_daily_aqi) as pm10_prov_aqi,
-        avg(co_daily_aqi)   as co_prov_aqi,
-        avg(no2_daily_aqi)  as no2_prov_aqi,
-        avg(so2_daily_aqi)  as so2_prov_aqi,
-        avg(o3_daily_aqi)   as o3_prov_aqi,
-
+        -- Daily average sub-AQIs
+        avg(pm25_aqi) as _pm25_aqi,
+        avg(pm10_aqi) as _pm10_aqi,
+        avg(co_aqi)   as _co_aqi,
+        avg(no2_aqi)  as _no2_aqi,
+        avg(so2_aqi)  as _so2_aqi,
+        avg(o3_aqi)   as _o3_aqi,
+        
         max(last_ingested_at) as last_ingested_at
         
-    from ward_daily
+    from province_hourly
     group by 1, 2, 3, 4
 ),
 
 final as (
     select
-        *,
-        -- Provincial daily main pollutant
-        case 
-            when pm25_prov_aqi >= pm10_prov_aqi and pm25_prov_aqi >= co_prov_aqi and pm25_prov_aqi >= no2_prov_aqi and pm25_prov_aqi >= so2_prov_aqi and pm25_prov_aqi >= o3_prov_aqi then 'pm25'
-            when pm10_prov_aqi >= co_prov_aqi and pm10_prov_aqi >= no2_prov_aqi and pm10_prov_aqi >= so2_prov_aqi and pm10_prov_aqi >= o3_prov_aqi then 'pm10'
-            when co_prov_aqi >= no2_prov_aqi and co_prov_aqi >= so2_prov_aqi and co_prov_aqi >= o3_prov_aqi then 'co'
-            when no2_prov_aqi >= so2_prov_aqi and no2_prov_aqi >= so2_prov_aqi and no2_prov_aqi >= o3_prov_aqi then 'no2'
-            when so2_prov_aqi >= o3_prov_aqi then 'so2'
-            else 'o3'
-        end as main_pollutant
-    from daily
+        date, province, region_3, region_8, last_ingested_at,
+        _avg_aqi_us as avg_aqi_us,
+        _max_aqi_us as max_aqi_us,
+        _min_aqi_us as min_aqi_us,
+        _avg_aqi_vn as avg_aqi_vn,
+        _max_aqi_vn as max_aqi_vn,
+        _min_aqi_vn as min_aqi_vn,
+        _pm25_avg as pm25_avg,
+        _pm10_avg as pm10_avg,
+        _co_avg as co_avg,
+        _no2_avg as no2_avg,
+        _so2_avg as so2_avg,
+        _o3_avg as o3_avg,
+        _pm25_aqi as pm25_aqi,
+        _pm10_aqi as pm10_aqi,
+        _co_aqi as co_aqi,
+        _no2_aqi as no2_aqi,
+        _so2_aqi as so2_aqi,
+        _o3_aqi as o3_aqi,
+        -- Use macro for daily dominant pollutant
+        {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant
+    from daily_agg
 )
 
 select * from final

@@ -8,7 +8,7 @@
     overwrite=true
 ) }}
 
-WITH aqi AS (
+WITH aqi_base AS (
     SELECT 
         datetime_hour,
         date,
@@ -16,18 +16,25 @@ WITH aqi AS (
         ward_code,
         region_3,
         region_8,
-        latitude,
-        longitude,
-        hourly_avg_aqi_us as aqi_us,
-        hourly_avg_aqi_vn as aqi_vn,
-        pm25_hourly_avg as pm25,
-        pm10_hourly_avg as pm10,
-        co_hourly_avg as co,
+        avg_aqi_us as aqi_us,
+        avg_aqi_vn as aqi_vn,
+        pm25_avg as pm25,
+        pm10_avg as pm10,
+        co_avg as co,
         main_pollutant
     FROM {{ ref('fct_air_quality_ward_level_hourly') }}
     {% if is_incremental() %}
     WHERE datetime_hour >= (SELECT max(datetime_hour) FROM {{ this }}) - interval 3 hour
     {% endif %}
+),
+
+aqi AS (
+    SELECT 
+        ab.*,
+        adm.lat as latitude,
+        adm.lon as longitude
+    FROM aqi_base ab
+    LEFT JOIN {{ ref('stg_core__administrative_units') }} adm ON ab.ward_code = adm.ward_code
 ),
 
 weather_ward AS (
@@ -80,10 +87,10 @@ SELECT
     a.main_pollutant AS main_pollutant,
     
     -- Meteorology (Coalesce Ward -> Province fallback)
-    coalesce(nullIf(ww.temp, 0), wp.temp) as temp,
+    coalesce(nullIf(ww.temp, 0), wp.temp) as temperature,
     coalesce(nullIf(ww.humidity, 0), wp.humidity) as humidity,
     coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) as wind_speed,
-    coalesce(nullIf(ww.wind_deg, 0), wp.wind_deg) as wind_deg,
+    coalesce(nullIf(ww.wind_deg, 0), wp.wind_deg) as wind_direction,
     coalesce(nullIf(ww.pressure, 0), wp.pressure) as pressure,
     
     -- Traffic impact
@@ -93,12 +100,16 @@ SELECT
     -- Environmental indicators
     case when coalesce(nullIf(ww.humidity, 0), wp.humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
     case when coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
+    CAST(if(coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) < 1.0, 1.0, 0.0) AS Float32) as stagnant_air_probability,
+    CAST(0.0 AS Float32) as weather_influence_pct,
     
     -- Demographics and Exposure
     p.total_population as provincial_population,
     CAST((a.pm25 * p.total_population) / 1000000.0 AS Float32) as population_exposure_score,
     
     -- Traffic Correlation
+    CAST(a.pm25 * t.value AS Float32) as traffic_pollution_impact_score,
+    CAST(0.0 AS Float32) as traffic_contribution_pct,
     CAST(if(t.value > 0, a.pm25 / t.value, 0) AS Float32) as traffic_pollution_ratio,
 
     now() as dbt_updated_at

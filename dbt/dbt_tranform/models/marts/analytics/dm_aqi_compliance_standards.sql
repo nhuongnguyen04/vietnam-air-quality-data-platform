@@ -11,10 +11,10 @@ with daily_data as (
         province,
         region_3,
         region_8,
-        prov_avg_aqi_us,
-        prov_avg_aqi_vn,
-        pm25_prov_avg as pm25_avg,
-        pm10_prov_avg as pm10_avg,
+        avg_aqi_us,
+        avg_aqi_vn,
+        pm25_avg,
+        pm10_avg,
         last_ingested_at as ingest_time
     from {{ ref('fct_air_quality_province_level_daily') }}
     {% if is_incremental() %}

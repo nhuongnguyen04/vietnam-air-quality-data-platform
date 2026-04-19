@@ -194,3 +194,25 @@ models:
       - weather_influence_pct: PM2.5 difference between stagnant and dispersive conditions
       
       **Downstream consumers:** Weather impact analysis, stagnation forecasting
+  - name: dm_air_quality_national_summary
+    description: "Consolidated national KPIs for the dashboard, partitioned by time_grain."
+    columns:
+      - name: time_grain
+        tests:
+          - accepted_values:
+              values: ['hourly', 'daily', 'monthly']
+      - name: avg_aqi_vn
+  - name: dm_air_quality_overview_daily
+    description: "Primary data source for the dashboard's daily air quality overview, joining AQI data with administrative units."
+    columns:
+      - name: ward_code
+      - name: date
+      - name: avg_aqi_vn
+  - name: dm_air_quality_overview_hourly
+    description: "Primary data source for the dashboard's hourly air quality overview. Used for real-time monitoring and hourly trend analysis."
+  - name: dm_air_quality_overview_monthly
+    description: "Primary data source for the dashboard's monthly air quality overview. Used for long-term historical analysis."
+  - name: dm_traffic_hourly_trend
+    description: "Specialized mart for optimized traffic-pollution correlation analysis on the dashboard."
+  - name: dm_weather_hourly_trend
+    description: "Specialized mart for optimized weather-pollution correlation analysis on the dashboard."

@@ -14,7 +14,7 @@ with source as (
 
 renamed as (
     select
-        assumeNotNull(ward_code) as ward_code,
+        leftPad(toString(toInt64(toFloat64(assumeNotNull(ward_code)))), 5, '0') as ward_code,
         ward as ward_name,
         province,
         lat,

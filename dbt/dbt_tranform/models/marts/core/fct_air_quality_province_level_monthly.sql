@@ -6,62 +6,74 @@
     partition_by='toYYYYMM(month)'
 ) }}
 
-with ward_monthly as (
-    select * from {{ ref('fct_air_quality_ward_level_monthly') }}
+with province_daily as (
+    select * from {{ ref('fct_air_quality_province_level_daily') }}
     {% if is_incremental() %}
-    where month >= (select max(month) - interval 1 month from {{ this }})
+    where date >= toStartOfMonth(today()) - interval 1 month
     {% endif %}
 ),
 
 monthly_agg as (
     select
-        month,
+        toStartOfMonth(date) as month,
         province,
         region_3,
         region_8,
         
-        avg(monthly_avg_aqi_us) as prov_monthly_avg_aqi_us,
-        max(monthly_max_aqi_us) as prov_monthly_max_aqi_us,
-        min(monthly_min_aqi_us) as prov_monthly_min_aqi_us,
+        avg(avg_aqi_us) as _avg_aqi_us,
+        max(max_aqi_us) as _max_aqi_us,
+        min(min_aqi_us) as _min_aqi_us,
         
-        avg(monthly_avg_aqi_vn) as prov_monthly_avg_aqi_vn,
-        max(monthly_max_aqi_vn) as prov_monthly_max_aqi_vn,
-        min(monthly_min_aqi_vn) as prov_monthly_min_aqi_vn,
+        avg(avg_aqi_vn) as _avg_aqi_vn,
+        max(max_aqi_vn) as _max_aqi_vn,
+        min(min_aqi_vn) as _min_aqi_vn,
         
-        avg(pm25_monthly_avg) as pm25_prov_monthly_avg,
-        avg(pm10_monthly_avg) as pm10_prov_monthly_avg,
-        avg(co_monthly_avg)   as co_prov_monthly_avg,
-        avg(no2_monthly_avg)  as no2_prov_monthly_avg,
-        avg(so2_monthly_avg)  as so2_prov_monthly_avg,
-        avg(o3_monthly_avg)   as o3_prov_monthly_avg,
+        -- Concentrations
+        avg(pm25_avg) as _pm25_avg,
+        avg(pm10_avg) as _pm10_avg,
+        avg(co_avg)   as _co_avg,
+        avg(no2_avg)  as _no2_avg,
+        avg(so2_avg)  as _so2_avg,
+        avg(o3_avg)   as _o3_avg,
 
-        -- Monthly average sub-AQIs for the province
-        avg(pm25_monthly_aqi) as pm25_prov_monthly_aqi,
-        avg(pm10_monthly_aqi) as pm10_prov_monthly_aqi,
-        avg(co_monthly_aqi)   as co_prov_monthly_aqi,
-        avg(no2_monthly_aqi)  as no2_prov_monthly_aqi,
-        avg(so2_monthly_aqi)  as so2_prov_monthly_aqi,
-        avg(o3_monthly_aqi)   as o3_prov_monthly_aqi,
+        -- Monthly average sub-AQIs
+        avg(pm25_aqi) as _pm25_aqi,
+        avg(pm10_aqi) as _pm10_aqi,
+        avg(co_aqi)   as _co_aqi,
+        avg(no2_aqi)  as _no2_aqi,
+        avg(so2_aqi)  as _so2_aqi,
+        avg(o3_aqi)   as _o3_aqi,
         
-        sum(samples_count) as total_samples,
+        count(*) as samples_count,
         max(last_ingested_at) as last_ingested_at
         
-    from ward_monthly
+    from province_daily
     group by 1, 2, 3, 4
 ),
 
 final as (
     select
-        *,
-        -- Provincial monthly main pollutant
-        case 
-            when pm25_prov_monthly_aqi >= pm10_prov_monthly_aqi and pm25_prov_monthly_aqi >= co_prov_monthly_aqi and pm25_prov_monthly_aqi >= no2_prov_monthly_aqi and pm25_prov_monthly_aqi >= so2_prov_monthly_aqi and pm25_prov_monthly_aqi >= o3_prov_monthly_aqi then 'pm25'
-            when pm10_prov_monthly_aqi >= co_prov_monthly_aqi and pm10_prov_monthly_aqi >= no2_prov_monthly_aqi and pm10_prov_monthly_aqi >= so2_prov_monthly_aqi and pm10_prov_monthly_aqi >= o3_prov_monthly_aqi then 'pm10'
-            when co_prov_monthly_aqi >= no2_prov_monthly_aqi and co_prov_monthly_aqi >= so2_prov_monthly_aqi and co_prov_monthly_aqi >= o3_prov_monthly_aqi then 'co'
-            when no2_prov_monthly_aqi >= so2_prov_monthly_aqi and no2_prov_monthly_aqi >= so2_prov_monthly_aqi and no2_prov_monthly_aqi >= o3_prov_monthly_aqi then 'no2'
-            when so2_prov_monthly_aqi >= o3_prov_monthly_aqi then 'so2'
-            else 'o3'
-        end as main_pollutant
+        month, province, region_3, region_8, samples_count, last_ingested_at,
+        _avg_aqi_us as avg_aqi_us,
+        _max_aqi_us as max_aqi_us,
+        _min_aqi_us as min_aqi_us,
+        _avg_aqi_vn as avg_aqi_vn,
+        _max_aqi_vn as max_aqi_vn,
+        _min_aqi_vn as min_aqi_vn,
+        _pm25_avg as pm25_avg,
+        _pm10_avg as pm10_avg,
+        _co_avg as co_avg,
+        _no2_avg as no2_avg,
+        _so2_avg as so2_avg,
+        _o3_avg as o3_avg,
+        _pm25_aqi as pm25_aqi,
+        _pm10_aqi as pm10_aqi,
+        _co_aqi as co_aqi,
+        _no2_aqi as no2_aqi,
+        _so2_aqi as so2_aqi,
+        _o3_aqi as o3_aqi,
+        -- Monthly main pollutant
+        {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant
     from monthly_agg
 )
 

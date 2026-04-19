@@ -12,11 +12,11 @@ with hourly_data as (
         ward_code,
         region_3,
         region_8,
-        pm25_hourly_avg as pm25_value,
-        pm10_hourly_avg as pm10_value,
+        pm25_avg as pm25_value,
+        pm10_avg as pm10_value,
         last_ingested_at as ingest_time
     from {{ ref('fct_air_quality_ward_level_hourly') }}
-    where pm25_hourly_avg > 0 and pm10_hourly_avg > 0
+    where pm25_avg > 0 and pm10_avg > 0
     {% if is_incremental() %}
     and last_ingested_at > (select max(ingest_time) from {{ this }})
     {% endif %}

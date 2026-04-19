@@ -64,7 +64,7 @@ def get_weather_hourly_trend(days: int, province: str | None = None, ward_code: 
         avg(pm25) as avg_pm25,
         avg(wind_speed) as avg_wind,
         avg(humidity) as avg_hum
-    FROM air_quality.fct_aqi_weather_traffic_unified
+    FROM air_quality.dm_weather_hourly_trend
     {where_clause}
     GROUP BY datetime_hour
     ORDER BY datetime_hour

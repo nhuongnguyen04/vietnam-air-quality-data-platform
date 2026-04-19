@@ -12,7 +12,7 @@ with hourly_summary as (
         ward_code,
         region_3,
         region_8,
-        hourly_avg_aqi_us as final_aqi_us,
+        avg_aqi_us as final_aqi_us,
         main_pollutant as pollutant_key,
         last_ingested_at as ingest_time
     from {{ ref('fct_air_quality_ward_level_hourly') }}

@@ -21,28 +21,29 @@ daily_agg as (
         region_3,
         region_8,
         
-        avg(hourly_avg_aqi_us) as daily_avg_aqi_us,
-        max(hourly_avg_aqi_us) as daily_max_aqi_us,
-        min(hourly_avg_aqi_us) as daily_min_aqi_us,
+        avg(avg_aqi_us) as _avg_aqi_us,
+        max(avg_aqi_us) as _max_aqi_us,
+        min(avg_aqi_us) as _min_aqi_us,
         
-        avg(hourly_avg_aqi_vn) as daily_avg_aqi_vn,
-        max(hourly_avg_aqi_vn) as daily_max_aqi_vn,
-        min(hourly_avg_aqi_vn) as daily_min_aqi_vn,
+        avg(avg_aqi_vn) as _avg_aqi_vn,
+        max(avg_aqi_vn) as _max_aqi_vn,
+        min(avg_aqi_vn) as _min_aqi_vn,
         
-        avg(pm25_hourly_avg) as pm25_daily_avg,
-        avg(pm10_hourly_avg) as pm10_daily_avg,
-        avg(co_hourly_avg)   as co_daily_avg,
-        avg(no2_hourly_avg)  as no2_daily_avg,
-        avg(so2_hourly_avg)  as so2_daily_avg,
-        avg(o3_hourly_avg)   as o3_daily_avg,
+        -- Concentrations
+        avg(pm25_avg) as _pm25_avg,
+        avg(pm10_avg) as _pm10_avg,
+        avg(co_avg)   as _co_avg,
+        avg(no2_avg)  as _no2_avg,
+        avg(so2_avg)  as _so2_avg,
+        avg(o3_avg)   as _o3_avg,
 
         -- Daily average sub-AQIs
-        avg(pm25_hourly_aqi) as pm25_daily_aqi,
-        avg(pm10_hourly_aqi) as pm10_daily_aqi,
-        avg(co_hourly_aqi)   as co_daily_aqi,
-        avg(no2_hourly_aqi)  as no2_daily_aqi,
-        avg(so2_hourly_aqi)  as so2_daily_aqi,
-        avg(o3_hourly_aqi)   as o3_daily_aqi,
+        avg(pm25_aqi) as _pm25_aqi,
+        avg(pm10_aqi) as _pm10_aqi,
+        avg(co_aqi)   as _co_aqi,
+        avg(no2_aqi)  as _no2_aqi,
+        avg(so2_aqi)  as _so2_aqi,
+        avg(o3_aqi)   as _o3_aqi,
         
         max(last_ingested_at) as last_ingested_at
         
@@ -52,16 +53,27 @@ daily_agg as (
 
 final as (
     select
-        *,
-        -- Daily main pollutant based on daily averaged sub-AQIs
-        case 
-            when pm25_daily_aqi >= pm10_daily_aqi and pm25_daily_aqi >= co_daily_aqi and pm25_daily_aqi >= no2_daily_aqi and pm25_daily_aqi >= so2_daily_aqi and pm25_daily_aqi >= o3_daily_aqi then 'pm25'
-            when pm10_daily_aqi >= co_daily_aqi and pm10_daily_aqi >= no2_daily_aqi and pm10_daily_aqi >= so2_daily_aqi and pm10_daily_aqi >= o3_daily_aqi then 'pm10'
-            when co_daily_aqi >= no2_daily_aqi and co_daily_aqi >= so2_daily_aqi and co_daily_aqi >= o3_daily_aqi then 'co'
-            when no2_daily_aqi >= so2_daily_aqi and no2_daily_aqi >= so2_daily_aqi and no2_daily_aqi >= o3_daily_aqi then 'no2'
-            when so2_daily_aqi >= o3_daily_aqi then 'so2'
-            else 'o3'
-        end as main_pollutant
+        date, province, ward_code, region_3, region_8, last_ingested_at,
+        _avg_aqi_us as avg_aqi_us,
+        _max_aqi_us as max_aqi_us,
+        _min_aqi_us as min_aqi_us,
+        _avg_aqi_vn as avg_aqi_vn,
+        _max_aqi_vn as max_aqi_vn,
+        _min_aqi_vn as min_aqi_vn,
+        _pm25_avg as pm25_avg,
+        _pm10_avg as pm10_avg,
+        _co_avg as co_avg,
+        _no2_avg as no2_avg,
+        _so2_avg as so2_avg,
+        _o3_avg as o3_avg,
+        _pm25_aqi as pm25_aqi,
+        _pm10_aqi as pm10_aqi,
+        _co_aqi as co_aqi,
+        _no2_aqi as no2_aqi,
+        _so2_aqi as so2_aqi,
+        _o3_aqi as o3_aqi,
+        -- Use macro for daily dominant pollutant
+        {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant
     from daily_agg
 )
 

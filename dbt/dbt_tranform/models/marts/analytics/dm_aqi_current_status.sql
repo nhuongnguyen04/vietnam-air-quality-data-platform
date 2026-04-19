@@ -13,31 +13,40 @@ with hourly_aqi as (
     {% endif %}
 ),
 
-latest_records as (
-    select
-        province,
+admin_units as (
+    select 
         ward_code,
-        region_3,
-        region_8,
-        latitude,
-        longitude,
-        argMax(datetime_hour, datetime_hour) as latest_hour,
-        argMax(hourly_avg_aqi_us, datetime_hour) as current_aqi_us,
-        argMax(hourly_avg_aqi_vn, datetime_hour) as current_aqi_vn,
-        argMax(pm25_hourly_avg, datetime_hour) as pm25,
-        argMax(pm10_hourly_avg, datetime_hour) as pm10,
-        argMax(main_pollutant, datetime_hour) as main_pollutant,
-        
-        'consolidated' as data_source,
-        argMax(last_ingested_at, datetime_hour) as ingest_time
-    from hourly_aqi
-    group by 
-        province, 
-        ward_code,
-        region_3,
-        region_8,
         latitude,
         longitude
+    from {{ ref('dim_administrative_units') }}
+),
+
+latest_records as (
+    select
+        h.province,
+        h.ward_code,
+        h.region_3,
+        h.region_8,
+        a.latitude,
+        a.longitude,
+        argMax(h.datetime_hour, h.datetime_hour) as latest_hour,
+        argMax(h.avg_aqi_us, h.datetime_hour) as current_aqi_us,
+        argMax(h.avg_aqi_vn, h.datetime_hour) as current_aqi_vn,
+        argMax(h.pm25_avg, h.datetime_hour) as pm25,
+        argMax(h.pm10_avg, h.datetime_hour) as pm10,
+        argMax(h.main_pollutant, h.datetime_hour) as main_pollutant,
+
+        'consolidated' as data_source,
+        argMax(h.last_ingested_at, h.datetime_hour) as ingest_time
+    from hourly_aqi h
+    left join admin_units a on h.ward_code = a.ward_code
+    group by
+        h.province,
+        h.ward_code,
+        h.region_3,
+        h.region_8,
+        a.latitude,
+        a.longitude
 )
 
 select * from latest_records

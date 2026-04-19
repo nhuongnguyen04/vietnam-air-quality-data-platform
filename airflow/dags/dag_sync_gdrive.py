@@ -44,10 +44,10 @@ def dag_sync_gdrive():
     def sync_data():
         """Execute the gdrive_sync.py script."""
         script_path = os.path.join('/opt/python/jobs', 'jobs/sync/gdrive_sync.py')
-        
+
         # Ensure we have the necessary environment variables
         env = os.environ.copy()
-        
+
         # Note: These should be set in docker-compose.yml or Airflow Connections
         # GDRIVE_SERVICE_ACCOUNT
         # GDRIVE_ROOT_FOLDER_ID
@@ -60,34 +60,28 @@ def dag_sync_gdrive():
             capture_output=True,
             text=True
         )
-        
+
         if result.returncode != 0:
             print(f"Sync Script Error: {result.stderr}")
             raise Exception(f"Sync script failed with return code {result.returncode}")
-            
-            
+
         print(f"Sync Script Output: {result.stdout}")
-        
+
         # Parse number of files synced from output
         for line in result.stdout.splitlines():
             if line.startswith("FILES_SYNCED="):
                 success_count = int(line.split("=")[1])
                 return success_count > 0
-        
+
         return False
-
-    # Dependencies
-    sync_has_data = sync_data()
-
-    check_sync = ShortCircuitOperator(
-        task_id='check_sync_data',
-        python_callable=lambda x: x,
-        op_args=[sync_has_data],
-    )
 
     @task
     def log_completion():
         print("Google Drive to ClickHouse sync completed successfully")
+
+    @task
+    def log_no_data():
+        print("No new data synced from Google Drive — skipping downstream tasks")
 
     trigger_transform = TriggerDagRunOperator(
         task_id='trigger_transform',
@@ -95,9 +89,17 @@ def dag_sync_gdrive():
         wait_for_completion=False,
     )
 
-    completion = log_completion()
+    # Dependencies
+    sync_has_data = sync_data()
 
-    # Linear flow: Only proceed if check_sync passes
-    sync_has_data >> check_sync >> completion >> trigger_transform
+    check_sync = ShortCircuitOperator(
+        task_id='check_sync_data',
+        python_callable=lambda x: bool(x),
+        op_args=[sync_has_data],
+    )
+
+    # Branch: proceed only if data was synced
+    check_sync >> log_completion() >> trigger_transform
+    check_sync >> log_no_data()
 
 dag_sync_gdrive = dag_sync_gdrive()

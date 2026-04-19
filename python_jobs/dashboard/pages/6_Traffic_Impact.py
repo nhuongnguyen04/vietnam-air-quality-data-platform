@@ -50,7 +50,7 @@ def get_traffic_correlation_hourly(days: int, where: str):
         avg(congestion_index) as avg_congestion,
         avg(pm25) as avg_pm25,
         avg(co) as avg_co
-    FROM air_quality.fct_aqi_weather_traffic_unified
+    FROM air_quality.dm_traffic_hourly_trend
     WHERE {where} AND datetime_hour >= now() - INTERVAL {days} DAY
     GROUP BY datetime_hour
     ORDER BY datetime_hour

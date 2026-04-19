@@ -13,7 +13,7 @@ WITH source_data AS (
         region_3,
         region_8,
         pm25,
-        temp,
+        temperature as temp,
         humidity,
         wind_speed
     FROM {{ ref('fct_aqi_weather_traffic_unified') }}

@@ -22,25 +22,25 @@ consolidated as (
         region_3,
         region_8,
         
-        -- Weighted Average logic (Ground=5, Model=1)
-        sum(final_aqi_us * source_weight) / sum(source_weight) as hourly_avg_aqi_us,
-        sum(final_aqi_vn * source_weight) / sum(source_weight) as hourly_avg_aqi_vn,
+        -- Standardized Weighted Average logic
+        sum(final_aqi_us * source_weight) / sum(source_weight) as avg_aqi_us,
+        sum(final_aqi_vn * source_weight) / sum(source_weight) as avg_aqi_vn,
         
-        -- Concentrations (Weighted)
-        sum(pm25_value * source_weight) / sum(source_weight) as pm25_hourly_avg,
-        sum(pm10_value * source_weight) / sum(source_weight) as pm10_hourly_avg,
-        sum(co_value   * source_weight) / sum(source_weight) as co_hourly_avg,
-        sum(no2_value  * source_weight) / sum(source_weight) as no2_hourly_avg,
-        sum(so2_value  * source_weight) / sum(source_weight) as so2_hourly_avg,
-        sum(o3_value   * source_weight) / sum(source_weight) as o3_hourly_avg,
+        -- Concentrations (Standardized Names)
+        sum(pm25_value * source_weight) / sum(source_weight) as pm25_avg,
+        sum(pm10_value * source_weight) / sum(source_weight) as pm10_avg,
+        sum(co_value   * source_weight) / sum(source_weight) as co_avg,
+        sum(no2_value  * source_weight) / sum(source_weight) as no2_avg,
+        sum(so2_value  * source_weight) / sum(source_weight) as so2_avg,
+        sum(o3_value   * source_weight) / sum(source_weight) as o3_avg,
 
-        -- Sub-AQIs (Weighted)
-        sum(pm25_aqi * source_weight) / sum(source_weight) as pm25_hourly_aqi,
-        sum(pm10_aqi * source_weight) / sum(source_weight) as pm10_hourly_aqi,
-        sum(co_aqi   * source_weight) / sum(source_weight) as co_hourly_aqi,
-        sum(no2_aqi  * source_weight) / sum(source_weight) as no2_hourly_aqi,
-        sum(so2_aqi  * source_weight) / sum(source_weight) as so2_hourly_aqi,
-        sum(o3_aqi   * source_weight) / sum(source_weight) as o3_hourly_aqi,
+        -- Sub-AQIs (Standardized Names)
+        sum(pm25_aqi * source_weight) / sum(source_weight) as pm25_aqi,
+        sum(pm10_aqi * source_weight) / sum(source_weight) as pm10_aqi,
+        sum(co_aqi   * source_weight) / sum(source_weight) as co_aqi,
+        sum(no2_aqi  * source_weight) / sum(source_weight) as no2_aqi,
+        sum(so2_aqi  * source_weight) / sum(source_weight) as so2_aqi,
+        sum(o3_aqi   * source_weight) / sum(source_weight) as o3_aqi,
         
         max(ingest_time) as last_ingested_at
         
@@ -54,31 +54,12 @@ consolidated as (
         region_8
 ),
 
-ward_coords as (
-    select
-        ward_code,
-        any(lat) as latitude,
-        any(lon) as longitude
-    from {{ ref('stg_core__administrative_units') }}
-    group by ward_code
-),
-
 final as (
     select
         c.*,
-        w.latitude,
-        w.longitude,
-        -- Logic for main pollutant at ward level
-        case 
-            when pm25_hourly_aqi >= pm10_hourly_aqi and pm25_hourly_aqi >= co_hourly_aqi and pm25_hourly_aqi >= no2_hourly_aqi and pm25_hourly_aqi >= so2_hourly_aqi and pm25_hourly_aqi >= o3_hourly_aqi then 'pm25'
-            when pm10_hourly_aqi >= co_hourly_aqi and pm10_hourly_aqi >= no2_hourly_aqi and pm10_hourly_aqi >= so2_hourly_aqi and pm10_hourly_aqi >= o3_hourly_aqi then 'pm10'
-            when co_hourly_aqi >= no2_hourly_aqi and co_hourly_aqi >= so2_hourly_aqi and co_hourly_aqi >= o3_hourly_aqi then 'co'
-            when no2_hourly_aqi >= so2_hourly_aqi and no2_hourly_aqi >= o3_hourly_aqi then 'no2'
-            when so2_hourly_aqi >= o3_hourly_aqi then 'so2'
-            else 'o3'
-        end as main_pollutant
+        -- Use macro for dominant pollutant
+        {{ get_main_pollutant('pm25_aqi', 'pm10_aqi', 'co_aqi', 'no2_aqi', 'so2_aqi', 'o3_aqi') }} as main_pollutant
     from consolidated c
-    left join ward_coords w on c.ward_code = w.ward_code
 )
 
 select * from final

@@ -1,4 +1,3 @@
--- depends_on: {{ ref('fct_air_quality_ward_level_hourly') }}
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
@@ -22,25 +21,25 @@ province_hourly as (
         region_3,
         region_8,
         
-        -- Average of districts in the province
-        avg(hourly_avg_aqi_us) as prov_avg_aqi_us,
-        avg(hourly_avg_aqi_vn) as prov_avg_aqi_vn,
+        -- Provincial average
+        avg(avg_aqi_us) as avg_aqi_us,
+        avg(avg_aqi_vn) as avg_aqi_vn,
         
         -- Concentrations
-        avg(pm25_hourly_avg) as pm25_prov_avg,
-        avg(pm10_hourly_avg) as pm10_prov_avg,
-        avg(co_hourly_avg)   as co_prov_avg,
-        avg(no2_hourly_avg)  as no2_prov_avg,
-        avg(so2_hourly_avg)  as so2_prov_avg,
-        avg(o3_hourly_avg)   as o3_prov_avg,
+        avg(pm25_avg) as pm25_avg,
+        avg(pm10_avg) as pm10_avg,
+        avg(co_avg)   as co_avg,
+        avg(no2_avg)  as no2_avg,
+        avg(so2_avg)  as so2_avg,
+        avg(o3_avg)   as o3_avg,
 
         -- Sub-AQIs
-        avg(pm25_hourly_aqi) as pm25_prov_aqi,
-        avg(pm10_hourly_aqi) as pm10_prov_aqi,
-        avg(co_hourly_aqi)   as co_prov_aqi,
-        avg(no2_hourly_aqi)  as no2_prov_aqi,
-        avg(so2_hourly_aqi)  as so2_prov_aqi,
-        avg(o3_hourly_aqi)   as o3_prov_aqi,
+        avg(pm25_aqi) as pm25_aqi,
+        avg(pm10_aqi) as pm10_aqi,
+        avg(co_aqi)   as co_aqi,
+        avg(no2_aqi)  as no2_aqi,
+        avg(so2_aqi)  as so2_aqi,
+        avg(o3_aqi)   as o3_aqi,
         
         max(last_ingested_at) as last_ingested_at
         
@@ -57,14 +56,7 @@ final as (
     select
         *,
         -- Provincial main pollutant based on averaged sub-AQIs
-        case 
-            when pm25_prov_aqi >= pm10_prov_aqi and pm25_prov_aqi >= co_prov_aqi and pm25_prov_aqi >= no2_prov_aqi and pm25_prov_aqi >= so2_prov_aqi and pm25_prov_aqi >= o3_prov_aqi then 'pm25'
-            when pm10_prov_aqi >= co_prov_aqi and pm10_prov_aqi >= no2_prov_aqi and pm10_prov_aqi >= so2_prov_aqi and pm10_prov_aqi >= o3_prov_aqi then 'pm10'
-            when co_prov_aqi >= no2_prov_aqi and co_prov_aqi >= so2_prov_aqi and co_prov_aqi >= o3_prov_aqi then 'co'
-            when no2_prov_aqi >= so2_prov_aqi and no2_prov_aqi >= o3_prov_aqi then 'no2'
-            when so2_prov_aqi >= o3_prov_aqi then 'so2'
-            else 'o3'
-        end as main_pollutant
+        {{ get_main_pollutant('pm25_aqi', 'pm10_aqi', 'co_aqi', 'no2_aqi', 'so2_aqi', 'o3_aqi') }} as main_pollutant
     from province_hourly
 )
 

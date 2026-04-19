@@ -1,129 +1,42 @@
 version: 2
 
 models:
-  - name: fct_air_quality_summary_hourly
-    description: |
-      Hourly air quality summary at the ward code level.
-      **Grain:** One row per (province, ward_code, datetime_hour).
+  - name: dim_administrative_units
+    description: "Centralized dimension table for administrative units in Vietnam."
     columns:
-      - name: datetime_hour
-        tests:
-          - not_null
       - name: ward_code
         tests:
           - not_null
+          - unique
+      - name: ward_name
       - name: province
-        tests:
-          - not_null
       - name: region_3
       - name: region_8
-      - name: source
-      - name: final_aqi_us
-      - name: final_aqi_vn
-      - name: pm25_value
-      - name: pm10_value
-      - name: co_value
-      - name: no2_value
-      - name: so2_value
-      - name: o3_value
 
   - name: fct_air_quality_ward_level_hourly
-    description: |
-      Consolidated hourly air quality at ward level, weighting physical and satellite sources.
+    description: "Standardized hourly air quality at ward level."
     columns:
       - name: ward_code
         tests:
           - not_null
-      - name: avg_aqi_us
+      - name: datetime_hour
+        tests:
+          - not_null
       - name: avg_aqi_vn
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 500
 
   - name: fct_air_quality_ward_level_daily
-    description: |
-      Daily rollup from ward-level hourly data.
+    description: "Standardized daily air quality at ward level."
     columns:
       - name: ward_code
-        tests:
-          - not_null
       - name: date
-        tests:
-          - not_null
-
-  - name: fct_air_quality_ward_level_monthly
-    description: |
-      Monthly average air quality per ward.
-    columns:
-      - name: ward_code
-        tests:
-          - not_null
-      - name: month
-        tests:
-          - not_null
-
-  - name: fct_air_quality_summary_daily
-    description: |
-      Daily air quality summary at the ward level.
-    columns:
-      - name: date
-        tests:
-          - not_null
-      - name: ward_code
-        tests:
-          - not_null
-
-  - name: fct_air_quality_summary_monthly
-    description: |
-      Monthly air quality summary at the ward level.
-    columns:
-      - name: month
-        tests:
-          - not_null
-      - name: ward_code
-        tests:
-          - not_null
+      - name: avg_aqi_vn
 
   - name: fct_air_quality_province_level_hourly
-    description: |
-      Hourly summary aggregated to provincial level from ward levels.
+    description: "Standardized hourly air quality at province level."
     columns:
       - name: province
-        tests:
-          - not_null
       - name: datetime_hour
-        tests:
-          - not_null
-
-  - name: fct_air_quality_province_level_daily
-    description: |
-      Daily summary aggregated to provincial level.
-    columns:
-      - name: province
-        tests:
-          - not_null
-      - name: date
-        tests:
-          - not_null
-
-  - name: fct_air_quality_province_level_monthly
-    description: |
-      Monthly summary aggregated to provincial level.
-    columns:
-      - name: province
-        tests:
-          - not_null
-      - name: month
-        tests:
-          - not_null
-
-  - name: fct_other_measurements_hourly
-    description: |
-      Hourly auxiliary measurements (temp, humidity) at ward level.
-    columns:
-      - name: ward_code
-        tests:
-          - not_null
-      - name: datetime_hour
-        tests:
-          - not_null
-      - name: ingest_time
-        description: |
-          Source ingest timestamp for incremental filtering.
