@@ -10,9 +10,13 @@ import plotly.express as px
 
 from lib.clickhouse_client import query_df
 from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart
+from lib.i18n import t
 
-st.title("🚨 Cảnh báo & Tuân thủ Tiêu chuẩn")
-st.caption("Dữ liệu dựa trên WHO (2021) và TCVN 05:2023-BKHCN daily standards.")
+# ── Translation Helper ────────────────────────────────────────────────────────
+lang = st.session_state.get("lang", "vi")
+
+st.title(f"🚨 {t('alert_title', lang)}")
+st.caption(t("alert_caption", lang))
 
 # ── constants ─────────────────────────────────────────────────────────────────
 
@@ -114,14 +118,19 @@ try:
     col_filter1, col_filter2 = st.columns([2, 1])
     with col_filter1:
         selected_province = st.selectbox(
-            "Chọn tỉnh/thành phố",
+            t("filter_province_select", lang),
             options=["Toàn quốc"] + provinces,
             index=0,
         )
     with col_filter2:
-        TIME_OPTIONS = {7: "7 ngày", 30: "30 ngày", 90: "3 tháng", 365: "1 năm"}
+        TIME_OPTIONS = {
+            7: t("time_7days", lang),
+            30: t("time_30days", lang),
+            90: t("time_3months", lang),
+            365: t("time_1year", lang)
+        }
         days = st.selectbox(
-            "Khoảng thời gian",
+            t("filter_time_range", lang),
             options=list(TIME_OPTIONS.keys()),
             format_func=lambda x: TIME_OPTIONS[x],
             index=0,   # default: 7 days (alerts = recent focus)
@@ -130,18 +139,35 @@ try:
     province_arg = selected_province if selected_province != "Toàn quốc" else None
 
     # ── compliance timeline ────────────────────────────────────────────────────
-    st.subheader(f"Timeline tuân thủ tiêu chuẩn — {TIME_OPTIONS[days]}")
-    with st.spinner("Đang tải timeline tuân thủ..."):
+    st.subheader(f"{t('chart_compliance_timeline', lang)} — {TIME_OPTIONS[days]}")
+    with st.spinner(t("loading", lang) if lang=="en" else "Đang tải timeline tuân thủ..."):
         timeline = get_compliance_timeline(days, province_arg)
     if not timeline.empty:
+        # Map compliance status
+        comp_map = {
+            "Good/Safe": t("compliance_good", lang),
+            "Warning (WHO Breach)": t("compliance_who", lang),
+            "Unhealthy (TCVN Breach)": t("compliance_tcvn", lang)
+        }
+        timeline["status_label"] = timeline["compliance_status"].map(comp_map).fillna(timeline["compliance_status"])
+        
+        # Color map with localized labels
+        localized_colors = {t(k, lang) if k in ["Good/Safe", "Warning (WHO Breach)", "Unhealthy (TCVN Breach)"] else k: v for k, v in COMPLIANCE_COLORS.items()}
+        # Handle cases where COMPLIANCE_COLORS uses original keys
+        color_map = {
+            t("compliance_good", lang): COMPLIANCE_COLORS["Good/Safe"],
+            t("compliance_who", lang): COMPLIANCE_COLORS["Warning (WHO Breach)"],
+            t("compliance_tcvn", lang): COMPLIANCE_COLORS["Unhealthy (TCVN Breach)"]
+        }
+
         fig = px.bar(
             timeline,
             x="date",
             y="cnt",
-            color="compliance_status",
-            color_discrete_map=COMPLIANCE_COLORS,
+            color="status_label",
+            color_discrete_map=color_map,
             barmode="stack",
-            labels={"date": "Ngày", "cnt": "Số ngày", "compliance_status": "Trạng thái"},
+            labels={"date": t("chart_label_date", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
         )
         fig.update_layout(height=280, showlegend=True, margin=dict(l=0, r=0, t=10, b=40))
         st.plotly_chart(fig, use_container_width=True)
@@ -154,7 +180,7 @@ try:
     col_left, col_right = st.columns(2)
 
     with col_left:
-        st.subheader("Vi phạm WHO vs TCVN theo tỉnh")
+        st.subheader(t("chart_breach_comparison", lang))
         breach = get_breach_by_province(days)
         if not breach.empty:
             # Melt to long form for grouped bar
@@ -162,24 +188,25 @@ try:
                 breach,
                 id_vars=["province"],
                 value_vars=["who_breach_days", "tcvn_breach_days"],
-                var_name="standard",
-                value_name="days",
+                var_name="standard_key",
+                value_name="days_val",
             )
-            breach_melted["standard"] = breach_melted["standard"].map({
+            standard_map = {
                 "who_breach_days": "WHO (PM2.5>15µg)",
                 "tcvn_breach_days": "TCVN (PM2.5>50µg)",
-            })
+            }
+            breach_melted["standard"] = breach_melted["standard_key"].map(standard_map)
             fig = px.bar(
                 breach_melted,
                 x="province",
-                y="days",
+                y="days_val",
                 color="standard",
                 barmode="group",
                 color_discrete_map={
                     "WHO (PM2.5>15µg)": "#FF7E00",
                     "TCVN (PM2.5>50µg)": "#FF0000",
                 },
-                labels={"province": "Tỉnh", "days": "Ngày vi phạm"},
+                labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
             )
             fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
             st.plotly_chart(fig, use_container_width=True)
@@ -189,23 +216,34 @@ try:
             st.caption("Không có vi phạm WHO/TCVN trong khoảng thời gian đã chọn.")
 
     with col_right:
-        st.subheader("Độ tươi dữ liệu hệ thống")
+        st.subheader(t("chart_data_freshness", lang))
         health = get_platform_health()
         if not health.empty:
-            HEALTH_COLORS = {
-                "Fresh": "#00E400",
-                "Delayed": "#FFFF00",
-                "Stale": "#FF7E00",
-                "Offline": "#FF0000",
+            # Map health status
+            health_map = {
+                "Fresh": t("health_fresh", lang),
+                "Delayed": t("health_delayed", lang),
+                "Stale": t("health_stale", lang),
+                "Offline": t("health_offline", lang)
             }
+            health["status_label"] = health["health_status"].map(health_map).fillna(health["health_status"])
+            
+            # Colors with localized labels
+            color_map = {
+                t("health_fresh", lang): "#00E400",
+                t("health_delayed", lang): "#FFFF00",
+                t("health_stale", lang): "#FF7E00",
+                t("health_offline", lang): "#FF0000"
+            }
+            
             fig = px.bar(
                 health,
                 x="province",
                 y="lag_hours",
-                color="health_status",
-                color_discrete_map=HEALTH_COLORS,
+                color="status_label",
+                color_discrete_map=color_map,
                 text="lag_hours",
-                labels={"province": "Tỉnh", "lag_hours": "Độ trễ (giờ)", "health_status": "Trạng thái"},
+                labels={"province": t("province", lang), "lag_hours": t("chart_label_hour", lang), "status_label": t("chart_label_status", lang)},
                 custom_data=["source"],
             )
             fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
@@ -218,7 +256,7 @@ try:
             st.caption("dm_platform_data_health chưa có dữ liệu.")
 
     # ── high-risk heatmap ─────────────────────────────────────────────────────
-    st.subheader("Giờ rủi ro cao — tỉnh × ngày")
+    st.subheader(t("chart_high_risk_hours", lang))
     risk = get_high_risk_heatmap(days, province_arg)
     if not risk.empty:
         # Limit to top provinces by total high-risk hours
@@ -241,10 +279,11 @@ try:
                 [0.75, "#FF0000"],
                 [1.0, "#7E0023"],
             ],
+            range_color=[0, 24],
             labels={
-                "date_str": "Ngày",
-                "province": "Tỉnh",
-                "high_risk_hours": "Giờ rủi ro cao",
+                "date_str": t("chart_label_date", lang),
+                "province": t("province", lang),
+                "high_risk_hours": t("chart_label_hour", lang),
             },
         )
         fig.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=30))

@@ -25,9 +25,11 @@ hourly_agg as (
         max(h_aqi_us) as max_aqi_us,
         avg(h_aqi_vn) as avg_aqi_vn,
         max(h_aqi_vn) as max_aqi_vn,
-        count(distinct province) as active_provinces,
+        count(distinct if(h_aqi_us is not null, province, null)) as active_provinces_us,
+        count(distinct if(h_aqi_vn is not null, province, null)) as active_provinces_vn,
         0 as active_wards,
-        argMax(h_pollutant, h_aqi_vn) as dominant_pollutant,
+        argMax(h_pollutant, h_aqi_us) as dominant_pollutant_us,
+        argMax(h_pollutant, h_aqi_vn) as dominant_pollutant_vn,
         max(last_ingested_at) as last_ingested_at
     from hourly_source
     group by 1, 2
@@ -55,9 +57,11 @@ daily_agg as (
         max(d_max_aqi_us) as max_aqi_us,
         avg(d_aqi_vn) as avg_aqi_vn,
         max(d_max_aqi_vn) as max_aqi_vn,
-        count(distinct province) as active_provinces,
+        count(distinct if(d_aqi_us is not null, province, null)) as active_provinces_us,
+        count(distinct if(d_aqi_vn is not null, province, null)) as active_provinces_vn,
         0 as active_wards,
-        argMax(d_pollutant, d_aqi_vn) as dominant_pollutant,
+        argMax(d_pollutant, d_aqi_us) as dominant_pollutant_us,
+        argMax(d_pollutant, d_aqi_vn) as dominant_pollutant_vn,
         max(last_ingested_at) as last_ingested_at
     from daily_source
     group by 1, 2

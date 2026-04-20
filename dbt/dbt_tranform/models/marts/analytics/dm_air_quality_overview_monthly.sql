@@ -1,15 +1,15 @@
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
-    unique_key='(province, ward_code, month)',
-    order_by='(province, month, assumeNotNull(ward_code))',
-    partition_by='toYYYYMM(month)'
+    unique_key='(province, ward_code, date)',
+    order_by='(province, date, assumeNotNull(ward_code))',
+    partition_by='toYYYYMM(date)'
 ) }}
 
 with ward_monthly as (
     select * from {{ ref('fct_air_quality_ward_level_monthly') }}
     {% if is_incremental() %}
-    where month >= (select max(month) - interval 1 month from {{ this }})
+    where month >= (select max(date) - interval 1 month from {{ this }})
     {% endif %}
 ),
 
@@ -28,6 +28,7 @@ admin_units as (
 
 final as (
     select
+        w.month as date,
         w.month as month,
         a.province as province,
         a.ward_code as ward_code,

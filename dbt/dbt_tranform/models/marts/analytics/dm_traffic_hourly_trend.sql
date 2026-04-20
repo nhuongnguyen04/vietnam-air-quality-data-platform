@@ -16,6 +16,7 @@ with unified as (
         region_8,
         congestion_index,
         pm25,
+        pm10,
         co,
         traffic_pollution_impact_score,
         traffic_contribution_pct

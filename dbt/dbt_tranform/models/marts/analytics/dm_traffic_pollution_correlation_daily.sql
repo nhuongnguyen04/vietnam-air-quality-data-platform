@@ -14,6 +14,7 @@ WITH source_data AS (
         region_8,
         datetime_hour,
         pm25,
+        pm10,
         congestion_index
     FROM {{ ref('fct_aqi_weather_traffic_unified') }}
     {% if is_incremental() %}
@@ -35,7 +36,11 @@ daily_stats AS (
             else 'Rural'
         end as location_type,
         avg(pm25) as avg_pm25,
-        avg(congestion_index) as avg_congestion
+        avg(pm10) as avg_pm10,
+        avg(congestion_index) as avg_congestion,
+        sum(pm25) as sum_pm25,
+        sum(pm10) as sum_pm10,
+        count(*) as total_hours
     FROM source_data
     GROUP BY 1, 2, 3, 4, 5, 6
 ),
@@ -45,7 +50,11 @@ baseline_stats AS (
         date,
         province,
         ward_code,
-        avg(pm25) as background_pm25
+        avg(pm25) as background_pm25,
+        avg(pm10) as background_pm10,
+        sum(pm25) as background_pm25_sum,
+        sum(pm10) as background_pm10_sum,
+        count(*) as background_hours
     FROM source_data
     WHERE toHour(datetime_hour) BETWEEN 2 AND 4
     GROUP BY 1, 2, 3
@@ -60,11 +69,21 @@ final_metrics AS (
         d.region_8,
         d.location_type,
         d.avg_pm25 as pm25_daily_avg,
+        d.avg_pm10 as pm10_daily_avg,
         d.avg_congestion as congestion_daily_avg,
+        
+        -- Aggregatable components
+        d.sum_pm25,
+        d.sum_pm10,
+        d.total_hours,
+        b.background_pm25_sum,
+        b.background_pm10_sum,
+        b.background_hours,
+
         -- Traffic Impact Score
         CAST(d.avg_pm25 * d.avg_congestion AS Float32) as traffic_pollution_impact_score,
         
-        -- Traffic Contribution % (PM25 relative to nightly baseline)
+        -- Traffic Contribution % (Attributable Fraction logic)
         CAST(
             coalesce(
                 (d.avg_pm25 - b.background_pm25) / nullif(d.avg_pm25, 0), 0

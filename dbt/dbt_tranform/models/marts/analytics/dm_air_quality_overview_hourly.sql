@@ -41,7 +41,9 @@ final as (
         
         -- Standardized columns for dashboard
         w.avg_aqi_us as avg_aqi_us,
+        w.avg_aqi_us as max_aqi_us,
         w.avg_aqi_vn as avg_aqi_vn,
+        w.avg_aqi_vn as max_aqi_vn,
         w.main_pollutant as main_pollutant,
         
         -- Standardized concentrations

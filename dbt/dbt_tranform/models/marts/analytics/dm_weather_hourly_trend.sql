@@ -15,6 +15,7 @@ with unified as (
         region_3,
         region_8,
         pm25,
+        pm10,
         wind_speed,
         humidity,
         wind_direction,

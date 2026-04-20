@@ -42,7 +42,41 @@ def get_ward_list(province: str):
     q = f"SELECT DISTINCT ward_code, ward_name FROM air_quality.dim_administrative_units WHERE province = '{province}' ORDER BY ward_name"
     return query_df(q)
 
-def build_where_clause(spatial_scope: str, spatial_value: str, date_range=None):
+def get_pollutant_col(pollutant: str, standard: str = "TCVN") -> str:
+    """Map pollutant filter to database column name."""
+    if pollutant == "aqi":
+        # Handle "WHO 2021" or other non-TCVN labels from app.py
+        return "avg_aqi_vn" if standard == "TCVN" else "avg_aqi_us"
+    
+    # For now, return the _avg concentrations. 
+    # In future, we might want _aqi versions for each pollutant.
+    mapping = {
+        "pm25": "pm25_avg",
+        "pm10": "pm10_avg",
+        "co": "co_avg",
+        "no2": "no2_avg",
+        "so2": "so2_avg",
+        "o3": "o3_avg"
+    }
+    return mapping.get(pollutant, "avg_aqi_vn")
+
+def get_pollutant_cols(pollutant: str, standard: str = "TCVN") -> tuple[str, str]:
+    """Map pollutant filter to (avg_col, max_col) names.
+    Safely handles the fact that dm_* tables only store max columns for AQI.
+    """
+    avg_col = get_pollutant_col(pollutant, standard)
+    
+    if pollutant == "aqi":
+        # AQI has both avg and max columns in dm_* tables
+        max_col = avg_col.replace("avg", "max")
+    else:
+        # Specific pollutants (PM25, etc) only have averages in dm_* summary tables
+        max_col = avg_col
+        
+    return avg_col, max_col
+
+
+def build_where_clause(spatial_scope: str, spatial_value: str, date_range=None, date_col="date"):
     """Construct dynamic WHERE clause based on hierarchical filters."""
     clauses = []
     
@@ -54,10 +88,18 @@ def build_where_clause(spatial_scope: str, spatial_value: str, date_range=None):
         clauses.append(f"province = '{spatial_value}'")
         
     if date_range:
-        if len(date_range) == 2:
-            start_date, end_date = date_range
-            clauses.append(f"toStartOfDay(date) BETWEEN '{start_date}' AND '{end_date}'")
-        elif len(date_range) == 1:
-            clauses.append(f"toStartOfDay(date) = '{date_range[0]}'")
+        # Ensure dates are strings in YYYY-MM-DD format for ClickHouse
+        formatted_dates = []
+        for d in date_range:
+            if hasattr(d, "strftime"):
+                formatted_dates.append(d.strftime("%Y-%m-%d"))
+            else:
+                formatted_dates.append(str(d))
+
+        if len(formatted_dates) == 2:
+            start_date, end_date = formatted_dates
+            clauses.append(f"{date_col} BETWEEN '{start_date}' AND '{end_date}'")
+        elif len(formatted_dates) == 1:
+            clauses.append(f"{date_col} = '{formatted_dates[0]}'")
         
     return " AND ".join(clauses) if clauses else "1=1"

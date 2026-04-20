@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('fct_aqi_weather_traffic_unified') }}
 {{ config(
     materialized='incremental',
     engine='MergeTree',
@@ -13,6 +14,7 @@ WITH source_data AS (
         region_3,
         region_8,
         pm25,
+        pm10,
         temperature as temp,
         humidity,
         wind_speed
@@ -30,9 +32,13 @@ daily_stats AS (
         region_3,
         region_8,
         avg(pm25) as avg_pm25,
+        avg(pm10) as avg_pm10,
         avg(temp) as avg_temp,
         avg(humidity) as avg_humidity,
-        avg(wind_speed) as avg_wind_speed
+        avg(wind_speed) as avg_wind_speed,
+        sum(pm25) as sum_pm25,
+        sum(pm10) as sum_pm10,
+        count(*) as total_hours
     FROM source_data
     GROUP BY 1, 2, 3, 4, 5
 ),
@@ -42,8 +48,12 @@ weather_modes AS (
         date,
         province,
         ward_code,
-        avgIf(pm25, wind_speed < 1.0) as stagnant_pm25_avg,
-        avgIf(pm25, wind_speed >= 2.0) as dispersive_pm25_avg,
+        sumIf(pm25, wind_speed < 1.0) as stagnant_pm25_sum,
+        countIf(wind_speed < 1.0) as stagnant_hours,
+        sumIf(pm25, wind_speed >= 2.0) as dispersive_pm25_sum,
+        countIf(wind_speed >= 2.0) as dispersive_hours,
+        sumIf(pm10, wind_speed < 1.0) as stagnant_pm10_sum,
+        sumIf(pm10, wind_speed >= 2.0) as dispersive_pm10_sum,
         countIf(wind_speed < 1.0) / count(*) as stagnant_air_probability
     FROM source_data
     GROUP BY 1, 2, 3
@@ -57,17 +67,33 @@ final_metrics AS (
         d.region_3,
         d.region_8,
         d.avg_pm25 as pm25_daily_avg,
+        d.avg_pm10 as pm10_daily_avg,
         d.avg_temp as temp_daily_avg,
         d.avg_humidity as humidity_daily_avg,
         d.avg_wind_speed as wind_daily_avg,
         
+        -- Aggregatable components
+        d.sum_pm25,
+        d.sum_pm10,
+        d.total_hours,
+        m.stagnant_pm25_sum,
+        m.stagnant_pm10_sum,
+        m.stagnant_hours,
+        m.dispersive_pm25_sum,
+        m.dispersive_pm10_sum,
+        m.dispersive_hours,
+
         -- Custom Index: Higher index means higher risk (Low wind dispersal)
         CAST(coalesce(d.avg_pm25 / nullif(d.avg_wind_speed, 0), 0) AS Float32) as wind_dispersal_risk_index,
         
-        -- Weather Influence %
+        -- Weather Influence % (Attributable Fraction logic: (Stagnant - Dispersive) / Stagnant)
         CAST(
             coalesce(
-                (m.stagnant_pm25_avg - m.dispersive_pm25_avg) / nullif(d.avg_pm25, 0), 0
+                nullIf(
+                    ( (m.stagnant_pm25_sum / nullif(m.stagnant_hours, 0)) - (m.dispersive_pm25_sum / nullif(m.dispersive_hours, 0)) ) / nullif(m.stagnant_pm25_sum / nullif(m.stagnant_hours, 0), 0),
+                    NaN
+                ),
+                0
             ) * 100 AS Float32
         ) as weather_influence_pct,
         
@@ -83,3 +109,4 @@ SELECT
     *,
     now() as dbt_updated_at
 FROM final_metrics
+WHERE province != '' AND ward_code != ''

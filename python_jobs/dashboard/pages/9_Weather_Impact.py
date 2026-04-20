@@ -7,143 +7,122 @@ from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout
 from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
+from lib.filters import render_sidebar_filters
+from lib.data_service import build_where_clause
 
 # ── Translation Helper ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
 
 st.title(t("weather_title", lang))
 
-@st.cache_data(ttl=3600)
-def get_provinces():
-    q = "SELECT DISTINCT province FROM air_quality.fct_aqi_weather_traffic_unified ORDER BY province"
-    df = query_df(q)
-    return df["province"].tolist() if not df.empty else []
+# ── Sidebar Filters (Synchronized) ────────────────────────────────────────────
+filters = render_sidebar_filters()
+spatial_grain = filters["spatial_grain"]
+scope_val = filters["scope_val"]
+date_range = filters["date_range"]
+pollutant = filters.get("pollutant", "pm25")
 
-@st.cache_data(ttl=3600)
-def get_wards_weather(province: str):
-    q = f"SELECT DISTINCT ward_code, ward_name FROM air_quality.stg_core__administrative_units WHERE province = '{province}' AND ward_code != '' ORDER BY ward_name"
-    df = query_df(q)
-    return df if not df.empty else pd.DataFrame(columns=["ward_code", "ward_name"])
+# ── Dynamic Mapping ───────────────────────────────────────────────────────────
+# Analytics table currently supports particulate matter (pm25, pm10)
+target_poll = "pm25" if pollutant not in ["pm10"] else pollutant
+p_col = f"{target_poll}_daily_avg"
+sum_col = f"sum_{target_poll}"
+stagnant_sum_col = f"stagnant_{target_poll}_sum"
+dispersive_sum_col = f"dispersive_{target_poll}_sum"
 
+if pollutant not in ["pm25", "pm10"]:
+    st.warning(f"⚠️ Weather analysis for **{pollutant.upper()}** is currently calculated based on **{target_poll.upper()}** correlations.")
+
+# ── Data Fetching ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def get_weather_impact_daily(province: str | None = None, ward_code: str | None = None):
-    where_clause = ""
-    if province:
-        where_clause = f"WHERE province = '{province}'"
-        if ward_code:
-            where_clause += f" AND ward_code = '{ward_code}'"
+def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp"):
+    where_clause = build_where_clause(grain, scope, dates)
     
     q = f"""
+    WITH stats_cte AS (
+        SELECT
+            sum({p_stag}) / nullif(sum(stagnant_hours), 0) as avg_stag,
+            sum({p_disp}) / nullif(sum(dispersive_hours), 0) as avg_disp,
+            avg(stagnant_air_probability) as stagnant_prob,
+            avg(wind_daily_avg) as avg_wind
+        FROM air_quality.dm_weather_pollution_correlation_daily
+        WHERE {where_clause}
+    )
     SELECT
-        province,
-        ward_code,
-        pm25_daily_avg,
-        temp_daily_avg,
-        humidity_daily_avg,
-        wind_daily_avg,
-        wind_dispersal_risk_index,
-        weather_influence_pct,
-        stagnant_air_probability
-    FROM air_quality.dm_weather_pollution_correlation_daily
-    {where_clause}
-    ORDER BY wind_dispersal_risk_index DESC
+        *,
+        (avg_stag - avg_disp) / nullif(avg_stag, 0) * 100 as influence_pct
+    FROM stats_cte
     """
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_weather_hourly_trend(days: int, province: str | None = None, ward_code: str | None = None):
-    where_clause = f"WHERE datetime_hour >= now() - INTERVAL {days} DAY"
-    if province:
-        where_clause += f" AND province = '{province}'"
-        if ward_code:
-            where_clause += f" AND ward_code = '{ward_code}'"
+def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp"):
+    where_clause = build_where_clause(grain, scope, dates)
+    y_col = "ward_code" if grain == "Phường" else "province"
+    
+    q = f"""
+    WITH rank_cte AS (
+        SELECT
+            {y_col} as label_col,
+            avg({p_col} / nullif(wind_daily_avg, 0)) as risk_index,
+            sum({p_stag}) / nullif(sum(stagnant_hours), 0) as avg_stag,
+            sum({p_disp}) / nullif(sum(dispersive_hours), 0) as avg_disp
+        FROM air_quality.dm_weather_pollution_correlation_daily
+        WHERE {where_clause} AND {y_col} != ''
+        GROUP BY label_col
+    )
+    SELECT
+        *,
+        (avg_stag - avg_disp) / nullif(avg_stag, 0) * 100 as influence_pct
+    FROM rank_cte
+    ORDER BY risk_index DESC
+    LIMIT 15
+    """
+    return query_df(q)
+
+@st.cache_data(ttl=300)
+def get_weather_hourly_trend(grain: str, scope: str | None = None, dates=None, col="pm25"):
+    where_clause = build_where_clause(grain, scope, dates)
+    # Map pollutant to column name for hourly trend
+    target_col = col if col in ["pm25", "pm10", "aqi_vn", "aqi_us"] else "pm25"
             
     q = f"""
     SELECT
         toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh') as datetime_hour,
-        avg(pm25) as avg_pm25,
+        avg({target_col}) as avg_val,
         avg(wind_speed) as avg_wind,
         avg(humidity) as avg_hum
     FROM air_quality.dm_weather_hourly_trend
-    {where_clause}
+    WHERE {where_clause}
     GROUP BY datetime_hour
     ORDER BY datetime_hour
     """
     return query_df(q)
 
-# ── Filters (Glass Card Style) ────────────────────────────────────────────────
-with st.container():
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1, 1])
-    provinces = get_provinces()
-    national_label = "National" if lang == "en" else "Toàn quốc"
-    
-    with c1:
-        selected_province = st.selectbox(
-            "Select Province/City" if lang == "en" else "Chọn tỉnh/thành phố",
-            options=[national_label] + provinces,
-            index=0,
-        )
-    province_arg = selected_province if selected_province != national_label else None
-    ward_code_arg = None
-    
-    with c2:
-        if province_arg:
-            wards_df = get_wards_weather(province_arg)
-            all_ward_label = "All Wards" if lang == "en" else "Tất cả các phường"
-            # Create a display list of "Name (Code)" or just Name
-            ward_options = [all_ward_label] + wards_df["ward_name"].tolist()
-            selected_ward_name = st.selectbox(
-                "Select Ward" if lang == "en" else "Chọn phường/xã",
-                options=ward_options,
-                index=0,
-            )
-            if selected_ward_name != all_ward_label:
-                ward_code_arg = wards_df[wards_df["ward_name"] == selected_ward_name]["ward_code"].iloc[0]
-        else:
-            st.selectbox(
-                "Select Ward" if lang == "en" else "Chọn phường/xã",
-                options=["-"],
-                disabled=True,
-                key="weather_ward_disabled"
-            )
-    
-    with c3:
-        TIME_OPTIONS = {7: "7d", 30: "30d", 90: "3m"}
-        days = st.selectbox(
-            "Time Interval" if lang == "en" else "Khoảng thời gian",
-            options=list(TIME_OPTIONS.keys()),
-            format_func=lambda x: TIME_OPTIONS[x],
-            index=0,
-        )
-    st.markdown('</div>', unsafe_allow_html=True)
+# ── Data Fetching (Optimized SQL) ─────────────────────────────────────────────
+df_summary = get_weather_summary_stats(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col)
+df_hourly = get_weather_hourly_trend(spatial_grain, scope_val, date_range, col=target_poll)
 
-# ── Data Fetching ─────────────────────────────────────────────────────────────
-df_daily = get_weather_impact_daily(province_arg, ward_code_arg)
-df_hourly = get_weather_hourly_trend(days, province_arg, ward_code_arg)
+if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
+    stats = df_summary.iloc[0]
+    influence_pct = stats.influence_pct
+    stagnant_prob = stats.stagnant_prob
+    avg_wind = stats.avg_wind
 
-if not df_daily.empty:
     # ── Row 1: KPI Cards ──────────────────────────────────────────────────────
     c1, c2, c3 = st.columns(3)
     
-    influence_pct = df_daily['weather_influence_pct'].mean()
-    stagnant_prob = df_daily['stagnant_air_probability'].mean()
-    avg_wind = df_daily['wind_daily_avg'].mean()
-
     with c1:
-        render_metric_card("Weather Influence %" if lang=="en" else "Tỷ lệ ảnh hưởng Thời tiết", 
-                          f"{influence_pct:.1f}%", icon="cloud")
+        render_metric_card(t("weather_influence", lang), f"{influence_pct:.1f}%", icon="cloud")
     with c2:
-        render_metric_card("Stagnant Air Risk" if lang=="en" else "Rủi ro Lặng gió", 
-                          f"{stagnant_prob:.1%}", icon="ac_unit")
+        render_metric_card(t("weather_stagnant_risk", lang), f"{stagnant_prob:.1%}", icon="ac_unit")
     with c3:
-        render_metric_card("Wind Speed (Avg)" if lang=="en" else "Tốc độ gió (TB)", 
-                          f"{avg_wind:.1f} m/s", icon="wind")
+        render_metric_card(t("weather_wind_speed", lang), f"{avg_wind:.1f} m/s", icon="wind")
 
     st.markdown("---")
 
     # ── Row 2: Weather Influence Analysis ─────────────────────────────────────
-    st.subheader("How does weather contribute to Air Quality?" if lang=="en" else "Thời tiết đóng góp thế nào vào chất lượng không khí?")
+    st.subheader(t("weather_question", lang))
     col_gauge, col_text = st.columns([1, 1])
     
     with col_gauge:
@@ -168,39 +147,38 @@ if not df_daily.empty:
     with col_text:
         st.write("")
         st.write("")
-        location_name = selected_ward_name if ward_code_arg else (province_arg if province_arg else "Toàn quốc")
+        location_name = scope_val if scope_val else (t("national", lang) if lang=="en" else "Toàn quốc")
         if influence_pct > 30:
-            msg = f"Độ nhạy cảm tại {location_name} rất cao. Thời tiết đóng vai trò then chốt trong ô nhiễm." if lang == "vi" else f"Weather sensitivity in {location_name} is very high."
+            msg = f"Độ nhạy cảm tại {location_name} rất cao. Thời tiết đóng vai trò then chốt trong ô nhiễm." if lang == "vi" else f"Weather sensitivity in {location_name} is very high. Weather plays a key role in pollution."
             st.warning(msg)
         else:
-            msg = f"Độ nhạy cảm tại {location_name} thấp. Ô nhiễm chủ yếu do nguồn phát thải tại chỗ." if lang == "vi" else f"Weather sensitivity in {location_name} is low."
+            msg = f"Độ nhạy cảm tại {location_name} thấp. Ô nhiễm chủ yếu do nguồn phát thải tại chỗ." if lang == "vi" else f"Weather sensitivity in {location_name} is low. Pollution is mainly from local emission sources."
             st.info(msg)
         
         st.caption("Phương pháp tính: So sánh nồng độ bụi khi lặng gió (<1m/s) và khi có gió (>2m/s) tại khu vực này.")
 
     st.markdown("---")
 
-    # ── Row 3: Vulnerability Ranking ──────────────────────────────────────────
-    st.subheader("Weather Sensitivity Ranking" if lang=="en" else "Xếp hạng điểm nóng tích tụ Ô nhiễm")
+    # ── Row 3: Vulnerability Ranking (SQL Aggregated) ─────────────────────────
+    st.subheader(t("weather_sensitivity_ranking", lang))
     
-    full_ranking = get_weather_impact_daily()
-    if not full_ranking.empty:
-        # If province selected, show wards. If national, show top provinces nationwide.
-        rank_df = df_daily.head(15) if province_arg else full_ranking.head(15)
-        
-        # When province is selected, we want to show ward names, but dm only has ward_code
-        # Join with administrative units if necessary, or just use ward_code for now
-        y_col = "ward_code" if province_arg else "province"
-        
+    df_rank = get_weather_ranking_data(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col)
+
+    if not df_rank.empty:
         fig_rank = px.bar(
-            rank_df, 
-            x="wind_dispersal_risk_index", 
-            y=y_col, 
-            color="weather_influence_pct",
+            df_rank, 
+            x="risk_index", 
+            y="label_col", 
+            color="influence_pct",
             orientation='h',
-            labels={"wind_dispersal_risk_index": "Dispersal Risk Index", "weather_influence_pct": "Weather Influence %"},
-            title=f"Top 15 Locations by Weather Sensitivity" if lang == "en" else f"Top 15 khu vực nhạy cảm thời tiết nhất",
-            color_continuous_scale="RdBu_r"
+            labels={
+                "risk_index": t("chart_label_type", lang) if lang=="en" else "Chỉ số rủi ro tích tụ", 
+                "influence_pct": t("weather_influence", lang),
+                "label_col": t("chart_label_area", lang)
+            },
+            title=f"{t('chart_top_polluted', lang)} ({target_poll.upper()})",
+            color_continuous_scale="RdBu_r",
+            color_continuous_midpoint=0
         )
         fig_rank.update_layout(get_plotly_layout(height=500))
         st.plotly_chart(fig_rank, use_container_width=True)
@@ -208,13 +186,18 @@ if not df_daily.empty:
     st.markdown("---")
 
     # ── Row 4: Detailed Dispersal Analysis ────────────────────────────────────
-    st.subheader("Wind Dispersal Depth Analysis" if lang=="en" else "Phân tích tác động của Gió")
+    st.subheader(t("weather_dispersal_analysis", lang))
     if not df_hourly.empty:
         fig_scatter = px.scatter(
-            df_hourly, x="avg_wind", y="avg_pm25", color="avg_hum",
+            df_hourly, x="avg_wind", y="avg_val", color="avg_hum",
             trendline="lowess",
-            labels={"avg_wind": "Wind Speed (m/s)", "avg_pm25": "PM2.5", "avg_hum": "Humidity %"}
+            labels={
+                "avg_wind": t("weather_wind_speed", lang), 
+                "avg_val": f"{target_poll.upper()}", 
+                "avg_hum": t("chart_label_area", lang) if lang=="en" else "Độ ẩm (%)"
+            }
         )
+        fig_scatter.update_traces(marker=dict(size=10))
         fig_scatter.update_layout(get_plotly_layout(height=450))
         st.plotly_chart(fig_scatter, use_container_width=True)
 

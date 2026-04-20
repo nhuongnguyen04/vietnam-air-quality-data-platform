@@ -17,16 +17,16 @@ hierarchy_df = get_hierarchy_metadata()
 st.sidebar.markdown(f"### 📍 {t('nav_health', lang)} Filters")
 
 spatial_grain = st.sidebar.selectbox(
-    "Cấp độ hiển thị" if lang == "vi" else "Spatial Grain",
-    ["Toàn quốc", "Vùng", "Khu vực"],
+    t("chart_label_type", lang) if lang=="en" else "Cấp độ hiển thị",
+    [t("national", lang) if lang=="en" else "Toàn quốc", t("region", lang) if lang=="en" else "Vùng", t("area", lang) if lang=="en" else "Khu vực"],
     index=0
 )
 
 scope_val = None
-if spatial_grain == "Vùng":
-    scope_val = st.sidebar.selectbox("Chọn miền", sorted(hierarchy_df['region_3'].unique()))
-elif spatial_grain == "Khu vực":
-    scope_val = st.sidebar.selectbox("Chọn khu vực", sorted(hierarchy_df['region_8'].unique()))
+if spatial_grain in ["Vùng", "Region"]:
+    scope_val = st.sidebar.selectbox(t("filter_province_select", lang) if lang=="en" else "Chọn miền", sorted(hierarchy_df['region_3'].unique()))
+elif spatial_grain in ["Khu vực", "Area"]:
+    scope_val = st.sidebar.selectbox(t("filter_province_select", lang) if lang=="en" else "Chọn khu vực", sorted(hierarchy_df['region_8'].unique()))
 
 @st.cache_data(ttl=300)
 def get_health_risks(spatial_grain, scope_val):
@@ -57,18 +57,18 @@ if not df.empty:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        render_metric_card("Khu vực rủi ro nhất" if lang=="vi" else "Worst Location", top_risk.province, icon="health")
+        render_metric_card(t("worst_location", lang), top_risk.province, icon="health")
     with col2:
         mean_val = df[df.total_exposure_index_m > 0].total_exposure_index_m.mean()
-        render_metric_card("Chỉ số Phơi nhiễm TB" if lang=="vi" else "Avg Exposure Index", f"{mean_val:.1f}M", icon="location_on")
+        render_metric_card(t("avg_exposure_index", lang), f"{mean_val:.1f}M", icon="location_on")
     with col3:
         high_risk_count = len(df[df.risk_category == 'CRITICAL'])
-        render_metric_card("Điểm nóng nguy kịch" if lang=="vi" else "Critical Hotspots", str(high_risk_count), icon="error")
+        render_metric_card(t("critical_hotspots", lang), str(high_risk_count), icon="error")
 
     st.markdown("---")
     
     # Risk Distribution Bar Chart
-    st.subheader("Xếp hạng Rủi ro (theo Chỉ số Phơi nhiễm)" if lang=="vi" else "Risk Ranking (by Exposure Index)")
+    st.subheader(t("risk_ranking_title", lang))
     
     # Sort ascending for horizontal bar (longest bar at bottom/end)
     df_plot = df.sort_values("total_exposure_index_m", ascending=True)
@@ -90,4 +90,4 @@ if not df.empty:
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.plotly_chart(render_empty_chart("Không có dữ liệu rủi ro cho khu vực này."), use_container_width=True)
+    st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu rủi ro cho khu vực này."), use_container_width=True)
