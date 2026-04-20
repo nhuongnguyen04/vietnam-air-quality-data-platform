@@ -1,76 +1,32 @@
-# Grafana Alerting Notification Policies — Phase 3.3
-# Format chuẩn: apiVersion: 1, policies[] array với receiver/matchers
+# Grafana Alerting Notification Policies — Phase 08
+# Route alerts to correct bot using the `channel` label:
+#   channel: air-quality → telegram-air-quality (AQ group, repeat 1h)
+#   channel: system      → telegram-system (admin private, repeat 30m)
 #
-# Root cause: alerts route vào grafana-default-email (SMTP fail)
-# thay vì telegram-critical. Fix bằng cách set receiver = telegram-critical
-# ở default policy và match theo label.
+# group_wait: 2m  — collect all instances before first send
+# group_interval: 5m — wait before sending updates to existing group
+# All Grafana-native AQ rules must have: labels.channel: air-quality
+# All Prometheus system rules must have: labels.channel: system
 
 apiVersion: 1
 
 policies:
-  # Default policy (orgId mặc định = 1) — catch-all, không matchers
-  # Tất cả alerts không match route nào bên dưới đều vào đây → telegram
+  # Root policy — defaults to air quality bot
   - orgId: 1
-    receiver: telegram-critical
-    group_by:
-      - alertname
-      - severity
-      - team
-      - city
-      - dag_id
-    group_wait: 30s
+    receiver: telegram-air-quality
+    group_by: ['alertname']
+    group_wait: 2m
     group_interval: 5m
-    repeat_interval: 4h
-    # Không có matchers = match all
-
-  # Critical severity → Telegram ngay
-  - orgId: 1
-    receiver: telegram-critical
-    matchers:
-      - severity = critical
-    group_by:
-      - alertname
-      - dag_id
-    group_wait: 30s
-    group_interval: 5m
-    repeat_interval: 4h
-    continue: false
-
-  # data-ops team (DAG + ClickHouse) → Telegram
-  - orgId: 1
-    receiver: telegram-critical
-    matchers:
-      - team = data-ops
-    group_by:
-      - alertname
-      - dag_id
-    group_wait: 30s
-    group_interval: 5m
-    repeat_interval: 4h
-    continue: false
-
-  # air-quality team (AQI, PM2.5, divergence) → Telegram
-  - orgId: 1
-    receiver: telegram-critical
-    matchers:
-      - team = air-quality
-    group_by:
-      - alertname
-      - city
-    group_wait: 30s
-    group_interval: 1h
     repeat_interval: 1h
-    continue: false
-
-  # Warning severity → Telegram (thừa kế từ default, để rõ ràng)
-  - orgId: 1
-    receiver: telegram-critical
-    matchers:
-      - severity = warning
-    group_by:
-      - alertname
-      - city
-    group_wait: 30s
-    group_interval: 1h
-    repeat_interval: 1h
-    continue: false
+    routes:
+      # Route for Air Quality Bot (specific repeat_interval 1h)
+      - receiver: telegram-air-quality
+        matchers:
+          - channel = air-quality
+        continue: false
+      # Route for System Bot (specific repeat_interval 30m)
+      - receiver: telegram-system
+        matchers:
+          - channel = system
+        repeat_interval: 30m
+        continue: false

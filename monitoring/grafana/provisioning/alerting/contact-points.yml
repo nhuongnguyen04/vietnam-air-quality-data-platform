@@ -1,19 +1,33 @@
-# Grafana Alerting Contact Points — Phase 3.1
-# IMPORTANT: chatid MUST be a string, not a number.
-# Grafana's env-var substitution resolves ${VAR} before YAML parsing.
-# A numeric chat ID like 5602934306 becomes a YAML integer, causing:
-#   "json: cannot unmarshal number into Go struct field Config.chatid of type string"
-# Solution: Use explicit string quoting to force YAML string type.
+# Grafana Alerting Contact Points — Phase 08
+# Two independent Telegram bots:
+#   - telegram-air-quality → AQ group chat (public, Vietnamese messages)
+#   - telegram-system → private admin chat (English messages)
+#
+# CRITICAL: chatid MUST be a quoted string.
+# Grafana env-var substitution resolves ${VAR} before YAML parsing.
+# Without quotes, numeric chat IDs become YAML integers → type error.
+# Correct: '${TELEGRAM_AQ_CHAT_ID}'  (single quotes force string type)
+# Wrong:   ${TELEGRAM_AQ_CHAT_ID}    (resolves to integer → API error)
 
 apiVersion: 1
 
 contactPoints:
-  - name: telegram-critical
+  - name: telegram-air-quality
     receivers:
-      - uid: telegram-critical
+      - uid: telegram-air-quality
         type: telegram
         settings:
-          bottoken: ${TELEGRAM_BOT_TOKEN}
-          chatid: '5602934306'
-          message: '{{ template "telegram.message" . }}'
+          bottoken: ${TELEGRAM_AQ_BOT_TOKEN}
+          chatid: "-1003977230036"
+          message: '{{ template "telegram.aq.message" . }}'
+          parse_mode: 'HTML'
+
+  - name: telegram-system
+    receivers:
+      - uid: telegram-system
+        type: telegram
+        settings:
+          bottoken: ${TELEGRAM_SYS_BOT_TOKEN}
+          chatid: "5602934306"
+          message: '{{ template "telegram.sys.message" . }}'
           parse_mode: 'HTML'

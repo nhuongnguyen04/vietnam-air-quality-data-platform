@@ -1,118 +1,102 @@
+# Prometheus Alert Rules — Phase 08: System Rules
+# 8 rules, all labelled channel: system → routes to telegram-system bot
+#
+# Labels added to ALL rules:
+#   channel: system → notification policy routes to telegram-system
+#   severity: critical|warning
+#
+# Note: sys-data-freshness (ingestion lag >3h) is a GRAFANA-NATIVE rule
+# in alert-rules.yml (queries air_quality.ingestion_control via ClickHouse).
+# It is NOT listed here to avoid duplication.
+
 groups:
-  - name: air_quality_infrastructure
+  - name: system-infrastructure
     interval: 30s
     rules:
 
       # ── Service uptime ──────────────────────────────────────────────
-      - alert: ClickHouseDown
+      - alert: sys-clickhouse-down
         expr: up{job="clickhouse"} == 0
         for: 2m
         labels:
           severity: critical
-          team: data-ops
+          channel: system
         annotations:
-          summary: "ClickHouse unreachable"
-          description: "Prometheus cannot reach ClickHouse at {{ $labels.instance }}"
-
-      - alert: PostgreSQLExporterDown
-        expr: up{job="postgres-exporter"} == 0
-        for: 2m
-        labels:
-          severity: critical
-          team: data-ops
-        annotations:
-          summary: "postgres_exporter down"
-
-      - alert: NodeExporterDown
-        expr: up{job="node-exporter"} == 0
-        for: 2m
-        labels:
-          severity: warning
-          team: data-ops
-        annotations:
-          summary: "node_exporter unreachable"
+          summary: "ClickHouse Unreachable"
+          description: "Check container logs → docker logs clickhouse"
 
       # ── Container health (cAdvisor) ────────────────────────────────
-      - alert: ContainerRestartLoop
-        expr: increase(container_restart_count[5m]) > 3
+      - alert: sys-container-restart
+        expr: increase(container_restart_count{name!=""}[5m]) > 3
         for: 1m
         labels:
           severity: critical
-          team: data-ops
+          channel: system
         annotations:
-          summary: "Container {{ $labels.container_label_com_docker_compose_service }} restarted >3x in 5m"
+          summary: "Container Restart Loop: {{ $labels.name }}"
+          description: "Check logs → docker logs {{ $labels.name }}"
 
-      - alert: ContainerOOMKilled
-        expr: increase(container_memory_working_set_bytes{container_label_com_docker_compose_service=~".+"}[5m]) > 0
+      - alert: sys-container-oom
+        # container_oom_events_total is emitted by cAdvisor when a container is OOM-killed.
+        # Fallback: if this metric doesn't exist in your cAdvisor version, the rule will
+        # produce no data (noDataState=OK). Verify with: curl localhost:8088/metrics | grep oom
+        expr: increase(container_oom_events_total{name!=""}[5m]) > 0
         for: 0m
         labels:
           severity: critical
-          team: data-ops
+          channel: system
         annotations:
-          summary: "Container OOMKilled: {{ $labels.container_label_com_docker_compose_service }}"
+          summary: "Container OOM Killed: {{ $labels.name }}"
+          description: "Increase memory limit → update docker-compose.yml mem_limit"
 
       # ── Resource exhaustion ─────────────────────────────────────────
-      - alert: HostMemoryHigh
-        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
-        for: 5m
-        labels:
-          severity: warning
-          team: data-ops
-        annotations:
-          summary: "Host memory >90% used"
-
-      # Warning: 20GB left (Enough for ~2 months)
-      - alert: HostDiskSpaceWarning
+      - alert: sys-disk-warning
         expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} < 20000000000
         for: 5m
         labels:
           severity: warning
-          team: data-ops
+          channel: system
         annotations:
-          summary: "Disk Space Warning: {{ $labels.mountpoint }} < 20GB free"
-          description: "Partition {{ $labels.mountpoint }} is getting low. Current free space: {{ $value | humanize1024 }}B."
+          summary: "Disk Space Warning on {{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} has < 20GB free. Run: du -sh /path/* to find large dirs."
 
-      # Critical: 5GB left (System failure imminent)
-      - alert: HostDiskSpaceCritical
+      - alert: sys-disk-critical
         expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} < 5000000000
         for: 1m
         labels:
           severity: critical
-          team: data-ops
+          channel: system
         annotations:
-          summary: "CRITICAL: Disk Space Imminent Failure on {{ $labels.mountpoint }}"
-          description: "Partition {{ $labels.mountpoint }} has only {{ $value | humanize1024 }}B left. Move data or increase disk immediately!"
+          summary: "CRITICAL: Disk Space on {{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} has < 5GB free. Move data or increase disk IMMEDIATELY."
 
-      # ── PostgreSQL / Airflow health ──────────────────────────────
-      - alert: AirflowDAGFailures
+      - alert: sys-memory-high
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          channel: system
+        annotations:
+          summary: "Host Memory >90% Used"
+          description: "Check docker stats for high-memory containers."
+
+      # ── Airflow pipeline health ──────────────────────────────────
+      - alert: sys-dag-failures
         expr: sum(increase(airflow_dag_run_count{state="failed"}[30m])) > 0
         for: 5m
         labels:
           severity: critical
-          team: data-ops
+          channel: system
         annotations:
-          summary: "{{ $value }} DAG run failures in last 30m"
+          summary: "Airflow DAG Failures in Last 30m"
+          description: "Check Airflow UI at http://localhost:8090 for failed DAGs."
 
-      - alert: AirflowNoRecentSuccess
-        expr: |
-          (time() - airflow_dag_run_count_seconds_ago{state="success"})
-          > 7200
+      - alert: sys-no-recent-success
+        expr: (time() - airflow_dag_run_count_seconds_ago{state="success"}) > 7200
         for: 10m
         labels:
           severity: warning
-          team: data-ops
+          channel: system
         annotations:
-          summary: "No successful DAG run in >2 hours"
-
-      # ── ClickHouse performance ────────────────────────────────────
-      - alert: ClickHouseHighQueryLatency
-        expr: |
-          rate(clickhouse_query_duration_seconds_sum[5m])
-          / rate(clickhouse_query_duration_seconds_count[5m])
-          > 10
-        for: 5m
-        labels:
-          severity: warning
-          team: data-ops
-        annotations:
-          summary: "ClickHouse avg query latency >10s"
+          summary: "No Successful DAG Run in >2 Hours"
+          description: "Check if Airflow scheduler is running: docker logs airflow-scheduler1"

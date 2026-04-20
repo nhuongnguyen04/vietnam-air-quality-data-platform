@@ -1,0 +1,244 @@
+# Grafana Alert Rules — Phase 08: Air Quality Rules
+# 4 rules, all labelled channel: air-quality → routes to telegram-air-quality bot
+#
+# Pattern: query (A) → reduce last value (B) → threshold check (C)
+# datasourceUid: clickhouse-airquality — confirmed ClickHouse datasource
+# datasourceUid: "-100" — Grafana built-in for reduce/threshold expressions
+# maxDataPoints: 300 — REQUIRED for Grafana 11.x (missing causes alert eval errors)
+# relativeTimeRange: from 600 (10 min window in seconds), to 0
+#
+# Labels:
+#   channel: air-quality → notification policy routes to telegram-air-quality
+#   severity: warning|critical
+
+apiVersion: 1
+
+groups:
+  - name: air-quality-alerts-v3
+    folder: Cảnh báo Chất lượng Không khí
+    interval: 1m
+    rules:
+
+      # ─────────────────────────────────────────────────────────────
+      # Rule 1: AQI Warning (>150) — Unhealthy for Sensitive Groups
+      # ─────────────────────────────────────────────────────────────
+      - uid: aqi-warning-150-v3
+        title: "AQI Warning (>150) — Unhealthy (v3)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT 
+                  toStartOfInterval(now(), INTERVAL 1 MINUTE) AS time,
+                  province, 
+                  MAX(current_aqi_us) AS aqi
+                FROM air_quality.dm_aqi_current_status
+                WHERE latest_hour >= NOW() - INTERVAL 2 HOUR
+                GROUP BY province, time
+              format: timeseries
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [150], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 10m
+        annotations:
+          summary: "AQI (US) vượt ngưỡng 150"
+          value: "{{ $values.B.Value | printf \"%.0f\" }}"
+        labels:
+          severity: warning
+          channel: air-quality
+
+      # ─────────────────────────────────────────────────────────────
+      # Rule 2: AQI Critical (>200) — Very Unhealthy
+      # ─────────────────────────────────────────────────────────────
+      - uid: aqi-critical-200-v3
+        title: "AQI Critical (>200) — Very Unhealthy (v3)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT 
+                  toStartOfInterval(now(), INTERVAL 1 MINUTE) AS time,
+                  province, 
+                  MAX(current_aqi_us) AS aqi
+                FROM air_quality.dm_aqi_current_status
+                WHERE latest_hour >= NOW() - INTERVAL 2 HOUR
+                GROUP BY province, time
+              format: timeseries
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [200], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 5m
+        annotations:
+          summary: "AQI (US) vượt ngưỡng 200 — MỨC NGUY HẠI"
+          value: "{{ $values.B.Value | printf \"%.0f\" }}"
+        labels:
+          severity: critical
+          channel: air-quality
+
+      # ─────────────────────────────────────────────────────────────
+      # Rule 3: PM2.5 Warning (>75 µg/m³) — TCVN 24h standard
+      # ─────────────────────────────────────────────────────────────
+      - uid: pm25-warning-75-v3
+        title: "PM2.5 Warning (>75 µg/m³) — TCVN (v3)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT 
+                  toStartOfInterval(now(), INTERVAL 1 MINUTE) AS time,
+                  province, 
+                  MAX(pm25) AS pm25_val
+                FROM air_quality.dm_aqi_current_status
+                WHERE latest_hour >= NOW() - INTERVAL 3 HOUR
+                GROUP BY province, time
+              format: timeseries
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [75], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 10m
+        annotations:
+          summary: "Bụi mịn PM2.5 vượt 75 µg/m³"
+          value: "{{ $values.B.Value | printf \"%.1f\" }} µg/m³"
+        labels:
+          severity: warning
+          channel: air-quality
+
+      # ─────────────────────────────────────────────────────────────
+      # Rule 4: PM10 Warning (>150 µg/m³) — WHO/TCVN guideline
+      # ─────────────────────────────────────────────────────────────
+      - uid: pm10-warning-150-v3
+        title: "PM10 Warning (>150 µg/m³) — WHO/TCVN (v3)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT 
+                  toStartOfInterval(now(), INTERVAL 1 MINUTE) AS time,
+                  province, 
+                  MAX(pm10) AS pm10_val
+                FROM air_quality.dm_aqi_current_status
+                WHERE latest_hour >= NOW() - INTERVAL 3 HOUR
+                GROUP BY province, time
+              format: timeseries
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [150], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 10m
+        annotations:
+          summary: "Bụi PM10 vượt 150 µg/m³"
+          value: "{{ $values.B.Value | printf \"%.1f\" }} µg/m³"
+        labels:
+          severity: warning
+          channel: air-quality
+
+  - name: system-data-freshness
+    folder: System Alerts
+    interval: 5m
+    rules:
+
+      # ─────────────────────────────────────────────────────────────
+      # Rule: Data Freshness Warning (>3h lag)
+      # Queries ingestion_control table in ClickHouse via Grafana-native
+      # Not in Prometheus rules — needs ClickHouse datasource
+      # ─────────────────────────────────────────────────────────────
+      - uid: sys-data-freshness
+        title: "Data Freshness Warning (>3h lag)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT source, MAX(lag_seconds) AS max_lag
+                FROM air_quality.ingestion_control
+                GROUP BY source
+              format: table
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [10800], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 10m
+        annotations:
+          summary: "No new data ingested in >3 hours"
+          value: "{{ $values.B }}"
+          description: "Check Airflow DAGs at http://localhost:8090"
+        labels:
+          severity: warning
+          channel: system

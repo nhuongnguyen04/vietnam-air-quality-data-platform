@@ -1,71 +1,93 @@
+# Grafana Message Templates — Phase 08
+# Two separate templates for two bots:
+#
+# telegram.aq.message  → Vietnamese, ASCII table, HTML parse_mode
+#   Used by: telegram-air-quality contact point
+#   Style: grouped province table in <pre> tags, khuyến cáo footer
+#
+# telegram.sys.message → English, structured block, HTML parse_mode
+#   Used by: telegram-system contact point
+#   Style: instance/service/duration block, action hint
+#
+# Template variable reference:
+#   .Alerts            — slice of all firing alerts in group
+#   .Status            — "firing" or "resolved"
+#   .Labels.KEY        — alert label (province, district, instance, etc.)
+#   .Annotations.value — value annotation from rule (set as $values.B)
+#   .StartsAt          — alert start time
+#   {{- ... -}}        — trim surrounding whitespace (important for Telegram)
+
 apiVersion: 1
 templates:
+  # ──────────────────────────────────────────────────────────────────
+  # Template 1: Air Quality Bot (Vietnamese, group chat)
+  # ──────────────────────────────────────────────────────────────────
   - orgId: 1
-    name: telegram_clean_format
+    name: telegram_aq_format
     template: |
-      {{ define "telegram.message" }}
-      {{ range .Alerts -}}
-      {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ if eq .Status "resolved" }}[ĐÃ KHẮC PHỤC] {{ end }}{{ if .Labels.alertname }}{{ .Labels.alertname }}{{ else }}Alert{{ end }}</b>
-      ---
-      {{- /* 1. Grafana-Managed Air Quality Alerts */ -}}
-      {{ if eq .Labels.alertname "[CHẤT LƯỢNG][NGHIÊM TRỌNG] Chỉ số AQI nguy hại (>200)" -}}
-      📍 <b>Vị trí:</b> {{ if .Labels.province }}{{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}{{ else }}Toàn quốc{{ end }}
-      📊 <b>Chỉ số AQI (US):</b> {{ .Annotations.value }}
-      ⚠️ <b>Khuyến cáo:</b> Chất lượng không khí đang ở mức nguy hại. Mọi người nên ở trong nhà và hạn chế tối đa các hoạt động ngoài trời.
-      {{- else if eq .Labels.alertname "[CHẤT LƯỢNG][CẢNH BÁO] Dữ liệu bị chậm cập nhật (>3 giờ)" -}}
-      📡 <b>Nguồn:</b> {{ .Labels.source }}
-      ⏱️ <b>Độ trễ:</b> {{ .Annotations.value }} giờ
-      Vui lòng kiểm tra lại pipeline thu thập dữ liệu (Airflow/GitHub Actions).
-      {{- else if eq .Labels.alertname "[Advisory] Trạm dữ liệu bị gián đoạn (Adopted)" -}}
-      📍 <b>Khu vực:</b> {{ if .Labels.province }}{{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}{{ else }}Toàn quốc{{ end }}
-      📡 <b>Nguồn:</b> {{ .Labels.source }}
-      ⏱️ <b>Độ trễ:</b> {{ .Annotations.value }} giờ
-      🕒 <b>Lần cuối thấy:</b> {{ .Labels.last_seen }}
-      Vui lòng kiểm tra lại kết nối của trạm hoặc script thu thập.
-      {{- else if eq .Labels.alertname "[Warning] Chỉ số AQI vượt ngưỡng 150 (Adopted)" -}}
-      📍 <b>Vị trí:</b> {{ if .Labels.province }}{{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}{{ else }}Toàn quốc{{ end }}
-      📊 <b>Chỉ số AQI (US):</b> {{ .Annotations.value }}
-      Khuyến cáo: Những người nhạy cảm nên hạn chế các hoạt động ngoài trời kéo dài.
-      {{- else if eq .Labels.alertname "[Warning] Nồng độ PM2.5 vượt ngưỡng 75 µg/m³ (Adopted)" -}}
-      📍 <b>Vị trí:</b> {{ if .Labels.province }}{{ .Labels.province }}{{ if .Labels.district }} - {{ .Labels.district }}{{ end }}{{ else }}Toàn quốc{{ end }}
-      📊 <b>Nồng độ PM2.5:</b> {{ .Annotations.value }} µg/m³
-      Khuyến cáo: Nên sử dụng khẩu trang chống bụi khi ra ngoài.
+      {{ define "telegram.aq.message" -}}
+      {{- if eq .Status "resolved" -}}
+      ✅ <b>[ĐÃ KHẮC PHỤC]</b> Chất lượng không khí đã cải thiện
 
-      {{- /* 2. Prometheus-Managed Infrastructure Alerts */ -}}
-      {{- else if eq .Labels.alertname "ClickHouseDown" -}}
-      💻 <b>[HẠ TẦNG] Database ClickHouse ngừng hoạt động</b>
-      📍 <b>Máy chủ:</b> {{ .Labels.instance }}
-      ⚠️ Vui lòng kiểm tra trạng thái container clickhouse và kết nối mạng.
-      {{- else if eq .Labels.alertname "AirflowDAGFailures" -}}
-      🚀 <b>[PIPELINE] Lỗi thực thi DAG Airflow</b>
-      📊 <b>Số lượng lỗi:</b> {{ if .Annotations.value }}{{ .Annotations.value }}{{ else }}{{ .ValueString }}{{ end }}
-      🛠️ Kiểm tra giao diện Airflow để xem log chi tiết của các DAG bị thất bại.
-      {{- else if eq .Labels.alertname "ContainerOOMKilled" -}}
-      💀 <b>[HỆ THỐNG] Container bị dừng do thiếu bộ nhớ (OOM)</b>
-      📦 <b>Dịch vụ:</b> {{ .Labels.container_label_com_docker_compose_service }}
-      ⚠️ Cần xem xét cấp thêm tài nguyên RAM cho container này.
-      {{- else if eq .Labels.alertname "ContainerRestartLoop" -}}
-      🔄 <b>[HỆ THỐNG] Container khởi động lại liên tục</b>
-      📦 <b>Dịch vụ:</b> {{ .Labels.container_label_com_docker_compose_service }}
-      🛠️ Kiểm tra `docker logs` để tìm nguyên nhân crash.
-      {{- else if eq .Labels.alertname "HostDiskSpaceLow" -}}
-      💾 <b>[HỆ THỐNG] Dung lượng ổ cứng sắp hết (<10%)</b>
-      📍 <b>Máy chủ:</b> {{ .Labels.instance }}
-      📊 <b>Trống:</b> {{ .ValueString }}
-      {{- else if eq .Labels.alertname "HostMemoryHigh" -}}
-      ⚙️ <b>[HỆ THỐNG] Sử dụng RAM ở mức cao (>90%)</b>
-      📊 <b>Trạng thái:</b> {{ .ValueString }}
-      {{- else if eq .Labels.alertname "AirflowNoRecentSuccess" -}}
-      🚀 <b>[PIPELINE] Không có dữ liệu mới thành công trong 2 giờ</b>
-      ⚠️ Kiểm tra xem Scheduler của Airflow có đang chạy bình thường không.
-
-      {{- /* 3. Generic Fallback for Unknown Alerts */ -}}
+      Khu vực đã trở về bình thường:
+      {{- range .Alerts }}
+      📍 {{ if .Labels.province }}{{ .Labels.province }}{{ else }}Toàn quốc{{ end }}
+      {{- end }}
       {{- else -}}
-      🔔 <b>[THÔNG BÁO HỆ THỐNG]</b>
-      {{ if .Annotations.summary }}📝 <b>Tóm tắt:</b> {{ .Annotations.summary }}{{ end }}
-      {{ if .Annotations.description }}📖 <b>Chi tiết:</b> {{ .Annotations.description }}{{ end }}
-      {{ if .Labels.instance }}📍 <b>Instance:</b> {{ .Labels.instance }}{{ end }}
+      {{- $first := index .Alerts 0 -}}
+      {{- if eq $first.Labels.severity "critical" }}🔴{{ else }}🟠{{ end }} <b>[CẢNH BÁO CHẤT LƯỢNG KHÔNG KHÍ]</b>
+      ──────────────────────────────
+      <pre>
+      {{- range .Alerts -}}
+      📍 {{ if .Labels.province }}{{ printf "%-20s" .Labels.province }}{{ else }}{{ printf "%-20s" "Toàn quốc" }}{{ end }}{{ if .Annotations.value }}{{ .Annotations.value }}{{ else }}N/A{{ end }}
+      {{ end -}}
+      </pre>
+      ──────────────────────────────
+      {{- if eq $first.Labels.severity "critical" }}
+      ⚠️ <b>Khuyến cáo:</b> Hạn chế tối đa ra ngoài. Ở trong nhà, đóng cửa sổ.
+      {{- else }}
+      ⚠️ <b>Khuyến cáo:</b> Người nhạy cảm nên hạn chế hoạt động ngoài trời kéo dài.
+      {{- end }}
+      {{- end }}
       {{- end }}
 
-      {{ end }}
-      {{ end }}
+  # ──────────────────────────────────────────────────────────────────
+  # Template 2: System Monitoring Bot (English, private admin chat)
+  # ──────────────────────────────────────────────────────────────────
+  - orgId: 1
+    name: telegram_sys_format
+    template: |
+      {{ define "telegram.sys.message" -}}
+      {{- if eq .Status "resolved" -}}
+      {{- range .Alerts -}}
+      ✅ <b>[RESOLVED] {{ .Labels.alertname }}</b>
+      {{- if .Labels.instance }}
+      Instance: <code>{{ .Labels.instance }}</code>
+      {{- end }}
+      {{- if .Labels.container_label_com_docker_compose_service }}
+      Service: <code>{{ .Labels.container_label_com_docker_compose_service }}</code>
+      {{- end }}
+      System back to normal.
+      {{ end -}}
+      {{- else -}}
+      {{- range .Alerts -}}
+      {{- if eq .Labels.severity "critical" }}🔴{{ else }}🟡{{ end }} <b>[{{ .Labels.severity | toUpper }}] {{ .Labels.alertname }}</b>
+      ─────────────────────────────────
+      {{- if .Labels.instance }}
+      Instance: <code>{{ .Labels.instance }}</code>
+      {{- end }}
+      {{- if .Labels.container_label_com_docker_compose_service }}
+      Service: <code>{{ .Labels.container_label_com_docker_compose_service }}</code>
+      {{- end }}
+      {{- if .Labels.mountpoint }}
+      Mountpoint: <code>{{ .Labels.mountpoint }}</code>
+      {{- end }}
+      {{- if .Annotations.value }}
+      Value: {{ .Annotations.value }}
+      {{- end }}
+      {{- if .Annotations.description }}
+      Action: {{ .Annotations.description }}
+      {{- end }}
+      {{ end -}}
+      {{- end }}
+      {{- end }}

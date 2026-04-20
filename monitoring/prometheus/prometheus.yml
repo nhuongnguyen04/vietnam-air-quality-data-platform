@@ -8,6 +8,9 @@ alerting:
         - targets:
             - 'grafana:3000'
       path_prefix: '/api/alertmanager/grafana'
+      basic_auth:
+        username: 'admin'
+        password: 'admin123456' # Updated Grafana password
 
 rule_files:
   - /etc/prometheus/rules/*.yml
