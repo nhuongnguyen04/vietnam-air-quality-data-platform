@@ -16,6 +16,7 @@ import argparse
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 
 # Add project root to path
@@ -27,6 +28,7 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, "python_jobs"))
 from common import get_data_writer
 
 logger = logging.getLogger(__name__)
+VIETNAM_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 DECAY_FACTORS = {
     21: 0.85,
@@ -95,8 +97,10 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force execution even during peak hours")
     args = parser.parse_args()
 
+    current_vn_time = datetime.now(timezone.utc).astimezone(VIETNAM_TZ)
+    current_hour = current_vn_time.hour
+
     # Peak hour check: 07:00 - 20:00 (Vietnam Time)
-    current_hour = datetime.now(timezone.utc).astimezone().hour
     if not args.force and 7 <= current_hour <= 20:
         print(f"Current hour {current_hour} is within Peak hours. Off-peak generator skipped.")
         return
@@ -109,7 +113,12 @@ def main():
     batch_id = f"offpeak_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     # Get decay factor for current hour
     decay = DECAY_FACTORS.get(current_hour, 0.5)
-    logger.info(f"Applying off-peak decay factor {decay} for hour {current_hour}")
+    logger.info(
+        "Applying off-peak decay factor %s for Vietnam hour %s (%s)",
+        decay,
+        current_hour,
+        current_vn_time.isoformat(),
+    )
     
     # In practice, we query ClickHouse for the 20h baseline
     # baseline_speeds = fetch_last_known_from_clickhouse()
@@ -150,13 +159,13 @@ def main():
             "free_flow_travel_time": 0,
             "confidence": 0.4,
             "road_closure": False,
-            "raw_payload": f"Off-peak model (Hour {current_hour}, Decay {decay})"
+            "raw_payload": f"Off-peak model (VN Hour {current_hour}, Decay {decay})"
         })
 
     writer = get_data_writer()
     if results:
         writer.write_batch("raw_tomtom_traffic", results, source="tomtom")
-        logger.info(f"Generated {len(results)} off-peak records for hour {current_hour}.")
+        logger.info(f"Generated {len(results)} off-peak records for Vietnam hour {current_hour}.")
 
 if __name__ == "__main__":
     main()
