@@ -36,7 +36,7 @@ def dag_openmetadata_curation():
     """Sync catalog curation to OpenMetadata after dbt transformation."""
 
     OM_URL = os.environ.get('OPENMETADATA_URL', 'http://openmetadata:8585/api')
-    OM_USER = os.environ.get('OM_USER', 'admin@open-metadata.org')
+    OM_USER = os.environ.get('OM_ADMIN_USER', 'admin@open-metadata.org')
     OM_PASS = os.environ.get('OM_ADMIN_PASSWORD', 'admin')
 
     @task
@@ -68,8 +68,8 @@ def dag_openmetadata_curation():
         env = os.environ.copy()
         env.update({
             'OM_URL': OM_URL,
-            'OM_USER': OM_USER,
-            'OM_PASS': OM_PASS,
+            'OM_ADMIN_USER': OM_USER,
+            'OM_ADMIN_PASSWORD': OM_PASS,
         })
 
         result = subprocess.run(
@@ -101,8 +101,8 @@ def dag_openmetadata_curation():
         env = os.environ.copy()
         env.update({
             'OM_URL': OM_URL,
-            'OM_USER': OM_USER,
-            'OM_PASS': OM_PASS,
+            'OM_ADMIN_USER': OM_USER,
+            'OM_ADMIN_PASSWORD': OM_PASS,
         })
 
         result = subprocess.run(
