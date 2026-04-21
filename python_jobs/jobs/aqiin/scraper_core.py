@@ -26,7 +26,7 @@ import httpx
 PROXY_URL = os.environ.get("PROXY_URL", "")
 API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
 # Token provided by user (valid until 2026-04-20)
-DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc3NjEyODg1NSwiZXhwIjoxNzc2NzMzNjU1fQ.SvCWKEgmBagGRy8sGMYuAYgNU_ZCKzp_BHqh7Hh6X0E"
+DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc3NjcxMTU3OSwiZXhwIjoxNzc3MzE2Mzc5fQ.P0RqVT7tdVvEjxAJUCMDxuzXX3SbsvXc7c_Ovpzj67g"
 AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN") or DEFAULT_TOKEN
 
 USER_AGENTS = [

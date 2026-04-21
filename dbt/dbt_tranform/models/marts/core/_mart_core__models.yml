@@ -2,41 +2,571 @@ version: 2
 
 models:
   - name: dim_administrative_units
-    description: "Centralized dimension table for administrative units in Vietnam."
+    description: |
+      Canonical administrative dimension for Vietnam used across all marts.
+
+      **Grain:** One row per ward_code.
+
+      **Purpose:**
+      - Standardize ward/province naming
+      - Provide regional rollups (3-region and 8-region schemes)
+      - Provide geospatial and demographic context for joins
     columns:
       - name: ward_code
+        description: Stable ward identifier used as the primary geographic key.
         tests:
           - not_null
           - unique
       - name: ward_name
+        description: Official ward name.
       - name: province
+        description: Province containing the ward.
       - name: region_3
+        description: Vietnam 3-region classification (North, Central, South).
       - name: region_8
+        description: Vietnam 8-region economic/administrative classification.
+      - name: latitude
+        description: Latitude of the ward centroid.
+      - name: longitude
+        description: Longitude of the ward centroid.
+      - name: population
+        description: Projected population for the ward.
+      - name: area_km2
+        description: Ward land area in square kilometers.
+
+  - name: fct_air_quality_summary_hourly
+    description: |
+      Source-level hourly AQI fact table before ward/province consolidation.
+
+      **Grain:** One row per (province, ward_code, datetime_hour, source).
+
+      **Purpose:**
+      - Pivot pollutant rows into hourly metric columns
+      - Preserve source-level values and source weighting
+      - Provide base input for ward/province aggregation layers
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket for the measurement.
+      - name: date
+        description: Calendar date derived from datetime_hour.
+      - name: province
+        description: Province of the ward/station.
+      - name: ward_code
+        description: Ward identifier for geographic rollups.
+      - name: region_3
+        description: 3-region classification derived from province.
+      - name: region_8
+        description: 8-region classification derived from province.
+      - name: source
+        description: Upstream source name (for example aqiin or openweather).
+      - name: source_weight
+        description: Weight used when blending multiple sources.
+      - name: final_aqi_us
+        description: Hourly AQI based on US standard for the source record.
+      - name: final_aqi_vn
+        description: Hourly AQI based on Vietnam standard for the source record.
+      - name: pm25_value
+        description: Hourly PM2.5 concentration (ug/m3).
+      - name: pm10_value
+        description: Hourly PM10 concentration (ug/m3).
+      - name: co_value
+        description: Hourly CO concentration.
+      - name: no2_value
+        description: Hourly NO2 concentration.
+      - name: so2_value
+        description: Hourly SO2 concentration.
+      - name: o3_value
+        description: Hourly O3 concentration.
+      - name: pm25_aqi
+        description: PM2.5 AQI contribution under Vietnam breakpoint logic.
+      - name: pm10_aqi
+        description: PM10 AQI contribution under Vietnam breakpoint logic.
+      - name: co_aqi
+        description: CO AQI contribution under Vietnam breakpoint logic.
+      - name: no2_aqi
+        description: NO2 AQI contribution under Vietnam breakpoint logic.
+      - name: so2_aqi
+        description: SO2 AQI contribution under Vietnam breakpoint logic.
+      - name: o3_aqi
+        description: O3 AQI contribution under Vietnam breakpoint logic.
+      - name: dominant_pollutant_us
+        description: Pollutant with highest AQI under US standard at this hour.
+      - name: dominant_pollutant_vn
+        description: Pollutant with highest AQI under Vietnam standard at this hour.
+      - name: ingest_time
+        description: Latest ingest timestamp among contributing source rows.
 
   - name: fct_air_quality_ward_level_hourly
-    description: "Standardized hourly air quality at ward level."
+    description: |
+      Harmonized ward-level hourly air quality by blending source-level records.
+
+      **Grain:** One row per (province, ward_code, datetime_hour).
+
+      **Business rules:**
+      - Weighted average using source_weight from hourly summary
+      - Main pollutant derived from highest sub-AQI among six criteria pollutants
     columns:
       - name: ward_code
+        description: Ward identifier.
         tests:
           - not_null
       - name: datetime_hour
+        description: UTC hour bucket.
         tests:
           - not_null
+      - name: date
+        description: Calendar date corresponding to datetime_hour.
+      - name: province
+        description: Province containing the ward.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: avg_aqi_us
+        description: Source-weighted ward AQI under US standard.
       - name: avg_aqi_vn
+        description: Source-weighted ward AQI under Vietnam standard.
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
               max_value: 500
+      - name: pm25_avg
+        description: Source-weighted PM2.5 concentration.
+      - name: pm10_avg
+        description: Source-weighted PM10 concentration.
+      - name: co_avg
+        description: Source-weighted CO concentration.
+      - name: no2_avg
+        description: Source-weighted NO2 concentration.
+      - name: so2_avg
+        description: Source-weighted SO2 concentration.
+      - name: o3_avg
+        description: Source-weighted O3 concentration.
+      - name: pm25_aqi
+        description: Source-weighted PM2.5 AQI component.
+      - name: pm10_aqi
+        description: Source-weighted PM10 AQI component.
+      - name: co_aqi
+        description: Source-weighted CO AQI component.
+      - name: no2_aqi
+        description: Source-weighted NO2 AQI component.
+      - name: so2_aqi
+        description: Source-weighted SO2 AQI component.
+      - name: o3_aqi
+        description: Source-weighted O3 AQI component.
+      - name: main_pollutant
+        description: Pollutant contributing the largest AQI component at this hour.
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp for the ward-hour record.
 
   - name: fct_air_quality_ward_level_daily
-    description: "Standardized daily air quality at ward level."
+    description: |
+      Ward-level daily aggregate derived from hourly ward records.
+
+      **Grain:** One row per (province, ward_code, date).
     columns:
       - name: ward_code
+        description: Ward identifier.
       - name: date
+        description: Calendar date of aggregation.
+      - name: province
+        description: Province containing the ward.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: avg_aqi_us
+        description: Mean hourly AQI (US) across the day.
+      - name: max_aqi_us
+        description: Highest hourly AQI (US) observed in the day.
+      - name: min_aqi_us
+        description: Lowest hourly AQI (US) observed in the day.
       - name: avg_aqi_vn
+        description: Mean hourly AQI (VN) across the day.
+      - name: max_aqi_vn
+        description: Highest hourly AQI (VN) observed in the day.
+      - name: min_aqi_vn
+        description: Lowest hourly AQI (VN) observed in the day.
+      - name: pm25_avg
+        description: Daily mean PM2.5 concentration.
+      - name: pm10_avg
+        description: Daily mean PM10 concentration.
+      - name: co_avg
+        description: Daily mean CO concentration.
+      - name: no2_avg
+        description: Daily mean NO2 concentration.
+      - name: so2_avg
+        description: Daily mean SO2 concentration.
+      - name: o3_avg
+        description: Daily mean O3 concentration.
+      - name: pm25_aqi
+        description: Daily mean PM2.5 AQI component.
+      - name: pm10_aqi
+        description: Daily mean PM10 AQI component.
+      - name: co_aqi
+        description: Daily mean CO AQI component.
+      - name: no2_aqi
+        description: Daily mean NO2 AQI component.
+      - name: so2_aqi
+        description: Daily mean SO2 AQI component.
+      - name: o3_aqi
+        description: Daily mean O3 AQI component.
+      - name: main_pollutant
+        description: Pollutant with highest daily AQI contribution.
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp captured for the day.
+
+  - name: fct_air_quality_ward_level_monthly
+    description: |
+      Ward-level monthly aggregate from daily ward air quality.
+
+      **Grain:** One row per (province, ward_code, month).
+    columns:
+      - name: ward_code
+        description: Ward identifier.
+      - name: month
+        description: First day of the month (month bucket).
+      - name: province
+        description: Province containing the ward.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: samples_count
+        description: Number of daily records used for monthly aggregation.
+      - name: avg_aqi_us
+        description: Monthly mean AQI (US).
+      - name: max_aqi_us
+        description: Peak daily AQI (US) within the month.
+      - name: min_aqi_us
+        description: Best daily AQI (US) within the month.
+      - name: avg_aqi_vn
+        description: Monthly mean AQI (VN).
+      - name: max_aqi_vn
+        description: Peak daily AQI (VN) within the month.
+      - name: min_aqi_vn
+        description: Best daily AQI (VN) within the month.
+      - name: pm25_avg
+        description: Monthly mean PM2.5 concentration.
+      - name: pm10_avg
+        description: Monthly mean PM10 concentration.
+      - name: co_avg
+        description: Monthly mean CO concentration.
+      - name: no2_avg
+        description: Monthly mean NO2 concentration.
+      - name: so2_avg
+        description: Monthly mean SO2 concentration.
+      - name: o3_avg
+        description: Monthly mean O3 concentration.
+      - name: pm25_aqi
+        description: Monthly mean PM2.5 AQI component.
+      - name: pm10_aqi
+        description: Monthly mean PM10 AQI component.
+      - name: co_aqi
+        description: Monthly mean CO AQI component.
+      - name: no2_aqi
+        description: Monthly mean NO2 AQI component.
+      - name: so2_aqi
+        description: Monthly mean SO2 AQI component.
+      - name: o3_aqi
+        description: Monthly mean O3 AQI component.
+      - name: main_pollutant
+        description: Most impactful pollutant for the month based on AQI components.
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp represented in the monthly row.
 
   - name: fct_air_quality_province_level_hourly
-    description: "Standardized hourly air quality at province level."
+    description: |
+      Province-level hourly aggregate rolled up from ward-level hourly records.
+
+      **Grain:** One row per (province, datetime_hour).
     columns:
       - name: province
+        description: Province name.
       - name: datetime_hour
+        description: UTC hour bucket.
+      - name: date
+        description: Calendar date derived from datetime_hour.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: avg_aqi_us
+        description: Mean ward AQI (US) within the province-hour.
+      - name: avg_aqi_vn
+        description: Mean ward AQI (VN) within the province-hour.
+      - name: pm25_avg
+        description: Mean ward PM2.5 concentration.
+      - name: pm10_avg
+        description: Mean ward PM10 concentration.
+      - name: co_avg
+        description: Mean ward CO concentration.
+      - name: no2_avg
+        description: Mean ward NO2 concentration.
+      - name: so2_avg
+        description: Mean ward SO2 concentration.
+      - name: o3_avg
+        description: Mean ward O3 concentration.
+      - name: pm25_aqi
+        description: Mean ward PM2.5 AQI component.
+      - name: pm10_aqi
+        description: Mean ward PM10 AQI component.
+      - name: co_aqi
+        description: Mean ward CO AQI component.
+      - name: no2_aqi
+        description: Mean ward NO2 AQI component.
+      - name: so2_aqi
+        description: Mean ward SO2 AQI component.
+      - name: o3_aqi
+        description: Mean ward O3 AQI component.
+      - name: main_pollutant
+        description: Pollutant with the highest province-level AQI component in the hour.
+      - name: last_ingested_at
+        description: Latest ward-level ingest timestamp included in this row.
+
+  - name: fct_air_quality_province_level_daily
+    description: |
+      Province-level daily aggregate from province hourly records.
+
+      **Grain:** One row per (province, date).
+    columns:
+      - name: province
+        description: Province name.
+      - name: date
+        description: Calendar date.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: avg_aqi_us
+        description: Mean province AQI (US) across all hours in the day.
+      - name: max_aqi_us
+        description: Highest province AQI (US) observed in the day.
+      - name: min_aqi_us
+        description: Lowest province AQI (US) observed in the day.
+      - name: avg_aqi_vn
+        description: Mean province AQI (VN) across all hours in the day.
+      - name: max_aqi_vn
+        description: Highest province AQI (VN) observed in the day.
+      - name: min_aqi_vn
+        description: Lowest province AQI (VN) observed in the day.
+      - name: pm25_avg
+        description: Daily mean PM2.5 concentration at province level.
+      - name: pm10_avg
+        description: Daily mean PM10 concentration at province level.
+      - name: co_avg
+        description: Daily mean CO concentration at province level.
+      - name: no2_avg
+        description: Daily mean NO2 concentration at province level.
+      - name: so2_avg
+        description: Daily mean SO2 concentration at province level.
+      - name: o3_avg
+        description: Daily mean O3 concentration at province level.
+      - name: pm25_aqi
+        description: Daily mean PM2.5 AQI component at province level.
+      - name: pm10_aqi
+        description: Daily mean PM10 AQI component at province level.
+      - name: co_aqi
+        description: Daily mean CO AQI component at province level.
+      - name: no2_aqi
+        description: Daily mean NO2 AQI component at province level.
+      - name: so2_aqi
+        description: Daily mean SO2 AQI component at province level.
+      - name: o3_aqi
+        description: Daily mean O3 AQI component at province level.
+      - name: main_pollutant
+        description: Pollutant with highest daily AQI component at province level.
+      - name: last_ingested_at
+        description: Latest hourly ingest timestamp represented in this day-level row.
+
+  - name: fct_air_quality_province_level_monthly
+    description: |
+      Province-level monthly aggregate from province daily records.
+
+      **Grain:** One row per (province, month).
+    columns:
+      - name: province
+        description: Province name.
+      - name: month
+        description: First day of month used as monthly key.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: samples_count
+        description: Number of daily records used for month-level aggregation.
+      - name: avg_aqi_us
+        description: Monthly mean AQI (US) at province level.
+      - name: max_aqi_us
+        description: Worst daily AQI (US) within the month.
+      - name: min_aqi_us
+        description: Best daily AQI (US) within the month.
+      - name: avg_aqi_vn
+        description: Monthly mean AQI (VN) at province level.
+      - name: max_aqi_vn
+        description: Worst daily AQI (VN) within the month.
+      - name: min_aqi_vn
+        description: Best daily AQI (VN) within the month.
+      - name: pm25_avg
+        description: Monthly mean PM2.5 concentration.
+      - name: pm10_avg
+        description: Monthly mean PM10 concentration.
+      - name: co_avg
+        description: Monthly mean CO concentration.
+      - name: no2_avg
+        description: Monthly mean NO2 concentration.
+      - name: so2_avg
+        description: Monthly mean SO2 concentration.
+      - name: o3_avg
+        description: Monthly mean O3 concentration.
+      - name: pm25_aqi
+        description: Monthly mean PM2.5 AQI component.
+      - name: pm10_aqi
+        description: Monthly mean PM10 AQI component.
+      - name: co_aqi
+        description: Monthly mean CO AQI component.
+      - name: no2_aqi
+        description: Monthly mean NO2 AQI component.
+      - name: so2_aqi
+        description: Monthly mean SO2 AQI component.
+      - name: o3_aqi
+        description: Monthly mean O3 AQI component.
+      - name: main_pollutant
+        description: Most impactful pollutant for the province-month.
+      - name: last_ingested_at
+        description: Latest daily ingest timestamp included in this row.
+
+  - name: fct_air_quality_summary_daily
+    description: |
+      Daily source-level summary from hourly source-level AQI records.
+
+      **Grain:** One row per (province, ward_code, date, source).
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: source
+        description: Upstream source for the daily aggregate.
+      - name: daily_avg_aqi_us
+        description: Mean hourly AQI (US) for this source/day.
+      - name: daily_avg_aqi_vn
+        description: Mean hourly AQI (VN) for this source/day.
+      - name: daily_max_aqi_us
+        description: Maximum hourly AQI (US) for this source/day.
+      - name: daily_max_aqi_vn
+        description: Maximum hourly AQI (VN) for this source/day.
+      - name: pm25_daily_avg
+        description: Mean hourly PM2.5 concentration for the day.
+      - name: pm10_daily_avg
+        description: Mean hourly PM10 concentration for the day.
+      - name: co_daily_avg
+        description: Mean hourly CO concentration for the day.
+      - name: no2_daily_avg
+        description: Mean hourly NO2 concentration for the day.
+      - name: so2_daily_avg
+        description: Mean hourly SO2 concentration for the day.
+      - name: o3_daily_avg
+        description: Mean hourly O3 concentration for the day.
+      - name: pm25_daily_aqi
+        description: Mean hourly PM2.5 AQI component for the day.
+      - name: pm10_daily_aqi
+        description: Mean hourly PM10 AQI component for the day.
+      - name: co_daily_aqi
+        description: Mean hourly CO AQI component for the day.
+      - name: no2_daily_aqi
+        description: Mean hourly NO2 AQI component for the day.
+      - name: so2_daily_aqi
+        description: Mean hourly SO2 AQI component for the day.
+      - name: o3_daily_aqi
+        description: Mean hourly O3 AQI component for the day.
+      - name: pm25_daily_max
+        description: Maximum hourly PM2.5 concentration in the day.
+      - name: pm10_daily_max
+        description: Maximum hourly PM10 concentration in the day.
+      - name: dominant_pollutant_us
+        description: Pollutant linked to the highest US AQI observation in the day.
+      - name: dominant_pollutant_vn
+        description: Pollutant linked to the highest Vietnam AQI observation in the day.
+      - name: hourly_count
+        description: Number of hourly records included in the day-level aggregate.
+
+  - name: fct_air_quality_summary_monthly
+    description: |
+      Monthly source-level summary from daily source-level AQI records.
+
+      **Grain:** One row per (province, ward_code, month, source).
+    columns:
+      - name: month
+        description: First day of month used as monthly key.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: source
+        description: Upstream source for monthly aggregate.
+      - name: monthly_avg_aqi_us
+        description: Mean of daily average AQI (US) during the month.
+      - name: monthly_avg_aqi_vn
+        description: Mean of daily average AQI (VN) during the month.
+      - name: monthly_max_aqi_us
+        description: Maximum daily AQI (US) observed in the month.
+      - name: monthly_min_aqi_us
+        description: Minimum daily average AQI (US) observed in the month.
+      - name: pm25_monthly_avg
+        description: Monthly average of daily PM2.5 concentration.
+      - name: pm10_monthly_avg
+        description: Monthly average of daily PM10 concentration.
+      - name: co_monthly_avg
+        description: Monthly average of daily CO concentration.
+      - name: no2_monthly_avg
+        description: Monthly average of daily NO2 concentration.
+      - name: so2_monthly_avg
+        description: Monthly average of daily SO2 concentration.
+      - name: o3_monthly_avg
+        description: Monthly average of daily O3 concentration.
+      - name: dominant_pollutant_vn
+        description: Most frequent dominant pollutant (VN) in the month.
+
+  - name: fct_other_measurements_hourly
+    description: |
+      Hourly pollutant/weather measurements that are not part of the six AQI criteria pollutants.
+
+      **Grain:** One row per (province, ward_code, datetime_hour, parameter).
+
+      **Purpose:**
+      - Preserve secondary parameters for analysis without inflating AQI fact tables
+      - Support exploratory weather and non-criteria pollutant analysis
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: parameter
+        description: Non-core parameter code (for example temp, hum, no, nh3).
+      - name: value
+        description: Measured value for the parameter.
+      - name: source
+        description: Data source for the measurement.
+      - name: quality_flag
+        description: Quality status from ingestion pipeline.
+      - name: ingest_time
+        description: Upstream ingest timestamp.
