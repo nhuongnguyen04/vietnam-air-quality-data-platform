@@ -26,7 +26,7 @@ default_args = {
     default_args=default_args,
     description='OpenMetadata catalog curation — owners, tags, descriptions, glossary',
     schedule='35 * * * *',
-    start_date=datetime.now() - timedelta(days=1),
+    start_date=datetime(2026, 4, 1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=4,
@@ -36,8 +36,10 @@ def dag_openmetadata_curation():
     """Sync catalog curation to OpenMetadata after dbt transformation."""
 
     OM_URL = os.environ.get('OPENMETADATA_URL', 'http://openmetadata:8585/api')
-    OM_USER = os.environ.get('OM_ADMIN_USER', 'admin@open-metadata.org')
-    OM_PASS = os.environ.get('OM_ADMIN_PASSWORD', 'admin')
+    OM_USER = os.environ.get('OM_ADMIN_USER')
+    OM_PASS = os.environ.get('OM_ADMIN_PASSWORD')
+    if not OM_USER or not OM_PASS:
+        raise RuntimeError("OM_ADMIN_USER and OM_ADMIN_PASSWORD must be set")
 
     @task
     def check_openmetadata_health():

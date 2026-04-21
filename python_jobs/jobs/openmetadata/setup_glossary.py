@@ -19,8 +19,10 @@ OM_URL = os.environ.get(
 ).rstrip('/')
 if not OM_URL.endswith('/api'):
     OM_URL += '/api'
-OM_USER = os.environ.get("OM_ADMIN_USER", "admin@open-metadata.org")
-OM_PASS = os.environ.get("OM_ADMIN_PASSWORD", "admin")
+OM_USER = os.environ.get("OM_ADMIN_USER")
+OM_PASS = os.environ.get("OM_ADMIN_PASSWORD")
+if not OM_USER or not OM_PASS:
+    raise RuntimeError("OM_ADMIN_USER and OM_ADMIN_PASSWORD must be set")
 
 _token_cache: list[str] = []
 
@@ -197,7 +199,7 @@ def create_terms(glossary_id: str):
             "name": term["name"],
             "displayName": term["displayName"],
             "description": term["description"],
-            "glossary": GLOSSARY_NAME,
+            "glossary": {"id": glossary_id, "type": "glossary"},
             "mutuallyExclusive": False,
         }
         term_resp = requests.post(

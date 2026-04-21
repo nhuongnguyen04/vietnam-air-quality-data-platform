@@ -6,6 +6,7 @@ This will create multiple Dashboards (one for each Streamlit Page) to correctly 
 import os
 import requests
 import base64
+from urllib.parse import quote
 
 OM_URL = os.environ.get(
     "OPENMETADATA_URL",
@@ -13,8 +14,10 @@ OM_URL = os.environ.get(
 ).rstrip('/')
 if not OM_URL.endswith('/api'):
     OM_URL += '/api'
-OM_USER = os.environ.get("OM_ADMIN_USER", "admin@open-metadata.org")
-OM_PASS = os.environ.get("OM_ADMIN_PASSWORD", "admin")
+OM_USER = os.environ.get("OM_ADMIN_USER")
+OM_PASS = os.environ.get("OM_ADMIN_PASSWORD")
+if not OM_USER or not OM_PASS:
+    raise RuntimeError("OM_ADMIN_USER and OM_ADMIN_PASSWORD must be set")
 
 def om_login() -> str:
     """Login to OM and return JWT access token."""
@@ -30,7 +33,7 @@ def om_login() -> str:
 
 def get_entity_id(entity_type: str, fqn: str, token: str) -> str:
     headers = {"Authorization": f"Bearer {token}"}
-    url = f"{OM_URL}/v1/{entity_type}/name/{fqn.replace(' ', '%20')}"
+    url = f"{OM_URL}/v1/{entity_type}/name/{quote(fqn, safe='')}"
     resp = requests.get(url, headers=headers, timeout=15)
     if resp.ok:
         return resp.json()["id"]
@@ -152,7 +155,12 @@ def create_streamlit_resources():
             }
         }
     }
-    resp = requests.put(f"{OM_URL}/v1/services/dashboardServices", json=service_payload, headers=headers)
+    resp = requests.put(
+        f"{OM_URL}/v1/services/dashboardServices",
+        json=service_payload,
+        headers=headers,
+        timeout=30,
+    )
     if not resp.ok:
         print(f"Failed to create service: {resp.text}")
         return
@@ -168,7 +176,12 @@ def create_streamlit_resources():
             "service": "Streamlit_App",
             "sourceUrl": page["url"]
         }
-        resp = requests.put(f"{OM_URL}/v1/dashboards", json=dashboard_payload, headers=headers)
+        resp = requests.put(
+            f"{OM_URL}/v1/dashboards",
+            json=dashboard_payload,
+            headers=headers,
+            timeout=30,
+        )
         if not resp.ok:
             print(f"   ❌ Failed to create dashboard {page['name']}: {resp.text}")
             continue
@@ -191,7 +204,12 @@ def create_streamlit_resources():
                     "toEntity": {"id": dashboard_id, "type": "dashboard"}
                 }
             }
-            res = requests.put(f"{OM_URL}/v1/lineage", json=lineage_payload, headers=headers)
+            res = requests.put(
+                f"{OM_URL}/v1/lineage",
+                json=lineage_payload,
+                headers=headers,
+                timeout=30,
+            )
             if res.ok:
                 table_short = table_fqn.split(".")[-1]
                 print(f"   ✅ Lineage added: {table_short} -> {page['displayName']}")
@@ -202,7 +220,11 @@ def create_streamlit_resources():
     print("\nCleaning up old main_dashboard if present...")
     old_db_id = get_entity_id("dashboards", "Streamlit_App.main_dashboard", token)
     if old_db_id:
-        requests.delete(f"{OM_URL}/v1/dashboards/{old_db_id}?hardDelete=true", headers=headers)
+        requests.delete(
+            f"{OM_URL}/v1/dashboards/{old_db_id}?hardDelete=true",
+            headers=headers,
+            timeout=30,
+        )
         print("   ✅ Deleted old monolithic dashboard.")
 
     print("\nDone! Streamlit dashboards and specific granular lineage are now available in OpenMetadata.")
