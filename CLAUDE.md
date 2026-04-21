@@ -352,7 +352,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | **openmetadata** | **8585** | **OM catalog UI + API (Phase 4)** |
 | **om-ingestion** | **8080** | **OM ingestion pipeline runner (Phase 4)** |
 | elasticsearch | 9200 (internal) | OM search backend (Phase 4) |
-| cadvisor | 8088 (external) | Container metrics |
+| docker-stats-exporter | 9888 (external) | Container metrics |
 ### Network
 - All services on `air-quality-network`
 - Services reference each other by container name

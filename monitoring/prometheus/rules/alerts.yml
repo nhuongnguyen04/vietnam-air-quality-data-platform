@@ -25,7 +25,7 @@ groups:
           summary: "ClickHouse Unreachable"
           description: "Check container logs → docker logs clickhouse"
 
-      # ── Container health (cAdvisor) ────────────────────────────────
+      # ── Container health (Docker stats exporter) ───────────────────
       - alert: sys-container-restart
         expr: changes(docker_container_start_time_seconds{service!=""}[5m]) > 3
         for: 1m
@@ -37,9 +37,6 @@ groups:
           description: "Check logs → docker logs {{ $labels.service }}"
 
       - alert: sys-container-oom
-        # container_oom_events_total is emitted by cAdvisor when a container is OOM-killed.
-        # Fallback: if this metric doesn't exist in your cAdvisor version, the rule will
-        # produce no data (noDataState=OK). Verify with: curl localhost:8088/metrics | grep oom
         expr: docker_container_oom_killed{service!=""} > 0
         for: 0m
         labels:

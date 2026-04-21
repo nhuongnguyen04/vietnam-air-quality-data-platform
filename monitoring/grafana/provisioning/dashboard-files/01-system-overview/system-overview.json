@@ -302,7 +302,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(up{job=~\"prometheus|node-exporter|cadvisor|postgres-exporter|clickhouse\"})",
+          "expr": "sum(up{job=~\"prometheus|node-exporter|docker-stats-exporter|postgres-exporter|clickhouse\"})",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -668,7 +668,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "up{job=~\"prometheus|node-exporter|cadvisor|postgres-exporter|clickhouse\"}",
+          "expr": "up{job=~\"prometheus|node-exporter|docker-stats-exporter|postgres-exporter|clickhouse\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "{{ job }} {{ instance }}",

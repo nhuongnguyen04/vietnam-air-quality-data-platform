@@ -2,6 +2,7 @@
 .planning/
 .claude/
 .agents/
+.codex/
 
 # General
 venv/

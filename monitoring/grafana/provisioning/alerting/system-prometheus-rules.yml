@@ -59,10 +59,10 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: increase(container_restart_count{name!=""}[5m])
+              expr: changes(docker_container_start_time_seconds{service!=""}[5m])
               instant: true
               intervalMs: 1000
-              legendFormat: "{{name}}"
+              legendFormat: "{{service}}"
               maxDataPoints: 300
               range: false
               refId: A
@@ -85,7 +85,7 @@ groups:
         annotations:
           summary: "Container Restart Loop"
           value: "{{ $values.B.Value | printf \"%.0f\" }}"
-          description: "Check logs -> docker logs {{ $labels.name }}"
+          description: "Check logs -> docker logs {{ $labels.service }}"
         labels:
           severity: critical
           channel: system
@@ -102,10 +102,10 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: increase(container_oom_events_total{name!=""}[5m])
+              expr: docker_container_oom_killed{service!=""}
               instant: true
               intervalMs: 1000
-              legendFormat: "{{name}}"
+              legendFormat: "{{service}}"
               maxDataPoints: 300
               range: false
               refId: A

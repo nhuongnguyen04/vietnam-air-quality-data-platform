@@ -30,7 +30,7 @@ All services run via Docker Compose on the `air-quality-network` network.
 | Grafana | 3000 | Operational monitoring + alerting |
 | Prometheus | 9090 | Metrics collection |
 | Node Exporter | 9100 | Host-level metrics |
-| cAdvisor | 8088 | Container metrics |
+| Docker Stats Exporter | 9888 | Container metrics |
 | PostgreSQL Exporter | 9187 | PostgreSQL metrics for Prometheus |
 
 ## Hardware Requirements
@@ -55,8 +55,8 @@ All services run via Docker Compose on the `air-quality-network` network.
 | Prometheus | 512MB | 0.25 |
 | PostgreSQL Exporter | 256MB | 0.25 |
 | Node Exporter | 128MB | 0.25 |
-| cAdvisor | 256MB | 0.25 |
-| **Total** | **~7.5GB** | **~7** |
+| Docker Stats Exporter | 128MB | 0.25 |
+| **Total** | **~7.4GB** | **~7** |
 
 
 ---
