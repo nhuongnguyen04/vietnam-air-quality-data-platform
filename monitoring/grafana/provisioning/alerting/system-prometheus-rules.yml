@@ -1,0 +1,346 @@
+apiVersion: 1
+
+groups:
+  - name: system-prometheus-alerts
+    folder: System Alerts
+    interval: 1m
+    rules:
+      - uid: sys-clickhouse-down-prom
+        title: "ClickHouse Unreachable"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: up{job="clickhouse"}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [1], type: lt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          summary: "ClickHouse Unreachable"
+          value: "{{ $values.B.Value | printf \"%.0f\" }}"
+          description: "Check container logs -> docker logs clickhouse"
+        labels:
+          severity: critical
+          channel: system
+
+      - uid: sys-container-restart-prom
+        title: "Container Restart Loop"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: increase(container_restart_count{name!=""}[5m])
+              instant: true
+              intervalMs: 1000
+              legendFormat: "{{name}}"
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [3], type: gt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 1m
+        annotations:
+          summary: "Container Restart Loop"
+          value: "{{ $values.B.Value | printf \"%.0f\" }}"
+          description: "Check logs -> docker logs {{ $labels.name }}"
+        labels:
+          severity: critical
+          channel: system
+
+      - uid: sys-container-oom-prom
+        title: "Container OOM Killed"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: increase(container_oom_events_total{name!=""}[5m])
+              instant: true
+              intervalMs: 1000
+              legendFormat: "{{name}}"
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [0], type: gt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 0m
+        annotations:
+          summary: "Container OOM Killed"
+          value: "{{ $values.B.Value | printf \"%.0f\" }}"
+          description: "Increase memory limit -> update docker-compose.yml mem_limit"
+        labels:
+          severity: critical
+          channel: system
+
+      - uid: sys-disk-warning-prom
+        title: "Disk Space Warning"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} / 1000000000
+              instant: true
+              intervalMs: 1000
+              legendFormat: "{{mountpoint}}"
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [20], type: lt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "Disk Space Warning on {{ $labels.mountpoint }}"
+          value: "{{ $values.B.Value | printf \"%.2f GB free\" }}"
+          description: "{{ $labels.mountpoint }} has < 20GB free. Run: du -sh /path/* to find large dirs."
+        labels:
+          severity: warning
+          channel: system
+
+      - uid: sys-disk-critical-prom
+        title: "Disk Space Critical"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} / 1000000000
+              instant: true
+              intervalMs: 1000
+              legendFormat: "{{mountpoint}}"
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [5], type: lt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 1m
+        annotations:
+          summary: "CRITICAL: Disk Space on {{ $labels.mountpoint }}"
+          value: "{{ $values.B.Value | printf \"%.2f GB free\" }}"
+          description: "{{ $labels.mountpoint }} has < 5GB free. Move data or increase disk IMMEDIATELY."
+        labels:
+          severity: critical
+          channel: system
+
+      - uid: sys-memory-high-prom
+        title: "Host Memory >90% Used"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [90], type: gt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "Host Memory >90% Used"
+          value: "{{ $values.B.Value | printf \"%.1f%%\" }}"
+          description: "Check docker stats for high-memory containers."
+        labels:
+          severity: warning
+          channel: system
+
+      - uid: sys-dag-failures-prom
+        title: "Airflow DAG Failures in Last 30m"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: sum(increase(airflow_dag_run_count{state="failed"}[30m]))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [0], type: gt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "Airflow DAG Failures in Last 30m"
+          value: "{{ $values.B.Value | printf \"%.0f\" }}"
+          description: "Check Airflow UI at http://localhost:8090 for failed DAGs."
+        labels:
+          severity: critical
+          channel: system
+
+      - uid: sys-no-recent-success-prom
+        title: "No Successful DAG Run in >2 Hours"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: time() - airflow_dag_run_count_seconds_ago{state="success"}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 300
+              range: false
+              refId: A
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [7200], type: gt }
+        noDataState: OK
+        execErrState: Alerting
+        for: 10m
+        annotations:
+          summary: "No Successful DAG Run in >2 Hours"
+          value: "{{ $values.B.Value | printf \"%.0f seconds\" }}"
+          description: "Check if Airflow scheduler is running: docker logs airflow-scheduler1"
+        labels:
+          severity: warning
+          channel: system

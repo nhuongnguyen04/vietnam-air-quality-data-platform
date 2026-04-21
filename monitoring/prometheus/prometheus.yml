@@ -2,15 +2,10 @@ global:
   scrape_interval: 30s
   evaluation_interval: 30s
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets:
-            - 'grafana:3000'
-      path_prefix: '/api/alertmanager/grafana'
-      basic_auth:
-        username: 'admin'
-        password: 'admin123456' # Updated Grafana password
+# Notifications are handled by Grafana-managed alert rules.
+# Do not forward Prometheus alerts to Grafana's built-in Alertmanager:
+# Grafana Alertmanager does not accept Prometheus's alert POST payload here,
+# which causes repeated 400 responses and prevents notification delivery.
 
 rule_files:
   - /etc/prometheus/rules/*.yml
