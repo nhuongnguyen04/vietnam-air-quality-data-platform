@@ -30,4 +30,3 @@ contactPoints:
           bottoken: ${TELEGRAM_SYS_BOT_TOKEN}
           chatid: "5602934306"
           message: '{{ template "telegram.sys.message" . }}'
-          parse_mode: 'HTML'

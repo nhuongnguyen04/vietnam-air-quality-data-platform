@@ -28,5 +28,11 @@ policies:
       - receiver: telegram-system
         matchers:
           - channel = system
+        group_by:
+          - alertname
+          - instance
+          - mountpoint
+          - name
+          - source
         repeat_interval: 30m
         continue: false

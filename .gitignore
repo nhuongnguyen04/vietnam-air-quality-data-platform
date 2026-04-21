@@ -25,6 +25,9 @@ airflow/*.pid
 .env
 credentials.json
 *.json
+!monitoring/grafana/provisioning/dashboard-files/
+!monitoring/grafana/provisioning/dashboard-files/*/
+!monitoring/grafana/provisioning/dashboard-files/*/*.json
 
 # NiFi
 nifi/*.log

@@ -60,27 +60,29 @@ templates:
       {{ define "telegram.sys.message" -}}
       {{- if eq .Status "resolved" -}}
       {{- range .Alerts -}}
-      ✅ <b>[RESOLVED] {{ .Labels.alertname }}</b>
+      RESOLVED: {{ .Labels.alertname }}
       {{- if .Labels.instance }}
-      Instance: <code>{{ .Labels.instance }}</code>
+      Instance: {{ .Labels.instance }}
       {{- end }}
-      {{- if .Labels.container_label_com_docker_compose_service }}
-      Service: <code>{{ .Labels.container_label_com_docker_compose_service }}</code>
+      {{- if .Labels.name }}
+      Target: {{ .Labels.name }}
       {{- end }}
-      System back to normal.
+      Status: back to normal
       {{ end -}}
       {{- else -}}
       {{- range .Alerts -}}
-      {{- if eq .Labels.severity "critical" }}🔴{{ else }}🟡{{ end }} <b>[{{ .Labels.severity | toUpper }}] {{ .Labels.alertname }}</b>
-      ─────────────────────────────────
+      {{- if eq .Labels.severity "critical" }}CRITICAL{{ else }}WARNING{{ end }}: {{ .Labels.alertname }}
       {{- if .Labels.instance }}
-      Instance: <code>{{ .Labels.instance }}</code>
+      Instance: {{ .Labels.instance }}
       {{- end }}
-      {{- if .Labels.container_label_com_docker_compose_service }}
-      Service: <code>{{ .Labels.container_label_com_docker_compose_service }}</code>
+      {{- if .Labels.name }}
+      Target: {{ .Labels.name }}
       {{- end }}
       {{- if .Labels.mountpoint }}
-      Mountpoint: <code>{{ .Labels.mountpoint }}</code>
+      Mountpoint: {{ .Labels.mountpoint }}
+      {{- end }}
+      {{- if .Labels.source }}
+      Source: {{ .Labels.source }}
       {{- end }}
       {{- if .Annotations.value }}
       Value: {{ .Annotations.value }}

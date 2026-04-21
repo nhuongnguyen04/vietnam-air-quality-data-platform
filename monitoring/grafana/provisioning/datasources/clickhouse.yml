@@ -13,7 +13,7 @@ datasources:
     url: http://clickhouse:8123
     database: air_quality
     editable: false
-    isDefault: true
+    isDefault: false
     jsonData:
       host: clickhouse
       port: 8123

@@ -528,16 +528,21 @@ services:
     networks:
     - air-quality-network
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: cadvisor
     restart: unless-stopped
+    privileged: true
     command:
     - '--housekeeping_interval=30s'
     - '--docker_only=true'
     - '--disable_metrics=percpu,sched,tcp,udp'
+    devices:
+    - /dev/kmsg:/dev/kmsg
     volumes:
     - /:/rootfs:ro
     - /var/run:/var/run:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /sys/fs/cgroup:/sys/fs/cgroup:ro
     - /sys:/sys:ro
     - /var/lib/docker/:/var/lib/docker:ro
     - /dev/disk/:/dev/disk:ro
@@ -545,6 +550,31 @@ services:
     - 8088:8080
     mem_limit: 512m
     cpus: '0.5'
+    networks:
+    - air-quality-network
+  docker-stats-exporter:
+    build:
+      context: ./monitoring/docker-stats-exporter
+      dockerfile: Dockerfile
+    image: local/docker-stats-exporter:latest
+    container_name: docker-stats-exporter
+    restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+    - 9888:9888
+    mem_limit: 128m
+    cpus: '0.25'
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://localhost:9888/healthz
+      interval: 30s
+      timeout: 5s
+      retries: 5
     networks:
     - air-quality-network
   postgres-exporter:

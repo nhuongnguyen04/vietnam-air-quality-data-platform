@@ -2,9 +2,9 @@
 # Dashboards located at: /etc/grafana/dashboards (mapped from grafana/provisioning/dashboard-files/)
 apiVersion: 1
 providers:
-  - name: 'Air Quality Dashboards'
+  - name: 'System Monitoring Dashboards'
     orgId: 1
-    folder: 'Air Quality'
+    folder: ''
     folderUid: ''
     type: file
     disableDeletion: false

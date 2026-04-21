@@ -27,26 +27,26 @@ groups:
 
       # ── Container health (cAdvisor) ────────────────────────────────
       - alert: sys-container-restart
-        expr: increase(container_restart_count{name!=""}[5m]) > 3
+        expr: changes(docker_container_start_time_seconds{service!=""}[5m]) > 3
         for: 1m
         labels:
           severity: critical
           channel: system
         annotations:
-          summary: "Container Restart Loop: {{ $labels.name }}"
-          description: "Check logs → docker logs {{ $labels.name }}"
+          summary: "Container Restart Loop: {{ $labels.service }}"
+          description: "Check logs → docker logs {{ $labels.service }}"
 
       - alert: sys-container-oom
         # container_oom_events_total is emitted by cAdvisor when a container is OOM-killed.
         # Fallback: if this metric doesn't exist in your cAdvisor version, the rule will
         # produce no data (noDataState=OK). Verify with: curl localhost:8088/metrics | grep oom
-        expr: increase(container_oom_events_total{name!=""}[5m]) > 0
+        expr: docker_container_oom_killed{service!=""} > 0
         for: 0m
         labels:
           severity: critical
           channel: system
         annotations:
-          summary: "Container OOM Killed: {{ $labels.name }}"
+          summary: "Container OOM Killed: {{ $labels.service }}"
           description: "Increase memory limit → update docker-compose.yml mem_limit"
 
       # ── Resource exhaustion ─────────────────────────────────────────
