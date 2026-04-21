@@ -1,0 +1,18 @@
+source:
+  type: dbt
+  serviceName: Vietnam Air Quality dbt
+  sourceConfig:
+    config:
+      dbtManifestFilePath: /opt/dbt-artifacts/manifest.json
+      dbtCatalogFilePath: /opt/dbt-artifacts/catalog.json
+      dbtRunResultsFilePath: /opt/dbt-artifacts/run_results.json
+      dbtRunMode: file
+      includeTags: true
+      markDeletedTables: true
+      forceUpdate: true
+      dbtClassification: enabled
+sink:
+  type: metadata-rest
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata:8585/api

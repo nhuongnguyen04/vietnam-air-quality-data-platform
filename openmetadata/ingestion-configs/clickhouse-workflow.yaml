@@ -1,0 +1,18 @@
+source:
+  type: ClickHouse
+  serviceName: Vietnam Air Quality ClickHouse
+  sourceConfig:
+    config:
+      markDeletedTables: false
+      includeDatabases:
+        - air_quality
+      excludeDataNames:
+        - system
+        - _tmp
+        - _bytes
+      threads: 4
+sink:
+  type: metadata-rest
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata:8585/api
