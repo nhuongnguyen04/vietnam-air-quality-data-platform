@@ -58,7 +58,8 @@ GLOSSARY_DEFINITIONS = [
             "worse air quality. Categories: Good (0–50), Moderate (51–100), "
             "Unhealthy for Sensitive Groups (101–150), Unhealthy (151–200), "
             "Very Unhealthy (201–300), Hazardous (301–500). "
-            "Based on US EPA standard. Used in fct_hourly_aqi, mart_air_quality__dashboard."
+            "Based on US EPA standard. Used in fct_air_quality_summary_hourly and "
+            "dm_aqi_current_status."
         ),
     },
     {

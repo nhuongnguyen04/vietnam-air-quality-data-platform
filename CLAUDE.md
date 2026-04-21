@@ -52,7 +52,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - Explicitly adds `apache-airflow-providers-http`, `apache-airflow-providers-sqlite`, `apache-airflow-providers-postgres` at build time
 - Copies `dbt/dbt_tranform` into `/opt/dbt/dbt_tranform`
 ### Python Jobs (`python_jobs/`)
-| `dashboard` | `app.py` | Streamlit analytics dashboard (Phase 3.2); connects to ClickHouse, renders 5 pages: Overview, Pollutants, Source Comparison, Forecast, Alerts |
+| `dashboard` | `app.py` | Streamlit analytics dashboard (Phase 3.2); connects to ClickHouse, renders 9 pages: Overview, Pollutants, Source Comparison, Historical Trend, Alerts, Traffic Impact, Health Risk, Status, Weather Impact |
 | Module | File | Purpose |
 |--------|------|---------|
 | `common` | `clickhouse_writer.py` | `ClickHouseWriter` — batch insert writer via HTTP interface; `create_clickhouse_writer()` factory |

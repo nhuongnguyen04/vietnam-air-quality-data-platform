@@ -79,8 +79,12 @@ docker compose up -d dashboard
 | Overview | AQI trends, city comparison, current AQI metrics |
 | Pollutants | PM2.5/PM10/O3/NO2 analysis, exceedance rates |
 | Source Comparison | AQICN vs Sensors.Community vs OpenWeather comparison |
-| Forecast | Forecast vs actual AQI, accuracy metrics |
-| Alerts | Recent AQI alerts, frequency timeline |
+| Historical Trend | Historical AQI trend analysis from measured data |
+| Alerts | AQI threshold alerts and incident timeline |
+| Traffic Impact | Traffic congestion correlation with AQI |
+| Health Risk | Regional health risk ranking and population exposure |
+| Status | Data pipeline and dataset health status |
+| Weather Impact | Weather correlation with AQI dynamics |
 
 ## Grafana Operational Dashboards (Phase 3.3)
 
@@ -152,6 +156,10 @@ OpenMetadata 1.12.4 cung cấp data catalog, dbt lineage graph, và data quality
 | ClickHouse (air_quality) | OM ClickHouse connector | Hourly |
 | dbt lineage | OM dbt connector | Hourly |
 | Airflow DAGs | OM Airflow connector | Manual |
+
+### Workflow YAMLs (checked in)
+- `openmetadata/ingestion-configs/clickhouse-workflow.yaml`
+- `openmetadata/ingestion-configs/dbt-workflow.yaml`
 
 ### Key Catalog Entities
 - **Databases:** `air_quality` (ClickHouse)

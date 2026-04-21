@@ -13,7 +13,7 @@ OpenMetadata 1.12.4 cung cấp centralized data catalog cho Vietnam Air Quality 
 | Raw | raw_aqiin_*, raw_openweather_*, raw_tomtom_* | Tier3 |
 | Staging | stg_aqiin__*, stg_openweather__*, stg_tomtom__* | Tier3 |
 | Intermediate | int_* | Tier2 |
-| Mart | fct_*, dim_*, mart_air_quality__*, dm_aqi_weather_traffic_unified | Tier1/Tier2 |
+| Mart | fct_*, dim_*, dm_* (e.g. dm_aqi_current_status, dm_air_quality_overview_daily, dm_platform_data_health) | Tier1/Tier2 |
 
 ### Tags
 
@@ -29,9 +29,14 @@ OpenMetadata 1.12.4 cung cấp centralized data catalog cho Vietnam Air Quality 
 | `Data.Alerts` | Alert/event tables |
 | `Data.Dashboard` | Dashboard-ready tables |
 | `Data.Infrastructure` | Infrastructure & Landing Zone metadata |
-| `Tier.Tier1` | Mission-critical (dm_aqi_weather_traffic_unified, fct_hourly_aqi) |
+| `Tier.Tier1` | Mission-critical (fct_aqi_weather_traffic_unified, fct_air_quality_summary_hourly, dm_aqi_current_status) |
 | `Tier.Tier2` | Analytical (dim_*, fct_traffic_pollution_correlation_daily) |
 | `Tier.Tier3` | Raw/staging & Landing Zone CSVs |
+
+### Ingestion Workflow Configs
+
+- `openmetadata/ingestion-configs/clickhouse-workflow.yaml`
+- `openmetadata/ingestion-configs/dbt-workflow.yaml`
 
 ### Glossary
 
