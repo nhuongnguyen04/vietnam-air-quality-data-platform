@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-TomTom Unified Ingestion Job V2 - Priority + Spatial Interpolation.
+TomTom Unified Ingestion Job - Priority + Spatial Interpolation.
 
 This script implements:
 1. Tiered Ingestion: Ingests top 600 points (stations + high-pop wards) hourly.
 2. Spatial Interpolation: Fills the remaining 2700 wards using IDW (k=10) + OSM Proxy.
-3. Database: Writes to raw_tomtom_traffic_v2 with metadata.
+3. Database: Writes to raw_tomtom_traffic with metadata.
 
 Author: Air Quality Data Platform
 """
@@ -195,7 +195,7 @@ def interpolate_tier_2(all_wards, tier_1_results, batch_id):
     return tier_2_records
 
 def main():
-    parser = argparse.ArgumentParser(description="TomTom High-Resolution Ingestion V2")
+    parser = argparse.ArgumentParser(description="TomTom High-Resolution Ingestion")
     parser.add_argument("--limit-tier1", type=int, default=600)
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--log-level", default="INFO")
@@ -231,13 +231,13 @@ def main():
     )
     
     writer = get_data_writer()
-    batch_id = f"tomtom_v2_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+    batch_id = f"tomtom_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     
     # 1. Load Wards and Select Tier 1
     all_wards = load_enriched_wards()
     tier_1 = select_tier_1(all_wards, limit=args.limit_tier1)
     
-    logger.info(f"Starting V2 Tier 1 ingestion for {len(tier_1)} points.")
+    logger.info(f"Starting Tier 1 ingestion for {len(tier_1)} points.")
     
     # 2. Phase 1: API Ingestion
     tier_1_results = []
@@ -259,12 +259,12 @@ def main():
     # 4. Final Write
     total_records = tier_1_results + tier_2_results
     if total_records:
-        writer.write_batch("raw_tomtom_traffic_v2", total_records, source="tomtom")
+        writer.write_batch("raw_tomtom_traffic", total_records, source="tomtom")
         logger.info(f"Wrote {len(total_records)} traffic records to ClickHouse.")
-        update_control(source="tomtom_v2", records_ingested=len(total_records), success=True)
+        update_control(source="tomtom", records_ingested=len(total_records), success=True)
     else:
         logger.error("No traffic records gathered.")
-        update_control(source="tomtom_v2", records_ingested=0, success=False, error_message="No records")
+        update_control(source="tomtom", records_ingested=0, success=False, error_message="No records")
 
 if __name__ == "__main__":
     main()

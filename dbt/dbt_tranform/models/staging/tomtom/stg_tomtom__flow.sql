@@ -21,7 +21,7 @@ WITH raw_data AS (
         free_flow_speed,
         confidence,
         ingest_time
-    FROM {{ source('tomtom', 'raw_tomtom_traffic_v2') }}
+    FROM {{ source('tomtom', 'raw_tomtom_traffic') }}
 ),
 
 calculated_ratios AS (

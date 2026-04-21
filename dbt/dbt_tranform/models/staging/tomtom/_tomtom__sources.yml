@@ -78,29 +78,66 @@ sources:
             description: |
               Timestamp when this hourly aggregation was computed and written.
               Used for freshness monitoring and deduplication.
-      - name: raw_tomtom_traffic_v2
+      - name: raw_tomtom_traffic
         description: |
-          New ward-centric traffic flow data from TomTom.
-          Includes high-precision coordinates and road-specific metrics.
+          Ward-centric traffic flow data from TomTom.
+
+          **Grain:** One row per (ward_code, timestamp_utc, traffic_source) per ingest run.
+
+          **Fields:**
+          - source: always 'tomtom'
+          - traffic_source: 'api', 'interpolated', or 'offpeak_model'
+          - ward_code / ward_name / province_name: administrative location metadata
+          - latitude / longitude: geocoded monitoring point
+          - current_speed / free_flow_speed: speed measurements in km/h
+          - current_travel_time / free_flow_travel_time: travel time measurements in seconds
+          - confidence: TomTom confidence score
+          - road_closure: boolean road closure indicator
+          - raw_payload: raw API payload or interpolation trace
+
+          **Freshness:**
+          - warn_after: 6 hours
+          - error_after: 12 hours
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 12, period: hour}
         loaded_at_field: ingest_time
         columns:
+          - name: source
+            description: "Source identifier. Always 'tomtom'."
+          - name: traffic_source
+            description: "Origin of the record: 'api', 'interpolated', or 'offpeak_model'."
           - name: ward_code
-            description: "Vietnam National Administrative Unit Code (Commune-level)"
+            description: "Vietnam administrative ward code."
             tests:
               - not_null
+          - name: ward_name
+            description: "Ward name from TomTom location metadata."
+          - name: province_name
+            description: "Province name from TomTom location metadata."
+          - name: latitude
+            description: "Latitude of the monitoring point."
+          - name: longitude
+            description: "Longitude of the monitoring point."
           - name: timestamp_utc
-            description: "Observation timestamp"
+            description: "Observation timestamp."
+            tests:
+              - not_null
           - name: current_speed
-            description: "Current traffic speed in km/h"
+            description: "Current traffic speed in km/h."
           - name: free_flow_speed
-            description: "Free flow speed in km/h"
+            description: "Free-flow speed in km/h."
           - name: current_travel_time
-            description: "Current travel time in seconds"
+            description: "Current travel time in seconds."
           - name: free_flow_travel_time
-            description: "Free flow travel time in seconds"
+            description: "Free-flow travel time in seconds."
           - name: confidence
-            description: "Measure of data quality (0.0 to 1.0)"
+            description: "Measure of data quality (0.0 to 1.0)."
           - name: road_closure
-            description: "Boolean indicating if the road is closed"
+            description: "Boolean indicating whether the road is closed."
           - name: traffic_source
-            description: "Source of traffic data: 'api', 'interpolated', or 'offpeak_model'"
+            description: "Source of traffic data: 'api', 'interpolated', or 'offpeak_model'."
+          - name: raw_payload
+            description: "Serialized TomTom API response or interpolation trace."
+          - name: ingest_time
+            description: "Timestamp when the record was ingested."

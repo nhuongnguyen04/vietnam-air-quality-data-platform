@@ -179,7 +179,7 @@ def transform_city_response(
     lon: float,
 ) -> List[Dict[str, Any]]:
     """
-    Transform OpenWeather /air_pollution response (V2 schema).
+    Transform OpenWeather /air_pollution response.
     """
     records = []
     items = response.get("list", [])
@@ -227,6 +227,6 @@ def transform_history_response(
     lon: float,
 ) -> List[Dict[str, Any]]:
     """
-    Transform OpenWeather /air_pollution/history response (V2 schema).
+    Transform OpenWeather /air_pollution/history response.
     """
     return transform_city_response(response, province_name, ward_name, ward_code, lat, lon)

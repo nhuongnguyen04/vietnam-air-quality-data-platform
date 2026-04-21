@@ -61,7 +61,7 @@ def fetch_last_known_from_clickhouse():
     # Query to get the latest traffic for each ward
     query = """
     SELECT ward_code, current_speed, free_flow_speed
-    FROM air_quality.raw_tomtom_traffic_v2
+    FROM air_quality.raw_tomtom_traffic
     WHERE timestamp_utc > now() - INTERVAL 24 HOUR
     ORDER BY timestamp_utc DESC
     LIMIT 1 BY ward_code
@@ -155,7 +155,7 @@ def main():
 
     writer = get_data_writer()
     if results:
-        writer.write_batch("raw_tomtom_traffic_v2", results, source="tomtom")
+        writer.write_batch("raw_tomtom_traffic", results, source="tomtom")
         logger.info(f"Generated {len(results)} off-peak records for hour {current_hour}.")
 
 if __name__ == "__main__":

@@ -112,19 +112,28 @@ GROUP BY datetime_hour, station_id, source, pollutant;
 CREATE TABLE IF NOT EXISTS raw_tomtom_traffic
 (
     source              LowCardinality(String) DEFAULT 'tomtom',
-    ingest_time        DateTime DEFAULT now(),
-    station_name       String,
-    latitude           Float64,
-    longitude          Float64,
-    timestamp_utc      DateTime,
-    current_speed      Float32,
-    free_flow_speed    Float32,
-    confidence         Float32,
-    raw_payload        String CODEC(ZSTD(1))
+    traffic_source      LowCardinality(String),
+    ingest_time         DateTime DEFAULT now(),
+    ingest_batch_id     String,
+    ward_code           String,
+    ward_name           String,
+    province_name       String,
+    latitude            Float64,
+    longitude           Float64,
+    nearest_highway_type LowCardinality(String),
+    distance_to_road_km Float32,
+    timestamp_utc       DateTime,
+    current_speed       Float32,
+    free_flow_speed     Float32,
+    current_travel_time Int32,
+    free_flow_travel_time Int32,
+    confidence          Float32,
+    road_closure        UInt8,
+    raw_payload         String CODEC(ZSTD(1))
 )
-ENGINE = MergeTree()
+ENGINE = ReplacingMergeTree(ingest_time)
 PARTITION BY toYYYYMM(timestamp_utc)
-ORDER BY (station_name, timestamp_utc)
+ORDER BY (ward_code, timestamp_utc, traffic_source)
 SETTINGS index_granularity = 8192;
 
 -- Calculated 1-hourly traffic (interpolated by Python)
@@ -142,7 +151,7 @@ CREATE TABLE IF NOT EXISTS raw_tomtom_traffic_hourly
 ENGINE = ReplacingMergeTree(updated_at)
 PARTITION BY toYYYYMM(hour_utc)
 ORDER BY (station_name, hour_utc)
-SETTINGS index_granularity = 8192;
+    SETTINGS index_granularity = 8192;
 
 -- 8. OpenWeather Meteorology (New Feed)
 CREATE TABLE IF NOT EXISTS raw_openweather_meteorology

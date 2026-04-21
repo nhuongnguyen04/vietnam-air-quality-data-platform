@@ -42,9 +42,9 @@ def get_entity_id(entity_type: str, fqn: str, token: str) -> str:
 PAGES_CONFIG = [
     {
         "name": "streamlit_overview",
-        "displayName": "Overview",
-        "description": "Main AQI overview for Vietnam with current status and rollups.",
-        "url": "http://localhost:8501/Overview",
+        "displayName": "Tổng quan",
+        "description": "Tổng quan chất lượng không khí Việt Nam với KPI, bản đồ và trạng thái hiện tại.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_air_quality_national_summary",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_air_quality_overview_daily",
@@ -53,9 +53,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_pollutants",
-        "displayName": "Pollutants",
-        "description": "Pollutant-level trend and composition analysis.",
-        "url": "http://localhost:8501/Pollutants",
+        "displayName": "Chất ô nhiễm",
+        "description": "Phân tích xu hướng và thành phần các chất ô nhiễm chính.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_pollutant_source_fingerprint",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_aqi_temporal_patterns",
@@ -64,9 +64,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_source_comparison",
-        "displayName": "Source Comparison",
-        "description": "Compare AQI from different sources (AQICN, OpenWeather, Sensors.Community).",
-        "url": "http://localhost:8501/Source_Comparison",
+        "displayName": "So sánh nguồn",
+        "description": "So sánh nguồn dữ liệu AQI và độ tươi dữ liệu theo nguồn.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.fct_aqi_weather_traffic_unified",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_aqi_current_status"
@@ -74,9 +74,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_historical_trend",
-        "displayName": "Historical Trend",
-        "description": "Historical AQI trends from actual measurements — no forecast data required.",
-        "url": "http://localhost:8501/Historical_Trend",
+        "displayName": "Xu hướng lịch sử",
+        "description": "Xu hướng AQI lịch sử từ dữ liệu đo thực tế theo ngày và theo tháng.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_air_quality_overview_daily",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_air_quality_overview_monthly",
@@ -85,9 +85,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_alerts",
-        "displayName": "Alerts",
-        "description": "Current active alerts when AQI breaches critical thresholds.",
-        "url": "http://localhost:8501/Alerts",
+        "displayName": "Cảnh báo",
+        "description": "Cảnh báo vi phạm ngưỡng và tình trạng sức khỏe nền tảng.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_aqi_current_status",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_platform_data_health"
@@ -95,9 +95,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_traffic_impact",
-        "displayName": "Traffic Impact",
-        "description": "Traffic and air quality interaction trends.",
-        "url": "http://localhost:8501/Traffic_Impact",
+        "displayName": "Ảnh hưởng Giao thông",
+        "description": "Tương quan giữa giao thông và chất lượng không khí theo giờ.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_traffic_hourly_trend",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_traffic_pollution_correlation_daily"
@@ -105,9 +105,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_health_risk",
-        "displayName": "Health Risk",
-        "description": "Population exposure and risk ranking across regions.",
-        "url": "http://localhost:8501/Health_Risk",
+        "displayName": "Rủi ro Sức khỏe",
+        "description": "Xếp hạng phơi nhiễm và rủi ro sức khỏe theo khu vực.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_aqi_health_impact_summary",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_regional_health_risk_ranking"
@@ -115,9 +115,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_status",
-        "displayName": "Status",
-        "description": "Pipeline and data quality status for platform operations.",
-        "url": "http://localhost:8501/Status",
+        "displayName": "Trạng thái Hệ thống",
+        "description": "Tình trạng pipeline, độ tươi dữ liệu và sức khỏe hệ thống.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_platform_data_health",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.fct_air_quality_summary_hourly"
@@ -125,9 +125,9 @@ PAGES_CONFIG = [
     },
     {
         "name": "streamlit_weather_impact",
-        "displayName": "Weather Impact",
-        "description": "Weather and pollution relationship analysis.",
-        "url": "http://localhost:8501/Weather_Impact",
+        "displayName": "Ảnh hưởng Thời tiết",
+        "description": "Phân tích mối liên hệ giữa thời tiết và ô nhiễm không khí.",
+        "url": "http://localhost:8501",
         "tables": [
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_weather_hourly_trend",
             "Vietnam Air Quality ClickHouse.air_quality.air_quality.dm_weather_pollution_correlation_daily"

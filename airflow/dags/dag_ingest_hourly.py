@@ -123,7 +123,7 @@ def dag_ingest_hourly():
         env.update(get_job_env_vars())
         
         if 7 <= hour <= 20:
-            print(f"Peak Hour ({hour}:00 VN): Running TomTom V2 Ingestion...")
+            print(f"Peak Hour ({hour}:00 VN): Running TomTom Ingestion...")
             cmd = f"cd {PYTHON_PATH} && python jobs/traffic/ingest_tomtom.py"
         else:
             print(f"Off-Peak Hour ({hour}:00 VN): Running Simulated Traffic Generation...")

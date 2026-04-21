@@ -32,7 +32,7 @@ from models.openweather_models import (
 
 # Reuse transform from ingest_weather.py logic
 def transform_weather_response(resp: Dict[str, Any], cluster_id: str, province: str, lat: float, lon: float) -> Dict[str, Any]:
-    """Transform OpenWeather /weather response to V2 meteorology schema."""
+    """Transform OpenWeather /weather response to meteorology schema."""
     main = resp.get("main", {})
     wind = resp.get("wind", {})
     clouds = resp.get("clouds", {})
@@ -96,7 +96,7 @@ def fetch_pollution_for_point(pid: str, data: Dict[str, Any], client: APIClient,
     return pollution_records, weather_record
 
 def main():
-    parser = argparse.ArgumentParser(description="High-Resolution OpenWeather Ingestion V2")
+    parser = argparse.ArgumentParser(description="High-Resolution OpenWeather Ingestion")
     parser.add_argument("--workers", type=int, default=None, help="Force number of workers")
     parser.add_argument("--limit", type=int, default=None, help="Limit points")
     parser.add_argument("--grid", type=float, default=0.2, help="Weather cluster grid size (degrees)")
@@ -139,7 +139,7 @@ def main():
     
     # Calculate workers
     num_workers = args.workers or (len(tokens) * 5)
-    logger.info(f"Starting V2 ingestion for {len(all_points)} wards using {len(clusters)} weather clusters.")
+    logger.info(f"Starting  ingestion for {len(all_points)} wards using {len(clusters)} weather clusters.")
 
     # 2. Phase 1: Weather Clusters
     cluster_weather_lookup = {}
@@ -157,7 +157,7 @@ def main():
     all_pollution_records = []
     chunk_size = 100
     processed = 0
-    batch_id = f"ow_v2_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+    batch_id = f"ow__{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(fetch_pollution_for_point, pid, d, client, cluster_weather_lookup): pid for pid, d in all_points.items()}
@@ -169,11 +169,11 @@ def main():
                     p["ingest_batch_id"] = batch_id
                 all_pollution_records.extend(p_list)
             if w_rec:
-                # Note: Meteorology V2 table uses cluster_lat/cluster_lon but doesn't strictly need duplicating for every ward
-                # however, if we want to query by ward_code join weather, we might want to store ward_code in meteorology v2 too?
+                # Note: Meteorology  table uses cluster_lat/cluster_lon but doesn't strictly need duplicating for every ward
+                # however, if we want to query by ward_code join weather, we might want to store ward_code in meteorology  too?
                 # User said: "cluster_lat, cluster_lon thay cho lat lon hiện tại".
-                # To minimize data volume, we keep 1 record per cluster in meteorology_v2.
-                # Actually, the user's DDL doesn't have ward_code in meteorology_v2.
+                # To minimize data volume, we keep 1 record per cluster in meteorology_.
+                # Actually, the user's DDL doesn't have ward_code in meteorology_.
                 pass
             
             processed += 1

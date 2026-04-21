@@ -6,7 +6,10 @@ from typing import Iterable, List, Optional, Tuple
 from metadata.generated.schema.api.data.createChart import CreateChartRequest
 from metadata.generated.schema.api.data.createDashboard import CreateDashboardRequest
 from metadata.generated.schema.api.data.createDashboardDataModel import CreateDashboardDataModelRequest
+from metadata.generated.schema.entity.data.chart import Chart
+from metadata.generated.schema.entity.data.dashboardDataModel import DashboardDataModel
 from metadata.generated.schema.entity.data.dashboardDataModel import DataModelType
+from metadata.generated.schema.entity.data.table import Table
 from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
 from metadata.generated.schema.type.entityLineage import EntitiesEdge, EntityLineage
 from metadata.generated.schema.type.basic import FullyQualifiedEntityName
@@ -33,11 +36,27 @@ class StreamlitDashboardSource(Source):
         self.dashboard_dir = "/opt/airflow/plugins/dashboard"
         self.pages_dir = os.path.join(self.dashboard_dir, "pages")
         self.service_name = self.config.serviceName
-        self.dashboard_name = "VN Air Quality Analytics"
+        self.dashboard_name = "Phân tích Chất lượng Không khí Việt Nam"
         # Variables for ClickHouse FQN (configurable via ENV or defaults)
         self.clickhouse_service = os.getenv("CLICKHOUSE_SERVICE", "ClickHouse")
         self.clickhouse_db = os.getenv("CLICKHOUSE_DB", "air_quality")
         self.clickhouse_schema = os.getenv("CLICKHOUSE_SCHEMA", "air_quality")
+        self._entity_classes = {
+            "table": Table,
+            "chart": Chart,
+            "dashboardDataModel": DashboardDataModel,
+        }
+        self.page_titles = {
+            "1_Overview.py": "Tổng quan",
+            "2_Pollutants.py": "Chất ô nhiễm",
+            "3_Source_Comparison.py": "So sánh nguồn",
+            "4_Historical_Trend.py": "Xu hướng lịch sử",
+            "5_Alerts.py": "Cảnh báo",
+            "6_Traffic_Impact.py": "Ảnh hưởng Giao thông",
+            "7_Health_Risk.py": "Rủi ro Sức khỏe",
+            "8_Status.py": "Trạng thái Hệ thống",
+            "9_Weather_Impact.py": "Ảnh hưởng Thời tiết",
+        }
 
     @classmethod
     def create(cls, config_dict, metadata_config: OpenMetadata, pipeline_name: str = None):
@@ -89,10 +108,10 @@ class StreamlitDashboardSource(Source):
                 # Create Chart
                 chart_req = CreateChartRequest(
                     name=chart_name,
-                    displayName=chart_name.replace("_", " "),
+                    displayName=self.page_titles.get(filename, chart_name.replace("_", " ")),
                     description=description or f"Streamlit page: {chart_name}",
                     service=self.service_name,
-                    sourceUrl=f"http://localhost:8501/{chart_name}"
+                    sourceUrl="http://localhost:8501"
                 )
                 yield Either(right=chart_req)
                 chart_fqn = f"{self.service_name}.{chart_name}"
@@ -121,30 +140,42 @@ class StreamlitDashboardSource(Source):
                 # Extract tables like air_quality.table_name or just table_name
                 tables = re.findall(r'FROM\s+([a-zA-Z0-9_\.]+)', sql, re.IGNORECASE)
                 for table_name in set(tables):
+                    # Skip f-string placeholders such as "air_quality.{table}".
+                    if table_name.endswith(".") or "{" in table_name or "}" in table_name:
+                        continue
+
                     # Clean table name (remove database prefix if present)
                     clean_name = table_name.split('.')[-1]
+                    if not clean_name:
+                        continue
+
                     # Map to configurable FQN hierarchy: Service.Database.Schema.<table_name>
                     table_fqn = f"{self.clickhouse_service}.{self.clickhouse_db}.{self.clickhouse_schema}.{clean_name}"
                     
                     try:
-                        # Lineage: Table -> Chart
-                        yield Either(right=AddLineageRequest(
-                            edge=EntitiesEdge(
-                                fromEntity=self._get_entity_reference("table", table_fqn),
-                                toEntity=self._get_entity_reference("chart", chart_fqn)
-                            )
-                        ))
-                        
-                        if datamodel_fqn:
-                            # Lineage: Table -> DataModel
+                        table_ref = self._get_entity_reference("table", table_fqn)
+                        chart_ref = self._get_entity_reference("chart", chart_fqn)
+                        if table_ref and chart_ref:
+                            # Lineage: Table -> Chart
                             yield Either(right=AddLineageRequest(
                                 edge=EntitiesEdge(
-                                    fromEntity=self._get_entity_reference("table", table_fqn),
-                                    toEntity=self._get_entity_reference("dashboardDataModel", datamodel_fqn)
+                                    fromEntity=table_ref,
+                                    toEntity=chart_ref,
                                 )
                             ))
+
+                        if datamodel_fqn:
+                            datamodel_ref = self._get_entity_reference("dashboardDataModel", datamodel_fqn)
+                            if table_ref and datamodel_ref:
+                                # Lineage: Table -> DataModel
+                                yield Either(right=AddLineageRequest(
+                                    edge=EntitiesEdge(
+                                        fromEntity=table_ref,
+                                        toEntity=datamodel_ref,
+                                    )
+                                ))
                     except Exception as e:
-                        logger.warning(f"Failed to create lineage request for {table_fqn} -> {chart_fqn}: {e}")
+                        logger.debug(f"Skipping lineage request for {table_fqn} -> {chart_fqn}: {e}")
 
     def _get_chart_name(self, filename: str) -> str:
         name = re.sub(r'^\d+_', '', filename)
@@ -166,13 +197,18 @@ class StreamlitDashboardSource(Source):
         return description, sql_queries
 
     def _get_entity_reference(self, entity_type: str, fqn: str):
-        entity = self.metadata.get_by_name(entity=entity_type, fqn=fqn)
+        entity_cls = self._entity_classes.get(entity_type)
+        if entity_cls is None:
+            raise ValueError(f"Unsupported entity type: {entity_type}")
+
+        entity = self.metadata.get_by_name(entity=entity_cls, fqn=fqn)
         if not entity:
-            raise ValueError(f"Could not find {entity_type} with FQN {fqn}")
+            logger.debug(f"Could not find {entity_type} with FQN {fqn}")
+            return None
         from metadata.generated.schema.type.entityReference import EntityReference
         return EntityReference(
             id=entity.id,
-            type=entity_type
+            type=entity_type,
         )
 
     def test_connection(self) -> bool:
