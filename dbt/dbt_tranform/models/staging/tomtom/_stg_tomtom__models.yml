@@ -39,6 +39,12 @@ models:
           Join key to administrative registry for geographic enrichment.
         tests:
           - not_null
+      - name: ward_name
+        description: |
+          Human-readable ward name.
+      - name: province_name
+        description: |
+          Province name.
       - name: latitude
         description: |
           Latitude of the TomTom traffic monitoring point.
@@ -60,7 +66,7 @@ models:
           - 0.00 = Free flow (no congestion)
           - 0.50 = 50% longer travel time than free flow
           - 1.00 = 100% longer (doubled travel time)
-          Clamped to [0, 1] range in this model.
+          Clamped to [0, 5] range in this model.
           Unit: dimensionless ratio
         tests:
           - not_null
@@ -71,10 +77,16 @@ models:
         description: |
           Measurement type. Always 'congestion_ratio' for TomTom flow data.
           Standardized to match the parameter naming convention used by air quality measurements.
+      - name: traffic_source
+        description: |
+          Underlying TomTom traffic source (e.g. 'flow').
       - name: quality_flag
         description: |
-          Data quality indicator from TomTom ingestion pipeline.
+          Data quality indicator from TomTom ingestion pipeline (confidence score).
           Passed through from raw table — reflects upstream processing validity checks.
+      - name: ingest_time
+        description: |
+          Timestamp when the record was written to ClickHouse.
       - name: dbt_updated_at
         description: |
           Timestamp when dbt last processed this record.

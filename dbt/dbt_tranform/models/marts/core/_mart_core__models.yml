@@ -436,6 +436,82 @@ models:
       - name: last_ingested_at
         description: Latest daily ingest timestamp included in this row.
 
+  - name: fct_aqi_weather_traffic_unified
+    description: |
+      The core unified fact dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.
+
+      **Grain:** One row per (ward_code, datetime_hour) — ward-level hourly snapshot with full environmental context.
+
+      **Business Rules:**
+      - AQI from `fct_air_quality_ward_level_hourly`
+      - Weather from `stg_openweather__meteorology` joined on (ward_code, timestamp_utc) with province-level fallback
+      - Traffic from `stg_tomtom__flow` joined on (ward_code, datetime_hour)
+      - Population from `stg_core__population` joined on province
+      - `population_exposure_score`: PM2.5 × provincial_population / 1,000,000
+      - `traffic_pollution_ratio`: PM2.5 / congestion_index
+      - `is_high_humidity_suppression`: 1 if humidity > 80%
+      - `is_stagnant_air_risk`: 1 if wind_speed < 1.0 m/s
+      - Incremental: only processes new hourly data since last run
+
+      **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: aqi_us
+        description: Hourly AQI (US).
+      - name: aqi_vn
+        description: Hourly AQI (VN).
+      - name: pm25
+        description: PM2.5 concentration (ug/m3).
+      - name: pm10
+        description: PM10 concentration (ug/m3).
+      - name: co
+        description: CO concentration.
+      - name: main_pollutant
+        description: Dominant pollutant for the hour.
+      - name: temperature
+        description: Temperature in Celsius.
+      - name: humidity
+        description: Relative humidity percentage.
+      - name: wind_speed
+        description: Wind speed in m/s.
+      - name: wind_direction
+        description: Wind direction in degrees.
+      - name: pressure
+        description: Atmospheric pressure in hPa.
+      - name: congestion_index
+        description: Traffic congestion ratio (0-5).
+      - name: traffic_data_type
+        description: Quality flag/source for traffic data.
+      - name: is_high_humidity_suppression
+        description: Flag for humidity > 80%.
+      - name: is_stagnant_air_risk
+        description: Flag for wind speed < 1.0 m/s.
+      - name: stagnant_air_probability
+        description: Probability of stagnant air conditions.
+      - name: weather_influence_pct
+        description: Percentage influence of weather on pollution.
+      - name: provincial_population
+        description: Total population of the province.
+      - name: population_exposure_score
+        description: PM2.5 × provincial_population / 1M.
+      - name: traffic_pollution_impact_score
+        description: PM2.5 × congestion_index.
+      - name: traffic_contribution_pct
+        description: Estimated percentage of pollution from traffic.
+      - name: traffic_pollution_ratio
+        description: PM2.5 / congestion_index.
+      - name: dbt_updated_at
+        description: Timestamp of last dbt run.
+
   - name: fct_air_quality_summary_daily
     description: |
       Daily source-level summary from hourly source-level AQI records.

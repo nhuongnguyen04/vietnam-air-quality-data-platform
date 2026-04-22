@@ -63,9 +63,12 @@ models:
           AQI value as reported by the source widget (if available).
           Not used in calculations — reference only.
           May be NULL if source did not include AQI computation.
+      - name: source
+        description: |
+          Source identifier. Always 'aqiin' for records from this model.
       - name: unit
         description: |
-          Original unit string from source. Reference field — not used in transformation.
+          Standardized unit of measurement. Always 'µg/m³' (converted from ppb/ppm where necessary).
       - name: quality_flag
         description: |
           Data quality indicator from source scraping pipeline.

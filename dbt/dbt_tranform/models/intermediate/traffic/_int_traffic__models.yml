@@ -19,12 +19,20 @@ models:
       - This is a compatibility layer — actual traffic pattern analysis uses `fct_traffic_pollution_correlation_daily`
       - Data coverage limited to major urban areas (Hanoi, HCMC, Da Nang, Hai Phong, Can Tho)
     columns:
+      - name: ward_code
+        description: |
+          Unique identifier for the administrative ward.
+        tests:
+          - not_null
       - name: station_name
         description: |
           Traffic monitoring location from TomTom.
           Join key to station metadata for geographic enrichment.
         tests:
           - not_null
+      - name: province_name
+        description: |
+          Province name.
       - name: latitude
         description: |
           Latitude of the TomTom monitoring point.

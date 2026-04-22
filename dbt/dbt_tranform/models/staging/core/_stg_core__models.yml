@@ -55,6 +55,20 @@ models:
         description: Pollutant identifier (pm25, pm10, etc).
         tests:
           - not_null
+      - name: display_name
+        description: Human-readable pollutant name.
+      - name: unit
+        description: Standard measurement unit for the pollutant.
+      - name: epa_aqi_bp_lo
+        description: Lower bound of the EPA AQI range for the breakpoint.
+      - name: epa_aqi_bp_hi
+        description: Upper bound of the EPA AQI range for the breakpoint.
+      - name: conc_bp_lo
+        description: Lower bound of the concentration range for the breakpoint.
+      - name: conc_bp_hi
+        description: Upper bound of the concentration range for the breakpoint.
+      - name: health_effects
+        description: Business description of health effects associated with this pollutant level.
 
   - name: stg_core__population
     description: |

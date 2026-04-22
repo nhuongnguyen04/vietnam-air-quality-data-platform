@@ -151,6 +151,9 @@ models:
       - name: clouds_all
         description: |
           Cloudiness percentage.
+      - name: ingest_time
+        description: |
+          Timestamp when the record was written to ClickHouse.
       - name: dbt_updated_at
         description: |
           Timestamp when dbt last processed this record.

@@ -1,37 +1,6 @@
 version: 2
 
 models:
-  - name: fct_aqi_weather_traffic_unified
-    description: |
-      The core unified fact dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.
-
-      **Grain:** One row per (ward_code, datetime_hour) — ward-level hourly snapshot with full environmental context.
-
-      **Business Rules:**
-      - AQI from `fct_air_quality_summary_hourly` (which aggregates by ward_code, not station — province-level OpenWeather has NULL ward_code)
-      - Weather from `stg_openweather__meteorology` joined on (province, timestamp_utc)
-      - Traffic from `int_traffic__pattern_enrichment` joined on (station_name, datetime_hour)
-      - Station metadata (lat/lon) from `unified_stations_metadata`
-      - Population from `stg_core__population` joined on province
-      - `population_exposure_score`: PM2.5 × provincial_population / 1,000,000 — high-population provinces score higher
-      - `traffic_pollution_ratio`: PM2.5 / congestion_index — indicates pollution efficiency of traffic
-      - `is_high_humidity_suppression`: 1 if humidity > 80% (can trap pollutants)
-      - `is_stagnant_air_risk`: 1 if wind_speed < 1.0 m/s (poor dispersion)
-      - Incremental: only processes new hourly data since last run
-
-      **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
-
-      **Caveats:**
-      - ward_code-level summary combines readings from all stations within the ward
-      - Traffic data only available for major cities — NULL for most wards
-      - Weather is province-level, not ward-level
-    columns:
-      - name: region_3
-        description: "Macro-regional classification: Bac Bo (North), Trung Bo (Central), Nam Bo (South)."
-      - name: region_8
-        description: "Standard 8 economic regions of Vietnam (e.g., Red River Delta, Southeast)."
-      - name: population_exposure_score
-        description: "Relative exposure index: PM2.5 × provincial_population / 1M. Useful for ranking public health priority."
   - name: dm_aqi_current_status
     description: |
       Latest air quality status per ward_code (current conditions for real-time dashboard).
@@ -44,6 +13,36 @@ models:
       - ReplacingMergeTree ensures only one record per (province, ward_code)
 
       **Downstream consumers:** Streamlit overview page, real-time status cards, alert triggers
+    columns:
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: latitude
+        description: Latitude of the ward.
+      - name: longitude
+        description: Longitude of the ward.
+      - name: latest_hour
+        description: UTC timestamp of the most recent reading.
+      - name: current_aqi_us
+        description: Most recent US AQI value.
+      - name: current_aqi_vn
+        description: Most recent Vietnam AQI value.
+      - name: pm25
+        description: Most recent PM2.5 concentration.
+      - name: pm10
+        description: Most recent PM10 concentration.
+      - name: main_pollutant
+        description: Dominant pollutant at the most recent hour.
+      - name: data_source
+        description: Always 'consolidated' for this model.
+      - name: ingest_time
+        description: Timestamp of the most recent upstream ingestion.
+
   - name: dm_platform_data_health
     description: |
       Data freshness and availability status for each monitoring station/ward_code.
@@ -60,6 +59,22 @@ models:
       - is_reliable = TRUE if lag_hours ≤ 3 hours
 
       **Downstream consumers:** Data quality dashboard tab, alerting on stale/offline sources, SLA reporting
+    columns:
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: source
+        description: Data source name (aqiin or openweather).
+      - name: last_reading_at
+        description: UTC timestamp of the latest reading from this source.
+      - name: lag_hours
+        description: Number of hours since the last reading.
+      - name: health_status
+        description: Status string based on lag (Fresh, Delayed, Stale, Offline).
+      - name: is_reliable
+        description: Boolean flag for data reliability (lag ≤ 3 hours).
+
   - name: dm_aqi_compliance_standards
     description: |
       Daily compliance assessment against WHO guidelines and Vietnam national standards (TCVN 05:2023).
@@ -82,6 +97,28 @@ models:
       - TCVN 05:2023/BTNMT — QCVN 05:2023/BTNMT (Vietnamese national standard)
 
       **Downstream consumers:** Compliance dashboard, regulatory reporting, health advisory triggers
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: pm25_avg
+        description: Daily mean PM2.5 concentration.
+      - name: pm10_avg
+        description: Daily mean PM10 concentration.
+      - name: who_pm25_breach
+        description: Boolean flag for WHO PM2.5 guideline breach (>15 µg/m³).
+      - name: who_pm10_breach
+        description: Boolean flag for WHO PM10 guideline breach (>45 µg/m³).
+      - name: tcvn_pm25_breach
+        description: Boolean flag for TCVN PM2.5 standard breach (>50 µg/m³).
+      - name: tcvn_pm10_breach
+        description: Boolean flag for TCVN PM10 standard breach (>100 µg/m³).
+      - name: compliance_status
+        description: Categorical status based on WHO/TCVN breaches.
+
   - name: dm_aqi_health_impact_summary
     description: |
       Daily health risk assessment based on AQI categories and dominant pollutant health effects.
@@ -101,6 +138,24 @@ models:
       - primary_health_advice: most common health advisory text from EPA breakpoints for this day
 
       **Downstream consumers:** Health impact dashboard, public health alerts, sensitive group warnings
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: avg_aqi_us
+        description: Daily average US AQI.
+      - name: high_risk_hours
+        description: Number of hours in the day with unhealthy AQI.
+      - name: high_risk_exposure_pct
+        description: Percentage of day in high-risk categories.
+      - name: primary_health_advice
+        description: Dominant health advisory message.
+      - name: main_pollutant
+        description: Pollutant contributing most to daily AQI.
+
   - name: dm_aqi_temporal_patterns
     description: |
       Time-of-day and day-of-week air quality patterns per province.
@@ -114,6 +169,20 @@ models:
       - reading_count tracks sample size for confidence estimation
 
       **Downstream consumers:** Anomaly detection, pattern comparison charts, "Is this normal?" dashboard feature
+    columns:
+      - name: province
+        description: Province name.
+      - name: hour_of_day
+        description: Hour (0-23).
+      - name: day_of_week
+        description: Day of week (1-7).
+      - name: avg_aqi_vn
+        description: Historical average Vietnam AQI for this time slot.
+      - name: avg_pm25
+        description: Historical average PM2.5 for this time slot.
+      - name: reading_count
+        description: Number of historical readings contributing to the average.
+
   - name: dm_pollutant_source_fingerprint
     description: |
       Probabilistic source attribution based on PM2.5/PM10 ratio analysis.
@@ -127,17 +196,23 @@ models:
         - Ratio 0.4–0.6: Mixed source
       - Incremental: processes new daily records
 
-      **Caveats:**
-      - This is a heuristic, not a true source apportionment study
-      - Ratio can vary with meteorology and is location-specific
-      - Should be combined with wind direction data for better attribution
-
       **Downstream consumers:** Source analysis dashboard, industrial permit monitoring, traffic policy evaluation
     columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
       - name: pm25
         description: "Daily average PM2.5 concentration."
       - name: pm10
         description: "Daily average PM10 concentration."
+      - name: pm25_pm10_ratio
+        description: Ratio of PM2.5 to PM10.
+      - name: likely_source_type
+        description: Classification (Combustion, Dust, Mixed).
+
   - name: dm_regional_health_risk_ranking
     description: |
       National health risk ranking of provinces based on population-weighted PM2.5 exposure.
@@ -159,6 +234,22 @@ models:
         - Rural: all other provinces
 
       **Downstream consumers:** Risk ranking dashboard, priority province targeting, public health resource allocation
+    columns:
+      - name: province
+        description: Province name.
+      - name: avg_pm25
+        description: Average PM2.5 concentration.
+      - name: provincial_population
+        description: Total population of the province.
+      - name: total_exposure_mass
+        description: Population-weighted exposure index.
+      - name: risk_category
+        description: Health risk category (CRITICAL, HIGH, MODERATE, LOW).
+      - name: national_rank
+        description: Ranking of the province by exposure mass.
+      - name: location_type
+        description: Urban, Industrial, or Rural.
+
   - name: dm_traffic_pollution_correlation_daily
     description: |
       Daily correlation statistics between traffic congestion and PM2.5 pollution by province and location type.
@@ -173,15 +264,25 @@ models:
       - pm25_daily_avg: Average PM2.5 across all stations in province for the day
       - congestion_daily_avg: Average congestion ratio across all stations in province for the day
       - pollution_density_index: pm25 / congestion — indicates pollution efficiency per unit of traffic
-        - High index + high congestion = traffic is a major pollution driver
-        - Low index + high congestion = traffic is not the main source
       - pollution_rank_in_type: Rank within geographic location type
 
-      **Caveats:**
-      - Traffic data only available for 5 major cities — rural/industrial provinces have no congestion data
-      - Correlation does not imply causation
-
       **Downstream consumers:** Traffic impact analysis, urban planning dashboards, policy effectiveness tracking
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: location_type
+        description: Urban, Industrial, or Rural.
+      - name: pm25_daily_avg
+        description: Daily average PM2.5 in province.
+      - name: congestion_daily_avg
+        description: Daily average traffic congestion in province.
+      - name: pollution_density_index
+        description: Ratio of PM2.5 to congestion.
+      - name: rank_in_location_type
+        description: Pollution rank within the same location type.
+
   - name: dm_weather_pollution_correlation_daily
     description: |
       Daily correlation statistics between meteorological conditions (wind, temp, humidity) and PM2.5 pollution.
@@ -194,25 +295,141 @@ models:
       - weather_influence_pct: PM2.5 difference between stagnant and dispersive conditions
       
       **Downstream consumers:** Weather impact analysis, stagnation forecasting
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: avg_pm25
+        description: Daily average PM2.5.
+      - name: stagnant_air_pct
+        description: Percentage of day with stagnant air conditions.
+      - name: wind_dispersal_index
+        description: Index of pollution vs wind speed.
+      - name: weather_driven_pollution_increase
+        description: Estimated increase in pollution due to weather conditions.
+
   - name: dm_air_quality_national_summary
     description: "Consolidated national KPIs for the dashboard, partitioned by time_grain."
     columns:
       - name: time_grain
+        description: Aggregation level (hourly, daily, monthly).
         tests:
           - accepted_values:
               values: ['hourly', 'daily', 'monthly']
+      - name: datetime_bucket
+        description: UTC timestamp for the start of the bucket.
       - name: avg_aqi_vn
+        description: National average Vietnam AQI.
+      - name: avg_aqi_us
+        description: National average US AQI.
+      - name: avg_pm25
+        description: National average PM2.5.
+      - name: avg_pm10
+        description: National average PM10.
+      - name: station_count
+        description: Number of stations reporting in this bucket.
+
   - name: dm_air_quality_overview_daily
     description: "Primary data source for the dashboard's daily air quality overview, joining AQI data with administrative units."
     columns:
-      - name: ward_code
       - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: ward_name
+        description: Ward name.
+      - name: region_3
+        description: 3-region classification.
+      - name: region_8
+        description: 8-region classification.
+      - name: latitude
+        description: Latitude of the ward.
+      - name: longitude
+        description: Longitude of the ward.
+      - name: population
+        description: Ward population.
+      - name: avg_aqi_us
+        description: Daily average US AQI.
+      - name: max_aqi_us
+        description: Peak US AQI in the day.
       - name: avg_aqi_vn
+        description: Daily average Vietnam AQI.
+      - name: max_aqi_vn
+        description: Peak Vietnam AQI in the day.
+      - name: main_pollutant
+        description: Dominant pollutant for the day.
+      - name: pm25_avg
+        description: Daily average PM2.5.
+      - name: pm10_avg
+        description: Daily average PM10.
+      - name: co_avg
+        description: Daily average CO.
+      - name: no2_avg
+        description: Daily average NO2.
+      - name: so2_avg
+        description: Daily average SO2.
+      - name: o3_avg
+        description: Daily average O3.
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp.
+
   - name: dm_air_quality_overview_hourly
     description: "Primary data source for the dashboard's hourly air quality overview. Used for real-time monitoring and hourly trend analysis."
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: avg_aqi_vn
+        description: Hourly average Vietnam AQI.
+      - name: avg_aqi_us
+        description: Hourly average US AQI.
+      - name: main_pollutant
+        description: Dominant pollutant for the hour.
+
   - name: dm_air_quality_overview_monthly
     description: "Primary data source for the dashboard's monthly air quality overview. Used for long-term historical analysis."
+    columns:
+      - name: month
+        description: First day of the month.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: avg_aqi_vn
+        description: Monthly average Vietnam AQI.
+      - name: avg_aqi_us
+        description: Monthly average US AQI.
+
   - name: dm_traffic_hourly_trend
     description: "Specialized mart for optimized traffic-pollution correlation analysis on the dashboard."
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: province
+        description: Province name.
+      - name: avg_congestion_ratio
+        description: Average traffic congestion in the province.
+      - name: avg_pm25
+        description: Average PM2.5 in the province.
+
   - name: dm_weather_hourly_trend
     description: "Specialized mart for optimized weather-pollution correlation analysis on the dashboard."
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: province
+        description: Province name.
+      - name: temperature
+        description: Average temperature in the province.
+      - name: humidity
+        description: Average humidity in the province.
+      - name: avg_pm25
+        description: Average PM2.5 in the province.

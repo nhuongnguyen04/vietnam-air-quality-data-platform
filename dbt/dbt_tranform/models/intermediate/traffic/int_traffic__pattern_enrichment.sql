@@ -5,7 +5,9 @@
 -- Logic has moved to Python modeling job: calculate_hourly_traffic.py
 -- This model is now a pass-through to maintain downstream mart compatibility
 SELECT
+    ward_code,
     ward_name as station_name,
+    province_name,
     latitude,
     longitude,
     timestamp_utc,
