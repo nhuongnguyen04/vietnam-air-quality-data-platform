@@ -87,12 +87,19 @@ models:
       - name: ingest_time
         description: |
           Timestamp when the record was written to ClickHouse.
+        tags:
+          - NonSensitive
       - name: dbt_updated_at
         description: |
           Timestamp when dbt last processed this record.
           Added by dbt for audit purposes.
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze

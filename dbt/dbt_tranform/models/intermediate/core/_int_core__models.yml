@@ -79,6 +79,10 @@ models:
           Source-reported AQI value (if available).
           AQI.in: from widget; OpenWeather: OpenWeather scale (1–5).
           Reference only — use calculated AQI from `int_aqi__calculations`.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: quality_flag
         description: |
           Data quality indicator from source ingestion pipeline.
@@ -88,6 +92,8 @@ models:
         description: |
           ClickHouse ingest timestamp from the source staging model.
           Preserved for incremental logic (filtering on ingest_time in downstream models).
+        tags:
+          - NonSensitive
       - name: region_3
         description: |
           Vietnam's 3 major geographic regions (Northern, Central, Southern).
@@ -101,5 +107,8 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier2
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Silver

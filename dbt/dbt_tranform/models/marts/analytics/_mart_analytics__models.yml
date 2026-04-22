@@ -15,9 +15,12 @@ models:
       **Downstream consumers:** Streamlit overview page, real-time status cards, alert triggers
     meta:
       openmetadata:
-        tier: "Tier.Tier1"
+        tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
-          - "Certification.Gold"
+          - Certification.Gold
     columns:
       - name: province
         description: Province name.
@@ -33,6 +36,8 @@ models:
         description: Longitude of the ward.
       - name: latest_hour
         description: UTC timestamp of the most recent reading.
+        tags:
+          - NonSensitive
       - name: current_aqi_us
         description: Most recent US AQI value.
         meta:
@@ -60,6 +65,8 @@ models:
         description: Always 'consolidated' for this model.
       - name: ingest_time
         description: Timestamp of the most recent upstream ingestion.
+        tags:
+          - NonSensitive
 
   - name: dm_platform_data_health
     description: |
@@ -80,6 +87,9 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
     columns:
@@ -91,11 +101,12 @@ models:
         description: Data source name (aqiin or openweather).
       - name: last_reading_at
         description: UTC timestamp of the latest reading from this source.
+        tags:
+          - NonSensitive
       - name: lag_hours
         description: Number of hours since the last reading.
       - name: health_status
-        description: Status string based on lag (Fresh, Delayed, Stale, 
-          Offline).
+        description: Status string based on lag (Fresh, Delayed, Stale, Offline).
       - name: is_reliable
         description: Boolean flag for data reliability (lag ≤ 3 hours).
 
@@ -124,6 +135,8 @@ models:
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: region_3
@@ -154,10 +167,15 @@ models:
         description: Categorical status based on WHO/TCVN breaches.
       - name: ingest_time
         description: Latest upstream ingest timestamp.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_aqi_health_impact_summary
@@ -182,6 +200,8 @@ models:
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -200,10 +220,15 @@ models:
         description: Dominant health advisory message based on peak pollution.
       - name: ingest_time
         description: Latest upstream ingest timestamp.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_aqi_temporal_patterns
@@ -228,8 +253,12 @@ models:
         description: Vietnam 8-region classification.
       - name: hour_of_day
         description: Hour (0-23).
+        tags:
+          - NonSensitive
       - name: day_of_week
         description: Day of week (1-7, where 1 is Monday).
+        tags:
+          - NonSensitive
       - name: avg_aqi_us
         description: Historical average US AQI for this time slot.
         meta:
@@ -258,10 +287,15 @@ models:
         description: Number of historical readings contributing to the average.
       - name: ingest_time
         description: Latest ingest timestamp included in the pattern.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_pollutant_source_fingerprint
@@ -281,6 +315,8 @@ models:
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -307,10 +343,15 @@ models:
         description: Most likely source category (Combustion/Traffic, Dust/Construction, or Mixed).
       - name: ingest_time
         description: Latest upstream ingest timestamp.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_regional_health_risk_ranking
@@ -359,6 +400,9 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_traffic_pollution_correlation_daily
@@ -381,6 +425,8 @@ models:
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -393,20 +439,44 @@ models:
         description: Urban, Industrial, or Rural.
       - name: pm25_daily_avg
         description: Daily average PM2.5 in province.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_daily_avg
         description: Daily average PM10 in province.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: congestion_daily_avg
         description: Daily average traffic congestion ratio.
       - name: sum_pm25
         description: Sum of PM2.5 for aggregation.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: sum_pm10
         description: Sum of PM10 for aggregation.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: total_hours
         description: Total hours contributing to the daily average.
       - name: background_pm25_sum
         description: Sum of PM2.5 during low-traffic night hours (2AM-4AM).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: background_pm10_sum
         description: Sum of PM10 during low-traffic night hours (2AM-4AM).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: background_hours
         description: Number of hours in the background sample.
       - name: traffic_pollution_impact_score
@@ -415,10 +485,15 @@ models:
         description: Estimated percentage of pollution attributable to traffic (relative to night background).
       - name: dbt_updated_at
         description: Timestamp of the latest dbt processing run.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_weather_pollution_correlation_daily
@@ -436,6 +511,8 @@ models:
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -464,20 +541,44 @@ models:
         description: Daily average wind speed (m/s).
       - name: sum_pm25
         description: Sum of PM2.5 for aggregation.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: sum_pm10
         description: Sum of PM10 for aggregation.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: total_hours
         description: Total hours contributing to the daily average.
       - name: stagnant_pm25_sum
         description: Sum of PM2.5 during stagnant air hours.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: stagnant_pm10_sum
         description: Sum of PM10 during stagnant air hours.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: stagnant_hours
         description: Number of stagnant air hours.
       - name: dispersive_pm25_sum
         description: Sum of PM2.5 during dispersive (high wind) hours.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: dispersive_pm10_sum
         description: Sum of PM10 during dispersive (high wind) hours.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: dispersive_hours
         description: Number of dispersive air hours.
       - name: wind_dispersal_risk_index
@@ -488,10 +589,15 @@ models:
         description: Percentage of day with stagnant air conditions (wind < 1.0 m/s).
       - name: dbt_updated_at
         description: Timestamp of the latest dbt processing run.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_air_quality_national_summary
@@ -504,6 +610,8 @@ models:
               values: ['hourly', 'daily', 'monthly']
       - name: timestamp
         description: UTC timestamp for the start of the bucket.
+        tags:
+          - NonSensitive
       - name: avg_aqi_us
         description: National average US AQI.
         meta:
@@ -540,18 +648,24 @@ models:
         description: Pollutant most frequently driving the Vietnam AQI.
       - name: last_ingested_at
         description: Latest upstream ingest timestamp.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_air_quality_overview_daily
-    description: "Primary data source for the dashboard's daily air quality overview,
-      joining AQI data with administrative units."
+    description: "Primary data source for the dashboard's daily air quality overview, joining AQI data with administrative units."
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -632,20 +746,28 @@ models:
               - AirQuality.Ozone
       - name: last_ingested_at
         description: Latest upstream ingest timestamp.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_air_quality_overview_hourly
-    description: "Primary data source for the dashboard's hourly air quality overview.
-      Used for real-time monitoring and hourly trend analysis."
+    description: "Primary data source for the dashboard's hourly air quality overview. Used for real-time monitoring and hourly trend analysis."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -670,6 +792,10 @@ models:
               - AirQuality.AQI
       - name: max_aqi_us
         description: Peak US AQI observed in the hour (for aggregations).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_aqi_vn
         description: Hourly average Vietnam AQI.
         meta:
@@ -678,6 +804,10 @@ models:
               - AirQuality.AQI
       - name: max_aqi_vn
         description: Peak Vietnam AQI observed in the hour.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
         description: Dominant pollutant for the hour.
       - name: pm25_avg
@@ -694,26 +824,48 @@ models:
               - AirQuality.PM10
       - name: co_avg
         description: Hourly average CO.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Hourly average NO2.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Hourly average SO2.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Hourly average O3.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: last_ingested_at
         description: Latest upstream ingest timestamp.
+        tags:
+          - NonSensitive
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_air_quality_overview_monthly
-    description: "Primary data source for the dashboard's monthly air quality overview.
-      Used for long-term historical analysis."
+    description: "Primary data source for the dashboard's monthly air quality overview. Used for long-term historical analysis."
     columns:
       - name: month
         description: First day of the month.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -734,16 +886,22 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_traffic_hourly_trend
-    description: "Specialized mart for optimized traffic-pollution correlation analysis
-      on the dashboard."
+    description: "Specialized mart for optimized traffic-pollution correlation analysis on the dashboard."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -768,6 +926,10 @@ models:
               - AirQuality.PM10
       - name: co
         description: CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: traffic_pollution_impact_score
         description: Product of PM2.5 and congestion index.
       - name: traffic_contribution_pct
@@ -775,16 +937,22 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: dm_weather_hourly_trend
-    description: "Specialized mart for optimized weather-pollution correlation analysis
-      on the dashboard."
+    description: "Specialized mart for optimized weather-pollution correlation analysis on the dashboard."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -820,5 +988,8 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold

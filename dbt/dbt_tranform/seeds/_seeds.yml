@@ -12,6 +12,9 @@ seeds:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: vn_traffic_profile
@@ -24,6 +27,9 @@ seeds:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: pollutants
@@ -36,6 +42,9 @@ seeds:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: seed_dim_time
@@ -48,6 +57,9 @@ seeds:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: source_calibration
@@ -59,5 +71,8 @@ seeds:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze

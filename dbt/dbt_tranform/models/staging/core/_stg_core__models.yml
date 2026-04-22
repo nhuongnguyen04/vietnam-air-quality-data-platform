@@ -29,6 +29,9 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: stg_core__stations
@@ -55,6 +58,9 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: stg_core__pollutants
@@ -78,12 +84,14 @@ models:
       - name: conc_bp_hi
         description: Upper bound of the concentration range for the breakpoint.
       - name: health_effects
-        description: Business description of health effects associated with this
-          pollutant level.
+        description: Business description of health effects associated with this pollutant level.
 
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: stg_core__population
@@ -107,5 +115,8 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze

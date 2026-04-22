@@ -49,8 +49,11 @@ sources:
           openmetadata:
             tier: "Tier.Tier3"
             tags:
-              - "Certification.Bronze"
+              - Certification.Bronze
               - "PII.None"
+            domain: AirQuality
+            owners:
+              - air-quality-team
         columns:
           - name: station_name
             description: |
@@ -70,8 +73,7 @@ sources:
               Values: pm25, pm10, co, no2, o3, so2, temp, hum
             meta:
               openmetadata:
-                glossary: ["AirQuality.PM25", "AirQuality.PM10", "AirQuality.CO",
-                  "AirQuality.NO2", "AirQuality.Ozone", "AirQuality.SO2"]
+                glossary: ["AirQuality.PM25", "AirQuality.PM10", "AirQuality.CO", "AirQuality.NO2", "AirQuality.Ozone", "AirQuality.SO2"]
             tests:
               - not_null
           - name: value
@@ -86,6 +88,10 @@ sources:
             description: |
               AQI computed by source widget (if available).
               Not used in dbt transformations — reference only.
+            meta:
+              openmetadata:
+                glossary:
+                  - AirQuality.AQI
           - name: quality_flag
             description: |
               Data quality flag from scraping pipeline.
@@ -94,3 +100,5 @@ sources:
             description: |-
               ClickHouse ingest timestamp.
               Used for deduplication and freshness monitoring.
+            tags:
+              - NonSensitive

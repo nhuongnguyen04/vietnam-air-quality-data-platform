@@ -63,6 +63,10 @@ models:
           AQI value as reported by the source widget (if available).
           Not used in calculations — reference only.
           May be NULL if source did not include AQI computation.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: source
         description: |
           Source identifier. Always 'aqiin' for records from this model.
@@ -78,8 +82,13 @@ models:
         description: |
           Timestamp when the record was written to ClickHouse.
           Used for deduplication ordering (most recent wins).
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze

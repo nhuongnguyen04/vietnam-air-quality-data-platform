@@ -64,8 +64,13 @@ models:
         description: |-
           Timestamp when dbt last processed this record.
           Added by dbt for audit purposes.
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier2
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Silver

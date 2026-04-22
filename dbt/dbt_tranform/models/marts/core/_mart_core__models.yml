@@ -37,6 +37,9 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: fct_air_quality_summary_hourly
@@ -52,8 +55,12 @@ models:
     columns:
       - name: datetime_hour
         description: UTC hour bucket for the measurement.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date derived from datetime_hour.
+        tags:
+          - NonSensitive
       - name: province
         description: Province of the ward/station.
       - name: ward_code
@@ -80,39 +87,91 @@ models:
               - AirQuality.AQI
       - name: pm25_value
         description: Hourly PM2.5 concentration (ug/m3).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_value
         description: Hourly PM10 concentration (ug/m3).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_value
         description: Hourly CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_value
         description: Hourly NO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_value
         description: Hourly SO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_value
         description: Hourly O3 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: PM2.5 AQI contribution under Vietnam breakpoint logic.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: PM10 AQI contribution under Vietnam breakpoint logic.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: CO AQI contribution under Vietnam breakpoint logic.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: NO2 AQI contribution under Vietnam breakpoint logic.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: SO2 AQI contribution under Vietnam breakpoint logic.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: O3 AQI contribution under Vietnam breakpoint logic.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: dominant_pollutant_us
         description: Pollutant with highest AQI under US standard at this hour.
       - name: dominant_pollutant_vn
-        description: Pollutant with highest AQI under Vietnam standard at this 
-          hour.
+        description: Pollutant with highest AQI under Vietnam standard at this hour.
       - name: ingest_time
         description: Latest ingest timestamp among contributing source rows.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_ward_level_hourly
@@ -133,8 +192,12 @@ models:
         description: UTC hour bucket.
         tests:
           - not_null
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date corresponding to datetime_hour.
+        tags:
+          - NonSensitive
       - name: province
         description: Province containing the ward.
       - name: region_3
@@ -195,25 +258,53 @@ models:
               - AirQuality.Ozone
       - name: pm25_aqi
         description: Source-weighted PM2.5 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: Source-weighted PM10 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: Source-weighted CO AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: Source-weighted NO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: Source-weighted SO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: Source-weighted O3 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
-        description: Pollutant contributing the largest AQI component at this 
-          hour.
+        description: Pollutant contributing the largest AQI component at this hour.
       - name: last_ingested_at
         description: Latest upstream ingest timestamp for the ward-hour record.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_ward_level_daily
@@ -226,6 +317,8 @@ models:
         description: Ward identifier.
       - name: date
         description: Calendar date of aggregation.
+        tags:
+          - NonSensitive
       - name: province
         description: Province containing the ward.
       - name: region_3
@@ -298,24 +391,53 @@ models:
               - AirQuality.Ozone
       - name: pm25_aqi
         description: Daily mean PM2.5 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: Daily mean PM10 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: Daily mean CO AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: Daily mean NO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: Daily mean SO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: Daily mean O3 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
         description: Pollutant with highest daily AQI contribution.
       - name: last_ingested_at
         description: Latest upstream ingest timestamp captured for the day.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_ward_level_monthly
@@ -328,6 +450,8 @@ models:
         description: Ward identifier.
       - name: month
         description: First day of the month (month bucket).
+        tags:
+          - NonSensitive
       - name: province
         description: Province containing the ward.
       - name: region_3
@@ -402,26 +526,53 @@ models:
               - AirQuality.Ozone
       - name: pm25_aqi
         description: Monthly mean PM2.5 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: Monthly mean PM10 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: Monthly mean CO AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: Monthly mean NO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: Monthly mean SO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: Monthly mean O3 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
-        description: Most impactful pollutant for the month based on AQI 
-          components.
+        description: Most impactful pollutant for the month based on AQI components.
       - name: last_ingested_at
-        description: Latest upstream ingest timestamp represented in the monthly
-          row.
+        description: Latest upstream ingest timestamp represented in the monthly row.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_province_level_hourly
@@ -434,8 +585,12 @@ models:
         description: Province name.
       - name: datetime_hour
         description: UTC hour bucket.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date derived from datetime_hour.
+        tags:
+          - NonSensitive
       - name: region_3
         description: 3-region classification.
       - name: region_8
@@ -490,25 +645,53 @@ models:
               - AirQuality.Ozone
       - name: pm25_aqi
         description: Mean ward PM2.5 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: Mean ward PM10 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: Mean ward CO AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: Mean ward NO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: Mean ward SO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: Mean ward O3 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
-        description: Pollutant with the highest province-level AQI component in 
-          the hour.
+        description: Pollutant with the highest province-level AQI component in the hour.
       - name: last_ingested_at
         description: Latest ward-level ingest timestamp included in this row.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_province_level_daily
@@ -521,6 +704,8 @@ models:
         description: Province name.
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: region_3
         description: 3-region classification.
       - name: region_8
@@ -591,26 +776,53 @@ models:
               - AirQuality.Ozone
       - name: pm25_aqi
         description: Daily mean PM2.5 AQI component at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: Daily mean PM10 AQI component at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: Daily mean CO AQI component at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: Daily mean NO2 AQI component at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: Daily mean SO2 AQI component at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: Daily mean O3 AQI component at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
-        description: Pollutant with highest daily AQI component at province 
-          level.
+        description: Pollutant with highest daily AQI component at province level.
       - name: last_ingested_at
-        description: Latest hourly ingest timestamp represented in this 
-          day-level row.
+        description: Latest hourly ingest timestamp represented in this day-level row.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_province_level_monthly
@@ -623,6 +835,8 @@ models:
         description: Province name.
       - name: month
         description: First day of month used as monthly key.
+        tags:
+          - NonSensitive
       - name: region_3
         description: 3-region classification.
       - name: region_8
@@ -695,24 +909,53 @@ models:
               - AirQuality.Ozone
       - name: pm25_aqi
         description: Monthly mean PM2.5 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm10_aqi
         description: Monthly mean PM10 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: co_aqi
         description: Monthly mean CO AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: no2_aqi
         description: Monthly mean NO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: so2_aqi
         description: Monthly mean SO2 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: o3_aqi
         description: Monthly mean O3 AQI component.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
         description: Most impactful pollutant for the province-month.
       - name: last_ingested_at
         description: Latest daily ingest timestamp included in this row.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_aqi_weather_traffic_unified
@@ -736,8 +979,12 @@ models:
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -809,9 +1056,14 @@ models:
       - name: dbt_updated_at
         description: Timestamp of the dbt run that produced this record.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_summary_daily
@@ -822,6 +1074,8 @@ models:
     columns:
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -842,8 +1096,16 @@ models:
         description: Maximum hourly AQI (VN) for this source/day.
       - name: pm25_daily_avg
         description: Mean hourly PM2.5 concentration for the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_daily_avg
         description: Mean hourly PM10 concentration for the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_daily_avg
         description: Mean hourly CO concentration for the day.
       - name: no2_daily_avg
@@ -869,18 +1131,18 @@ models:
       - name: pm10_daily_max
         description: Maximum hourly PM10 concentration in the day.
       - name: dominant_pollutant_us
-        description: Pollutant linked to the highest US AQI observation in the 
-          day.
+        description: Pollutant linked to the highest US AQI observation in the day.
       - name: dominant_pollutant_vn
-        description: Pollutant linked to the highest Vietnam AQI observation in 
-          the day.
+        description: Pollutant linked to the highest Vietnam AQI observation in the day.
       - name: hourly_count
-        description: Number of hourly records included in the day-level 
-          aggregate.
+        description: Number of hourly records included in the day-level aggregate.
 
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_air_quality_summary_monthly
@@ -891,6 +1153,8 @@ models:
     columns:
       - name: month
         description: First day of month used as monthly key.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -927,6 +1191,9 @@ models:
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold
   - name: fct_other_measurements_hourly
@@ -941,8 +1208,12 @@ models:
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+        tags:
+          - NonSensitive
       - name: date
         description: Calendar date.
+        tags:
+          - NonSensitive
       - name: province
         description: Province name.
       - name: ward_code
@@ -961,8 +1232,13 @@ models:
         description: Quality status from ingestion pipeline.
       - name: ingest_time
         description: Upstream ingest timestamp.
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Gold

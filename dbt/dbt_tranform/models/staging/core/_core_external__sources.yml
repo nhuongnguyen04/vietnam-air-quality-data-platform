@@ -16,6 +16,9 @@ sources:
           openmetadata:
             tier: "Tier.Tier2"
 
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Silver
       - name: vn_station_coordinates
@@ -28,8 +31,11 @@ sources:
           openmetadata:
             tier: "Tier.Tier2"
 
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
-              - "Certification.Silver"
+              - Certification.Silver
       - name: population_density_2026
         description: |
           Dân số và mật độ dân số theo tỉnh Việt Nam năm 2026.
@@ -41,6 +47,9 @@ sources:
         meta:
           openmetadata:
             tier: Tier.Tier3
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Bronze
       - name: aqicn_station_lat_long
@@ -53,5 +62,8 @@ sources:
         meta:
           openmetadata:
             tier: Tier.Tier3
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Bronze

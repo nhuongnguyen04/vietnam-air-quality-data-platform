@@ -58,6 +58,10 @@ models:
       - name: aqi_reported
         description: |
           AQI value as computed and returned by OpenWeather API (scale 1-5).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: quality_flag
         description: |
           Data quality flag. Hardcoded to 'valid'.
@@ -65,9 +69,14 @@ models:
         description: |
           Timestamp when the record was written to ClickHouse.
 
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze
   - name: stg_openweather__meteorology
@@ -159,12 +168,19 @@ models:
       - name: ingest_time
         description: |
           Timestamp when the record was written to ClickHouse.
+        tags:
+          - NonSensitive
       - name: dbt_updated_at
         description: |
           Timestamp when dbt last processed this record.
           Added by dbt for audit purposes.
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier3
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Bronze

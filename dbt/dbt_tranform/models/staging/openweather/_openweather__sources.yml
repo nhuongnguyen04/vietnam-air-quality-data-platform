@@ -61,6 +61,9 @@ sources:
         meta:
           openmetadata:
             tier: Tier.Tier3
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Bronze
         columns:
@@ -68,6 +71,8 @@ sources:
             description: "Source identifier. Always 'openweather'."
           - name: ingest_time
             description: "ClickHouse ingest timestamp."
+            tags:
+              - NonSensitive
           - name: ingest_batch_id
             description: "Unique identifier for the ingestion batch run."
           - name: ingest_date
@@ -97,6 +102,10 @@ sources:
             description: "Pollutant concentration in µg/m³."
           - name: aqi_reported
             description: "AQI reported by OpenWeather (standard index)."
+            meta:
+              openmetadata:
+                glossary:
+                  - AirQuality.AQI
           - name: quality_flag
             description: "Data quality indicator ('valid', etc)."
           - name: raw_payload
@@ -128,6 +137,9 @@ sources:
         meta:
           openmetadata:
             tier: Tier.Tier3
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Bronze
         columns:
@@ -135,6 +147,8 @@ sources:
             description: "Source identifier. Always 'openweather'."
           - name: ingest_time
             description: "ClickHouse ingest timestamp."
+            tags:
+              - NonSensitive
           - name: ingest_batch_id
             description: "Unique identifier for the ingestion batch run."
           - name: ingest_date

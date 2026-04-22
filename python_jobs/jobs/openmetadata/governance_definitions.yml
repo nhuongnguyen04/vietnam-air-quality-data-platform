@@ -1,0 +1,17 @@
+teams:
+  - name: air-quality-team
+    display_name: Air Quality Team
+    team_type: Group
+    description: >
+      Core team responsible for Vietnam Air Quality data ingestion,
+      transformation, metadata governance, and dashboard delivery.
+
+domains:
+  - name: AirQuality
+    display_name: Air Quality
+    domain_type: Aggregate
+    description: >
+      Governance domain for air quality data products, analytical marts,
+      quality metrics, and related environmental monitoring assets.
+    owners:
+      - air-quality-team

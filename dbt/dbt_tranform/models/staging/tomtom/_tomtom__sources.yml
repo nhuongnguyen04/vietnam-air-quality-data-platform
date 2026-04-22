@@ -78,9 +78,14 @@ sources:
             description: |
               Timestamp when this hourly aggregation was computed and written.
               Used for freshness monitoring and deduplication.
+            tags:
+              - NonSensitive
         meta:
           openmetadata:
             tier: Tier.Tier3
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Bronze
       - name: raw_tomtom_traffic
@@ -146,8 +151,13 @@ sources:
             description: "Serialized TomTom API response or interpolation trace."
           - name: ingest_time
             description: "Timestamp when the record was ingested."
+            tags:
+              - NonSensitive
         meta:
           openmetadata:
             tier: Tier.Tier3
+            domain: AirQuality
+            owners:
+              - air-quality-team
             tags:
               - Certification.Bronze

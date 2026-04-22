@@ -177,6 +177,73 @@ openmetadata ingest -file ./openmetadata/ingestion-configs/clickhouse-workflow.y
 openmetadata ingest -file ./openmetadata/ingestion-configs/dbt-workflow.yaml
 ```
 
+## dbt Governance Metadata
+
+This project can now use dbt `meta.openmetadata` as the source of truth for
+governance metadata.
+
+### Supported directly by dbt ingestion
+
+- `tier`
+- `glossary` on tables and columns
+- `domain`
+- `owner` / `owners`
+
+Example:
+
+```yaml
+models:
+  - name: dm_aqi_health_impact_summary
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        domain: AirQuality
+        owners:
+          - air-quality-team
+          - data-platform
+        glossary:
+          - AirQuality.AQI
+    columns:
+      - name: high_risk_exposure_pct
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+```
+
+### Certification note
+
+This repo no longer uses a post-ingestion curation step for certification.
+Certification is stored in dbt as a regular OpenMetadata tag/classification:
+
+```yaml
+meta:
+  openmetadata:
+    tags:
+      - Certification.Gold
+```
+
+OpenMetadata will ingest it into the asset `Tags` section, not the dedicated
+`Certification` UI field.
+
+For the direct dbt ingestion path used here, keep dbt metadata focused on:
+
+- `tier`
+- `domain`
+- `owner` / `owners`
+- `glossary`
+- `tags` for certification/classification
+
+### Glossary setup
+
+`python_jobs/jobs/openmetadata/setup_glossary.py` now reads from
+`python_jobs/jobs/openmetadata/glossary_definitions.yml` instead of hardcoding a
+single glossary in Python. To add a new glossary for tables or columns:
+
+1. Add the glossary and terms to `glossary_definitions.yml`.
+2. Reference the term FQN in dbt `schema.yml` under `meta.openmetadata.glossary`.
+3. Re-run `dag_openmetadata_curation` or execute the glossary setup script.
+
 ## Maintenance
 
 ### Refresh OM Catalog Manually

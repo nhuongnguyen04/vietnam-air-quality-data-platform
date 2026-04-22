@@ -58,8 +58,7 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2', 'no', 'nh3', 'temp',
-                'hum']
+              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2', 'no', 'nh3', 'temp', 'hum']
       - name: value
         description: |
           Calibrated pollutant concentration in µg/m³.
@@ -92,6 +91,10 @@ models:
         description: |
           Source-reported AQI (from AQI.in widget or OpenWeather).
           Reference field only — not used in calculations.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: quality_flag
         description: |
           Data quality indicator passed through from staging.
@@ -125,8 +128,13 @@ models:
         description: |-
           Ingest timestamp from the source staging model.
           Used for incremental filtering in downstream incremental models.
+        tags:
+          - NonSensitive
     meta:
       openmetadata:
         tier: Tier.Tier2
+        domain: AirQuality
+        owners:
+          - air-quality-team
         tags:
           - Certification.Silver

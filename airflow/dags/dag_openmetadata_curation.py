@@ -1,9 +1,9 @@
 """
-OpenMetadata Catalog Curation DAG.
+OpenMetadata Metadata Setup DAG.
 
 Runs after dag_transform (every hour at minute 30):
 - dag_transform: dbt run + dbt test (minute 30)
-- dag_openmetadata_curation: OM curation sync (minute 35)
+- dag_openmetadata_curation: OM governance + glossary sync (minute 35)
 
 Schedule: 35 * * * * (runs 5 minutes after dag_transform)
 Owner: air-quality-team
@@ -24,7 +24,7 @@ default_args = {
 
 @dag(
     default_args=default_args,
-    description='OpenMetadata catalog curation — owners, tags, descriptions, glossary',
+    description='OpenMetadata metadata bootstrap — governance entities and glossary',
     schedule='35 * * * *',
     start_date=datetime(2026, 4, 1),
     catchup=False,
@@ -57,14 +57,14 @@ def dag_openmetadata_curation():
             return False
 
     @task
-    def openmetadata_curation_sync():
-        """Run catalog curation bulk script against OM REST API."""
+    def openmetadata_governance_sync():
+        """Ensure governance entities exist before dbt metadata ingestion resolves them."""
         import subprocess
         import sys
 
-        script = "/opt/python/jobs/jobs/openmetadata/curation_bulk.py"
+        script = "/opt/python/jobs/jobs/openmetadata/setup_governance.py"
         if not os.path.exists(script):
-            print(f"⚠️  Curation script not found at {script}, skipping")
+            print(f"⚠️  Governance setup script not found at {script}, skipping")
             return
 
         env = os.environ.copy()
@@ -72,6 +72,7 @@ def dag_openmetadata_curation():
             'OM_URL': OM_URL,
             'OM_ADMIN_USER': OM_USER,
             'OM_ADMIN_PASSWORD': OM_PASS,
+            'OM_GOVERNANCE_CONFIG_PATH': '/opt/python/jobs/jobs/openmetadata/governance_definitions.yml',
         })
 
         result = subprocess.run(
@@ -83,11 +84,10 @@ def dag_openmetadata_curation():
         )
         # Non-fatal: log but don't block on failure
         if result.returncode != 0:
-            print(f"⚠️  Curation sync STDOUT: {result.stdout}")
-            print(f"⚠️  Curation sync STDERR: {result.stderr}")
-            # Don't raise — OM curation failures should not block pipeline
+            print(f"⚠️  Governance sync STDOUT: {result.stdout}")
+            print(f"⚠️  Governance sync STDERR: {result.stderr}")
             return
-        print(f"✅ OpenMetadata curation sync completed:\n{result.stdout}")
+        print(f"✅ OpenMetadata governance sync completed:\n{result.stdout}")
 
     @task
     def openmetadata_glossary_sync():
@@ -105,6 +105,7 @@ def dag_openmetadata_curation():
             'OM_URL': OM_URL,
             'OM_ADMIN_USER': OM_USER,
             'OM_ADMIN_PASSWORD': OM_PASS,
+            'OM_GLOSSARY_CONFIG_PATH': '/opt/python/jobs/jobs/openmetadata/glossary_definitions.yml',
         })
 
         result = subprocess.run(
@@ -123,15 +124,15 @@ def dag_openmetadata_curation():
     @task
     def log_completion():
         """Log completion."""
-        print("dag_openmetadata_curation completed — catalog curated")
+        print("dag_openmetadata_curation completed — metadata bootstrap finished")
 
     # Task dependencies
     check_om = check_openmetadata_health()
-    curation = openmetadata_curation_sync()
+    governance = openmetadata_governance_sync()
     glossary = openmetadata_glossary_sync()
     done = log_completion()
 
-    check_om >> [curation, glossary] >> done
+    check_om >> [governance, glossary] >> done
 
 
 dag_openmetadata_curation = dag_openmetadata_curation()
