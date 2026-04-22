@@ -9,6 +9,7 @@
 with aqiin as (
     select
         m.source,
+        m.dedup_key as measurement_dedup_key,
         s.ward_code,
         s.province,
         s.latitude,
@@ -30,6 +31,7 @@ with aqiin as (
 openweather as (
     select
         source,
+        dedup_key as measurement_dedup_key,
         ward_code,
         province,
         latitude,
@@ -64,31 +66,31 @@ admin_units as (
 ),
 
 -- Identify physical stations and their distance to ward centroids
-physical_station_info as (
-    select distinct
+ward_station_flags as (
+    select
         s.ward_code,
-        s.station_name,
-        greatCircleDistance(s.longitude, s.latitude, a.ward_lon, a.ward_lat) as dist_to_centroid
+        min(greatCircleDistance(s.longitude, s.latitude, a.ward_lon, a.ward_lat)) as nearest_station_distance_m,
+        min(greatCircleDistance(s.longitude, s.latitude, a.ward_lon, a.ward_lat)) <= 2000 as has_nearby_aqiin_station
     from {{ ref('stg_core__stations') }} s
     join admin_units a on s.ward_code = a.ward_code
     where s.station_source = 'aqiin'
+    group by s.ward_code
 ),
 
 -- Rule: In the same ward, at the same time, if there is a physical station (Aqiin) 
 -- that is close (<= 2000m) to the ward centroid, we drop the OpenWeather (satellite) data.
 -- If the physical station is far (> 2000m), we keep both.
 filtered as (
-    select 
+    select
         u.*
     from unified u
-    left join physical_station_info p on u.ward_code = p.ward_code
+    left join ward_station_flags w on u.ward_code = w.ward_code
     -- We filter OUT OpenWeather records ONLY IF:
     -- 1. There is a valid Aqiin station for that ward (station_name != '')
     -- 2. AND it is within 2km of the ward centroid
     where not (
-        u.source = 'openweather' 
-        and p.station_name != '' 
-        and p.dist_to_centroid <= 2000
+        u.source = 'openweather'
+        and coalesce(w.has_nearby_aqiin_station, false)
     )
 ),
 
@@ -124,6 +126,7 @@ calibrated as (
 
 select 
     source,
+    measurement_dedup_key,
     assumeNotNull(ward_code) as ward_code,
     assumeNotNull(province) as province,
     latitude,

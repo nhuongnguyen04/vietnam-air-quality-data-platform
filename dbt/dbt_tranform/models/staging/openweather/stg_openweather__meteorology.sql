@@ -1,17 +1,41 @@
 {{ config(
-    engine='ReplacingMergeTree',
+    materialized='incremental',
+    incremental_strategy='append',
+    on_schema_change='append_new_columns',
+    engine='ReplacingMergeTree(ingest_time)',
     unique_key='(ward_code, timestamp_utc)',
     order_by='(province, timestamp_utc, ward_code)',
-    partition_by='toYYYYMM(timestamp_utc)'
+    partition_by='toYYYYMM(timestamp_utc)',
+    query_settings={
+        'max_threads': 1,
+        'max_bytes_before_external_sort': 100000000
+    }
 ) }}
 
-with raw_data as (
+with ward_cluster_map as (
+    select
+        ward_code,
+        ward_name,
+        province,
+        lat as latitude,
+        lon as longitude,
+        concat(
+            'grid_',
+            toString(toDecimal64(round(lat / 0.2) * 0.2, 1)),
+            '_',
+            toString(toDecimal64(round(lon / 0.2) * 0.2, 1))
+        ) as weather_cluster
+    from {{ ref('stg_core__administrative_units') }}
+),
+
+incremental_source as (
     select
         source,
+        province_name as province,
+        weather_cluster,
         cluster_lat,
         cluster_lon,
-        province_name,
-        toStartOfHour(timestamp_utc) as hourly_timestamp,
+        toStartOfHour(timestamp_utc) as timestamp_utc,
         temp,
         temp_min,
         temp_max,
@@ -24,84 +48,67 @@ with raw_data as (
         clouds_all,
         ingest_time
     from {{ source('openweather', 'raw_openweather_meteorology') }}
+    {% if is_incremental() %}
+    where ingest_time >= (
+        select max(ingest_time) - interval 6 hour
+        from {{ this }}
+    )
+    {% endif %}
 ),
 
--- Step 1: For each (province, cluster) find the nearest ward.
--- Computing greatCircleDistance inline inside argMin keeps it out of GROUP BY state.
--- Province-filtered subquery replaces cross join to satisfy ClickHouse syntax.
-nearest_ward as (
+mapped_to_wards as (
     select
-        r.province_name,
-        r.cluster_lat,
-        r.cluster_lon,
-        r.hourly_timestamp,
-        r.ingest_time,
-        argMin(ward_code, greatCircleDistance(r.cluster_lon, r.cluster_lat, admin.ward_lon, admin.ward_lat)) as nearest_ward_code,
-        argMin(province,     greatCircleDistance(r.cluster_lon, r.cluster_lat, admin.ward_lon, admin.ward_lat)) as province
-    from raw_data r
-    inner join (
-        select ward_code, province, lat as ward_lat, lon as ward_lon
-        from {{ ref('stg_core__administrative_units') }}
-    ) admin on r.province_name = admin.province
-    group by r.province_name, r.cluster_lat, r.cluster_lon, r.hourly_timestamp, r.ingest_time
+        s.source,
+        m.ward_code as ward_code,
+        m.ward_name as ward_name,
+        m.province as province,
+        m.latitude as latitude,
+        m.longitude as longitude,
+        s.timestamp_utc,
+        s.temp,
+        s.temp_min,
+        s.temp_max,
+        s.feels_like,
+        s.humidity,
+        s.pressure,
+        s.visibility,
+        s.wind_speed,
+        s.wind_deg,
+        s.clouds_all,
+        s.ingest_time
+    from incremental_source s
+    inner join ward_cluster_map m
+        on s.weather_cluster = m.weather_cluster
+       and s.province = m.province
 ),
 
--- Step 2: Attach meteorological columns to nearest ward (simple left join, no heavy functions)
-mapped_data as (
+final as (
     select
-        r.source,
-        nw.nearest_ward_code as ward_code,
-        nw.province,
-        r.cluster_lat as latitude,
-        r.cluster_lon as longitude,
-        r.hourly_timestamp as timestamp_utc,
-        r.temp,
-        r.temp_min,
-        r.temp_max,
-        r.feels_like,
-        r.humidity,
-        r.pressure,
-        r.visibility as visibility_meters,
-        r.wind_speed,
-        r.wind_deg,
-        r.clouds_all,
-        r.ingest_time
-    from raw_data r
-    inner join nearest_ward nw
-        on  r.province_name = nw.province_name
-        and r.cluster_lat = nw.cluster_lat
-        and r.cluster_lon = nw.cluster_lon
-        and r.hourly_timestamp = nw.hourly_timestamp
-        and r.ingest_time = nw.ingest_time
-),
-
-deduplicated as (
-    select
-        *,
-        row_number() over (
-            partition by ward_code, timestamp_utc
-            order by ingest_time desc
-        ) as rn
-    from mapped_data
+        {{ dbt_utils.generate_surrogate_key([
+            "concat('ward_code:', ward_code)",
+            "concat('timestamp_utc:', toString(timestamp_utc))"
+        ]) }} as dedup_key,
+        source,
+        ward_code,
+        ward_name,
+        province,
+        latitude,
+        longitude,
+        timestamp_utc,
+        temp,
+        temp_min,
+        temp_max,
+        feels_like,
+        humidity,
+        pressure,
+        visibility as visibility_meters,
+        wind_speed,
+        wind_deg,
+        clouds_all,
+        ingest_time,
+        now() as dbt_updated_at
+    from mapped_to_wards
+    where ward_code != ''
 )
 
-select
-    source,
-    ward_code,
-    province,
-    latitude,
-    longitude,
-    timestamp_utc,
-    temp,
-    temp_min,
-    temp_max,
-    feels_like,
-    humidity,
-    pressure,
-    visibility_meters,
-    wind_speed,
-    wind_deg,
-    clouds_all,
-    now() as dbt_updated_at
-from deduplicated
-where rn = 1
+select * from final

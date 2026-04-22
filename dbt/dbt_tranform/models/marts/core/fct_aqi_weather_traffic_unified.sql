@@ -8,7 +8,16 @@
     overwrite=true
 ) }}
 
-WITH aqi_base AS (
+WITH window_bounds AS (
+    SELECT
+        {% if is_incremental() %}
+        (SELECT max(datetime_hour) - interval 24 hour FROM {{ this }}) as window_start
+        {% else %}
+        toDateTime('1970-01-01 00:00:00') as window_start
+        {% endif %}
+),
+
+aqi_base AS (
     SELECT 
         datetime_hour,
         date,
@@ -23,9 +32,7 @@ WITH aqi_base AS (
         co_avg as co,
         main_pollutant
     FROM {{ ref('fct_air_quality_ward_level_hourly') }}
-    {% if is_incremental() %}
-    WHERE datetime_hour >= (SELECT max(datetime_hour) FROM {{ this }}) - interval 3 hour
-    {% endif %}
+    WHERE datetime_hour >= (SELECT window_start FROM window_bounds)
 ),
 
 aqi AS (
@@ -38,7 +45,17 @@ aqi AS (
 ),
 
 weather_ward AS (
-    SELECT * FROM {{ ref('stg_openweather__meteorology') }}
+    SELECT
+        ward_code,
+        province,
+        timestamp_utc,
+        temp,
+        humidity,
+        wind_speed,
+        wind_deg,
+        pressure
+    FROM {{ ref('stg_openweather__meteorology') }}
+    WHERE timestamp_utc >= (SELECT window_start FROM window_bounds)
 ),
 
 weather_province AS (
@@ -51,6 +68,7 @@ weather_province AS (
         avg(wind_deg) as wind_deg,
         avg(pressure) as pressure
     FROM {{ ref('stg_openweather__meteorology') }}
+    WHERE timestamp_utc >= (SELECT window_start FROM window_bounds)
     GROUP BY province, timestamp_utc
 ),
 
@@ -61,6 +79,7 @@ traffic AS (
         avg(value) as value,
         any(quality_flag) as quality_flag
     FROM {{ ref('stg_tomtom__flow') }}
+    WHERE timestamp_utc >= (SELECT window_start FROM window_bounds)
     GROUP BY ward_code, datetime_hour
 ),
 
@@ -86,7 +105,7 @@ SELECT
     a.co AS co,
     a.main_pollutant AS main_pollutant,
     
-    -- Meteorology (Coalesce Ward -> Province fallback)
+    -- Meteorology (Ward-level first, province fallback)
     coalesce(nullIf(ww.temp, 0), wp.temp) as temperature,
     coalesce(nullIf(ww.humidity, 0), wp.humidity) as humidity,
     coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) as wind_speed,
@@ -116,7 +135,7 @@ SELECT
 
 FROM aqi a
 LEFT JOIN weather_ward ww ON 
-    a.ward_code = ww.ward_code AND 
+    a.ward_code = ww.ward_code AND
     a.datetime_hour = ww.timestamp_utc
 LEFT JOIN weather_province wp ON
     a.province = wp.province AND

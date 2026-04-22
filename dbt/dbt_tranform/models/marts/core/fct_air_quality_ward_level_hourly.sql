@@ -7,9 +7,33 @@
 ) }}
 
 with summary as (
-    select * from {{ ref('fct_air_quality_summary_hourly') }}
+    select
+        datetime_hour,
+        date,
+        province,
+        ward_code,
+        region_3,
+        region_8,
+        source,
+        source_weight,
+        final_aqi_us,
+        final_aqi_vn,
+        pm25_value,
+        pm10_value,
+        co_value,
+        no2_value,
+        so2_value,
+        o3_value,
+        pm25_aqi,
+        pm10_aqi,
+        co_aqi,
+        no2_aqi,
+        so2_aqi,
+        o3_aqi,
+        ingest_time
+    from {{ ref('fct_air_quality_summary_hourly') }}
     {% if is_incremental() %}
-    where datetime_hour >= (select max(datetime_hour) - interval 1 day from {{ this }})
+    where datetime_hour >= (select max(datetime_hour) - interval 24 hour from {{ this }})
     {% endif %}
 ),
 

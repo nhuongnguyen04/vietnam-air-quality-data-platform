@@ -7,7 +7,22 @@
 ) }}
 
 with measurements as (
-    select * from {{ ref('int_core__measurements_unified') }}
+    select
+        source,
+        measurement_dedup_key,
+        ward_code,
+        province,
+        latitude,
+        longitude,
+        timestamp_utc,
+        parameter,
+        value,
+        aqi_reported,
+        quality_flag,
+        ingest_time,
+        region_3,
+        region_8
+    from {{ ref('int_core__measurements_unified') }}
     {% if is_incremental() %}
     -- Process last 6 hours to ensure window functions capture all pollutants for an hour
     where timestamp_utc >= (select max(timestamp_utc) - interval 6 hour from {{ this }})
@@ -31,22 +46,43 @@ normalized_for_us as (
 
 calculated as (
     select
-        *,
+        source,
+        measurement_dedup_key,
+        ward_code,
+        province,
+        latitude,
+        longitude,
+        timestamp_utc,
+        parameter,
+        value,
+        aqi_reported,
+        quality_flag,
+        ingest_time,
+        region_3,
+        region_8,
+        value_us_standard,
         {{ calculate_aqi('parameter', 'value_us_standard') }} as aqi_us,
         {{ calculate_aqi_vn('parameter', 'value') }}           as aqi_vn
     from normalized_for_us
 ),
 
-with_max as (
+max_aqi_per_hour as (
     select
-        *,
-        max(aqi_us) over (partition by province, ward_code, timestamp_utc) as max_aqi_us_in_hour,
-        max(aqi_vn) over (partition by province, ward_code, timestamp_utc) as max_aqi_vn_in_hour
+        province,
+        ward_code,
+        timestamp_utc,
+        max(aqi_us) as max_aqi_us_in_hour,
+        max(aqi_vn) as max_aqi_vn_in_hour
     from calculated
+    group by province, ward_code, timestamp_utc
 )
 
 select
-    *,
-    case when aqi_us = max_aqi_us_in_hour then true else false end as is_dominant_us,
-    case when aqi_vn = max_aqi_vn_in_hour then true else false end as is_dominant_vn
-from with_max
+    c.*,
+    case when c.aqi_us = m.max_aqi_us_in_hour then true else false end as is_dominant_us,
+    case when c.aqi_vn = m.max_aqi_vn_in_hour then true else false end as is_dominant_vn
+from calculated c
+left join max_aqi_per_hour m
+    on c.province = m.province
+   and c.ward_code = m.ward_code
+   and c.timestamp_utc = m.timestamp_utc

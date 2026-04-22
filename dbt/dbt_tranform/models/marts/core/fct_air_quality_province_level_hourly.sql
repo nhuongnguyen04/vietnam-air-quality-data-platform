@@ -7,9 +7,30 @@
 ) }}
 
 with ward_hourly as (
-    select * from {{ ref('fct_air_quality_ward_level_hourly') }}
+    select
+        datetime_hour,
+        date,
+        province,
+        region_3,
+        region_8,
+        avg_aqi_us,
+        avg_aqi_vn,
+        pm25_avg,
+        pm10_avg,
+        co_avg,
+        no2_avg,
+        so2_avg,
+        o3_avg,
+        pm25_aqi,
+        pm10_aqi,
+        co_aqi,
+        no2_aqi,
+        so2_aqi,
+        o3_aqi,
+        last_ingested_at
+    from {{ ref('fct_air_quality_ward_level_hourly') }}
     {% if is_incremental() %}
-    where datetime_hour >= (select max(datetime_hour) - interval 1 day from {{ this }})
+    where datetime_hour >= (select max(datetime_hour) - interval 24 hour from {{ this }})
     {% endif %}
 ),
 

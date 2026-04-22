@@ -7,9 +7,22 @@
 ) }}
 
 with calculations as (
-    select * from {{ ref('int_aqi__calculations') }}
+    select
+        timestamp_utc,
+        province,
+        ward_code,
+        region_3,
+        region_8,
+        source,
+        source_weight,
+        parameter,
+        value,
+        aqi_us,
+        aqi_vn,
+        ingest_time
+    from {{ ref('int_aqi__calculations') }}
     {% if is_incremental() %}
-    where ingest_time > (select max(ingest_time) from {{ this }})
+    where ingest_time >= (select max(ingest_time) - interval 24 hour from {{ this }})
     {% endif %}
 ),
 

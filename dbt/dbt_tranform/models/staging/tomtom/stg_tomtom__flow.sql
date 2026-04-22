@@ -1,11 +1,12 @@
 {{ config(
+    materialized='incremental',
     engine='ReplacingMergeTree',
     unique_key='(ward_code, timestamp_utc, parameter)',
     order_by='(province_name, timestamp_utc, ward_code)',
     partition_by='toYYYYMM(timestamp_utc)'
 ) }}
 
-WITH raw_data AS (
+WITH incremental_source AS (
     SELECT
         source,
         traffic_source,
@@ -22,11 +23,36 @@ WITH raw_data AS (
         confidence,
         ingest_time
     FROM {{ source('tomtom', 'raw_tomtom_traffic') }}
+    {% if is_incremental() %}
+    WHERE ingest_time >= (
+        SELECT max(ingest_time) - interval 24 hour
+        FROM {{ this }}
+    )
+    {% endif %}
 ),
 
 calculated_ratios AS (
     SELECT
-        *,
+        {{ dbt_utils.generate_surrogate_key([
+            "concat('source:', source)",
+            "concat('ward_code:', ward_code)",
+            "concat('hourly_timestamp:', toString(hourly_timestamp))",
+            "concat('parameter:', 'congestion_ratio')"
+        ]) }} as dedup_key,
+        source,
+        traffic_source,
+        ward_code,
+        ward_name,
+        province_name,
+        latitude,
+        longitude,
+        hourly_timestamp,
+        current_travel_time,
+        free_flow_travel_time,
+        current_speed,
+        free_flow_speed,
+        confidence,
+        ingest_time,
         -- Formula: (current travel time - free flow travel time) / free flow travel time
         -- Fallback: (free flow speed / current speed) - 1
         CASE
@@ -36,14 +62,15 @@ calculated_ratios AS (
                 THEN (CAST(free_flow_speed, 'Float64') / CAST(current_speed, 'Float64')) - 1
             ELSE 0
         END as raw_congestion_ratio
-    FROM raw_data
+    FROM incremental_source
 ),
 
 hourly_aggregated AS (
     SELECT
-        source,
-        ward_code,
-        hourly_timestamp,
+        dedup_key,
+        argMax(source, ingest_time) as source,
+        argMax(ward_code, ingest_time) as ward_code,
+        argMax(hourly_timestamp, ingest_time) as hourly_timestamp,
         -- Use argMax to get the coordinates associated with the most recent sample
         argMax(latitude, ingest_time) as latitude,
         argMax(longitude, ingest_time) as longitude,
@@ -54,13 +81,11 @@ hourly_aggregated AS (
         argMax(province_name, ingest_time) as province_name,
         max(ingest_time) as max_ingest_time
     FROM calculated_ratios
-    GROUP BY
-        source,
-        ward_code,
-        hourly_timestamp
+    GROUP BY dedup_key
 )
 
 SELECT
+    dedup_key,
     source,
     ward_code,
     ward_name,

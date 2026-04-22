@@ -157,20 +157,26 @@ ORDER BY (station_name, hour_utc)
 CREATE TABLE IF NOT EXISTS raw_openweather_meteorology
 (
     source              LowCardinality(String) DEFAULT 'openweather',
-    province           String,
-    latitude           Float64,
-    longitude          Float64,
+    ingest_time        DateTime DEFAULT now(),
+    ingest_batch_id    String,
+    province_name      String,
+    weather_cluster    String,
+    cluster_lat        Float64,
+    cluster_lon        Float64,
     timestamp_utc      DateTime,
     temp               Float32,
     feels_like         Float32,
-    humidity           UInt8,
+    temp_min           Float32,
+    temp_max           Float32,
     pressure           UInt16,
+    humidity           UInt8,
+    visibility         UInt32,
     wind_speed         Float32,
     wind_deg           UInt16,
     clouds_all         UInt8,
-    ingest_time        DateTime DEFAULT now()
+    raw_payload        String CODEC(ZSTD(1))
 )
 ENGINE = ReplacingMergeTree(ingest_time)
 PARTITION BY toYYYYMM(timestamp_utc)
-ORDER BY (province, timestamp_utc)
+ORDER BY (province_name, timestamp_utc, weather_cluster)
 SETTINGS index_granularity = 8192;

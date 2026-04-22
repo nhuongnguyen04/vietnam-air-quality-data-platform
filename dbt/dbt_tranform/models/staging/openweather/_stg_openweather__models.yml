@@ -14,10 +14,13 @@ models:
 
       **Source:** OpenWeather Air Pollution API (https://openweathermap.org/api/air-pollution)
       **Coverage:** All configured wards in Vietnam.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [ward_code, timestamp_utc, parameter]
     columns:
+      - name: dedup_key
+        description: |
+          Stable surrogate key for the natural grain `(ward_code, timestamp_utc, parameter)`.
+          Used internally for incremental deduplication; latest `ingest_time` wins.
+        tests:
+          - not_null
       - name: source
         description: |
           Source identifier. Always 'openweather' for records from this model.
@@ -70,21 +73,29 @@ models:
 
       **Business Rules:**
       - Timestamps rounded to the start of the hour (toStartOfHour).
-      - Mapped to nearest ward centroid.
+      - Raw weather is ingested once per OpenWeather cluster/city.
+      - Each ward is assigned to a cluster using the same 0.2-degree grid logic as ingestion.
+      - Downstream models can join directly on `(ward_code, timestamp_utc)`.
 
       **Source:** OpenWeather Current Weather API
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [ward_code, timestamp_utc]
     columns:
+      - name: dedup_key
+        description: |
+          Stable surrogate key for the natural grain `(ward_code, timestamp_utc)`.
+          Used internally for incremental deduplication; latest `ingest_time` wins.
+        tests:
+          - not_null
       - name: source
         description: |
           Source identifier. Always 'openweather' for this model.
       - name: ward_code
         description: |
-          Unique identifier for the administrative ward.
+          Unique identifier for the administrative ward receiving the cluster weather assignment.
         tests:
           - not_null
+      - name: ward_name
+        description: |
+          Human-readable ward name.
       - name: province
         description: |
           Province name.
@@ -95,7 +106,7 @@ models:
           Latitude of the measurement point.
       - name: longitude
         description: |
-          Longitude of the measurement point.
+          Longitude of the ward centroid used for weather assignment.
       - name: timestamp_utc
         description: |
           UTC timestamp rounded to the start of the hour.

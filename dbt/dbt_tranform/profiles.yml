@@ -26,7 +26,7 @@ dbt_tranform:
       password: "{{ env_var('CLICKHOUSE_PASSWORD', 'admin123456') }}"
       database: "{{ env_var('CLICKHOUSE_DB', 'air_quality') }}"
       schema: "{{ env_var('CLICKHOUSE_DB', 'air_quality') }}"
-      threads: 4
+      threads: 2
       timeout: 300
       retry_count: 3
       retry_timeout: 60
@@ -44,4 +44,3 @@ dbt_tranform:
       timeout: 300
       retry_count: 3
       compression: lz4
-

@@ -62,7 +62,7 @@ sources:
         description: |
           Meteorological measurements from OpenWeather Weather API (current + forecast).
 
-          **Grain:** One row per (ward_code, timestamp_utc) per ingest run.
+          **Grain:** One row per (weather_cluster, timestamp_utc) per ingest run.
 
           **Data Types:**
           - Current: real-time weather observations
@@ -72,7 +72,8 @@ sources:
 
           **Caveats:**
           - Timestamp is rounded to 3-hour intervals for forecast data
-          - Current weather may not be available for all city IDs
+          - Current weather is stored at cluster/city granularity, not ward granularity
+          - Ward-level expansion is handled in dbt using the same spatial grid logic as ingestion
 
           **Freshness:**
           - warn_after: 6 hours
