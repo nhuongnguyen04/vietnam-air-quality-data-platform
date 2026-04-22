@@ -24,10 +24,43 @@ jobs:
       - run: ruff check python_jobs/ airflow/dags/ --config .ruff.toml || true
       - run: sqlfluff lint dbt/dbt_tranform/ --format github-annotation || true
 
+  python-unit:
+    name: Python Unit
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: pytest tests/python -m "not integration and not live"
+        env:
+          INGEST_MODE: csv
+
+  python-integration:
+    name: Python Integration
+    runs-on: ubuntu-latest
+    needs: python-unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: pytest tests/python -m integration
+        env:
+          INGEST_MODE: csv
+
   compile:
     name: Compile
     runs-on: ubuntu-latest
-    needs: lint
+    needs:
+      - lint
+      - python-unit
+      - python-integration
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
