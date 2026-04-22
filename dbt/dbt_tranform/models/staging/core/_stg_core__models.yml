@@ -5,7 +5,7 @@ models:
     description: |
       Ground truth reference for Vietnam administrative hierarchy (Ward -> Province).
       Derived from `vietnam_wards_with_osm.csv`.
-      
+
       **Grain:** One row per ward_code.
     columns:
       - name: ward_code
@@ -26,12 +26,17 @@ models:
       - name: area_km2
         description: Land area in square kilometers.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
   - name: stg_core__stations
     description: |
       Enriched station metadata with automated mapping to ward_code.
-      
+
       **Grain:** One row per station_name.
-      
+
       **Business Rules:**
       - Stations are mapped to the nearest ward centroid from `stg_core__administrative_units` using spatial distance.
     columns:
@@ -47,6 +52,11 @@ models:
       - name: station_source
         description: Data source provider.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
   - name: stg_core__pollutants
     description: |
       Reference table of criteria pollutants with EPA AQI breakpoint values.
@@ -68,19 +78,34 @@ models:
       - name: conc_bp_hi
         description: Upper bound of the concentration range for the breakpoint.
       - name: health_effects
-        description: Business description of health effects associated with this pollutant level.
+        description: Business description of health effects associated with this
+          pollutant level.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
   - name: stg_core__population
     description: |
       Vietnam provincial population aggregated from ward-level statistics.
-      
+
       **Grain:** One row per province.
     columns:
       - name: location_name
         description: Standardized province name.
         tests:
           - not_null
+      - name: original_location_name
+        description: Unprocessed source location name (for mapping traceability).
       - name: total_population
         description: Sum of ward populations in this province.
       - name: area_km2
-        description: Total land area of the province.
+        description: Total land area of the province in square kilometers.
+      - name: density_per_km2
+        description: Population density (People / km²).
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze

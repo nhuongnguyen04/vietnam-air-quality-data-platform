@@ -94,7 +94,12 @@ models:
           Assigned via `get_vietnam_region_3(province)` macro.
           Used for regional AQI summaries and comparative analysis.
       - name: region_8
-        description: |
+        description: |-
           Vietnam's 8 administrative regions per GSO classification.
           Assigned via `get_vietnam_region_8(province)` macro.
           More granular than region_3 — used for detailed regional dashboards.
+    meta:
+      openmetadata:
+        tier: Tier.Tier2
+        tags:
+          - Certification.Silver

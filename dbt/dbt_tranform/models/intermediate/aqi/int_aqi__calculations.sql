@@ -81,6 +81,8 @@ max_aqi_per_hour as (
 
 select
     c.*,
+    m.max_aqi_us_in_hour,
+    m.max_aqi_vn_in_hour,
     case when c.aqi_us = m.max_aqi_us_in_hour then true else false end as is_dominant_us,
     case when c.aqi_vn = m.max_aqi_vn_in_hour then true else false end as is_dominant_vn
 from calculated c

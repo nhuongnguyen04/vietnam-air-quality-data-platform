@@ -4,6 +4,11 @@ from __future__ import annotations
 import sys
 sys.path.insert(0, "..")
 
+"""
+Trang Xu hướng Lịch sử (Historical Trend) hiển thị sự biến đổi của chất lượng không khí 
+theo thời gian (giờ, ngày, tháng, năm). Giúp xác định các chu kỳ ô nhiễm và đánh giá 
+hiệu quả của các biện pháp cải thiện môi trường.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

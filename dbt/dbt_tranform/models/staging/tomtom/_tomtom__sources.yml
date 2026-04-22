@@ -78,6 +78,11 @@ sources:
             description: |
               Timestamp when this hourly aggregation was computed and written.
               Used for freshness monitoring and deduplication.
+        meta:
+          openmetadata:
+            tier: Tier.Tier3
+            tags:
+              - Certification.Bronze
       - name: raw_tomtom_traffic
         description: |
           Ward-centric traffic flow data from TomTom.
@@ -141,3 +146,8 @@ sources:
             description: "Serialized TomTom API response or interpolation trace."
           - name: ingest_time
             description: "Timestamp when the record was ingested."
+        meta:
+          openmetadata:
+            tier: Tier.Tier3
+            tags:
+              - Certification.Bronze

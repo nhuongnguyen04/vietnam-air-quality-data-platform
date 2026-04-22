@@ -65,6 +65,11 @@ models:
         description: |
           Timestamp when the record was written to ClickHouse.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
   - name: stg_openweather__meteorology
     description: |
       Deduplicated meteorological measurements from OpenWeather Weather API.
@@ -158,3 +163,8 @@ models:
         description: |
           Timestamp when dbt last processed this record.
           Added by dbt for audit purposes.
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze

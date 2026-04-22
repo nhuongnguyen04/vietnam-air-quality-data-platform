@@ -1,3 +1,7 @@
+"""
+Trang Trạng thái Hệ thống (System Status) giám sát tình trạng hoạt động của hạ tầng dữ liệu. 
+Bao gồm thông tin về các trạm đo đang hoạt động, tần suất cập nhật dữ liệu và sức khỏe của toàn hệ thống.
+"""
 import streamlit as st
 from lib.clickhouse_client import query_df
 from lib.style import render_metric_card, get_plotly_layout

@@ -45,6 +45,12 @@ sources:
           warn_after: {count: 12, period: hour}
           error_after: {count: 24, period: hour}
         loaded_at_field: ingest_time
+        meta:
+          openmetadata:
+            tier: "Tier.Tier3"
+            tags:
+              - "Certification.Bronze"
+              - "PII.None"
         columns:
           - name: station_name
             description: |
@@ -62,13 +68,20 @@ sources:
             description: |
               Pollutant or environmental parameter code.
               Values: pm25, pm10, co, no2, o3, so2, temp, hum
+            meta:
+              openmetadata:
+                glossary: ["AirQuality.PM25", "AirQuality.PM10", "AirQuality.CO",
+                  "AirQuality.NO2", "AirQuality.Ozone", "AirQuality.SO2"]
             tests:
               - not_null
           - name: value
             description: |
-              Measurement value in µg/m³ (pollutants) or °C/% (weather).
+              Measurement value (numeric).
             tests:
               - not_null
+          - name: unit
+            description: |
+              Measurement unit (e.g., µg/m³, ppb, ppm, °C, %).
           - name: aqi_reported
             description: |
               AQI computed by source widget (if available).
@@ -78,6 +91,6 @@ sources:
               Data quality flag from scraping pipeline.
               Values: 'valid', 'suspect', 'missing', 'error'
           - name: ingest_time
-            description: |
+            description: |-
               ClickHouse ingest timestamp.
               Used for deduplication and freshness monitoring.

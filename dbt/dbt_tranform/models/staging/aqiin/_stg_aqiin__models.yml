@@ -78,3 +78,8 @@ models:
         description: |
           Timestamp when the record was written to ClickHouse.
           Used for deduplication ordering (most recent wins).
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze

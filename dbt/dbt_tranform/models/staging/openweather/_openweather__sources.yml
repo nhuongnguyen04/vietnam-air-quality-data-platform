@@ -58,6 +58,49 @@ sources:
           error_after: {count: 24, period: hour}
         loaded_at_field: ingest_time
 
+        meta:
+          openmetadata:
+            tier: Tier.Tier3
+            tags:
+              - Certification.Bronze
+        columns:
+          - name: source
+            description: "Source identifier. Always 'openweather'."
+          - name: ingest_time
+            description: "ClickHouse ingest timestamp."
+          - name: ingest_batch_id
+            description: "Unique identifier for the ingestion batch run."
+          - name: ingest_date
+            description: "Materialized date of ingestion for partitioning."
+          - name: ward_code
+            description: "Vietnam administrative ward code."
+            tests:
+              - not_null
+          - name: ward_name
+            description: "Ward name from geocoding metadata."
+          - name: province_name
+            description: "Province name from geocoding metadata."
+          - name: latitude
+            description: "Latitude of the ward centroid."
+          - name: longitude
+            description: "Longitude of the ward centroid."
+          - name: timestamp_utc
+            description: "Observation timestamp (rounded to hour)."
+            tests:
+              - not_null
+          - name: parameter
+            description: "Pollutant code (pm25, pm10, co, no2, o3, so2)."
+            meta:
+              openmetadata:
+                glossary: ["AirQuality.PM25", "AirQuality.PM10", "AirQuality.CO", "AirQuality.NO2", "AirQuality.Ozone", "AirQuality.SO2"]
+          - name: value
+            description: "Pollutant concentration in µg/m³."
+          - name: aqi_reported
+            description: "AQI reported by OpenWeather (standard index)."
+          - name: quality_flag
+            description: "Data quality indicator ('valid', etc)."
+          - name: raw_payload
+            description: "Serialized raw API response."
       - name: raw_openweather_meteorology
         description: |
           Meteorological measurements from OpenWeather Weather API (current + forecast).
@@ -82,3 +125,51 @@ sources:
           warn_after: {count: 6, period: hour}
           error_after: {count: 12, period: hour}
         loaded_at_field: ingest_time
+        meta:
+          openmetadata:
+            tier: Tier.Tier3
+            tags:
+              - Certification.Bronze
+        columns:
+          - name: source
+            description: "Source identifier. Always 'openweather'."
+          - name: ingest_time
+            description: "ClickHouse ingest timestamp."
+          - name: ingest_batch_id
+            description: "Unique identifier for the ingestion batch run."
+          - name: ingest_date
+            description: "Materialized date of ingestion for partitioning."
+          - name: province_name
+            description: "Province name."
+          - name: weather_cluster
+            description: "Unique identifier for the spatial weather grid cell."
+          - name: cluster_lat
+            description: "Latitude of the grid cell centroid."
+          - name: cluster_lon
+            description: "Longitude of the grid cell centroid."
+          - name: timestamp_utc
+            description: "Observation timestamp."
+            tests:
+              - not_null
+          - name: temp
+            description: "Temperature in Celsius."
+          - name: feels_like
+            description: "Apparent temperature in Celsius."
+          - name: temp_min
+            description: "Minimum observed temperature in the hour."
+          - name: temp_max
+            description: "Maximum observed temperature in the hour."
+          - name: pressure
+            description: "Atmospheric pressure in hPa."
+          - name: humidity
+            description: "Relative humidity percentage."
+          - name: visibility
+            description: "Visibility distance in meters."
+          - name: wind_speed
+            description: "Wind speed in m/s."
+          - name: wind_deg
+            description: "Wind direction in degrees."
+          - name: clouds_all
+            description: "Cloud cover percentage."
+          - name: raw_payload
+            description: "Serialized raw API response."

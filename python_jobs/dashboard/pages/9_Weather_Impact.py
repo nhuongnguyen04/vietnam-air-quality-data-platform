@@ -1,3 +1,8 @@
+"""
+Trang Ảnh hưởng Thời tiết (Weather Impact) phân tích sự tác động của các yếu tố khí tượng 
+(nhiệt độ, độ ẩm, tốc độ gió) lên nồng độ chất ô nhiễm. Giúp hiểu rõ cơ chế phát tán 
+hoặc tích tụ bụi mịn trong các điều kiện thời tiết khác nhau.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

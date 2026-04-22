@@ -13,6 +13,11 @@ models:
       - ReplacingMergeTree ensures only one record per (province, ward_code)
 
       **Downstream consumers:** Streamlit overview page, real-time status cards, alert triggers
+    meta:
+      openmetadata:
+        tier: "Tier.Tier1"
+        tags:
+          - "Certification.Gold"
     columns:
       - name: province
         description: Province name.
@@ -30,12 +35,25 @@ models:
         description: UTC timestamp of the most recent reading.
       - name: current_aqi_us
         description: Most recent US AQI value.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: current_aqi_vn
         description: Most recent Vietnam AQI value.
+        meta:
+          openmetadata:
+            glossary: ["AirQuality.AQI"]
       - name: pm25
         description: Most recent PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary: ["AirQuality.PM25"]
       - name: pm10
         description: Most recent PM10 concentration.
+        meta:
+          openmetadata:
+            glossary: ["AirQuality.PM10"]
       - name: main_pollutant
         description: Dominant pollutant at the most recent hour.
       - name: data_source
@@ -59,6 +77,11 @@ models:
       - is_reliable = TRUE if lag_hours ≤ 3 hours
 
       **Downstream consumers:** Data quality dashboard tab, alerting on stale/offline sources, SLA reporting
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
     columns:
       - name: province
         description: Province name.
@@ -71,7 +94,8 @@ models:
       - name: lag_hours
         description: Number of hours since the last reading.
       - name: health_status
-        description: Status string based on lag (Fresh, Delayed, Stale, Offline).
+        description: Status string based on lag (Fresh, Delayed, Stale, 
+          Offline).
       - name: is_reliable
         description: Boolean flag for data reliability (lag ≤ 3 hours).
 
@@ -102,12 +126,22 @@ models:
         description: Calendar date.
       - name: province
         description: Province name.
-      - name: ward_code
-        description: Ward identifier.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
       - name: pm25_avg
         description: Daily mean PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Daily mean PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: who_pm25_breach
         description: Boolean flag for WHO PM2.5 guideline breach (>15 µg/m³).
       - name: who_pm10_breach
@@ -118,7 +152,14 @@ models:
         description: Boolean flag for TCVN PM10 standard breach (>100 µg/m³).
       - name: compliance_status
         description: Categorical status based on WHO/TCVN breaches.
+      - name: ingest_time
+        description: Latest upstream ingest timestamp.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_aqi_health_impact_summary
     description: |
       Daily health risk assessment based on AQI categories and dominant pollutant health effects.
@@ -145,17 +186,26 @@ models:
         description: Province name.
       - name: ward_code
         description: Ward identifier.
-      - name: avg_aqi_us
-        description: Daily average US AQI.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
+      - name: total_hours
+        description: Number of hourly readings in the day.
       - name: high_risk_hours
         description: Number of hours in the day with unhealthy AQI.
       - name: high_risk_exposure_pct
         description: Percentage of day in high-risk categories.
       - name: primary_health_advice
-        description: Dominant health advisory message.
-      - name: main_pollutant
-        description: Pollutant contributing most to daily AQI.
+        description: Dominant health advisory message based on peak pollution.
+      - name: ingest_time
+        description: Latest upstream ingest timestamp.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_aqi_temporal_patterns
     description: |
       Time-of-day and day-of-week air quality patterns per province.
@@ -172,17 +222,48 @@ models:
     columns:
       - name: province
         description: Province name.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
       - name: hour_of_day
         description: Hour (0-23).
       - name: day_of_week
-        description: Day of week (1-7).
+        description: Day of week (1-7, where 1 is Monday).
+      - name: avg_aqi_us
+        description: Historical average US AQI for this time slot.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_aqi_vn
         description: Historical average Vietnam AQI for this time slot.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_pm25
         description: Historical average PM2.5 for this time slot.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
+      - name: avg_pm10
+        description: Historical average PM10 for this time slot.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: reading_count
         description: Number of historical readings contributing to the average.
+      - name: ingest_time
+        description: Latest ingest timestamp included in the pattern.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_pollutant_source_fingerprint
     description: |
       Probabilistic source attribution based on PM2.5/PM10 ratio analysis.
@@ -204,15 +285,34 @@ models:
         description: Province name.
       - name: ward_code
         description: Ward identifier.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
       - name: pm25
         description: "Daily average PM2.5 concentration."
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10
         description: "Daily average PM10 concentration."
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: pm25_pm10_ratio
-        description: Ratio of PM2.5 to PM10.
-      - name: likely_source_type
-        description: Classification (Combustion, Dust, Mixed).
+        description: Ratio of PM2.5 to PM10 concentration.
+      - name: probable_source
+        description: Most likely source category (Combustion/Traffic, Dust/Construction, or Mixed).
+      - name: ingest_time
+        description: Latest upstream ingest timestamp.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_regional_health_risk_ranking
     description: |
       National health risk ranking of provinces based on population-weighted PM2.5 exposure.
@@ -237,19 +337,30 @@ models:
     columns:
       - name: province
         description: Province name.
-      - name: avg_pm25
-        description: Average PM2.5 concentration.
-      - name: provincial_population
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
+      - name: population
         description: Total population of the province.
-      - name: total_exposure_mass
-        description: Population-weighted exposure index.
+      - name: time_weighted_pm25
+        description: Average PM2.5 concentration (30-day window).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
+      - name: total_exposure_index_m
+        description: Population-weighted exposure index (PM2.5 × Population / 1M).
       - name: risk_category
         description: Health risk category (CRITICAL, HIGH, MODERATE, LOW).
-      - name: national_rank
-        description: Ranking of the province by exposure mass.
-      - name: location_type
-        description: Urban, Industrial, or Rural.
+      - name: national_risk_rank
+        description: Ranking of the province by population exposure (1 = highest risk).
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_traffic_pollution_correlation_daily
     description: |
       Daily correlation statistics between traffic congestion and PM2.5 pollution by province and location type.
@@ -272,28 +383,55 @@ models:
         description: Calendar date.
       - name: province
         description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
       - name: location_type
         description: Urban, Industrial, or Rural.
       - name: pm25_daily_avg
         description: Daily average PM2.5 in province.
+      - name: pm10_daily_avg
+        description: Daily average PM10 in province.
       - name: congestion_daily_avg
-        description: Daily average traffic congestion in province.
-      - name: pollution_density_index
-        description: Ratio of PM2.5 to congestion.
-      - name: rank_in_location_type
-        description: Pollution rank within the same location type.
+        description: Daily average traffic congestion ratio.
+      - name: sum_pm25
+        description: Sum of PM2.5 for aggregation.
+      - name: sum_pm10
+        description: Sum of PM10 for aggregation.
+      - name: total_hours
+        description: Total hours contributing to the daily average.
+      - name: background_pm25_sum
+        description: Sum of PM2.5 during low-traffic night hours (2AM-4AM).
+      - name: background_pm10_sum
+        description: Sum of PM10 during low-traffic night hours (2AM-4AM).
+      - name: background_hours
+        description: Number of hours in the background sample.
+      - name: traffic_pollution_impact_score
+        description: Correlation score (PM2.5 × Congestion).
+      - name: traffic_contribution_pct
+        description: Estimated percentage of pollution attributable to traffic (relative to night background).
+      - name: dbt_updated_at
+        description: Timestamp of the latest dbt processing run.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_weather_pollution_correlation_daily
     description: |
       Daily correlation statistics between meteorological conditions (wind, temp, humidity) and PM2.5 pollution.
-      
+
       **Grain:** One row per (date, province, ward_code).
-      
+
       **Business Rules:**
       - stagnant_air_probability: % of day with wind < 1.0 m/s
       - wind_dispersal_risk_index: pm25 / wind_speed (higher = higher risk)
       - weather_influence_pct: PM2.5 difference between stagnant and dispersive conditions
-      
+
       **Downstream consumers:** Weather impact analysis, stagnation forecasting
     columns:
       - name: date
@@ -302,15 +440,60 @@ models:
         description: Province name.
       - name: ward_code
         description: Ward identifier.
-      - name: avg_pm25
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
+      - name: pm25_daily_avg
         description: Daily average PM2.5.
-      - name: stagnant_air_pct
-        description: Percentage of day with stagnant air conditions.
-      - name: wind_dispersal_index
-        description: Index of pollution vs wind speed.
-      - name: weather_driven_pollution_increase
-        description: Estimated increase in pollution due to weather conditions.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
+      - name: pm10_daily_avg
+        description: Daily average PM10.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
+      - name: temp_daily_avg
+        description: Daily average temperature (°C).
+      - name: humidity_daily_avg
+        description: Daily average humidity (%).
+      - name: wind_daily_avg
+        description: Daily average wind speed (m/s).
+      - name: sum_pm25
+        description: Sum of PM2.5 for aggregation.
+      - name: sum_pm10
+        description: Sum of PM10 for aggregation.
+      - name: total_hours
+        description: Total hours contributing to the daily average.
+      - name: stagnant_pm25_sum
+        description: Sum of PM2.5 during stagnant air hours.
+      - name: stagnant_pm10_sum
+        description: Sum of PM10 during stagnant air hours.
+      - name: stagnant_hours
+        description: Number of stagnant air hours.
+      - name: dispersive_pm25_sum
+        description: Sum of PM2.5 during dispersive (high wind) hours.
+      - name: dispersive_pm10_sum
+        description: Sum of PM10 during dispersive (high wind) hours.
+      - name: dispersive_hours
+        description: Number of dispersive air hours.
+      - name: wind_dispersal_risk_index
+        description: Index of pollution risk vs wind dispersal (PM2.5 / Wind Speed).
+      - name: weather_influence_pct
+        description: Estimated percentage increase in pollution due to stagnation.
+      - name: stagnant_air_probability
+        description: Percentage of day with stagnant air conditions (wind < 1.0 m/s).
+      - name: dbt_updated_at
+        description: Timestamp of the latest dbt processing run.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_air_quality_national_summary
     description: "Consolidated national KPIs for the dashboard, partitioned by time_grain."
     columns:
@@ -319,21 +502,53 @@ models:
         tests:
           - accepted_values:
               values: ['hourly', 'daily', 'monthly']
-      - name: datetime_bucket
+      - name: timestamp
         description: UTC timestamp for the start of the bucket.
-      - name: avg_aqi_vn
-        description: National average Vietnam AQI.
       - name: avg_aqi_us
         description: National average US AQI.
-      - name: avg_pm25
-        description: National average PM2.5.
-      - name: avg_pm10
-        description: National average PM10.
-      - name: station_count
-        description: Number of stations reporting in this bucket.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+      - name: max_aqi_us
+        description: Peak US AQI observed across all provinces.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+      - name: avg_aqi_vn
+        description: National average Vietnam AQI.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+      - name: max_aqi_vn
+        description: Peak Vietnam AQI observed across all provinces.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+      - name: active_provinces_us
+        description: Number of provinces with reporting US AQI data.
+      - name: active_provinces_vn
+        description: Number of provinces with reporting Vietnam AQI data.
+      - name: active_wards
+        description: Number of wards contributing to the summary.
+      - name: dominant_pollutant_us
+        description: Pollutant most frequently driving the US AQI.
+      - name: dominant_pollutant_vn
+        description: Pollutant most frequently driving the Vietnam AQI.
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_air_quality_overview_daily
-    description: "Primary data source for the dashboard's daily air quality overview, joining AQI data with administrative units."
+    description: "Primary data source for the dashboard's daily air quality overview,
+      joining AQI data with administrative units."
     columns:
       - name: date
         description: Calendar date.
@@ -355,47 +570,147 @@ models:
         description: Ward population.
       - name: avg_aqi_us
         description: Daily average US AQI.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_us
         description: Peak US AQI in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_aqi_vn
         description: Daily average Vietnam AQI.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_vn
         description: Peak Vietnam AQI in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: main_pollutant
         description: Dominant pollutant for the day.
       - name: pm25_avg
         description: Daily average PM2.5.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Daily average PM10.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Daily average CO.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Daily average NO2.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Daily average SO2.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Daily average O3.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: last_ingested_at
         description: Latest upstream ingest timestamp.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_air_quality_overview_hourly
-    description: "Primary data source for the dashboard's hourly air quality overview. Used for real-time monitoring and hourly trend analysis."
+    description: "Primary data source for the dashboard's hourly air quality overview.
+      Used for real-time monitoring and hourly trend analysis."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
       - name: province
         description: Province name.
       - name: ward_code
         description: Ward identifier.
-      - name: avg_aqi_vn
-        description: Hourly average Vietnam AQI.
+      - name: ward_name
+        description: Ward name.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
+      - name: latitude
+        description: Latitude of the ward.
+      - name: longitude
+        description: Longitude of the ward.
+      - name: population
+        description: Ward population.
       - name: avg_aqi_us
         description: Hourly average US AQI.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+      - name: max_aqi_us
+        description: Peak US AQI observed in the hour (for aggregations).
+      - name: avg_aqi_vn
+        description: Hourly average Vietnam AQI.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+      - name: max_aqi_vn
+        description: Peak Vietnam AQI observed in the hour.
       - name: main_pollutant
         description: Dominant pollutant for the hour.
+      - name: pm25_avg
+        description: Hourly average PM2.5.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
+      - name: pm10_avg
+        description: Hourly average PM10.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
+      - name: co_avg
+        description: Hourly average CO.
+      - name: no2_avg
+        description: Hourly average NO2.
+      - name: so2_avg
+        description: Hourly average SO2.
+      - name: o3_avg
+        description: Hourly average O3.
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_air_quality_overview_monthly
-    description: "Primary data source for the dashboard's monthly air quality overview. Used for long-term historical analysis."
+    description: "Primary data source for the dashboard's monthly air quality overview.
+      Used for long-term historical analysis."
     columns:
       - name: month
         description: First day of the month.
@@ -405,31 +720,105 @@ models:
         description: Ward identifier.
       - name: avg_aqi_vn
         description: Monthly average Vietnam AQI.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_aqi_us
         description: Monthly average US AQI.
 
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_traffic_hourly_trend
-    description: "Specialized mart for optimized traffic-pollution correlation analysis on the dashboard."
+    description: "Specialized mart for optimized traffic-pollution correlation analysis
+      on the dashboard."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
       - name: province
         description: Province name.
-      - name: avg_congestion_ratio
-        description: Average traffic congestion in the province.
-      - name: avg_pm25
-        description: Average PM2.5 in the province.
-
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
+      - name: congestion_index
+        description: Traffic congestion ratio.
+      - name: pm25
+        description: PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
+      - name: pm10
+        description: PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
+      - name: co
+        description: CO concentration.
+      - name: traffic_pollution_impact_score
+        description: Product of PM2.5 and congestion index.
+      - name: traffic_contribution_pct
+        description: Estimated % of pollution from traffic.
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: dm_weather_hourly_trend
-    description: "Specialized mart for optimized weather-pollution correlation analysis on the dashboard."
+    description: "Specialized mart for optimized weather-pollution correlation analysis
+      on the dashboard."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
       - name: province
         description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: region_3
+        description: Vietnam 3-region classification.
+      - name: region_8
+        description: Vietnam 8-region classification.
       - name: temperature
-        description: Average temperature in the province.
+        description: Temperature in Celsius.
       - name: humidity
-        description: Average humidity in the province.
-      - name: avg_pm25
-        description: Average PM2.5 in the province.
+        description: Relative humidity percentage.
+      - name: pm25
+        description: PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
+      - name: pm10
+        description: PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
+      - name: wind_speed
+        description: Wind speed in m/s.
+      - name: wind_direction
+        description: Wind direction in degrees.
+      - name: weather_influence_pct
+        description: "% influence of weather on pollution levels."
+      - name: stagnant_air_probability
+        description: Probability of stagnant air conditions.
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold

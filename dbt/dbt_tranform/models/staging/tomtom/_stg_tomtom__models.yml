@@ -91,3 +91,8 @@ models:
         description: |
           Timestamp when dbt last processed this record.
           Added by dbt for audit purposes.
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze

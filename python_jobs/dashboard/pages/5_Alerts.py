@@ -4,6 +4,10 @@ from __future__ import annotations
 import sys
 sys.path.insert(0, "..")
 
+"""
+Trang Cảnh báo (Alerts) theo dõi và thông báo về các sự kiện ô nhiễm vượt ngưỡng quy định. 
+Hệ thống cung cấp lịch sử các đợt cảnh báo và chi tiết về mức độ rủi ro tại từng khu vực.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

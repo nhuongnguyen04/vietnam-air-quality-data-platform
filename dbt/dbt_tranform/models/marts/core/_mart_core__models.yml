@@ -34,6 +34,11 @@ models:
       - name: area_km2
         description: Ward land area in square kilometers.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
   - name: fct_air_quality_summary_hourly
     description: |
       Source-level hourly AQI fact table before ward/province consolidation.
@@ -63,8 +68,16 @@ models:
         description: Weight used when blending multiple sources.
       - name: final_aqi_us
         description: Hourly AQI based on US standard for the source record.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: final_aqi_vn
         description: Hourly AQI based on Vietnam standard for the source record.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm25_value
         description: Hourly PM2.5 concentration (ug/m3).
       - name: pm10_value
@@ -92,10 +105,16 @@ models:
       - name: dominant_pollutant_us
         description: Pollutant with highest AQI under US standard at this hour.
       - name: dominant_pollutant_vn
-        description: Pollutant with highest AQI under Vietnam standard at this hour.
+        description: Pollutant with highest AQI under Vietnam standard at this 
+          hour.
       - name: ingest_time
         description: Latest ingest timestamp among contributing source rows.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_ward_level_hourly
     description: |
       Harmonized ward-level hourly air quality by blending source-level records.
@@ -124,24 +143,56 @@ models:
         description: 8-region classification.
       - name: avg_aqi_us
         description: Source-weighted ward AQI under US standard.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_aqi_vn
         description: Source-weighted ward AQI under Vietnam standard.
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
               max_value: 500
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm25_avg
         description: Source-weighted PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Source-weighted PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Source-weighted CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Source-weighted NO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Source-weighted SO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Source-weighted O3 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: Source-weighted PM2.5 AQI component.
       - name: pm10_aqi
@@ -155,10 +206,16 @@ models:
       - name: o3_aqi
         description: Source-weighted O3 AQI component.
       - name: main_pollutant
-        description: Pollutant contributing the largest AQI component at this hour.
+        description: Pollutant contributing the largest AQI component at this 
+          hour.
       - name: last_ingested_at
         description: Latest upstream ingest timestamp for the ward-hour record.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_ward_level_daily
     description: |
       Ward-level daily aggregate derived from hourly ward records.
@@ -177,28 +234,68 @@ models:
         description: 8-region classification.
       - name: avg_aqi_us
         description: Mean hourly AQI (US) across the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_us
         description: Highest hourly AQI (US) observed in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_us
         description: Lowest hourly AQI (US) observed in the day.
       - name: avg_aqi_vn
         description: Mean hourly AQI (VN) across the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_vn
         description: Highest hourly AQI (VN) observed in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_vn
         description: Lowest hourly AQI (VN) observed in the day.
       - name: pm25_avg
         description: Daily mean PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Daily mean PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Daily mean CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Daily mean NO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Daily mean SO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Daily mean O3 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: Daily mean PM2.5 AQI component.
       - name: pm10_aqi
@@ -216,6 +313,11 @@ models:
       - name: last_ingested_at
         description: Latest upstream ingest timestamp captured for the day.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_ward_level_monthly
     description: |
       Ward-level monthly aggregate from daily ward air quality.
@@ -236,28 +338,68 @@ models:
         description: Number of daily records used for monthly aggregation.
       - name: avg_aqi_us
         description: Monthly mean AQI (US).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_us
         description: Peak daily AQI (US) within the month.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_us
         description: Best daily AQI (US) within the month.
       - name: avg_aqi_vn
         description: Monthly mean AQI (VN).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_vn
         description: Peak daily AQI (VN) within the month.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_vn
         description: Best daily AQI (VN) within the month.
       - name: pm25_avg
         description: Monthly mean PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Monthly mean PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Monthly mean CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Monthly mean NO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Monthly mean SO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Monthly mean O3 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: Monthly mean PM2.5 AQI component.
       - name: pm10_aqi
@@ -271,10 +413,17 @@ models:
       - name: o3_aqi
         description: Monthly mean O3 AQI component.
       - name: main_pollutant
-        description: Most impactful pollutant for the month based on AQI components.
+        description: Most impactful pollutant for the month based on AQI 
+          components.
       - name: last_ingested_at
-        description: Latest upstream ingest timestamp represented in the monthly row.
+        description: Latest upstream ingest timestamp represented in the monthly
+          row.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_province_level_hourly
     description: |
       Province-level hourly aggregate rolled up from ward-level hourly records.
@@ -293,20 +442,52 @@ models:
         description: 8-region classification.
       - name: avg_aqi_us
         description: Mean ward AQI (US) within the province-hour.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: avg_aqi_vn
         description: Mean ward AQI (VN) within the province-hour.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: pm25_avg
         description: Mean ward PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Mean ward PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Mean ward CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Mean ward NO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Mean ward SO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Mean ward O3 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: Mean ward PM2.5 AQI component.
       - name: pm10_aqi
@@ -320,10 +501,16 @@ models:
       - name: o3_aqi
         description: Mean ward O3 AQI component.
       - name: main_pollutant
-        description: Pollutant with the highest province-level AQI component in the hour.
+        description: Pollutant with the highest province-level AQI component in 
+          the hour.
       - name: last_ingested_at
         description: Latest ward-level ingest timestamp included in this row.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_province_level_daily
     description: |
       Province-level daily aggregate from province hourly records.
@@ -340,28 +527,68 @@ models:
         description: 8-region classification.
       - name: avg_aqi_us
         description: Mean province AQI (US) across all hours in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_us
         description: Highest province AQI (US) observed in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_us
         description: Lowest province AQI (US) observed in the day.
       - name: avg_aqi_vn
         description: Mean province AQI (VN) across all hours in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_vn
         description: Highest province AQI (VN) observed in the day.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_vn
         description: Lowest province AQI (VN) observed in the day.
       - name: pm25_avg
         description: Daily mean PM2.5 concentration at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Daily mean PM10 concentration at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Daily mean CO concentration at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Daily mean NO2 concentration at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Daily mean SO2 concentration at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Daily mean O3 concentration at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: Daily mean PM2.5 AQI component at province level.
       - name: pm10_aqi
@@ -375,10 +602,17 @@ models:
       - name: o3_aqi
         description: Daily mean O3 AQI component at province level.
       - name: main_pollutant
-        description: Pollutant with highest daily AQI component at province level.
+        description: Pollutant with highest daily AQI component at province 
+          level.
       - name: last_ingested_at
-        description: Latest hourly ingest timestamp represented in this day-level row.
+        description: Latest hourly ingest timestamp represented in this 
+          day-level row.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_province_level_monthly
     description: |
       Province-level monthly aggregate from province daily records.
@@ -397,28 +631,68 @@ models:
         description: Number of daily records used for month-level aggregation.
       - name: avg_aqi_us
         description: Monthly mean AQI (US) at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_us
         description: Worst daily AQI (US) within the month.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_us
         description: Best daily AQI (US) within the month.
       - name: avg_aqi_vn
         description: Monthly mean AQI (VN) at province level.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: max_aqi_vn
         description: Worst daily AQI (VN) within the month.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.AQI
       - name: min_aqi_vn
         description: Best daily AQI (VN) within the month.
       - name: pm25_avg
         description: Monthly mean PM2.5 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10_avg
         description: Monthly mean PM10 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co_avg
         description: Monthly mean CO concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: no2_avg
         description: Monthly mean NO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.NO2
       - name: so2_avg
         description: Monthly mean SO2 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.SO2
       - name: o3_avg
         description: Monthly mean O3 concentration.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.Ozone
       - name: pm25_aqi
         description: Monthly mean PM2.5 AQI component.
       - name: pm10_aqi
@@ -436,6 +710,11 @@ models:
       - name: last_ingested_at
         description: Latest daily ingest timestamp included in this row.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_aqi_weather_traffic_unified
     description: |
       The core unified fact dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.
@@ -457,61 +736,84 @@ models:
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
       - name: province
         description: Province name.
       - name: ward_code
         description: Ward identifier.
       - name: region_3
-        description: 3-region classification.
+        description: Vietnam 3-region classification.
       - name: region_8
-        description: 8-region classification.
+        description: Vietnam 8-region classification.
+      - name: latitude
+        description: Latitude of the ward.
+      - name: longitude
+        description: Longitude of the ward.
       - name: aqi_us
-        description: Hourly AQI (US).
+        description: Hourly US AQI (calibrated/unified).
       - name: aqi_vn
-        description: Hourly AQI (VN).
+        description: Hourly Vietnam AQI (calibrated/unified).
       - name: pm25
-        description: PM2.5 concentration (ug/m3).
+        description: Hourly PM2.5 concentration (µg/m³).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: pm10
-        description: PM10 concentration (ug/m3).
+        description: Hourly PM10 concentration (µg/m³).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM10
       - name: co
-        description: CO concentration.
+        description: Hourly CO concentration (µg/m³).
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.CO
       - name: main_pollutant
-        description: Dominant pollutant for the hour.
+        description: Dominant pollutant driving the AQI for this hour/ward.
       - name: temperature
-        description: Temperature in Celsius.
+        description: Local temperature (°C).
       - name: humidity
-        description: Relative humidity percentage.
+        description: Local relative humidity (%).
       - name: wind_speed
-        description: Wind speed in m/s.
+        description: Local wind speed (m/s).
       - name: wind_direction
-        description: Wind direction in degrees.
+        description: Wind direction (degrees).
       - name: pressure
-        description: Atmospheric pressure in hPa.
+        description: Atmospheric pressure (hPa).
       - name: congestion_index
-        description: Traffic congestion ratio (0-5).
+        description: TomTom traffic congestion ratio (0.0 - 1.0+).
       - name: traffic_data_type
-        description: Quality flag/source for traffic data.
+        description: TomTom data status (Real-time vs Historical).
       - name: is_high_humidity_suppression
-        description: Flag for humidity > 80%.
+        description: Boolean flag for potential humidity-driven sensor bias (>80%).
       - name: is_stagnant_air_risk
-        description: Flag for wind speed < 1.0 m/s.
+        description: Boolean flag for low wind conditions (<1.0 m/s).
       - name: stagnant_air_probability
-        description: Probability of stagnant air conditions.
+        description: Probability index for air stagnation.
       - name: weather_influence_pct
-        description: Percentage influence of weather on pollution.
+        description: Estimated % contribution of weather to pollution levels.
       - name: provincial_population
         description: Total population of the province.
       - name: population_exposure_score
-        description: PM2.5 × provincial_population / 1M.
+        description: Composite metric for public health impact (Pollution × Population).
       - name: traffic_pollution_impact_score
-        description: PM2.5 × congestion_index.
+        description: Composite metric for traffic-pollution linkage (Pollution × Congestion).
       - name: traffic_contribution_pct
-        description: Estimated percentage of pollution from traffic.
+        description: Estimated % of pollution attributable to traffic.
       - name: traffic_pollution_ratio
-        description: PM2.5 / congestion_index.
+        description: Normalized ratio of pollution to traffic volume.
       - name: dbt_updated_at
-        description: Timestamp of last dbt run.
+        description: Timestamp of the dbt run that produced this record.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_summary_daily
     description: |
       Daily source-level summary from hourly source-level AQI records.
@@ -567,12 +869,20 @@ models:
       - name: pm10_daily_max
         description: Maximum hourly PM10 concentration in the day.
       - name: dominant_pollutant_us
-        description: Pollutant linked to the highest US AQI observation in the day.
+        description: Pollutant linked to the highest US AQI observation in the 
+          day.
       - name: dominant_pollutant_vn
-        description: Pollutant linked to the highest Vietnam AQI observation in the day.
+        description: Pollutant linked to the highest Vietnam AQI observation in 
+          the day.
       - name: hourly_count
-        description: Number of hourly records included in the day-level aggregate.
+        description: Number of hourly records included in the day-level 
+          aggregate.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_air_quality_summary_monthly
     description: |
       Monthly source-level summary from daily source-level AQI records.
@@ -614,6 +924,11 @@ models:
       - name: dominant_pollutant_vn
         description: Most frequent dominant pollutant (VN) in the month.
 
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold
   - name: fct_other_measurements_hourly
     description: |
       Hourly pollutant/weather measurements that are not part of the six AQI criteria pollutants.
@@ -646,3 +961,8 @@ models:
         description: Quality status from ingestion pipeline.
       - name: ingest_time
         description: Upstream ingest timestamp.
+    meta:
+      openmetadata:
+        tier: Tier.Tier1
+        tags:
+          - Certification.Gold

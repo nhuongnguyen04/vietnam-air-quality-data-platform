@@ -4,6 +4,11 @@ from __future__ import annotations
 import sys
 sys.path.insert(0, "..")
 
+"""
+Trang So sánh Nguồn (Source Comparison) đối chiếu dữ liệu chất lượng không khí từ nhiều 
+nguồn khác nhau (PAM Air, OpenAQ, v.v.). Điều này giúp đánh giá độ chính xác và tính 
+nhất quán của dữ liệu từ các hệ thống quan trắc khác nhau.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

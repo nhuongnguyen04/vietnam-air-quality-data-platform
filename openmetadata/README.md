@@ -128,7 +128,20 @@ docker compose ps openmetadata
 3. **Ingestion Pipeline**: Schedule: **hourly** (`0 * * * *`)
 4. **Save → Run Ingestion immediately**
 
-### Step 4: Verify (via OM API)
+### Step 5: Add Streamlit Service (via custom connector)
+
+1. Ensure the `om-ingestion` container is running and has the latest volumes.
+2. Run the ingestion command from the project root:
+   ```bash
+   docker compose exec om-ingestion metadata ingest -c /opt/airflow/plugins/ingestion-configs/streamlit-workflow.yaml
+   ```
+3. This will create:
+   - A **Dashboard Service** named `Streamlit`
+   - A **Dashboard** named `VN_Air_Quality_Dashboard`
+   - **Charts** for each Streamlit page with descriptions extracted from docstrings.
+   - **Lineage** between ClickHouse tables and Streamlit charts based on SQL queries found in the code.
+
+### Step 6: Verify (via OM API)
 
 ```bash
 # Login and get token

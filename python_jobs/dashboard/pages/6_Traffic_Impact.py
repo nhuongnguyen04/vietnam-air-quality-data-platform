@@ -1,3 +1,8 @@
+"""
+Trang Ảnh hưởng Giao thông (Traffic Impact) phân tích mối tương quan giữa mật độ 
+phương tiện giao thông và chất lượng không khí. Giúp xác định vai trò của khí thải 
+giao thông trong việc gây ô nhiễm tại các đô thị lớn.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

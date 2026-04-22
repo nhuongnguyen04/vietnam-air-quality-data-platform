@@ -1,0 +1,57 @@
+version: 2
+
+sources:
+  - name: core_external
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: ingestion_control
+        description: |
+          Bảng kiểm soát và giám sát ingestion — một bản ghi cho mỗi data source.
+          Được dag_ingest_hourly cập nhật sau mỗi lần ingest.
+          Columns: source, last_run, last_success, records_ingested, lag_seconds, error_message, updated_at.
+          ReplacingMergeTree(updated_at) — luôn giữ bản ghi mới nhất của mỗi source.
+          Monitored bởi Grafana (freshness dashboard) và Prometheus alerting.
+        meta:
+          openmetadata:
+            tier: "Tier.Tier2"
+
+            tags:
+              - Certification.Silver
+      - name: vn_station_coordinates
+        description: |
+          Tọa độ GPS và phân loại địa điểm cho 255 trạm quan trắc Việt Nam.
+          location_type: urban/suburban/rural/industrial — phân loại dùng cho traffic-pollution analysis.
+          Columns: station_name, latitude, longitude, province, location_type.
+          Được dùng trong fct_traffic_pollution_correlation_daily để nhóm theo location_type.
+        meta:
+          openmetadata:
+            tier: "Tier.Tier2"
+
+            tags:
+              - "Certification.Silver"
+      - name: population_density_2026
+        description: |
+          Dân số và mật độ dân số theo tỉnh Việt Nam năm 2026.
+          Nguồn: Tổng cục Thống kê Việt Nam (GSO 2026).
+          Columns: province_name, area_km2, avg_population_thousands, density_per_km2.
+          Được dùng để tính Population Exposure Score trong dm_aqi_weather_traffic_unified.
+          Là nguồn cho stg_core__population view trong dbt.
+
+        meta:
+          openmetadata:
+            tier: Tier.Tier3
+            tags:
+              - Certification.Bronze
+      - name: aqicn_station_lat_long
+        description: |
+          Metadata trạm AQICN — 105 trạm quan trắc Việt Nam.
+          D-AQI-02 (Phase 6): AQICN không còn là nguồn data chính.
+          Bảng này được giữ lại làm tham chiếu lịch sử và backup.
+          Columns: station_id, station_name, latitude, longitude, city, province, sensor_quality_tier, is_active.
+          Không còn được sử dụng trong các dbt models hiện tại.
+        meta:
+          openmetadata:
+            tier: Tier.Tier3
+            tags:
+              - Certification.Bronze

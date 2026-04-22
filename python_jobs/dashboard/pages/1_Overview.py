@@ -1,3 +1,8 @@
+"""
+Trang Tổng quan (Overview) cung cấp cái nhìn toàn diện về chất lượng không khí tại Việt Nam.
+Bao gồm các chỉ số KPI chính (AQI trung bình, chất ô nhiễm chính, điểm nóng ô nhiễm) 
+và bản đồ phân bố không gian theo Tỉnh/Thành phố hoặc Phường/Xã.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

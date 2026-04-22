@@ -1,0 +1,63 @@
+version: 2
+
+seeds:
+  - name: unified_stations_metadata
+    description: |
+      Bảng metadata trạm quan trắc hợp nhất — 255 điểm đo.
+      Nguồn: AQI.in station discovery + TomTom Search API geocoding.
+      Columns: station_name, latitude, longitude, province (Int32 province code), source.
+      Được load thủ công khi thêm station mới.
+      Là nguồn cho stg_core__stations view trong dbt.
+
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
+  - name: vn_traffic_profile
+    description: |
+      Hồ sơ giao thông theo giờ cho từng loại địa điểm Việt Nam.
+      weight: trọng số phân phối traffic trong 24 giờ/ngày.
+      Columns: location_type, hour_of_day, weight, day_type (weekday/weekend).
+      Được dùng để ước tính traffic khi không có dữ liệu TomTom thực.
+
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
+  - name: pollutants
+    description: |
+      Bảng tham chiếu thông số ô nhiễm — US EPA AQI breakpoints.
+      Nguồn: dbt seed file seeds/pollutants.csv (được load vào ClickHouse khi deploy).
+      Columns: pollutant_key, display_name, unit, epa_aqi_bp_lo, epa_aqi_bp_hi, conc_bp_lo, conc_bp_hi, health_effects.
+      Là nguồn cho stg_core__pollutants view trong dbt.
+
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
+  - name: seed_dim_time
+    description: |
+      Bảng thời gian pre-generated — phạm vi giờ từ 2020 đến 2030.
+      Nguồn: dbt seed file (được load một lần khi setup).
+      Columns: datetime_hour, date, day_of_week, hour_of_day, is_weekend, month, year, vietnam_tz_offset, vietnam_timezone_hour.
+      Dùng để join time dimension trong analytical queries.
+
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze
+  - name: source_calibration
+    description: |
+      Hệ số hiệu chỉnh (calibration factors) cho từng data source và pollutant parameter.
+      Columns: source, parameter, calibration_factor, calibration_method, valid_from, valid_to.
+      calibration_factor được nhân với giá trị đo để chuẩn hóa giữa các nguồn.
+      Được dbt models dùng để áp dụng calibration trong quá trình staging.
+    meta:
+      openmetadata:
+        tier: Tier.Tier3
+        tags:
+          - Certification.Bronze

@@ -1,3 +1,8 @@
+"""
+Trang Rủi ro Sức khỏe (Health Risk) đánh giá tác động của ô nhiễm không khí đối với 
+sức khỏe con người. Cung cấp các khuyến nghị hành động dựa trên chỉ số AQI để bảo vệ 
+nhân dân, đặc biệt là các nhóm nhạy cảm.
+"""
 import streamlit as st
 from lib.clickhouse_client import query_df
 from lib.data_service import get_hierarchy_metadata

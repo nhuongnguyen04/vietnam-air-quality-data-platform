@@ -1,3 +1,8 @@
+"""
+Trang Chất ô nhiễm (Pollutants) phân tích chi tiết nồng độ các chất gây ô nhiễm chính 
+(PM2.5, PM10, NO2, O3, CO, SO2) theo thời gian và địa điểm, giúp người dùng hiểu sâu 
+về thành phần ô nhiễm tại khu vực.
+"""
 import streamlit as st
 import pandas as pd
 import plotly.express as px

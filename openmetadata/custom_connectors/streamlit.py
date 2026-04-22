@@ -34,7 +34,6 @@ class StreamlitDashboardSource(Source):
         
         # Paths
         self.dashboard_dir = "/opt/airflow/plugins/dashboard"
-        self.pages_dir = os.path.join(self.dashboard_dir, "pages")
         self.service_name = self.config.serviceName
         self.dashboard_name = "Phân tích Chất lượng Không khí Việt Nam"
         # Variables for ClickHouse FQN (configurable via ENV or defaults)
@@ -46,17 +45,6 @@ class StreamlitDashboardSource(Source):
             "chart": Chart,
             "dashboardDataModel": DashboardDataModel,
         }
-        self.page_titles = {
-            "1_Overview.py": "Tổng quan",
-            "2_Pollutants.py": "Chất ô nhiễm",
-            "3_Source_Comparison.py": "So sánh nguồn",
-            "4_Historical_Trend.py": "Xu hướng lịch sử",
-            "5_Alerts.py": "Cảnh báo",
-            "6_Traffic_Impact.py": "Ảnh hưởng Giao thông",
-            "7_Health_Risk.py": "Rủi ro Sức khỏe",
-            "8_Status.py": "Trạng thái Hệ thống",
-            "9_Weather_Impact.py": "Ảnh hưởng Thời tiết",
-        }
 
     @classmethod
     def create(cls, config_dict, metadata_config: OpenMetadata, pipeline_name: str = None):
@@ -67,134 +55,108 @@ class StreamlitDashboardSource(Source):
         pass
 
     def _iter(self) -> Iterable[Either]:
-        """
-        Iterate through Streamlit pages and yield Metadata entities.
-        """
-        if not os.path.exists(self.pages_dir):
-            logger.warning(f"Pages directory {self.pages_dir} not found. Skipping.")
+        import yaml
+        
+        # Path to the metadata YAML file
+        metadata_file = os.path.join(self.dashboard_dir, "dashboard_metadata.yml")
+        if not os.path.exists(metadata_file):
+            logger.warning(f"Metadata file {metadata_file} not found. Skipping.")
             return
+
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            yaml_data = yaml.safe_load(f)
+
+        dashboard_info = yaml_data.get("dashboard", {})
+        pages = dashboard_info.get("pages", [])
 
         charts_fqns = []
         lineage_tasks: List[Tuple[str, Optional[str], List[str]]] = []
 
         # 1. Process each page as a Chart
-        for filename in sorted(os.listdir(self.pages_dir)):
-            if filename.endswith(".py") and not filename.startswith("__"):
-                page_path = os.path.join(self.pages_dir, filename)
-                chart_name = self._get_chart_name(filename)
-                description, sql_queries = self._parse_streamlit_file(page_path)
+        for page in pages:
+            filename = page.get("filename", "")
+            chart_name = page.get("name", "Unknown Chart").replace(" ", "_")
+            display_name = page.get("display_name", chart_name)
+            description = page.get("description", "")
+            source_tables = page.get("source_tables", [])
 
-                # Create Data Model if SQL is found
-                datamodel_fqn = None
-                if sql_queries:
-                    datamodel_name = f"{chart_name}_Query"
-                    try:
-                        dm_type = DataModelType.SupersetDataModel
-                    except AttributeError:
-                        dm_type = list(DataModelType)[0]
+            # Create Data Model if tables are found
+            datamodel_fqn = None
+            if source_tables:
+                datamodel_name = f"{chart_name}_Query"
+                try:
+                    dm_type = DataModelType.SupersetDataModel
+                except AttributeError:
+                    dm_type = list(DataModelType)[0]
 
-                    datamodel_req = CreateDashboardDataModelRequest(
-                        name=datamodel_name,
-                        displayName=f"SQL Query for {chart_name}",
-                        description=f"Automated SQL data model extracted from {filename}",
-                        service=self.service_name,
-                        dataModelType=dm_type,
-                        sql=sql_queries[0],
-                        columns=[]
-                    )
-                    yield Either(right=datamodel_req)
-                    datamodel_fqn = f"{self.service_name}.{datamodel_name}"
-
-                # Create Chart
-                chart_req = CreateChartRequest(
-                    name=chart_name,
-                    displayName=self.page_titles.get(filename, chart_name.replace("_", " ")),
-                    description=description or f"Streamlit page: {chart_name}",
-                    service=self.service_name,
-                    sourceUrl="http://localhost:8501"
-                )
-                yield Either(right=chart_req)
-                chart_fqn = f"{self.service_name}.{chart_name}"
-                charts_fqns.append(chart_fqn)
-
-                # Collect lineage info for later processing (after entities are created)
-                if sql_queries:
-                    lineage_tasks.append((chart_fqn, datamodel_fqn, sql_queries))
+                # Generate a dummy SQL query for OpenMetadata display
+                dummy_sql = "SELECT * FROM " + ", ".join([f"{self.clickhouse_db}.{t}" for t in source_tables])
                 
-                self.status.scanned(chart_name)
+                datamodel_req = CreateDashboardDataModelRequest(
+                    name=datamodel_name,
+                    displayName=f"Data Source for {chart_name}",
+                    description=f"Automated Data Model extracted from Streamlit configuration",
+                    service=self.service_name,
+                    dataModelType=dm_type,
+                    sql=dummy_sql,
+                    columns=[]
+                )
+                yield Either(right=datamodel_req)
+                datamodel_fqn = f"{self.service_name}.{datamodel_name}"
+
+            # Create Chart
+            chart_req = CreateChartRequest(
+                name=chart_name,
+                displayName=display_name,
+                description=description or f"Streamlit page: {chart_name}",
+                service=self.service_name,
+                sourceUrl="http://localhost:8501"
+            )
+            yield Either(right=chart_req)
+            chart_fqn = f"{self.service_name}.{chart_name}"
+            charts_fqns.append(chart_fqn)
+
+            # Collect lineage info for later processing
+            if source_tables:
+                lineage_tasks.append((chart_fqn, datamodel_fqn, source_tables))
+            
+            self.status.scanned(chart_name)
 
         # 2. Create main Dashboard containing all charts
         dashboard_req = CreateDashboardRequest(
-            name="VN_Air_Quality_Dashboard",
-            displayName=self.dashboard_name,
-            description="Vietnam Air Quality Data Platform - Main Streamlit Dashboard",
+            name=dashboard_info.get("name", "VN_Air_Quality_Dashboard").replace(" ", "_"),
+            displayName=dashboard_info.get("name", self.dashboard_name),
+            description=dashboard_info.get("description", "Vietnam Air Quality Data Platform - Main Streamlit Dashboard"),
             service=self.service_name,
             charts=charts_fqns
         )
         yield Either(right=dashboard_req)
 
         # 3. Process Lineage (Table -> DataModel / Chart)
-        # We process this after creating entities in this iteration.
-        for chart_fqn, datamodel_fqn, sql_queries in lineage_tasks:
-            for sql in sql_queries:
-                # Extract tables like air_quality.table_name or just table_name
-                tables = re.findall(r'FROM\s+([a-zA-Z0-9_\.]+)', sql, re.IGNORECASE)
-                for table_name in set(tables):
-                    # Skip f-string placeholders such as "air_quality.{table}".
-                    if table_name.endswith(".") or "{" in table_name or "}" in table_name:
-                        continue
+        for chart_fqn, datamodel_fqn, source_tables in lineage_tasks:
+            for table_name in source_tables:
+                clean_name = table_name.split('.')[-1]
+                if not clean_name:
+                    continue
 
-                    # Clean table name (remove database prefix if present)
-                    clean_name = table_name.split('.')[-1]
-                    if not clean_name:
-                        continue
+                table_fqn = f"{self.clickhouse_service}.{self.clickhouse_db}.{self.clickhouse_schema}.{clean_name}"
+                
+                try:
+                    table_ref = self._get_entity_reference("table", table_fqn)
+                    chart_ref = self._get_entity_reference("chart", chart_fqn)
+                    if table_ref and chart_ref:
+                        yield Either(right=AddLineageRequest(
+                            edge=EntitiesEdge(fromEntity=table_ref, toEntity=chart_ref)
+                        ))
 
-                    # Map to configurable FQN hierarchy: Service.Database.Schema.<table_name>
-                    table_fqn = f"{self.clickhouse_service}.{self.clickhouse_db}.{self.clickhouse_schema}.{clean_name}"
-                    
-                    try:
-                        table_ref = self._get_entity_reference("table", table_fqn)
-                        chart_ref = self._get_entity_reference("chart", chart_fqn)
-                        if table_ref and chart_ref:
-                            # Lineage: Table -> Chart
+                    if datamodel_fqn:
+                        datamodel_ref = self._get_entity_reference("dashboardDataModel", datamodel_fqn)
+                        if table_ref and datamodel_ref:
                             yield Either(right=AddLineageRequest(
-                                edge=EntitiesEdge(
-                                    fromEntity=table_ref,
-                                    toEntity=chart_ref,
-                                )
+                                edge=EntitiesEdge(fromEntity=table_ref, toEntity=datamodel_ref)
                             ))
-
-                        if datamodel_fqn:
-                            datamodel_ref = self._get_entity_reference("dashboardDataModel", datamodel_fqn)
-                            if table_ref and datamodel_ref:
-                                # Lineage: Table -> DataModel
-                                yield Either(right=AddLineageRequest(
-                                    edge=EntitiesEdge(
-                                        fromEntity=table_ref,
-                                        toEntity=datamodel_ref,
-                                    )
-                                ))
-                    except Exception as e:
-                        logger.debug(f"Skipping lineage request for {table_fqn} -> {chart_fqn}: {e}")
-
-    def _get_chart_name(self, filename: str) -> str:
-        name = re.sub(r'^\d+_', '', filename)
-        name = name.replace(".py", "")
-        return name
-
-    def _parse_streamlit_file(self, file_path: str):
-        description = ""
-        sql_queries = []
-        with open(file_path, 'r') as f:
-            content = f.read()
-            doc_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
-            if doc_match:
-                description = doc_match.group(1).strip()
-            sql_matches = re.findall(r'"""\s*(SELECT.*?)"""', content, re.IGNORECASE | re.DOTALL)
-            for sql in sql_matches:
-                if "FROM" in sql.upper():
-                    sql_queries.append(sql.strip())
-        return description, sql_queries
+                except Exception as e:
+                    logger.debug(f"Skipping lineage request for {table_fqn} -> {chart_fqn}: {e}")
 
     def _get_entity_reference(self, entity_type: str, fqn: str):
         entity_cls = self._entity_classes.get(entity_type)
@@ -212,7 +174,7 @@ class StreamlitDashboardSource(Source):
         )
 
     def test_connection(self) -> bool:
-        return os.path.exists(self.dashboard_dir)
+        return os.path.exists(os.path.join(self.dashboard_dir, "dashboard_metadata.yml"))
 
     def get_status(self) -> Status:
         return self.status

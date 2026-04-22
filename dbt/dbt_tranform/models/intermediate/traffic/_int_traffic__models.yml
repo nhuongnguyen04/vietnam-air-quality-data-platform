@@ -61,6 +61,11 @@ models:
           Alias for `quality_flag` from `stg_tomtom__flow` — renamed for semantic clarity.
           Indicates data quality from the TomTom ingestion pipeline.
       - name: dbt_updated_at
-        description: |
+        description: |-
           Timestamp when dbt last processed this record.
           Added by dbt for audit purposes.
+    meta:
+      openmetadata:
+        tier: Tier.Tier2
+        tags:
+          - Certification.Silver

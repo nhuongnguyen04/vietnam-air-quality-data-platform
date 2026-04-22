@@ -58,7 +58,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2', 'no', 'nh3', 'temp', 'hum']
+              values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2', 'no', 'nh3', 'temp',
+                'hum']
       - name: value
         description: |
           Calibrated pollutant concentration in µg/m³.
@@ -121,6 +122,11 @@ models:
           Vietnam's 8 administrative regions per GSO classification.
           Passed through from `int_core__measurements_unified`.
       - name: ingest_time
-        description: |
+        description: |-
           Ingest timestamp from the source staging model.
           Used for incremental filtering in downstream incremental models.
+    meta:
+      openmetadata:
+        tier: Tier.Tier2
+        tags:
+          - Certification.Silver
