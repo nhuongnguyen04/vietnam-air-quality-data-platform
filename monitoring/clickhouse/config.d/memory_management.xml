@@ -1,0 +1,26 @@
+<clickhouse>
+    <profiles>
+        <default>
+            <!-- 
+                Memory Management for Low-RAM Environments (6GB container)
+                
+                max_bytes_before_external_group_by: When GROUP BY hash table exceeds this,
+                ClickHouse will spill intermediate data to disk instead of OOM.
+                Set to ~50% of max_memory_usage to allow flushing before hitting limit.
+                
+                max_bytes_before_external_sort: Same concept for ORDER BY operations.
+                
+                join_algorithm: partial_merge is more memory-efficient for large JOINs,
+                but we keep 'auto' to let ClickHouse pick the best strategy.
+            -->
+            <max_bytes_before_external_group_by>2147483648</max_bytes_before_external_group_by>  <!-- 2GB -->
+            <max_bytes_before_external_sort>2147483648</max_bytes_before_external_sort>           <!-- 2GB -->
+            
+            <!-- Per-query memory limit: 4GB (leaves headroom for CH internals) -->
+            <max_memory_usage>4294967296</max_memory_usage>
+            
+            <!-- Allow ClickHouse to use auto join algorithm selection -->
+            <join_algorithm>auto</join_algorithm>
+        </default>
+    </profiles>
+</clickhouse>

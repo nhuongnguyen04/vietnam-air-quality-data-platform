@@ -21,6 +21,7 @@ services:
     - ./monitoring/clickhouse/config.d/logger.xml:/etc/clickhouse-server/config.d/logger.xml:ro
     - ./monitoring/clickhouse/config.d/system_logs_retention.xml:/etc/clickhouse-server/config.d/system_logs_retention.xml:ro
     - ./monitoring/clickhouse/config.d/storage_safety.xml:/etc/clickhouse-server/config.d/storage_safety.xml:ro
+    - ./monitoring/clickhouse/config.d/memory_management.xml:/etc/clickhouse-server/config.d/memory_management.xml:ro
     environment:
     - CLICKHOUSE_DB=${CLICKHOUSE_DB}
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}

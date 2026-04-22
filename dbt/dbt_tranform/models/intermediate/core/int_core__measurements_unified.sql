@@ -1,6 +1,7 @@
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
+    incremental_strategy='append',
     unique_key='(source, ward_code, timestamp_utc, parameter)',
     order_by='(province, timestamp_utc, ward_code, source, parameter)',
     partition_by='toYYYYMM(timestamp_utc)'
@@ -82,7 +83,18 @@ ward_station_flags as (
 -- If the physical station is far (> 2000m), we keep both.
 filtered as (
     select
-        u.*
+        u.source,
+        u.measurement_dedup_key,
+        u.ward_code,
+        u.province,
+        u.latitude,
+        u.longitude,
+        u.timestamp_utc,
+        u.parameter,
+        u.value,
+        u.aqi_reported,
+        u.quality_flag,
+        u.ingest_time
     from unified u
     left join ward_station_flags w on u.ward_code = w.ward_code
     -- We filter OUT OpenWeather records ONLY IF:
@@ -96,7 +108,18 @@ filtered as (
 
 with_regions as (
     select
-        f.*,
+        f.source,
+        f.measurement_dedup_key,
+        f.ward_code,
+        f.province,
+        f.latitude,
+        f.longitude,
+        f.timestamp_utc,
+        f.parameter,
+        f.value,
+        f.aqi_reported,
+        f.quality_flag,
+        f.ingest_time,
         {{ get_vietnam_region_3('f.province') }} as region_3,
         {{ get_vietnam_region_8('f.province') }} as region_8
     from filtered f

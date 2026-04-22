@@ -1,6 +1,7 @@
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree',
+    incremental_strategy='append',
     unique_key='(source, ward_code, timestamp_utc, parameter)',
     order_by='(province, timestamp_utc, ward_code, source, parameter)',
     partition_by='toYYYYMM(timestamp_utc)'
@@ -66,27 +67,32 @@ calculated as (
         {{ calculate_aqi('parameter', 'value_us_standard') }} as aqi_us,
         {{ calculate_aqi_vn('parameter', 'value') }}           as aqi_vn
     from normalized_for_us
-),
-
-max_aqi_per_hour as (
-    select
-        province,
-        ward_code,
-        timestamp_utc,
-        max(aqi_us) as max_aqi_us_in_hour,
-        max(aqi_vn) as max_aqi_vn_in_hour
-    from calculated
-    group by province, ward_code, timestamp_utc
 )
 
+-- Use window functions instead of self-JOIN to reduce memory usage
+-- Window functions compute max in a single pass without duplicating data
 select
-    c.*,
-    m.max_aqi_us_in_hour,
-    m.max_aqi_vn_in_hour,
-    case when c.aqi_us = m.max_aqi_us_in_hour then true else false end as is_dominant_us,
-    case when c.aqi_vn = m.max_aqi_vn_in_hour then true else false end as is_dominant_vn
-from calculated c
-left join max_aqi_per_hour m
-    on c.province = m.province
-   and c.ward_code = m.ward_code
-   and c.timestamp_utc = m.timestamp_utc
+    source,
+    measurement_dedup_key,
+    ward_code,
+    province,
+    latitude,
+    longitude,
+    timestamp_utc,
+    parameter,
+    value,
+    source_weight,
+    aqi_reported,
+    quality_flag,
+    ingest_time,
+    region_3,
+    region_8,
+    value_us_standard,
+    aqi_us,
+    aqi_vn,
+    max(aqi_us) over (partition by province, ward_code, timestamp_utc) as max_aqi_us_in_hour,
+    max(aqi_vn) over (partition by province, ward_code, timestamp_utc) as max_aqi_vn_in_hour,
+    aqi_us = max(aqi_us) over (partition by province, ward_code, timestamp_utc) as is_dominant_us,
+    aqi_vn = max(aqi_vn) over (partition by province, ward_code, timestamp_utc) as is_dominant_vn
+from calculated
+

@@ -34,9 +34,11 @@ models:
       +materialized: table
     intermediate:
       +materialized: incremental
+      +incremental_strategy: append
     marts:
       core:
         +materialized: incremental
+        +incremental_strategy: append
 
 seeds:
   dbt_tranform:

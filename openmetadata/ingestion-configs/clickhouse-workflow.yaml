@@ -1,6 +1,6 @@
 source:
   type: ClickHouse
-  serviceName: Vietnam Air Quality ClickHouse
+  serviceName: ClickHouse
   sourceConfig:
     config:
       markDeletedTables: false
