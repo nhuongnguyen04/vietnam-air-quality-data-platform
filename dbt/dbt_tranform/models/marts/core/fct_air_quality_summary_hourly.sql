@@ -42,20 +42,20 @@ pivoted as (
         max(aqi_vn) as final_aqi_vn,
         
         -- Concentrations
-        avgIf(value, parameter = 'pm25') as pm25_value,
-        avgIf(value, parameter = 'pm10') as pm10_value,
-        avgIf(value, parameter = 'co')   as co_value,
-        avgIf(value, parameter = 'no2')  as no2_value,
-        avgIf(value, parameter = 'so2')  as so2_value,
-        avgIf(value, parameter = 'o3')   as o3_value,
+        nullIf(avgIf(value, parameter = 'pm25'), 0/0) as pm25_value,
+        nullIf(avgIf(value, parameter = 'pm10'), 0/0) as pm10_value,
+        nullIf(avgIf(value, parameter = 'co'),   0/0) as co_value,
+        nullIf(avgIf(value, parameter = 'no2'),  0/0) as no2_value,
+        nullIf(avgIf(value, parameter = 'so2'),  0/0) as so2_value,
+        nullIf(avgIf(value, parameter = 'o3'),   0/0) as o3_value,
 
         -- Sub-AQI Indices (Vietnam Standard)
-        avgIf(aqi_vn, parameter = 'pm25') as pm25_aqi,
-        avgIf(aqi_vn, parameter = 'pm10') as pm10_aqi,
-        avgIf(aqi_vn, parameter = 'co')   as co_aqi,
-        avgIf(aqi_vn, parameter = 'no2')  as no2_aqi,
-        avgIf(aqi_vn, parameter = 'so2')  as so2_aqi,
-        avgIf(aqi_vn, parameter = 'o3')   as o3_aqi,
+        nullIf(avgIf(aqi_vn, parameter = 'pm25'), 0/0) as pm25_aqi,
+        nullIf(avgIf(aqi_vn, parameter = 'pm10'), 0/0) as pm10_aqi,
+        nullIf(avgIf(aqi_vn, parameter = 'co'),   0/0) as co_aqi,
+        nullIf(avgIf(aqi_vn, parameter = 'no2'),  0/0) as no2_aqi,
+        nullIf(avgIf(aqi_vn, parameter = 'so2'),  0/0) as so2_aqi,
+        nullIf(avgIf(aqi_vn, parameter = 'o3'),   0/0) as o3_aqi,
         
         -- Dominant Pollutants
         argMax(parameter, aqi_us) as dominant_pollutant_us,

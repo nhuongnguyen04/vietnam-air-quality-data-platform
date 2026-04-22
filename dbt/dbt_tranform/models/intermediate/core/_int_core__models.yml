@@ -26,6 +26,10 @@ models:
         description: |
           Data source identifier: 'aqiin' or 'openweather'.
           Used for source attribution in dashboards and quality analysis.
+      - name: measurement_dedup_key
+        description: |
+          Unique deduplication key passed from source.
+          Used to trace back the exact source measurement record.
       - name: ward_code
         description: |
           Unique identifier for the administrative ward.
@@ -39,6 +43,10 @@ models:
           NULL if station lookup fails (fall back to station_name for OpenWeather).
         tests:
           - not_null
+      - name: latitude
+        description: Latitude of the ward/station for mapping.
+      - name: longitude
+        description: Longitude of the ward/station for mapping.
       - name: timestamp_utc
         description: |
           UTC measurement timestamp (at the hour boundary from toStartOfHour in sources).
@@ -52,12 +60,20 @@ models:
           temp and hum are excluded from AQI calculations in `int_aqi__calculations`.
         tests:
           - not_null
+      - name: raw_value
+        description: |
+          Original pollutant concentration (typically in µg/m³).
+          Preserved before applying any source-specific calibration.
       - name: value
         description: |
-          Raw pollutant concentration in µg/m³ (all sources normalized to this unit).
-          AQI.in may report in µg/m³; OpenWeather concentrations converted accordingly.
+          Calibrated pollutant concentration in µg/m³.
+          OpenWeather values are adjusted using empirical factors to align with ground truth.
         tests:
           - not_null
+      - name: source_weight
+        description: |
+          Weight assigned based on the source quality/reliability.
+          Used for weighted averages in downstream aggregations.
       - name: aqi_reported
         description: |
           Source-reported AQI value (if available).

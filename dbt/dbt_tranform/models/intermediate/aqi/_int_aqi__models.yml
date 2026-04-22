@@ -5,7 +5,7 @@ models:
     description: |
       Air quality index (AQI) calculations for both US EPA and Vietnam national standards, with dominant pollutant identification.
 
-      **Grain:** One row per (station_name, timestamp_utc, parameter) — same as `int_core__measurements_unified` with computed columns added.
+      **Grain:** One row per (source, ward_code, timestamp_utc, parameter) — same as `int_core__measurements_unified` with computed columns added.
 
       **Business Rules:**
       - AQI US (EPA): Raw concentrations converted to species-specific units (ppm for CO, ppb for others) before applying breakpoint formula
@@ -16,7 +16,7 @@ models:
         - PM2.5, PM10: µg/m³ (no conversion)
       - AQI VN: Raw µg/m³ concentrations applied directly to Vietnam TCVN 05:2023 breakpoints
       - `calculate_aqi()` macro selects the correct breakpoint formula per pollutant
-      - `is_dominant_us/vn`: True if this pollutant's AQI is the maximum within the same (province, district, timestamp_utc) hour
+      - `is_dominant_us/vn`: True if this pollutant's AQI is the maximum within the same (province, ward_code, timestamp_utc) hour
       - Only AQI-relevant parameters retained: pm25, pm10, co, no2, so2, o3 (temp/hum excluded)
 
       **AQI Standards:**
@@ -32,18 +32,20 @@ models:
         description: |
           Data source: 'aqiin' or 'openweather'.
           Preserved from upstream unified measurements.
-      - name: station_name
+      - name: measurement_dedup_key
         description: |
-          Station or province name from upstream.
-          Join key for station metadata and hourly fact tables.
-      - name: district
+          Unique deduplication key from the source.
+      - name: ward_code
         description: |
-          District name from station metadata.
-          NULL for OpenWeather records.
+          Administrative ward code for geographic rollups.
       - name: province
         description: |
           Province name from station metadata.
           Primary geographic dimension for AQI aggregation.
+      - name: latitude
+        description: Latitude of the underlying station/location.
+      - name: longitude
+        description: Longitude of the underlying station/location.
       - name: timestamp_utc
         description: |
           UTC timestamp of the raw measurement.
@@ -59,10 +61,13 @@ models:
               values: ['pm25', 'pm10', 'co', 'no2', 'o3', 'so2', 'no', 'nh3', 'temp', 'hum']
       - name: value
         description: |
-          Raw pollutant concentration in µg/m³ (original source unit).
+          Calibrated pollutant concentration in µg/m³.
           This is the input to AQI calculations before unit conversion.
         tests:
           - not_null
+      - name: source_weight
+        description: |
+          Weight used to prioritize records when blending multiple sources at the ward level.
       - name: value_us_standard
         description: |
           Pollutant concentration converted to US EPA standard units.
@@ -92,21 +97,21 @@ models:
           'valid' = use for analytics; 'suspect'/'missing'/'error' = flag in dashboards.
       - name: max_aqi_us_in_hour
         description: |
-          Maximum US AQI across all pollutants at the same (province, district, timestamp_utc).
-          Window function: `max(aqi_us) over (partition by province, district, timestamp_utc)`.
+          Maximum US AQI across all pollutants at the same (province, ward_code, timestamp_utc).
+          Window function: `max(aqi_us) over (partition by province, ward_code, timestamp_utc)`.
           Used to determine which pollutant is dominant.
       - name: max_aqi_vn_in_hour
         description: |
-          Maximum Vietnam AQI across all pollutants at the same (province, district, timestamp_utc).
-          Window function: `max(aqi_vn) over (partition by province, district, timestamp_utc)`.
+          Maximum Vietnam AQI across all pollutants at the same (province, ward_code, timestamp_utc).
+          Window function: `max(aqi_vn) over (partition by province, ward_code, timestamp_utc)`.
       - name: is_dominant_us
         description: |
           Boolean flag — TRUE if this pollutant's US AQI equals the hourly maximum.
-          One dominant pollutant per (province, district, timestamp_utc) per AQI standard.
+          One dominant pollutant per (province, ward_code, timestamp_utc) per AQI standard.
       - name: is_dominant_vn
         description: |
           Boolean flag — TRUE if this pollutant's Vietnam AQI equals the hourly maximum.
-          One dominant pollutant per (province, district, timestamp_utc) per AQI standard.
+          One dominant pollutant per (province, ward_code, timestamp_utc) per AQI standard.
       - name: region_3
         description: |
           Vietnam's 3 major geographic regions (Northern, Central, Southern).
