@@ -139,6 +139,8 @@ models:
           - NonSensitive
       - name: province
         description: Province name.
+      - name: ward_code
+        description: Empty compatibility column; traffic correlation is computed at province-hour grain.
       - name: region_3
         description: Vietnam 3-region classification.
       - name: region_8
@@ -407,21 +409,21 @@ models:
           - Certification.Gold
   - name: dm_traffic_pollution_correlation_daily
     description: |
-      Daily correlation statistics between traffic congestion and PM2.5 pollution by province and location type.
+      Daily observational co-movement statistics between traffic congestion and PM2.5 pollution by province and location type.
 
-      **Grain:** One row per (province, location_type) per day — computed from station-level daily aggregates.
+      **Grain:** One row per province per day — computed from province-hour AQI and TomTom overlap.
 
       **Business Rules:**
       - location_type derived from province:
         - 'Urban': major municipalities (Ha Noi, HCMC, Da Nang, Hai Phong, Can Tho)
         - 'Industrial': manufacturing provinces (Binh Duong, Dong Nai, etc.)
         - 'Rural': all others
-      - pm25_daily_avg: Average PM2.5 across all stations in province for the day
-      - congestion_daily_avg: Average congestion ratio across all stations in province for the day
-      - pollution_density_index: pm25 / congestion — indicates pollution efficiency per unit of traffic
-      - pollution_rank_in_type: Rank within geographic location type
+      - pm25_daily_avg: Average PM2.5 across overlapped province-hour observations
+      - congestion_daily_avg: Average TomTom congestion ratio across overlapped province-hour observations
+      - pm25_congestion_uplift: PM2.5 difference between high- and low-congestion hours; NULL unless sample thresholds are met
+      - traffic_pollution_impact_score: Observational PM2.5 x congestion co-movement score, not causal attribution
 
-      **Downstream consumers:** Traffic impact analysis, urban planning dashboards, policy effectiveness tracking
+      **Downstream consumers:** Traffic co-movement dashboard, urban planning exploratory analysis
     columns:
       - name: date
         description: Calendar date.
@@ -465,24 +467,42 @@ models:
               - AirQuality.PM10
       - name: total_hours
         description: Total hours contributing to the daily average.
-      - name: background_pm25_sum
-        description: Sum of PM2.5 during low-traffic night hours (2AM-4AM).
+      - name: avg_traffic_ward_count
+        description: Average number of wards with traffic data per hour.
+      - name: avg_positive_traffic_ward_count
+        description: Average number of wards with non-zero congestion per hour.
+      - name: avg_traffic_coverage_ratio
+        description: Average hourly traffic coverage ratio for the province-day.
+      - name: low_congestion_threshold
+        description: Province-day 25th percentile congestion threshold.
+      - name: high_congestion_threshold
+        description: Province-day 75th percentile congestion threshold.
+      - name: pm25_low_congestion_avg
+        description: Average PM2.5 during low-congestion hours.
         meta:
           openmetadata:
             glossary:
               - AirQuality.PM25
-      - name: background_pm10_sum
-        description: Sum of PM10 during low-traffic night hours (2AM-4AM).
+      - name: pm25_high_congestion_avg
+        description: Average PM2.5 during high-congestion hours.
         meta:
           openmetadata:
             glossary:
-              - AirQuality.PM10
-      - name: background_hours
-        description: Number of hours in the background sample.
+              - AirQuality.PM25
+      - name: low_congestion_hours
+        description: Number of province-hour observations in the low-congestion band.
+      - name: high_congestion_hours
+        description: Number of province-hour observations in the high-congestion band.
+      - name: pm25_congestion_uplift
+        description: PM2.5 uplift during high-congestion hours versus low-congestion hours; NULL when total/high/low sample thresholds are not met.
+        meta:
+          openmetadata:
+            glossary:
+              - AirQuality.PM25
       - name: traffic_pollution_impact_score
-        description: Correlation score (PM2.5 × Congestion).
+        description: Observational co-movement score (PM2.5 × congestion), not a causal impact estimate.
       - name: traffic_contribution_pct
-        description: Estimated percentage of pollution attributable to traffic (relative to night background).
+        description: Deprecated compatibility column; always NULL because causal traffic attribution is not estimated in this mart.
       - name: dbt_updated_at
         description: Timestamp of the latest dbt processing run.
         tags:
@@ -892,7 +912,7 @@ models:
         tags:
           - Certification.Gold
   - name: dm_traffic_hourly_trend
-    description: "Specialized mart for optimized traffic-pollution correlation analysis on the dashboard."
+    description: "Province-hour traffic and pollution mart for dashboard correlation views."
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
@@ -904,14 +924,22 @@ models:
           - NonSensitive
       - name: province
         description: Province name.
-      - name: ward_code
-        description: Ward identifier.
       - name: region_3
         description: Vietnam 3-region classification.
       - name: region_8
         description: Vietnam 8-region classification.
+      - name: avg_congestion
+        description: Province-hour average TomTom congestion ratio from all available traffic wards.
       - name: congestion_index
-        description: Traffic congestion ratio.
+        description: Backward-compatible alias for avg_congestion.
+      - name: traffic_sample_count
+        description: Number of traffic samples contributing to the province-hour average.
+      - name: traffic_ward_count
+        description: Number of distinct wards with traffic data for the province-hour.
+      - name: positive_traffic_ward_count
+        description: Number of distinct wards with non-zero congestion for the province-hour.
+      - name: traffic_coverage_ratio
+        description: Share of province wards covered by traffic data for the hour.
       - name: pm25
         description: PM2.5 concentration.
         meta:
@@ -931,9 +959,9 @@ models:
             glossary:
               - AirQuality.CO
       - name: traffic_pollution_impact_score
-        description: Product of PM2.5 and congestion index.
+        description: Observational product of PM2.5 and congestion index; not a causal impact estimate.
       - name: traffic_contribution_pct
-        description: Estimated % of pollution from traffic.
+        description: Deprecated compatibility column; causal traffic attribution is not estimated.
     meta:
       openmetadata:
         tier: Tier.Tier1

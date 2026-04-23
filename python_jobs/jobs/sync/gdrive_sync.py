@@ -5,7 +5,8 @@ import csv
 import io
 import sys
 import concurrent.futures
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from threading import local
 from typing import List, Dict, Any, Optional
 import clickhouse_connect
@@ -53,14 +54,73 @@ TABLE_MAPPING = {
 # Thread-local storage for GDrive and ClickHouse clients
 thread_local = local()
 
-def format_value(val: Any) -> str:
+
+@dataclass
+class SyncResult:
+    success: bool
+    filename: str
+    rel_path: str
+    table: Optional[str] = None
+    error: Optional[str] = None
+    reason: Optional[str] = None
+
+
+def _base_type(ch_type: Optional[str]) -> str:
+    """Return the logical ClickHouse type name without wrappers/parameters."""
+    if not ch_type:
+        return ""
+
+    type_name = ch_type.strip()
+    while type_name.startswith("Nullable(") and type_name.endswith(")"):
+        type_name = type_name[len("Nullable("):-1].strip()
+    while type_name.startswith("LowCardinality(") and type_name.endswith(")"):
+        type_name = type_name[len("LowCardinality("):-1].strip()
+    return type_name.split("(", 1)[0]
+
+
+def _format_datetime_value(val: Any) -> str:
+    if isinstance(val, datetime):
+        dt = val
+    else:
+        text = str(val).strip()
+        if text.endswith("Z"):
+            text = f"{text[:-1]}+00:00"
+        # ClickHouse DateTime cannot parse fractional seconds or timezone suffixes
+        # in VALUES SQL, so normalize timestamps before insertion.
+        dt = datetime.fromisoformat(text)
+
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return f"'{dt.strftime('%Y-%m-%d %H:%M:%S')}'"
+
+
+def _format_uint8_value(val: Any) -> str:
+    if isinstance(val, bool):
+        return "1" if val else "0"
+
+    text = str(val).strip().lower()
+    if text in {"true", "t", "yes", "y"}:
+        return "1"
+    if text in {"false", "f", "no", "n"}:
+        return "0"
+    return str(int(float(text)))
+
+
+def format_value(val: Any, ch_type: Optional[str] = None) -> str:
     """Formats a value for a SQL INSERT statement."""
     if val is None or val == '':
         return 'NULL'
-    if isinstance(val, (int, float)):
-        return str(val)
+
+    base_type = _base_type(ch_type)
+    if base_type in {"DateTime", "DateTime64"}:
+        return _format_datetime_value(val)
+    if base_type == "UInt8":
+        return _format_uint8_value(val)
+
     if isinstance(val, bool):
         return '1' if val else '0'
+    if isinstance(val, (int, float)):
+        return str(val)
     # Escape single quotes and wrap in quotes
     safe_val = str(val).replace("'", "''")
     return f"'{safe_val}'"
@@ -148,7 +208,7 @@ def list_files_recursive(service, folder_id, current_rel_path=""):
             
     return results
 
-def process_file_task(file_info, archive_source_mapping):
+def process_file_task(file_info, archive_source_mapping) -> SyncResult:
     """Worker task to process a single file."""
     service = get_drive_service()
     ch_client = get_ch_client()
@@ -167,8 +227,9 @@ def process_file_task(file_info, archive_source_mapping):
             table = TABLE_MAPPING.get(prefix)
             
         if not table:
-            logger.warning(f"No table mapping for file: {filename} at path: {rel_path}")
-            return False
+            error = f"No table mapping for file at path: {rel_path}"
+            logger.warning(error)
+            return SyncResult(False, filename, rel_path, None, error, "NO_TABLE_MAPPING")
 
         # 2. Download
         request = service.files().get_media(fileId=file_id)
@@ -182,27 +243,31 @@ def process_file_task(file_info, archive_source_mapping):
         if records:
             # Get target table columns to filter out extra fields
             try:
-                table_cols = ch_client.query(f"SELECT name FROM system.columns WHERE database = '{CH_DB}' AND table = '{table}'").result_rows
-                valid_cols = {row[0] for row in table_cols}
-                logger.debug(f"Valid columns for {table}: {valid_cols}")
+                table_cols = ch_client.query(
+                    f"SELECT name, type FROM system.columns "
+                    f"WHERE database = '{CH_DB}' AND table = '{table}'"
+                ).result_rows
+                col_types = {row[0]: row[1] for row in table_cols}
+                logger.debug(f"Valid columns for {table}: {set(col_types)}")
             except Exception as e:
                 logger.warning(f"Could not fetch columns for {table}: {e}. Falling back to original columns.")
-                valid_cols = set(records[0].keys())
+                col_types = {col: None for col in records[0].keys()}
 
             # Build SQL INSERT statement (allows ClickHouse to handle type conversion)
             # Filter columns to only include those that exist in the target table
             all_cols = list(records[0].keys())
-            final_cols = [c for c in all_cols if c in valid_cols]
+            final_cols = [c for c in all_cols if c in col_types]
             
             if not final_cols:
-                logger.error(f"No valid columns found for table {table} in file {filename}")
-                return
+                error = f"No valid columns found for table {table}"
+                logger.error(f"{error} in file {filename}")
+                return SyncResult(False, filename, rel_path, table, error, "NO_VALID_COLUMNS")
                 
             columns_str = ", ".join(final_cols)
             
             values_list = []
             for record in records:
-                row_vals = [format_value(record.get(col)) for col in final_cols]
+                row_vals = [format_value(record.get(col), col_types.get(col)) for col in final_cols]
                 values_list.append(f"({', '.join(row_vals)})")
             
             sql = f"INSERT INTO {table} ({columns_str}) VALUES {', '.join(values_list)}"
@@ -223,8 +288,9 @@ def process_file_task(file_info, archive_source_mapping):
         
         if not target_folder_id:
             # Fallback for unexpected sources
-            logger.warning(f"Target folder not cached for source: {source_name}")
-            return False
+            error = f"Target archive folder not cached for source: {source_name}"
+            logger.warning(error)
+            return SyncResult(False, filename, rel_path, table, error, "ARCHIVE_FOLDER_MISSING")
 
         # Move file (re-parent)
         file_meta = service.files().get(fileId=file_id, fields='parents').execute()
@@ -237,10 +303,10 @@ def process_file_task(file_info, archive_source_mapping):
             fields='id, parents'
         ).execute()
         
-        return True
+        return SyncResult(True, filename, rel_path, table)
     except Exception as e:
         logger.error(f"Error processing {filename}: {e}", exc_info=True)
-        return False
+        return SyncResult(False, filename, rel_path, locals().get("table"), str(e), "EXCEPTION")
 
 def main():
     if not DRIVE_ROOT_ID:
@@ -262,12 +328,16 @@ def main():
     
     if not all_files:
         logger.info("No files found in landing zone")
+        print("FILES_FOUND=0")
+        print("FILES_SYNCED=0")
+        print("FILES_FAILED=0")
         return
 
     logger.info(f"Found {len(all_files)} files. Starting parallel sync using {MAX_WORKERS} workers...")
     
     # 2. Parallel Processing
     success_count = 0
+    failed_results: List[SyncResult] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
         futures = {executor.submit(process_file_task, f, source_mapping): f for f in all_files}
@@ -275,14 +345,53 @@ def main():
         for future in concurrent.futures.as_completed(futures):
             f_info = futures[future]
             try:
-                if future.result():
+                result = future.result()
+                if result.success:
                     success_count += 1
+                else:
+                    failed_results.append(result)
             except Exception as e:
-                logger.error(f"Worker crashed for {f_info['name']}: {e}")
+                logger.error(f"Worker crashed for {f_info['name']}: {e}", exc_info=True)
+                failed_results.append(
+                    SyncResult(
+                        False,
+                        f_info.get("name", ""),
+                        f_info.get("rel_path", ""),
+                        None,
+                        str(e),
+                        "WORKER_CRASH",
+                    )
+                )
 
-    logger.info(f"Parallel sync complete. Successfully processed: {success_count}/{len(all_files)}")
+    failed_count = len(failed_results)
+    logger.info(
+        "Parallel sync complete. Successfully processed: %s/%s; failed: %s",
+        success_count,
+        len(all_files),
+        failed_count,
+    )
+    for failed in failed_results:
+        logger.error(
+            "FAILED_FILE name=%s rel_path=%s table=%s reason=%s error=%s",
+            failed.filename,
+            failed.rel_path,
+            failed.table or "",
+            failed.reason or "",
+            failed.error or "",
+        )
+        print(
+            "FAILED_FILE "
+            f"name={failed.filename} "
+            f"rel_path={failed.rel_path} "
+            f"table={failed.table or ''} "
+            f"reason={failed.reason or ''} "
+            f"error={failed.error or ''}"
+        )
+
     # Output for Airflow to parse
+    print(f"FILES_FOUND={len(all_files)}")
     print(f"FILES_SYNCED={success_count}")
+    print(f"FILES_FAILED={failed_count}")
 
 if __name__ == "__main__":
     main()

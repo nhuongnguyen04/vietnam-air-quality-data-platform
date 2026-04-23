@@ -67,13 +67,29 @@ def dag_sync_gdrive():
 
         print(f"Sync Script Output: {result.stdout}")
 
-        # Parse number of files synced from output
+        # Parse sync counters from output. Partial failures are allowed: valid files
+        # should still trigger downstream transforms while failed files remain in
+        # landing_zone for the next retry.
+        counters = {
+            "FILES_FOUND": 0,
+            "FILES_SYNCED": 0,
+            "FILES_FAILED": 0,
+        }
         for line in result.stdout.splitlines():
-            if line.startswith("FILES_SYNCED="):
-                success_count = int(line.split("=")[1])
-                return success_count > 0
+            for key in counters:
+                if line.startswith(f"{key}="):
+                    counters[key] = int(line.split("=", 1)[1])
 
-        return False
+        if counters["FILES_FAILED"] > 0:
+            print(
+                "Sync completed with partial failures: "
+                f"found={counters['FILES_FOUND']} "
+                f"synced={counters['FILES_SYNCED']} "
+                f"failed={counters['FILES_FAILED']}. "
+                "Failed files remain in landing_zone for retry."
+            )
+
+        return counters["FILES_SYNCED"] > 0
 
     @task
     def log_completion():

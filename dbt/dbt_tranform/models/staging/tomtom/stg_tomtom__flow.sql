@@ -3,14 +3,18 @@
     engine='ReplacingMergeTree',
     unique_key='(ward_code, timestamp_utc, parameter)',
     order_by='(province_name, timestamp_utc, ward_code)',
-    partition_by='toYYYYMM(timestamp_utc)'
+    partition_by='toYYYYMM(timestamp_utc)',
+    query_settings={
+        'max_bytes_before_external_sort': 100000000,
+        'max_bytes_before_external_group_by': 100000000
+    }
 ) }}
 
 WITH incremental_source AS (
     SELECT
         source,
         traffic_source,
-        ward_code,
+        leftPad(toString(toInt64(toFloat64(assumeNotNull(ward_code)))), 5, '0') as ward_code,
         ward_name,
         province_name,
         latitude,
