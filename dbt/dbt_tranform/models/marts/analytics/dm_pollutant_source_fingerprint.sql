@@ -27,8 +27,8 @@ source_calc as (
         date,
         province,
         ward_code,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         avg(pm25_value) as pm25,
         avg(pm10_value) as pm10,
         avg(pm25_value) / nullIf(avg(pm10_value), 0) as pm25_pm10_ratio,
@@ -39,7 +39,7 @@ source_calc as (
         end as probable_source,
         max(ingest_time) as ingest_time
     from hourly_data
-    group by date, province, ward_code, region_3, region_8
+    group by date, province, ward_code
 )
 
 select * from source_calc

@@ -27,14 +27,14 @@ daily_stats AS (
         date,
         province,
         ward_code,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         -- Location classification logic
-        case
+        any(case
             when province IN ('TP.Hà Nội', 'TP.Hồ Chí Minh', 'TP.Đà Nẵng', 'TP.Hải Phòng', 'TP.Cần Thơ') then 'Urban'
             when province IN ('Bình Dương', 'Đồng Nai', 'Bà Rịa - Vũng Tàu', 'Bắc Ninh', 'Bắc Giang', 'Hưng Yên', 'Quảng Ninh', 'Thái Nguyên') then 'Industrial'
             else 'Rural'
-        end as location_type,
+        end) as location_type,
         avg(pm25) as avg_pm25,
         avg(pm10) as avg_pm10,
         avg(congestion_index) as avg_congestion,
@@ -42,7 +42,7 @@ daily_stats AS (
         sum(pm10) as sum_pm10,
         count(*) as total_hours
     FROM source_data
-    GROUP BY 1, 2, 3, 4, 5, 6
+    GROUP BY date, province, ward_code
 ),
 
 baseline_stats AS (

@@ -61,8 +61,8 @@ daily_impact_stats as (
         date,
         province,
         ward_code,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         count(*) as total_hours,
         countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) as high_risk_hours,
         CAST(countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) AS Float32) / count(*) as high_risk_exposure_pct,
@@ -70,7 +70,7 @@ daily_impact_stats as (
         argMax(health_effects, final_aqi_us) as primary_health_advice,
         max(ingest_time) as ingest_time
     from impact_joined
-    group by date, province, ward_code, region_3, region_8
+    group by date, province, ward_code
 )
 
 select * from daily_impact_stats

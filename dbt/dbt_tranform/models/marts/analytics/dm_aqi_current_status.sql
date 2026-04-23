@@ -25,10 +25,10 @@ latest_records as (
     select
         h.province,
         h.ward_code,
-        h.region_3,
-        h.region_8,
-        a.latitude,
-        a.longitude,
+        any(h.region_3) as region_3,
+        any(h.region_8) as region_8,
+        any(a.latitude) as latitude,
+        any(a.longitude) as longitude,
         argMax(h.datetime_hour, h.datetime_hour) as latest_hour,
         argMax(h.avg_aqi_us, h.datetime_hour) as current_aqi_us,
         argMax(h.avg_aqi_vn, h.datetime_hour) as current_aqi_vn,
@@ -42,11 +42,7 @@ latest_records as (
     left join admin_units a on h.ward_code = a.ward_code
     group by
         h.province,
-        h.ward_code,
-        h.region_3,
-        h.region_8,
-        a.latitude,
-        a.longitude
+        h.ward_code
 )
 
 select * from latest_records

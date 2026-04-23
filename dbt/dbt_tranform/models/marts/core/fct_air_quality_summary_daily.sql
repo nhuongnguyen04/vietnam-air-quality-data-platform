@@ -40,8 +40,8 @@ select
     date,
     province,
     ward_code,
-    region_3,
-    region_8,
+    any(region_3) as region_3,
+    any(region_8) as region_8,
     source,
     
     -- Overall AQIs (Avg and Max of the day)
@@ -77,4 +77,4 @@ select
     count(*) as hourly_count
     
 from hourly_summary
-group by 1, 2, 3, 4, 5, 6
+group by date, province, ward_code, source

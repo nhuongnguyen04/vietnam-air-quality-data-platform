@@ -26,8 +26,8 @@ with hourly_data as (
 aggregates as (
     select
         province,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         hour_of_day,
         day_of_week,
         avg(avg_aqi_us) as avg_aqi_us,
@@ -37,7 +37,7 @@ aggregates as (
         count(*) as reading_count,
         max(last_ingested_at) as ingest_time
     from hourly_data
-    group by province, region_3, region_8, hour_of_day, day_of_week
+    group by province, hour_of_day, day_of_week
 )
 
 select * from aggregates

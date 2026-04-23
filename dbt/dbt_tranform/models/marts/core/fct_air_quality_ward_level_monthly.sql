@@ -18,8 +18,8 @@ monthly_agg as (
         toStartOfMonth(date) as month,
         province,
         ward_code,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         
         avg(avg_aqi_us) as _avg_aqi_us,
         max(max_aqi_us) as _max_aqi_us,
@@ -49,7 +49,7 @@ monthly_agg as (
         max(last_ingested_at) as last_ingested_at
         
     from ward_daily
-    group by 1, 2, 3, 4, 5
+    group by month, province, ward_code
 ),
 
 final as (

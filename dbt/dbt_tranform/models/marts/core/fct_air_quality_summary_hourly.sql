@@ -3,7 +3,8 @@
     engine='ReplacingMergeTree',
     unique_key='(province, ward_code, datetime_hour)',
     order_by='(province, date, assumeNotNull(ward_code))',
-    partition_by='toYYYYMM(date)'
+    partition_by='toYYYYMM(date)',
+    query_settings={'max_bytes_before_external_group_by': 2147483648}
 ) }}
 
 with calculations as (
@@ -29,13 +30,13 @@ with calculations as (
 pivoted as (
     select
         toStartOfHour(timestamp_utc) as datetime_hour,
-        toDate(timestamp_utc) as date,
+        any(toDate(timestamp_utc)) as date,
         province,
         ward_code,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         source,
-        source_weight,
+        any(source_weight) as source_weight,
         
         -- Overall AQIs
         max(aqi_us) as final_aqi_us,
@@ -64,7 +65,11 @@ pivoted as (
         
     from calculations
     where parameter in ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
-    group by 1, 2, 3, 4, 5, 6, 7, 8
+    group by 
+        datetime_hour, 
+        province, 
+        ward_code, 
+        source
 )
 
 select * from pivoted

@@ -18,8 +18,8 @@ pivoted as (
         toStartOfMonth(date) as month,
         province,
         ward_code,
-        region_3,
-        region_8,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         source,
         
         -- Monthly averages
@@ -42,7 +42,7 @@ pivoted as (
         topK(1)(dominant_pollutant_vn)[1] as dominant_pollutant_vn
         
     from summary
-    group by 1, 2, 3, 4, 5, 6
+    group by month, province, ward_code, source
 )
 
 select * from pivoted
