@@ -1,11 +1,15 @@
 -- depends_on: {{ ref('fct_air_quality_ward_level_hourly') }}
 {{ config(
     materialized='incremental',
+    incremental_strategy='delete_insert',
     engine='ReplacingMergeTree',
     unique_key='(ward_code, datetime_hour)',
     order_by='(province, datetime_hour, ward_code)',
     partition_by='toYYYYMM(date)',
-    overwrite=true
+    query_settings={
+        'max_threads': 2,
+        'max_bytes_before_external_group_by': 2147483648
+    }
 ) }}
 
 WITH window_bounds AS (
@@ -17,7 +21,7 @@ WITH window_bounds AS (
         {% endif %}
 ),
 
-aqi_base AS (
+aqi_incremental AS (
     SELECT 
         datetime_hour,
         date,
@@ -30,9 +34,32 @@ aqi_base AS (
         pm25_avg as pm25,
         pm10_avg as pm10,
         co_avg as co,
-        main_pollutant
+        main_pollutant,
+        last_ingested_at
     FROM {{ ref('fct_air_quality_ward_level_hourly') }}
     WHERE datetime_hour >= (SELECT window_start FROM window_bounds)
+),
+
+aqi_base AS (
+    -- Normalize append-overlap duplicates to the intended ward-hour grain.
+    SELECT
+        datetime_hour,
+        argMax(date, last_ingested_at) as date,
+        province,
+        ward_code,
+        argMax(region_3, last_ingested_at) as region_3,
+        argMax(region_8, last_ingested_at) as region_8,
+        argMax(aqi_us, last_ingested_at) as aqi_us,
+        argMax(aqi_vn, last_ingested_at) as aqi_vn,
+        argMax(pm25, last_ingested_at) as pm25,
+        argMax(pm10, last_ingested_at) as pm10,
+        argMax(co, last_ingested_at) as co,
+        argMax(main_pollutant, last_ingested_at) as main_pollutant
+    FROM aqi_incremental
+    GROUP BY
+        datetime_hour,
+        province,
+        ward_code
 ),
 
 aqi AS (
@@ -44,32 +71,54 @@ aqi AS (
     LEFT JOIN {{ ref('stg_core__administrative_units') }} adm ON ab.ward_code = adm.ward_code
 ),
 
-weather_ward AS (
+weather_incremental AS (
     SELECT
-        ward_code,
         province,
+        ward_code,
         timestamp_utc,
         temp,
         humidity,
         wind_speed,
         wind_deg,
-        pressure
+        pressure,
+        ingest_time
     FROM {{ ref('stg_openweather__meteorology') }}
     WHERE timestamp_utc >= (SELECT window_start FROM window_bounds)
 ),
 
-weather_province AS (
-    SELECT 
+weather_ward AS (
+    SELECT
         province,
+        ward_code,
         timestamp_utc,
-        avg(temp) as temp,
-        avg(humidity) as humidity,
-        avg(wind_speed) as wind_speed,
-        avg(wind_deg) as wind_deg,
-        avg(pressure) as pressure
-    FROM {{ ref('stg_openweather__meteorology') }}
-    WHERE timestamp_utc >= (SELECT window_start FROM window_bounds)
-    GROUP BY province, timestamp_utc
+        argMax(temp, ingest_time) as temp,
+        argMax(humidity, ingest_time) as humidity,
+        argMax(wind_speed, ingest_time) as wind_speed,
+        argMax(wind_deg, ingest_time) as wind_deg,
+        argMax(pressure, ingest_time) as pressure
+    FROM weather_incremental
+    GROUP BY
+        province,
+        ward_code,
+        timestamp_utc
+),
+
+weather AS (
+    SELECT
+        province,
+        ward_code,
+        timestamp_utc,
+        temp,
+        humidity,
+        wind_speed,
+        wind_deg,
+        pressure,
+        avg(temp) over (partition by province, timestamp_utc) as province_temp,
+        avg(humidity) over (partition by province, timestamp_utc) as province_humidity,
+        avg(wind_speed) over (partition by province, timestamp_utc) as province_wind_speed,
+        avg(wind_deg) over (partition by province, timestamp_utc) as province_wind_deg,
+        avg(pressure) over (partition by province, timestamp_utc) as province_pressure
+    FROM weather_ward
 ),
 
 traffic AS (
@@ -84,7 +133,10 @@ traffic AS (
 ),
 
 pop AS (
-    SELECT * FROM {{ ref('stg_core__population') }}
+    SELECT
+        location_name,
+        total_population
+    FROM {{ ref('stg_core__population') }}
 )
 
 SELECT
@@ -106,20 +158,20 @@ SELECT
     a.main_pollutant AS main_pollutant,
     
     -- Meteorology (Ward-level first, province fallback)
-    coalesce(nullIf(ww.temp, 0), wp.temp) as temperature,
-    coalesce(nullIf(ww.humidity, 0), wp.humidity) as humidity,
-    coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) as wind_speed,
-    coalesce(nullIf(ww.wind_deg, 0), wp.wind_deg) as wind_direction,
-    coalesce(nullIf(ww.pressure, 0), wp.pressure) as pressure,
+    coalesce(nullIf(w.temp, 0), w.province_temp) as temperature,
+    coalesce(nullIf(w.humidity, 0), w.province_humidity) as humidity,
+    coalesce(nullIf(w.wind_speed, 0), w.province_wind_speed) as wind_speed,
+    coalesce(nullIf(w.wind_deg, 0), w.province_wind_deg) as wind_direction,
+    coalesce(nullIf(w.pressure, 0), w.province_pressure) as pressure,
     
     -- Traffic impact
     t.value as congestion_index,
     t.quality_flag as traffic_data_type,
     
     -- Environmental indicators
-    case when coalesce(nullIf(ww.humidity, 0), wp.humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
-    case when coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
-    CAST(if(coalesce(nullIf(ww.wind_speed, 0), wp.wind_speed) < 1.0, 1.0, 0.0) AS Float32) as stagnant_air_probability,
+    case when coalesce(nullIf(w.humidity, 0), w.province_humidity) > 80 then 1 else 0 end as is_high_humidity_suppression,
+    case when coalesce(nullIf(w.wind_speed, 0), w.province_wind_speed) < 1.0 then 1 else 0 end as is_stagnant_air_risk,
+    CAST(if(coalesce(nullIf(w.wind_speed, 0), w.province_wind_speed) < 1.0, 1.0, 0.0) AS Float32) as stagnant_air_probability,
     CAST(0.0 AS Float32) as weather_influence_pct,
     
     -- Demographics and Exposure
@@ -134,11 +186,9 @@ SELECT
     now() as dbt_updated_at
 
 FROM aqi a
-LEFT JOIN weather_ward ww ON 
-    a.ward_code = ww.ward_code AND
-    a.datetime_hour = ww.timestamp_utc
-LEFT JOIN weather_province wp ON
-    a.province = wp.province AND
-    a.datetime_hour = wp.timestamp_utc
+LEFT JOIN weather w ON
+    a.province = w.province AND
+    a.ward_code = w.ward_code AND
+    a.datetime_hour = w.timestamp_utc
 LEFT JOIN traffic t ON a.ward_code = t.ward_code AND a.datetime_hour = t.datetime_hour
 LEFT JOIN pop p ON a.province = p.location_name

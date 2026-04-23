@@ -973,9 +973,16 @@ models:
       - `traffic_pollution_ratio`: PM2.5 / congestion_index
       - `is_high_humidity_suppression`: 1 if humidity > 80%
       - `is_stagnant_air_risk`: 1 if wind_speed < 1.0 m/s
+      - Latest ingested AQI/weather row is selected per grain before joins to neutralize incremental overlap duplicates
       - Incremental: only processes new hourly data since last run
 
       **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - ward_code
+              - datetime_hour
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
