@@ -23,12 +23,6 @@ models:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [ward_code, timestamp_utc]
     columns:
-      - name: dedup_key
-        description: |
-          Stable surrogate key for the natural grain `(source, ward_code, timestamp_utc, parameter)`.
-          Used internally for incremental deduplication; latest `ingest_time` wins.
-        tests:
-          - not_null
       - name: source
         description: |
           Source identifier. Always 'tomtom' for records from this model.

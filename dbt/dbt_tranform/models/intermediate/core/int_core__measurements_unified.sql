@@ -4,13 +4,15 @@
     incremental_strategy='append',
     unique_key='(source, ward_code, timestamp_utc, parameter)',
     order_by='(province, timestamp_utc, ward_code, source, parameter)',
-    partition_by='toYYYYMM(timestamp_utc)'
+    partition_by='toYYYYMM(timestamp_utc)',
+    query_settings={
+        'max_threads': 2
+    }
 ) }}
 
 with aqiin as (
     select
         m.source,
-        m.dedup_key as measurement_dedup_key,
         s.ward_code,
         s.province,
         s.latitude,
@@ -20,8 +22,7 @@ with aqiin as (
         m.value,
         m.aqi_reported,
         m.quality_flag,
-        m.ingest_time,
-        s.station_name -- Keep for internal prioritization logic
+        m.ingest_time
     from {{ ref('stg_aqiin__measurements') }} m
     join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
     {% if is_incremental() %}
@@ -32,7 +33,6 @@ with aqiin as (
 openweather as (
     select
         source,
-        dedup_key as measurement_dedup_key,
         ward_code,
         province,
         latitude,
@@ -42,8 +42,7 @@ openweather as (
         value,
         aqi_reported,
         quality_flag,
-        ingest_time,
-        '' as station_name
+        ingest_time
     from {{ ref('stg_openweather__measurements') }}
     {% if is_incremental() %}
     where ingest_time > (select max(ingest_time) from {{ this }})
@@ -59,7 +58,6 @@ unified as (
 admin_units as (
     select
         ward_code,
-        ward_name,
         province,
         lat as ward_lat,
         lon as ward_lon
@@ -78,13 +76,12 @@ ward_station_flags as (
     group by s.ward_code
 ),
 
--- Rule: In the same ward, at the same time, if there is a physical station (Aqiin) 
+-- Rule: In the same ward, at the same time, if there is a physical station (Aqiin)
 -- that is close (<= 2000m) to the ward centroid, we drop the OpenWeather (satellite) data.
 -- If the physical station is far (> 2000m), we keep both.
 filtered as (
     select
         u.source,
-        u.measurement_dedup_key,
         u.ward_code,
         u.province,
         u.latitude,
@@ -97,9 +94,8 @@ filtered as (
         u.ingest_time
     from unified u
     left join ward_station_flags w on u.ward_code = w.ward_code
-    -- We filter OUT OpenWeather records ONLY IF:
-    -- 1. There is a valid Aqiin station for that ward (station_name != '')
-    -- 2. AND it is within 2km of the ward centroid
+    -- We filter OUT OpenWeather records ONLY IF there is a nearby AQI.in station
+    -- for the same ward centroid.
     where not (
         u.source = 'openweather'
         and coalesce(w.has_nearby_aqiin_station, false)
@@ -109,7 +105,6 @@ filtered as (
 with_regions as (
     select
         f.source,
-        f.measurement_dedup_key,
         f.ward_code,
         f.province,
         f.latitude,
@@ -149,7 +144,6 @@ calibrated as (
 
 select 
     source,
-    measurement_dedup_key,
     assumeNotNull(ward_code) as ward_code,
     assumeNotNull(province) as province,
     latitude,

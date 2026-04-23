@@ -5,6 +5,7 @@
     order_by='(province_name, timestamp_utc, ward_code)',
     partition_by='toYYYYMM(timestamp_utc)',
     query_settings={
+        'max_threads': 2,
         'max_bytes_before_external_sort': 100000000,
         'max_bytes_before_external_group_by': 100000000
     }
@@ -37,12 +38,6 @@ WITH incremental_source AS (
 
 calculated_ratios AS (
     SELECT
-        {{ dbt_utils.generate_surrogate_key([
-            "concat('source:', source)",
-            "concat('ward_code:', ward_code)",
-            "concat('hourly_timestamp:', toString(hourly_timestamp))",
-            "concat('parameter:', 'congestion_ratio')"
-        ]) }} as dedup_key,
         source,
         traffic_source,
         ward_code,
@@ -71,10 +66,9 @@ calculated_ratios AS (
 
 hourly_aggregated AS (
     SELECT
-        dedup_key,
-        argMax(source, ingest_time) as source,
-        argMax(ward_code, ingest_time) as ward_code,
-        argMax(hourly_timestamp, ingest_time) as hourly_timestamp,
+        source,
+        ward_code,
+        hourly_timestamp,
         -- Use argMax to get the coordinates associated with the most recent sample
         argMax(latitude, ingest_time) as latitude,
         argMax(longitude, ingest_time) as longitude,
@@ -85,11 +79,13 @@ hourly_aggregated AS (
         argMax(province_name, ingest_time) as province_name,
         max(ingest_time) as max_ingest_time
     FROM calculated_ratios
-    GROUP BY dedup_key
+    GROUP BY
+        source,
+        ward_code,
+        hourly_timestamp
 )
 
 SELECT
-    dedup_key,
     source,
     ward_code,
     ward_name,

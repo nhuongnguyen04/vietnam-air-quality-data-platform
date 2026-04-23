@@ -17,12 +17,6 @@ models:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [station_name, timestamp_utc, parameter]
     columns:
-      - name: dedup_key
-        description: |
-          Stable surrogate key for the natural grain `(station_name, timestamp_utc, parameter)`.
-          Used internally for incremental deduplication; latest `ingest_time` wins.
-        tests:
-          - not_null
       - name: station_name
         description: |
           Full station location string from AQI.in (e.g. "Ward X, District Y, Province Z, Vietnam").

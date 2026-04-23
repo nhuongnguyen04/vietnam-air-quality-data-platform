@@ -17,7 +17,7 @@ models:
       - AQI VN: Raw µg/m³ concentrations applied directly to Vietnam TCVN 05:2023 breakpoints
       - `calculate_aqi()` macro selects the correct breakpoint formula per pollutant
       - `is_dominant_us/vn`: True if this pollutant's AQI is the maximum within the same (province, ward_code, timestamp_utc) hour
-      - Only AQI-relevant parameters retained: pm25, pm10, co, no2, so2, o3 (temp/hum excluded)
+      - AQI-relevant parameters get computed AQI values; non-AQI parameters (`no`, `nh3`, `temp`, `hum`) are passed through with NULL AQI fields for downstream non-AQI marts
 
       **AQI Standards:**
       - US EPA (AQI US): 0–500 scale with categories Good (0–50), Moderate (51–100), Unhealthy for Sensitive Groups (101–150), Unhealthy (151–200), Very Unhealthy (201–300), Hazardous (301–500)
@@ -32,9 +32,6 @@ models:
         description: |
           Data source: 'aqiin' or 'openweather'.
           Preserved from upstream unified measurements.
-      - name: measurement_dedup_key
-        description: |
-          Unique deduplication key from the source.
       - name: ward_code
         description: |
           Administrative ward code for geographic rollups.
@@ -102,12 +99,12 @@ models:
       - name: max_aqi_us_in_hour
         description: |
           Maximum US AQI across all pollutants at the same (province, ward_code, timestamp_utc).
-          Window function: `max(aqi_us) over (partition by province, ward_code, timestamp_utc)`.
+          Computed once per hour grain via grouped max on AQI-relevant pollutants.
           Used to determine which pollutant is dominant.
       - name: max_aqi_vn_in_hour
         description: |
           Maximum Vietnam AQI across all pollutants at the same (province, ward_code, timestamp_utc).
-          Window function: `max(aqi_vn) over (partition by province, ward_code, timestamp_utc)`.
+          Computed once per hour grain via grouped max on AQI-relevant pollutants.
       - name: is_dominant_us
         description: |
           Boolean flag — TRUE if this pollutant's US AQI equals the hourly maximum.

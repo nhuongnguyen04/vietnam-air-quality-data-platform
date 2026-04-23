@@ -15,12 +15,6 @@ models:
       **Source:** OpenWeather Air Pollution API (https://openweathermap.org/api/air-pollution)
       **Coverage:** All configured wards in Vietnam.
     columns:
-      - name: dedup_key
-        description: |
-          Stable surrogate key for the natural grain `(ward_code, timestamp_utc, parameter)`.
-          Used internally for incremental deduplication; latest `ingest_time` wins.
-        tests:
-          - not_null
       - name: source
         description: |
           Source identifier. Always 'openweather' for records from this model.
@@ -93,12 +87,6 @@ models:
 
       **Source:** OpenWeather Current Weather API
     columns:
-      - name: dedup_key
-        description: |
-          Stable surrogate key for the natural grain `(ward_code, timestamp_utc)`.
-          Used internally for incremental deduplication; latest `ingest_time` wins.
-        tests:
-          - not_null
       - name: source
         description: |
           Source identifier. Always 'openweather' for this model.

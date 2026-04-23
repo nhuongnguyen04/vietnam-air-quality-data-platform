@@ -84,10 +84,6 @@ mapped_to_wards as (
 
 final as (
     select
-        {{ dbt_utils.generate_surrogate_key([
-            "concat('ward_code:', ward_code)",
-            "concat('timestamp_utc:', toString(timestamp_utc))"
-        ]) }} as dedup_key,
         source,
         ward_code,
         ward_name,

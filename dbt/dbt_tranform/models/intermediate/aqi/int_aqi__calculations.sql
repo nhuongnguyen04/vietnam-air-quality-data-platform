@@ -6,6 +6,7 @@
     order_by='(province, timestamp_utc, ward_code, source, parameter)',
     partition_by='toYYYYMM(timestamp_utc)',
     query_settings={
+        'max_threads': 2,
         'max_bytes_before_external_sort': 100000000,
         'max_bytes_before_external_group_by': 100000000
     }
@@ -14,7 +15,6 @@
 with measurements as (
     select
         source,
-        measurement_dedup_key,
         ward_code,
         province,
         latitude,
@@ -37,7 +37,20 @@ with measurements as (
 
 normalized_for_us as (
     select
-        *,
+        source,
+        ward_code,
+        province,
+        latitude,
+        longitude,
+        timestamp_utc,
+        parameter,
+        value,
+        source_weight,
+        aqi_reported,
+        quality_flag,
+        ingest_time,
+        region_3,
+        region_8,
         -- Convert units for US AQI macros (which expect ppm for CO and ppb for others)
         -- Raw values are assumed to be µg/m³
         case
@@ -53,7 +66,6 @@ normalized_for_us as (
 aqi_rows as (
     select
         source,
-        measurement_dedup_key,
         ward_code,
         province,
         latitude,
@@ -74,62 +86,53 @@ aqi_rows as (
     where parameter in ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
 ),
 
-aqi_with_max as (
+aqi_hourly_max as (
     select
-        source,
-        measurement_dedup_key,
-        ward_code,
         province,
-        latitude,
-        longitude,
         timestamp_utc,
-        parameter,
-        value,
-        source_weight,
-        aqi_reported,
-        quality_flag,
-        ingest_time,
-        region_3,
-        region_8,
-        value_us_standard,
-        aqi_us,
-        aqi_vn,
-        max(aqi_us) over (partition by province, ward_code, timestamp_utc) as max_aqi_us_in_hour,
-        max(aqi_vn) over (partition by province, ward_code, timestamp_utc) as max_aqi_vn_in_hour
+        ward_code,
+        max(aqi_us) as max_aqi_us_in_hour,
+        max(aqi_vn) as max_aqi_vn_in_hour
     from aqi_rows
+    group by
+        province,
+        timestamp_utc,
+        ward_code
 ),
 
 aqi_final as (
     select
-        source,
-        measurement_dedup_key,
-        ward_code,
-        province,
-        latitude,
-        longitude,
-        timestamp_utc,
-        parameter,
-        value,
-        source_weight,
-        aqi_reported,
-        quality_flag,
-        ingest_time,
-        region_3,
-        region_8,
-        value_us_standard,
-        aqi_us,
-        aqi_vn,
-        max_aqi_us_in_hour,
-        max_aqi_vn_in_hour,
-        aqi_us = max_aqi_us_in_hour as is_dominant_us,
-        aqi_vn = max_aqi_vn_in_hour as is_dominant_vn
-    from aqi_with_max
+        r.source,
+        r.ward_code,
+        r.province,
+        r.latitude,
+        r.longitude,
+        r.timestamp_utc,
+        r.parameter,
+        r.value,
+        r.source_weight,
+        r.aqi_reported,
+        r.quality_flag,
+        r.ingest_time,
+        r.region_3,
+        r.region_8,
+        r.value_us_standard,
+        r.aqi_us,
+        r.aqi_vn,
+        h.max_aqi_us_in_hour,
+        h.max_aqi_vn_in_hour,
+        r.aqi_us = h.max_aqi_us_in_hour as is_dominant_us,
+        r.aqi_vn = h.max_aqi_vn_in_hour as is_dominant_vn
+    from aqi_rows r
+    left join aqi_hourly_max h
+        on r.province = h.province
+       and r.timestamp_utc = h.timestamp_utc
+       and r.ward_code = h.ward_code
 ),
 
 other_rows as (
     select
         source,
-        measurement_dedup_key,
         ward_code,
         province,
         latitude,
@@ -156,7 +159,6 @@ other_rows as (
 
 select
     source,
-    measurement_dedup_key,
     ward_code,
     province,
     latitude,
@@ -183,7 +185,6 @@ union all
 
 select
     source,
-    measurement_dedup_key,
     ward_code,
     province,
     latitude,

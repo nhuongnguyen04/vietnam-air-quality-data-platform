@@ -3,18 +3,23 @@
     engine='ReplacingMergeTree',
     unique_key='(station_name, timestamp_utc, parameter)',
     order_by='(timestamp_utc, station_name, parameter)',
-    partition_by='toYYYYMM(timestamp_utc)'
+    partition_by='toYYYYMM(timestamp_utc)',
+    query_settings={
+        'max_threads': 2,
+        'max_bytes_before_external_sort': 100000000,
+        'max_bytes_before_external_group_by': 100000000
+    }
 ) }}
 
 with incremental_source as (
     select
         station_name,
         timestamp_utc,
-        parameter,
+        CAST(parameter AS String) as parameter,
         value,
-        unit,
+        CAST(unit AS String) as unit,
         aqi_reported,
-        quality_flag,
+        CAST(quality_flag AS String) as quality_flag,
         ingest_time
     from {{ source('aqiin', 'raw_aqiin_measurements') }}
     {% if is_incremental() %}
@@ -25,42 +30,25 @@ with incremental_source as (
     {% endif %}
 ),
 
-prepared as (
+deduplicated as (
     select
-        {{ dbt_utils.generate_surrogate_key([
-            "concat('station_name:', station_name)",
-            "concat('timestamp_utc:', toString(timestamp_utc))",
-            "concat('parameter:', parameter)"
-        ]) }} as dedup_key,
         station_name,
         timestamp_utc,
         parameter,
-        value,
-        unit,
-        aqi_reported,
-        quality_flag,
-        ingest_time
-    from incremental_source
-),
-
-deduplicated as (
-    select
-        dedup_key,
-        argMax(station_name, ingest_time) as station_name,
-        argMax(timestamp_utc, ingest_time) as timestamp_utc,
-        argMax(parameter, ingest_time) as parameter,
         argMax(value, ingest_time) as raw_value,
         argMax(unit, ingest_time) as raw_unit,
         argMax(aqi_reported, ingest_time) as aqi_reported,
         argMax(quality_flag, ingest_time) as quality_flag,
         max(ingest_time) as latest_ingest_time
-    from prepared
-    group by dedup_key
+    from incremental_source
+    group by
+        station_name,
+        timestamp_utc,
+        parameter
 ),
 
 normalized as (
     select
-        dedup_key,
         'aqiin' as source,
         station_name,
         timestamp_utc,

@@ -26,10 +26,6 @@ models:
         description: |
           Data source identifier: 'aqiin' or 'openweather'.
           Used for source attribution in dashboards and quality analysis.
-      - name: measurement_dedup_key
-        description: |
-          Unique deduplication key passed from source.
-          Used to trace back the exact source measurement record.
       - name: ward_code
         description: |
           Unique identifier for the administrative ward.
