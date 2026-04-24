@@ -10,14 +10,24 @@ import time
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from python_jobs.text_to_sql.clickhouse_executor import ClickHouseExecutor
-from python_jobs.text_to_sql.semantic_loader import build_table_prompt_context
-from python_jobs.text_to_sql.sql_validator import SqlValidationError, validate_sql
-from python_jobs.text_to_sql.vanna_runtime import (
-    GeneratedSql,
-    RuntimeNotConfiguredError,
-    VannaRuntime,
-)
+try:
+    from python_jobs.text_to_sql.clickhouse_executor import ClickHouseExecutor
+    from python_jobs.text_to_sql.semantic_loader import build_table_prompt_context
+    from python_jobs.text_to_sql.sql_validator import SqlValidationError, validate_sql
+    from python_jobs.text_to_sql.vanna_runtime import (
+        GeneratedSql,
+        RuntimeNotConfiguredError,
+        VannaRuntime,
+    )
+except ModuleNotFoundError:  # pragma: no cover - container import fallback
+    from clickhouse_executor import ClickHouseExecutor  # type: ignore
+    from semantic_loader import build_table_prompt_context  # type: ignore
+    from sql_validator import SqlValidationError, validate_sql  # type: ignore
+    from vanna_runtime import (  # type: ignore
+        GeneratedSql,
+        RuntimeNotConfiguredError,
+        VannaRuntime,
+    )
 
 
 @dataclass

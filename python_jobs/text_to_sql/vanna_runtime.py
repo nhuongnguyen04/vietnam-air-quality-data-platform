@@ -5,7 +5,10 @@ from dataclasses import dataclass
 import os
 from typing import Any
 
-from python_jobs.text_to_sql.semantic_loader import build_table_prompt_context
+try:
+    from python_jobs.text_to_sql.semantic_loader import build_table_prompt_context
+except ModuleNotFoundError:  # pragma: no cover - container import fallback
+    from semantic_loader import build_table_prompt_context  # type: ignore
 
 
 class RuntimeNotConfiguredError(RuntimeError):

@@ -9,11 +9,18 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
-from python_jobs.text_to_sql.semantic_loader import (
-    SemanticValidationError,
-    load_allowed_tables,
-    validate_table_name,
-)
+try:
+    from python_jobs.text_to_sql.semantic_loader import (
+        SemanticValidationError,
+        load_allowed_tables,
+        validate_table_name,
+    )
+except ModuleNotFoundError:  # pragma: no cover - container import fallback
+    from semantic_loader import (  # type: ignore
+        SemanticValidationError,
+        load_allowed_tables,
+        validate_table_name,
+    )
 
 
 FORBIDDEN_KEYWORDS = {
