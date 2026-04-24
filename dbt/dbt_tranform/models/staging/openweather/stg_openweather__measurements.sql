@@ -1,13 +1,15 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree',
-    unique_key='(ward_code, timestamp_utc, parameter)',
-    order_by='(province, timestamp_utc, ward_code, parameter)',
+    engine='ReplacingMergeTree(ingest_time)',
+    incremental_strategy='delete_insert',
+    unique_key=['ward_code', 'timestamp_utc', 'parameter'],
+    order_by='(ward_code, timestamp_utc, parameter)',
     partition_by='toYYYYMM(timestamp_utc)',
     query_settings={
-        'max_threads': 2,
-        'max_bytes_before_external_sort': 100000000,
-        'max_bytes_before_external_group_by': 100000000
+        'max_threads': 1,
+        'max_bytes_before_external_sort': 67108864,
+        'max_bytes_before_external_group_by': 67108864,
+        'optimize_aggregation_in_order': 1
     }
 ) }}
 

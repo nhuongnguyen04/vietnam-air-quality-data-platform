@@ -1,10 +1,15 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree',
-    unique_key='(province, ward_code, datetime_hour)',
-    order_by='(province, date, assumeNotNull(ward_code))',
-    partition_by='toYYYYMM(date)',
-    query_settings={'max_bytes_before_external_group_by': 2147483648}
+    engine='ReplacingMergeTree(ingest_time)',
+    incremental_strategy='delete_insert',
+    unique_key=['province', 'ward_code', 'datetime_hour', 'source'],
+    order_by='(province, ward_code, datetime_hour, source)',
+    partition_by='toYYYYMM(datetime_hour)',
+    query_settings={
+        'max_threads': 1,
+        'max_bytes_before_external_sort': 67108864,
+        'max_bytes_before_external_group_by': 67108864
+    }
 ) }}
 
 with calculations as (
