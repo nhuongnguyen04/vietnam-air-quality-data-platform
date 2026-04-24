@@ -137,3 +137,11 @@ def text_to_sql_app(semantic_dir: Path, fake_vanna_runtime: FakeVannaRuntime, fa
         executor=fake_clickhouse_executor,
         semantic_dir=str(semantic_dir),
     )
+
+
+@pytest.fixture
+def load_text():
+    def _load_text(path: str) -> str:
+        return Path(path).read_text(encoding="utf-8")
+
+    return _load_text
