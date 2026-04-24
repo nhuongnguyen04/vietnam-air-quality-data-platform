@@ -86,6 +86,41 @@ docker compose up -d dashboard
 | Status | Data pipeline and dataset health status |
 | Weather Impact | Weather correlation with AQI dynamics |
 
+## Ask Data Text-to-SQL (Phase 10)
+
+`Ask Data` adds a first-class natural-language analytics page inside the existing Streamlit dashboard. The feature stays preview-first: users ask a question, review the generated SQL, then explicitly approve execution.
+
+### Architecture
+
+- `dashboard` remains the UI shell and calls a separate internal `text-to-sql` service.
+- `text-to-sql` owns prompt/runtime logic, SQL validation, preview-token binding, and ClickHouse execution.
+- Generated SQL remains limited to the approved `dm_*` and `fct_*` analytics surface.
+
+### Environment Variables
+
+Add these values in `.env` before running the feature:
+
+```bash
+TEXT_TO_SQL_URL=http://text-to-sql:8000
+OPENAI_API_KEY=
+VANNA_API_KEY=
+TEXT_TO_SQL_CLICKHOUSE_USER=
+TEXT_TO_SQL_CLICKHOUSE_PASSWORD=
+```
+
+The text-to-SQL service should use a dedicated read-only ClickHouse user with `SELECT` access only on the analytics marts and facts it is allowed to query.
+
+### Local Run
+
+```bash
+docker compose up -d text-to-sql dashboard
+```
+
+- Dashboard: http://localhost:8501
+- Internal text-to-SQL healthcheck: `http://localhost:8000/health`
+
+The `Ask Data` page previews SQL before execution and does not expose raw, staging, or intermediate tables.
+
 ## Grafana Operational Dashboards (Phase 3.3)
 
 Operational monitoring dashboards (anonymous access — no login required).
