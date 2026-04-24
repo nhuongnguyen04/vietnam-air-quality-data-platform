@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 import yaml
 
+from python_jobs.text_to_sql.app import create_app
+from python_jobs.text_to_sql.clickhouse_executor import QueryExecutionResult
+from python_jobs.text_to_sql.vanna_runtime import GeneratedSql
+
 
 @pytest.fixture
 def repo_root() -> Path:
@@ -91,3 +95,45 @@ def temp_semantic_dir(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return semantic_dir
+
+
+class FakeVannaRuntime:
+    def __init__(self, sql: str = "SELECT * FROM dm_aqi_current_status LIMIT 10") -> None:
+        self.sql = sql
+
+    def generate_sql(self, *, question: str, lang: str, standard: str, session_id: str) -> GeneratedSql:
+        return GeneratedSql(
+            sql=self.sql,
+            explanation=f"Preview for {question} in {lang} under {standard}",
+        )
+
+
+class FakeClickHouseExecutor:
+    def execute_query(self, sql: str) -> QueryExecutionResult:
+        return QueryExecutionResult(
+            columns=["province", "current_aqi_vn"],
+            rows=[["Ha Noi", 88], ["Da Nang", 72]],
+            row_count=2,
+            truncated=False,
+            execution_ms=18,
+            sql=sql,
+        )
+
+
+@pytest.fixture
+def fake_vanna_runtime() -> FakeVannaRuntime:
+    return FakeVannaRuntime()
+
+
+@pytest.fixture
+def fake_clickhouse_executor() -> FakeClickHouseExecutor:
+    return FakeClickHouseExecutor()
+
+
+@pytest.fixture
+def text_to_sql_app(semantic_dir: Path, fake_vanna_runtime: FakeVannaRuntime, fake_clickhouse_executor: FakeClickHouseExecutor):
+    return create_app(
+        runtime=fake_vanna_runtime,
+        executor=fake_clickhouse_executor,
+        semantic_dir=str(semantic_dir),
+    )
