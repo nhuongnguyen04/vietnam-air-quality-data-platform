@@ -415,7 +415,48 @@ services:
     - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
     - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     - CLICKHOUSE_DB=${CLICKHOUSE_DB:-air_quality}
+    - TEXT_TO_SQL_URL=http://text-to-sql:8000
     - STREAMLIT_SERVER_PORT=8501
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      text-to-sql:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: '0.5'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - --fail
+      - http://localhost:8501/_stcore/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+    - air-quality-network
+  text-to-sql:
+    build:
+      context: .
+      dockerfile: python_jobs/text_to_sql/Dockerfile
+    image: text-to-sql-service:latest
+    container_name: text-to-sql
+    restart: unless-stopped
+    environment:
+    - OPENAI_API_KEY=${OPENAI_API_KEY}
+    - VANNA_API_KEY=${VANNA_API_KEY}
+    - TEXT_TO_SQL_URL=http://text-to-sql:8000
+    - TEXT_TO_SQL_CLICKHOUSE_USER=${TEXT_TO_SQL_CLICKHOUSE_USER}
+    - TEXT_TO_SQL_CLICKHOUSE_PASSWORD=${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}
+    - CLICKHOUSE_HOST=clickhouse
+    - CLICKHOUSE_PORT=8123
+    - CLICKHOUSE_DB=air_quality
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -426,7 +467,7 @@ services:
       - CMD
       - curl
       - --fail
-      - http://localhost:8501/_stcore/health
+      - http://localhost:8000/health
       interval: 30s
       timeout: 10s
       retries: 5
