@@ -1,0 +1,152 @@
+version: 1
+tables:
+  dm_air_quality_national_summary:
+    business_purpose: "National KPI layer for high-level AQI and pollutant rollups used in dashboard summaries."
+    grain: "One row per reporting window and time_grain."
+    key_dimensions: ["time_grain", "period_start", "period_end"]
+    safe_filters: ["time_grain", "period_start", "period_end"]
+    lineage_summary: "Aggregates approved dashboard facts into national summary metrics."
+  dm_air_quality_overview_daily:
+    business_purpose: "Daily dashboard overview for AQI, pollutant, and province comparisons."
+    grain: "One row per province, ward, and date."
+    key_dimensions: ["date", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["date", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Daily overview built from curated air-quality facts for dashboard exploration."
+  dm_air_quality_overview_hourly:
+    business_purpose: "Hourly dashboard overview for near-real-time AQI monitoring."
+    grain: "One row per province, ward, and hour."
+    key_dimensions: ["datetime_hour", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Hourly overview built from curated ward-level air-quality facts."
+  dm_air_quality_overview_monthly:
+    business_purpose: "Monthly dashboard overview for historical AQI trend analysis."
+    grain: "One row per province, ward, and month."
+    key_dimensions: ["month", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["month", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Monthly overview built from approved monthly air-quality facts."
+  dm_aqi_current_status:
+    business_purpose: "Latest AQI status for operational monitoring and current-condition cards."
+    grain: "One row per province and ward_code."
+    key_dimensions: ["province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["province", "region_3", "region_8", "ward_code", "latest_hour"]
+    lineage_summary: "Current-state projection derived from the latest approved ward-level air-quality readings."
+  dm_aqi_compliance_standards:
+    business_purpose: "Daily compliance assessment against WHO and Vietnam standards."
+    grain: "One row per date, province, and ward_code."
+    key_dimensions: ["date", "province", "ward_code", "region_3", "region_8", "compliance_status"]
+    safe_filters: ["date", "province", "region_3", "region_8", "compliance_status", "ward_code"]
+    lineage_summary: "Daily compliance mart computed from curated daily AQI summaries."
+  dm_aqi_health_impact_summary:
+    business_purpose: "Daily health-risk summary for AQI exposure and advisories."
+    grain: "One row per date, province, and ward_code."
+    key_dimensions: ["date", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["date", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Daily health risk aggregation derived from approved AQI category metrics."
+  dm_aqi_temporal_patterns:
+    business_purpose: "Typical AQI and pollutant patterns by hour of day and day of week."
+    grain: "One row per province, hour_of_day, and day_of_week."
+    key_dimensions: ["province", "region_3", "region_8", "hour_of_day", "day_of_week"]
+    safe_filters: ["province", "region_3", "region_8", "hour_of_day", "day_of_week"]
+    lineage_summary: "Historical pattern mart rolled up from approved hourly air-quality facts."
+  dm_platform_data_health:
+    business_purpose: "Operational freshness and reliability view for dashboard source health."
+    grain: "One row per province, ward_code, and source."
+    key_dimensions: ["province", "ward_code", "source", "health_status"]
+    safe_filters: ["province", "region_3", "region_8", "source", "health_status", "ward_code"]
+    lineage_summary: "Data health mart derived from approved source freshness metrics."
+  dm_pollutant_source_fingerprint:
+    business_purpose: "Pollutant attribution summary for source-comparison analytics."
+    grain: "One row per date, province, and ward_code."
+    key_dimensions: ["date", "province", "ward_code", "region_3", "region_8", "source_category"]
+    safe_filters: ["date", "province", "region_3", "region_8", "ward_code", "source_category"]
+    lineage_summary: "Attribution mart built from approved pollutant ratio features."
+  dm_regional_health_risk_ranking:
+    business_purpose: "Population-weighted ranking of health risk across provinces."
+    grain: "One row per province and reporting date."
+    key_dimensions: ["date", "province", "region_3", "region_8"]
+    safe_filters: ["date", "province", "region_3", "region_8"]
+    lineage_summary: "Ranking mart derived from approved exposure and AQI health indicators."
+  dm_traffic_hourly_trend:
+    business_purpose: "Hourly traffic and pollution trend mart for correlation views."
+    grain: "One row per province and datetime_hour."
+    key_dimensions: ["datetime_hour", "date", "province", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8"]
+    lineage_summary: "Hourly trend mart combining approved traffic and AQI indicators."
+  dm_traffic_pollution_correlation_daily:
+    business_purpose: "Daily co-movement statistics between congestion and PM2.5."
+    grain: "One row per date and province."
+    key_dimensions: ["date", "province", "region_3", "region_8", "location_type"]
+    safe_filters: ["date", "province", "region_3", "region_8", "location_type"]
+    lineage_summary: "Daily correlation mart derived from approved hourly traffic trend metrics."
+  dm_weather_hourly_trend:
+    business_purpose: "Hourly weather and pollution trend mart for dashboard correlation analysis."
+    grain: "One row per province and datetime_hour."
+    key_dimensions: ["datetime_hour", "date", "province", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8"]
+    lineage_summary: "Hourly trend mart combining approved weather and AQI indicators."
+  dm_weather_pollution_correlation_daily:
+    business_purpose: "Daily weather-to-pollution correlation statistics for dashboard insights."
+    grain: "One row per date and province."
+    key_dimensions: ["date", "province", "region_3", "region_8", "location_type"]
+    safe_filters: ["date", "province", "region_3", "region_8", "location_type"]
+    lineage_summary: "Daily correlation mart derived from approved weather trend metrics."
+  fct_air_quality_summary_hourly:
+    business_purpose: "Hourly source-level fact table for AQI and pollutant metrics."
+    grain: "One row per province, ward_code, datetime_hour, and source."
+    key_dimensions: ["datetime_hour", "date", "province", "ward_code", "source", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8", "source", "ward_code"]
+    lineage_summary: "Core hourly fact surface for approved source-level AQI analysis."
+  fct_air_quality_summary_daily:
+    business_purpose: "Daily source-level fact table for AQI and pollutant summaries."
+    grain: "One row per date, province, ward_code, and source."
+    key_dimensions: ["date", "province", "ward_code", "source", "region_3", "region_8"]
+    safe_filters: ["date", "province", "region_3", "region_8", "source", "ward_code"]
+    lineage_summary: "Core daily fact surface rolled up from approved hourly source-level metrics."
+  fct_air_quality_summary_monthly:
+    business_purpose: "Monthly source-level fact table for long-horizon air-quality summaries."
+    grain: "One row per month, province, ward_code, and source."
+    key_dimensions: ["month", "province", "ward_code", "source", "region_3", "region_8"]
+    safe_filters: ["month", "province", "region_3", "region_8", "source", "ward_code"]
+    lineage_summary: "Core monthly fact surface rolled up from approved daily source-level metrics."
+  fct_air_quality_province_level_hourly:
+    business_purpose: "Hourly province-level fact table for regional AQI comparisons."
+    grain: "One row per province and datetime_hour."
+    key_dimensions: ["datetime_hour", "date", "province", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8"]
+    lineage_summary: "Province-hour fact surface aggregated from approved ward-level metrics."
+  fct_air_quality_province_level_daily:
+    business_purpose: "Daily province-level fact table for compliance and comparison analysis."
+    grain: "One row per province and date."
+    key_dimensions: ["date", "province", "region_3", "region_8"]
+    safe_filters: ["date", "province", "region_3", "region_8"]
+    lineage_summary: "Province-day fact surface aggregated from approved hourly province metrics."
+  fct_air_quality_province_level_monthly:
+    business_purpose: "Monthly province-level fact table for long-term regional comparisons."
+    grain: "One row per province and month."
+    key_dimensions: ["month", "province", "region_3", "region_8"]
+    safe_filters: ["month", "province", "region_3", "region_8"]
+    lineage_summary: "Province-month fact surface aggregated from approved daily province metrics."
+  fct_air_quality_ward_level_hourly:
+    business_purpose: "Hourly ward-level fact table for localized AQI monitoring."
+    grain: "One row per province, ward_code, and datetime_hour."
+    key_dimensions: ["datetime_hour", "date", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Ward-hour fact surface harmonized from approved hourly air-quality metrics."
+  fct_air_quality_ward_level_daily:
+    business_purpose: "Daily ward-level fact table for localized compliance and trend analysis."
+    grain: "One row per province, ward_code, and date."
+    key_dimensions: ["date", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["date", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Ward-day fact surface rolled up from approved ward-hour metrics."
+  fct_air_quality_ward_level_monthly:
+    business_purpose: "Monthly ward-level fact table for localized historical comparisons."
+    grain: "One row per province, ward_code, and month."
+    key_dimensions: ["month", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["month", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Ward-month fact surface rolled up from approved ward-day metrics."
+  fct_aqi_weather_traffic_unified:
+    business_purpose: "Unified fact surface for AQI, weather, traffic, and exposure analysis."
+    grain: "One row per ward_code and datetime_hour."
+    key_dimensions: ["datetime_hour", "date", "province", "ward_code", "region_3", "region_8"]
+    safe_filters: ["datetime_hour", "date", "province", "region_3", "region_8", "ward_code"]
+    lineage_summary: "Unified cross-domain fact surface for approved AQI, weather, and traffic analytics."

@@ -1,0 +1,27 @@
+version: 1
+tables:
+  - dm_air_quality_national_summary
+  - dm_air_quality_overview_daily
+  - dm_air_quality_overview_hourly
+  - dm_air_quality_overview_monthly
+  - dm_aqi_current_status
+  - dm_aqi_compliance_standards
+  - dm_aqi_health_impact_summary
+  - dm_aqi_temporal_patterns
+  - dm_platform_data_health
+  - dm_pollutant_source_fingerprint
+  - dm_regional_health_risk_ranking
+  - dm_traffic_hourly_trend
+  - dm_traffic_pollution_correlation_daily
+  - dm_weather_hourly_trend
+  - dm_weather_pollution_correlation_daily
+  - fct_air_quality_summary_hourly
+  - fct_air_quality_summary_daily
+  - fct_air_quality_summary_monthly
+  - fct_air_quality_province_level_hourly
+  - fct_air_quality_province_level_daily
+  - fct_air_quality_province_level_monthly
+  - fct_air_quality_ward_level_hourly
+  - fct_air_quality_ward_level_daily
+  - fct_air_quality_ward_level_monthly
+  - fct_aqi_weather_traffic_unified

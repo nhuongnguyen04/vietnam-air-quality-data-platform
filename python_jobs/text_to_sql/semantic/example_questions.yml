@@ -1,0 +1,52 @@
+version: 1
+questions:
+  - id: vi-current-status
+    lang: vi
+    topic: aqi_status
+    question: "Tinh nao co AQI cao nhat trong 24 gio qua?"
+    tables: ["dm_aqi_current_status", "dm_air_quality_overview_hourly"]
+  - id: vi-compliance
+    lang: vi
+    topic: compliance
+    question: "Nhung tinh nao vi pham nguong PM2.5 WHO trong 7 ngay gan day?"
+    tables: ["dm_aqi_compliance_standards"]
+  - id: vi-traffic
+    lang: vi
+    topic: traffic_impact
+    question: "PM2.5 thay doi the nao khi muc do un tac tang cao theo tung tinh?"
+    tables: ["dm_traffic_pollution_correlation_daily", "dm_traffic_hourly_trend"]
+  - id: vi-health
+    lang: vi
+    topic: health_risk
+    question: "Tinh nao co rui ro suc khoe cao nhat trong thang nay?"
+    tables: ["dm_regional_health_risk_ranking", "dm_aqi_health_impact_summary"]
+  - id: vi-weather
+    lang: vi
+    topic: weather_impact
+    question: "Do am va gio co lien quan the nao voi PM2.5 trong 30 ngay qua?"
+    tables: ["dm_weather_pollution_correlation_daily", "dm_weather_hourly_trend"]
+  - id: en-current-status
+    lang: en
+    topic: aqi_status
+    question: "Which provinces had the worst AQI in the last 24 hours?"
+    tables: ["dm_aqi_current_status", "dm_air_quality_overview_hourly"]
+  - id: en-compliance
+    lang: en
+    topic: compliance
+    question: "Which provinces breached the WHO PM2.5 guideline over the last 7 days?"
+    tables: ["dm_aqi_compliance_standards"]
+  - id: en-traffic
+    lang: en
+    topic: traffic_impact
+    question: "How does congestion align with PM2.5 uplift by province?"
+    tables: ["dm_traffic_pollution_correlation_daily", "dm_traffic_hourly_trend"]
+  - id: en-health
+    lang: en
+    topic: health_risk
+    question: "Which provinces show the highest health-risk ranking this month?"
+    tables: ["dm_regional_health_risk_ranking", "dm_aqi_health_impact_summary"]
+  - id: en-weather
+    lang: en
+    topic: weather_impact
+    question: "How do humidity and wind speed relate to PM2.5 over the last 30 days?"
+    tables: ["dm_weather_pollution_correlation_daily", "dm_weather_hourly_trend"]
