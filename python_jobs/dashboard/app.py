@@ -34,6 +34,7 @@ pages = {
     t("nav_environment", lang): [
         st.Page("pages/6_Traffic_Impact.py", title=t("nav_traffic", lang), icon=":material/traffic:"),
         st.Page("pages/9_Weather_Impact.py", title=t("nav_weather", lang), icon=":material/air:"),
+        st.Page("pages/10_Ask_Data.py", title=t("nav_ask_data", lang), icon=":material/psychology:"),
     ],
     t("nav_health", lang): [
         st.Page("pages/7_Health_Risk.py", title=t("nav_health", lang), icon=":material/health_and_safety:"),
