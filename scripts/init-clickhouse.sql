@@ -81,6 +81,10 @@ GRANT SELECT ON ${CLICKHOUSE_DB}.* TO om_reader;
 GRANT SELECT ON system.* TO om_reader;
 GRANT SELECT ON system.query_log TO om_reader;
 
+-- 5b. Text-to-SQL Runtime Access (Read-only, mart/fact surface only)
+CREATE USER IF NOT EXISTS aqi_reader IDENTIFIED WITH sha256_password BY 'change-me';
+GRANT SELECT ON ${CLICKHOUSE_DB}.* TO aqi_reader;
+
 -- 6. Pre-aggregated Materialized Views
 -- Hourly aggregation for dashboarding
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_hourly_station_aqi

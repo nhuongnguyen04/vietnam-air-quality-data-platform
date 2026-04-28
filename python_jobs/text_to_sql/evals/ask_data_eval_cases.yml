@@ -1,0 +1,69 @@
+version: 1
+generator_cutover:
+  default_generator: vanna
+  candidate_generator: vanna
+  readiness_requirements:
+    - "All eval cases must parse and map to allowlisted marts/facts only."
+    - "Unsafe output rate must stay at zero on the migration gate corpus."
+    - "Expected tables must match the mart-only eval expectations for bilingual Ask Data cases."
+cases:
+  - id: vi-current-status
+    lang: vi
+    question: "Tinh nao co AQI cao nhat trong 24 gio qua?"
+    expected_tables: ["dm_aqi_current_status", "dm_air_quality_overview_hourly"]
+    expected_sql_shape:
+      - "top_n"
+      - "recent_24_hours"
+      - "order_by_desc"
+    forbidden_targets: ["raw_aqiin_measurements", "stg_openweather__meteorology", "system.tables"]
+    expected_business_intent: "Find the provinces or wards with the worst recent AQI."
+  - id: vi-compliance
+    lang: vi
+    question: "Nhung tinh nao vi pham nguong PM2.5 WHO trong 7 ngay gan day?"
+    expected_tables: ["dm_aqi_compliance_standards"]
+    expected_sql_shape:
+      - "daily_compliance_filter"
+      - "who_threshold"
+      - "recent_7_days"
+    forbidden_targets: ["raw_openweather_measurements", "int_core__measurements_unified", "information_schema.tables"]
+    expected_business_intent: "List provinces that breached WHO PM2.5 guidance recently."
+  - id: vi-traffic
+    lang: vi
+    question: "PM2.5 thay doi the nao khi muc do un tac tang cao theo tung tinh?"
+    expected_tables: ["dm_traffic_pollution_correlation_daily", "dm_traffic_hourly_trend"]
+    expected_sql_shape:
+      - "correlation_or_join"
+      - "province_grouping"
+      - "traffic_vs_pm25"
+    forbidden_targets: ["raw_tomtom_traffic", "dim_locations", "system.query_log"]
+    expected_business_intent: "Explain how congestion aligns with PM2.5 by province."
+  - id: en-current-status
+    lang: en
+    question: "Which provinces had the worst AQI in the last 24 hours?"
+    expected_tables: ["dm_aqi_current_status", "dm_air_quality_overview_hourly"]
+    expected_sql_shape:
+      - "top_n"
+      - "recent_24_hours"
+      - "order_by_desc"
+    forbidden_targets: ["raw_aqiin_measurements", "stg_openweather__meteorology", "system.tables"]
+    expected_business_intent: "Find the provinces or wards with the worst recent AQI."
+  - id: en-health
+    lang: en
+    question: "Which provinces show the highest health-risk ranking this month?"
+    expected_tables: ["dm_regional_health_risk_ranking", "dm_aqi_health_impact_summary"]
+    expected_sql_shape:
+      - "monthly_filter"
+      - "ranking"
+      - "province_grouping"
+    forbidden_targets: ["fct_air_quality_ward_level_hourly", "raw_openweather_measurements", "information_schema.tables"]
+    expected_business_intent: "Rank provinces by their current health risk indicators."
+  - id: en-weather
+    lang: en
+    question: "How do humidity and wind speed relate to PM2.5 over the last 30 days?"
+    expected_tables: ["dm_weather_pollution_correlation_daily", "dm_weather_hourly_trend"]
+    expected_sql_shape:
+      - "recent_30_days"
+      - "weather_vs_pm25"
+      - "correlation_or_join"
+    forbidden_targets: ["raw_openweather_measurements", "int_weather__hourly", "system.columns"]
+    expected_business_intent: "Describe weather-to-pollution relationships over the recent month."

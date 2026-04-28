@@ -71,7 +71,7 @@ dashboard:
     - filename: "10_Ask_Data.py"
       name: "Ask_Data"
       display_name: "Ask Data"
-      description: "Trang hoi du lieu tu nhien voi luong preview SQL truoc khi thuc thi tren be mat analytics duoc phe duyet."
+      description: "Trang hỏi dữ liệu tự nhiên với lượng preview SQL trước khi thực thi trên bề mặt analytics được phê duyệt."
       source_tables:
         - "dm_air_quality_national_summary"
         - "dm_air_quality_overview_daily"

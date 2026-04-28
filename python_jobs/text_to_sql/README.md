@@ -6,6 +6,8 @@ This directory defines the internal service boundary for Phase 10's Ask Data flo
 
 The implementation is pinned behind a local runtime wrapper so the rest of the codebase never depends directly on a moving provider API. The wrapper must expose a `generate_sql` capability without executing SQL, and it remains the only place where a Vanna-style client or cloud LLM provider may be called.
 
+The runtime now uses Vanna OSS directly, with a local ChromaDB vector store and Groq-hosted `qwen/qwen3-32b` as the underlying LLM via OpenAI-compatible APIs.
+
 The pre-implementation verification checklist for the provider wrapper is:
 
 1. Confirm the selected package or provider still exposes a SQL-generation method equivalent to `generate_sql`.
@@ -42,6 +44,8 @@ Only cloud-provider and service credentials belong in environment variables. The
 
 Expected environment variables include:
 
+- `GROQ_API_KEY`
+- `GROQ_MODEL`
 - `OPENAI_API_KEY`
 - `VANNA_API_KEY`
 - `TEXT_TO_SQL_URL`
@@ -54,3 +58,17 @@ Expected environment variables include:
 ## ClickHouse Contract
 
 The text-to-SQL service must use a dedicated read-only ClickHouse user. It may query only the approved mart/fact analytics surface and must never rely on broader database permissions.
+
+Recommended runtime defaults:
+
+- `TEXT_TO_SQL_CLICKHOUSE_USER=aqi_reader`
+- `GROQ_MODEL=qwen/qwen3-32b`
+
+## Migration Gate
+
+Before treating the Vanna path as production-ready by default, the repo should satisfy all of these:
+
+1. The mart-only catalog/training bundle builds cleanly from repo-owned metadata.
+2. The bilingual eval corpus under `python_jobs/text_to_sql/evals/ask_data_eval_cases.yml` is present and green.
+3. The Vanna path keeps unsafe output rate at zero on the migration gate corpus.
+4. `aqi_reader` exists in ClickHouse and is used by the service instead of reusing `om_reader`.

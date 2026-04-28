@@ -16,6 +16,7 @@ try:
     from python_jobs.text_to_sql.sql_validator import SqlValidationError, validate_sql
     from python_jobs.text_to_sql.vanna_runtime import (
         GeneratedSql,
+        RuntimeGenerationError,
         RuntimeNotConfiguredError,
         VannaRuntime,
     )
@@ -25,6 +26,7 @@ except ModuleNotFoundError:  # pragma: no cover - container import fallback
     from sql_validator import SqlValidationError, validate_sql  # type: ignore
     from vanna_runtime import (  # type: ignore
         GeneratedSql,
+        RuntimeGenerationError,
         RuntimeNotConfiguredError,
         VannaRuntime,
     )
@@ -140,6 +142,8 @@ def create_app(
             validation = validate_sql(generated.sql, app.state.semantic_dir)
         except RuntimeNotConfiguredError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except RuntimeGenerationError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
         except SqlValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

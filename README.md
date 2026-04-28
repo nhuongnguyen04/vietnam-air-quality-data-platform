@@ -102,13 +102,24 @@ Add these values in `.env` before running the feature:
 
 ```bash
 TEXT_TO_SQL_URL=http://text-to-sql:8000
-OPENAI_API_KEY=
-VANNA_API_KEY=
-TEXT_TO_SQL_CLICKHOUSE_USER=
-TEXT_TO_SQL_CLICKHOUSE_PASSWORD=
+GROQ_API_KEY=
+GROQ_MODEL=qwen/qwen3-32b
+TEXT_TO_SQL_CLICKHOUSE_USER=aqi_reader
+TEXT_TO_SQL_CLICKHOUSE_PASSWORD=change-me
 ```
 
+The current runtime uses Vanna OSS directly, with Groq's OpenAI-compatible API as the underlying LLM and `qwen/qwen3-32b` as the default model.
+
 The text-to-SQL service should use a dedicated read-only ClickHouse user with `SELECT` access only on the analytics marts and facts it is allowed to query.
+
+### Generator Cutover Gate
+
+Treat the Vanna runtime as production-ready only when all of these are true:
+
+- the mart-only catalog/training bundle is green
+- the bilingual eval corpus under `python_jobs/text_to_sql/evals/` is green
+- Vanna keeps unsafe output rate at zero on the repo-owned gate corpus
+- the dedicated `aqi_reader` ClickHouse user exists in the target environment
 
 ### Local Run
 

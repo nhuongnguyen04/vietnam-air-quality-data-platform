@@ -22,6 +22,13 @@ pydantic
 httpx[http2]
 beautifulsoup4==4.14.3
 lxml
+pyyaml>=6.0.0
+
+# Text-to-SQL local development
+fastapi>=0.136.0
+uvicorn>=0.38.0
+sqlglot>=30.6.0
+vanna[openai,chromadb]>=2.0.2
 
 # Testing
 pytest

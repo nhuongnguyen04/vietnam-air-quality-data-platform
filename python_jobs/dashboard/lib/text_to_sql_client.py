@@ -31,7 +31,10 @@ class TextToSqlClient:
             detail = exc.read().decode("utf-8")
             raise TextToSqlClientError(detail or f"Service request failed with HTTP {exc.code}") from exc
         except error.URLError as exc:
-            raise TextToSqlClientError(f"Service unavailable: {exc.reason}") from exc
+            raise TextToSqlClientError(
+                f"Service unavailable at {self.base_url}: {exc.reason}. "
+                "Start or rebuild the text-to-sql service and verify TEXT_TO_SQL_URL."
+            ) from exc
 
     def preview(
         self,
