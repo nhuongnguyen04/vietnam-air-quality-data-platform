@@ -28,8 +28,11 @@ def get_dashboard_metadata_path(path: str | Path | None = None) -> Path:
 
 def load_dashboard_metadata(path: str | Path | None = None) -> dict[str, Any]:
     metadata_path = get_dashboard_metadata_path(path)
-    with metadata_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    try:
+        with metadata_path.open("r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle) or {}
+    except FileNotFoundError:
+        return {}
 
 
 def _dashboard_pages_by_table(

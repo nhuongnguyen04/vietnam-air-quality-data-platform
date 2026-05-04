@@ -58,6 +58,7 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
 | `TEXT_TO_SQL_URL` | Optional | `http://localhost:8000` in dashboard code; `http://text-to-sql:8000` in Compose | Dashboard-side base URL for the internal text-to-SQL service. |
+| `TEXT_TO_SQL_TIMEOUT_SECONDS` | Optional | `90` | Dashboard-side timeout for preview/execute calls to the text-to-SQL service. |
 | `GROQ_API_KEY` | Required for text-to-SQL generation | None | Required by `python_jobs/text_to_sql/vanna_runtime.py` before SQL generation can start. |
 | `GROQ_MODEL` | Optional | `qwen/qwen3-32b` | Groq-hosted model name for the Vanna runtime. |
 | `TEXT_TO_SQL_CLICKHOUSE_USER` | Recommended for text-to-SQL | Falls back to `CLICKHOUSE_USER` | Dedicated read-only ClickHouse username for text-to-SQL execution. |
@@ -187,7 +188,7 @@ The repository does not have a single central settings validator, so requirednes
 | `OPENWEATHER_API_TOKEN` | Required for the default OpenWeather ingestion path | `python_jobs/jobs/openweather/ingest_openweather_unified.py` exits with `No OpenWeather tokens found.` when no token variables are present. |
 | `TOMTOM_API_KEY` | Required for traffic ingestion DAG tasks | Passed from `docker-compose.yml` into Airflow services without a fallback. |
 
-Optional settings with repo-defined defaults include `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_USER`, `OPENMETADATA_URL`, `OM_ADMIN_USER`, `OM_ADMIN_PASSWORD`, `GROQ_MODEL`, `TEXT_TO_SQL_URL`, `DBT_PACKAGES_INSTALL_PATH`, `DBT_TARGET_PATH`, `CSV_OUTPUT_DIR`, `MAX_SYNC_WORKERS`, and the Python job tuning variables.
+Optional settings with repo-defined defaults include `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_USER`, `OPENMETADATA_URL`, `OM_ADMIN_USER`, `OM_ADMIN_PASSWORD`, `GROQ_MODEL`, `TEXT_TO_SQL_URL`, `TEXT_TO_SQL_TIMEOUT_SECONDS`, `DBT_PACKAGES_INSTALL_PATH`, `DBT_TARGET_PATH`, `CSV_OUTPUT_DIR`, `MAX_SYNC_WORKERS`, and the Python job tuning variables.
 
 Settings that are currently documented or legacy rather than strongly wired into the runtime include `CLICKHOUSE_DATABASE`, `CLICKHOUSE_SECURE`, `MAPBOX_ACCESS_TOKEN`, `AQICN_API_TOKEN`, `OPENAQ_API_TOKEN`, `CLICKHOUSE_OM_READER_USER`, and `CLICKHOUSE_OM_READER_PASSWORD`.
 
@@ -203,6 +204,7 @@ The most important defaults are split across several files and are not always co
 | `CLICKHOUSE_DB` | `air_quality` or `airquality` | `docker-compose.yml`, dbt profiles, OpenMetadata/Airflow helpers, and `python_jobs/config/job_config.yaml` |
 | `GROQ_MODEL` | `qwen/qwen3-32b` | `.env.example`, `docker-compose.yml`, and `python_jobs/text_to_sql/vanna_runtime.py` |
 | `TEXT_TO_SQL_URL` | `http://localhost:8000` or `http://text-to-sql:8000` | `python_jobs/dashboard/lib/text_to_sql_client.py` and `docker-compose.yml` |
+| `TEXT_TO_SQL_TIMEOUT_SECONDS` | `90` | `python_jobs/dashboard/lib/text_to_sql_client.py`, `.env.example`, and `docker-compose.yml` |
 | `TEXT_TO_SQL_VANNA_CLIENT` | `in-memory` | `python_jobs/text_to_sql/vanna_runtime.py` |
 | `TEXT_TO_SQL_VANNA_COLLECTION` | `air_quality_ask_data` | `python_jobs/text_to_sql/vanna_runtime.py` |
 | `OPENMETADATA_URL` | `http://openmetadata:8585/api` | `airflow/config/setup_connections.py` |

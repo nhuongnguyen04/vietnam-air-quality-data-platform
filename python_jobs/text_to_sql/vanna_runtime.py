@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import re
 from typing import Any
 
 try:
@@ -128,6 +129,40 @@ class VannaRuntime:
     def metadata_context(self) -> list[dict[str, Any]]:
         return build_vanna_catalog_bundle(self.semantic_dir)["tables"]
 
+    def _extract_sql_statement(self, response: object) -> str:
+        text = str(response).strip()
+        if not text:
+            return ""
+
+        fenced_blocks = re.findall(r"```(?:sql)?\s*(.*?)```", text, flags=re.IGNORECASE | re.DOTALL)
+        for block in reversed(fenced_blocks):
+            candidate = self._trim_sql_candidate(block)
+            if candidate:
+                return candidate
+
+        without_thinking = re.sub(
+            r"<think>.*?</think>",
+            "",
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        lines = without_thinking.splitlines()
+        for index in range(len(lines) - 1, -1, -1):
+            if re.match(r"^\s*(select|with)\b", lines[index], flags=re.IGNORECASE):
+                candidate = self._trim_sql_candidate("\n".join(lines[index:]))
+                if candidate:
+                    return candidate
+
+        return self._trim_sql_candidate(without_thinking)
+
+    def _trim_sql_candidate(self, candidate: str) -> str:
+        cleaned = candidate.strip()
+        if not re.match(r"^(select|with)\b", cleaned, flags=re.IGNORECASE):
+            return ""
+        if ";" in cleaned:
+            cleaned = cleaned.split(";", 1)[0]
+        return cleaned.strip()
+
     def generate_sql(
         self,
         *,
@@ -139,7 +174,7 @@ class VannaRuntime:
         _ = {"lang": lang, "standard": standard, "session_id": session_id}
         client = self._get_vanna_client()
         try:
-            sql = client.generate_sql(question=question)
+            sql = self._extract_sql_statement(client.generate_sql(question=question))
         except Exception as exc:
             raise RuntimeGenerationError("Vanna SQL generation failed") from exc
         if not sql:

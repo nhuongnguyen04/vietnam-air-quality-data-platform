@@ -65,6 +65,78 @@ def test_runtime_uses_vanna_with_groq_backing(monkeypatch, semantic_dir):
 
 
 @pytest.mark.unit
+def test_runtime_extracts_sql_from_reasoning_response(monkeypatch, semantic_dir):
+    class ChattyVanna(FakeVanna):
+        def generate_sql(self, *, question):
+            self.questions.append(question)
+            return """
+            with the available context, I should use the hourly table.
+
+            SELECT province, MAX(avg_aqi_vn) AS max_aqi
+            FROM fct_air_quality_ward_level_hourly
+            WHERE datetime_hour >= now() - INTERVAL 24 HOUR
+            GROUP BY province
+            ORDER BY max_aqi DESC
+            LIMIT 1;
+            """
+
+    fake_vanna = ChattyVanna()
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setattr(
+        VannaRuntime,
+        "_create_vanna_client",
+        lambda self: fake_vanna,
+    )
+
+    runtime = VannaRuntime(str(semantic_dir))
+    result = runtime.generate_sql(
+        question="Tinh nao co AQI cao nhat trong 24 gio qua?",
+        lang="vi",
+        standard="TCVN",
+        session_id="session-2",
+    )
+
+    assert result.sql.startswith("SELECT province")
+    assert "with the available context" not in result.sql
+    assert "LIMIT 1" in result.sql
+
+
+@pytest.mark.unit
+def test_runtime_extracts_sql_from_markdown_fence(monkeypatch, semantic_dir):
+    class FencedVanna(FakeVanna):
+        def generate_sql(self, *, question):
+            self.questions.append(question)
+            return """
+            <think>I should not leak this reasoning.</think>
+
+            ```sql
+            SELECT province, current_aqi_vn
+            FROM dm_aqi_current_status
+            LIMIT 10;
+            ```
+            """
+
+    fake_vanna = FencedVanna()
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setattr(
+        VannaRuntime,
+        "_create_vanna_client",
+        lambda self: fake_vanna,
+    )
+
+    runtime = VannaRuntime(str(semantic_dir))
+    result = runtime.generate_sql(
+        question="AQI cao nhat?",
+        lang="vi",
+        standard="TCVN",
+        session_id="session-4",
+    )
+
+    assert result.sql.startswith("SELECT province")
+    assert "<think>" not in result.sql
+
+
+@pytest.mark.unit
 def test_runtime_wraps_vanna_generation_errors(monkeypatch, semantic_dir):
     class BrokenVanna:
         def train(self, **kwargs):

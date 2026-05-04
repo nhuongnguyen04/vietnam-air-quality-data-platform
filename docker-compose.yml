@@ -59,6 +59,7 @@ services:
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
     - dbt-target:/opt/dbt/dbt_tranform/target
     - dbt-logs:/opt/dbt/dbt_tranform/logs
+    - dbt-cache:/opt/dbt/.cache
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -76,6 +77,7 @@ services:
     - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
     - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
     - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+    - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
     - CLICKHOUSE_HOST=clickhouse
     - CLICKHOUSE_PORT=8123
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -138,6 +140,7 @@ services:
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
     - dbt-target:/opt/dbt/dbt_tranform/target
     - dbt-logs:/opt/dbt/dbt_tranform/logs
+    - dbt-cache:/opt/dbt/.cache
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -155,6 +158,7 @@ services:
     - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
     - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
     - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+    - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
     - CLICKHOUSE_HOST=clickhouse
     - CLICKHOUSE_PORT=8123
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -212,6 +216,7 @@ services:
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
     - dbt-target:/opt/dbt/dbt_tranform/target
     - dbt-logs:/opt/dbt/dbt_tranform/logs
+    - dbt-cache:/opt/dbt/.cache
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -229,6 +234,7 @@ services:
     - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
     - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
     - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+    - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
     - CLICKHOUSE_HOST=clickhouse
     - CLICKHOUSE_PORT=8123
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -286,6 +292,7 @@ services:
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
     - dbt-target:/opt/dbt/dbt_tranform/target
     - dbt-logs:/opt/dbt/dbt_tranform/logs
+    - dbt-cache:/opt/dbt/.cache
     - /var/run/docker.sock:/var/run/docker.sock
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -303,6 +310,7 @@ services:
     - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
     - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
     - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+    - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
     - CLICKHOUSE_HOST=clickhouse
     - CLICKHOUSE_PORT=8123
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
@@ -392,8 +400,10 @@ services:
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
     - dbt-target:/opt/dbt/dbt_tranform/target
     - dbt-logs:/opt/dbt/dbt_tranform/logs
+    - dbt-cache:/opt/dbt/.cache
     command: >
-      bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/dbt_tranform/dbt_packages
+      bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache/dbt_packages
+      && chown -R airflow:0 /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache
       && chmod -R 777 /opt/airflow/logs /opt/dbt/dbt_tranform
       && echo 'Permissions setup complete.'"
     networks:
@@ -416,6 +426,7 @@ services:
     - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     - CLICKHOUSE_DB=${CLICKHOUSE_DB:-air_quality}
     - TEXT_TO_SQL_URL=http://text-to-sql:8000
+    - TEXT_TO_SQL_TIMEOUT_SECONDS=${TEXT_TO_SQL_TIMEOUT_SECONDS:-90}
     - STREAMLIT_SERVER_PORT=8501
     depends_on:
       clickhouse:
@@ -867,3 +878,4 @@ volumes:
   prometheus-data: null
   dbt-target:
   dbt-logs:
+  dbt-cache:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 from typing import Any
 from urllib import error, request
 
@@ -12,9 +13,39 @@ class TextToSqlClientError(RuntimeError):
 
 
 class TextToSqlClient:
-    def __init__(self, base_url: str | None = None, timeout_seconds: int = 30) -> None:
-        self.base_url = (base_url or os.environ.get("TEXT_TO_SQL_URL", "http://localhost:8000")).rstrip("/")
-        self.timeout_seconds = timeout_seconds
+    def __init__(
+        self,
+        base_url: str | None = None,
+        timeout_seconds: int | None = None,
+    ) -> None:
+        self.base_url = (
+            base_url or os.environ.get("TEXT_TO_SQL_URL", "http://localhost:8000")
+        ).rstrip("/")
+        self.timeout_seconds = timeout_seconds or self._resolve_timeout_seconds()
+
+    def _resolve_timeout_seconds(self) -> int:
+        configured_timeout = os.environ.get("TEXT_TO_SQL_TIMEOUT_SECONDS", "90")
+        try:
+            return int(configured_timeout)
+        except ValueError:
+            return 90
+
+    def _format_http_error(self, exc: error.HTTPError) -> str:
+        detail = exc.read().decode("utf-8")
+        try:
+            parsed = json.loads(detail)
+        except json.JSONDecodeError:
+            return detail or f"Service request failed with HTTP {exc.code}"
+        if isinstance(parsed, dict) and parsed.get("detail"):
+            return str(parsed["detail"])
+        return detail or f"Service request failed with HTTP {exc.code}"
+
+    def _format_timeout_error(self) -> str:
+        return (
+            f"Text-to-SQL service timed out after {self.timeout_seconds}s. "
+            "Try again, or increase TEXT_TO_SQL_TIMEOUT_SECONDS if the first "
+            "Vanna/Groq request is still warming up."
+        )
 
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
@@ -28,9 +59,12 @@ class TextToSqlClient:
             with request.urlopen(req, timeout=self.timeout_seconds) as response:
                 return json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8")
-            raise TextToSqlClientError(detail or f"Service request failed with HTTP {exc.code}") from exc
+            raise TextToSqlClientError(self._format_http_error(exc)) from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise TextToSqlClientError(self._format_timeout_error()) from exc
         except error.URLError as exc:
+            if isinstance(exc.reason, (TimeoutError, socket.timeout)):
+                raise TextToSqlClientError(self._format_timeout_error()) from exc
             raise TextToSqlClientError(
                 f"Service unavailable at {self.base_url}: {exc.reason}. "
                 "Start or rebuild the text-to-sql service and verify TEXT_TO_SQL_URL."

@@ -37,7 +37,7 @@ DBT_ENV_VARS = {
     'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
     'DBT_LOG_PATH': os.path.join(DBT_PROJECT_DIR, 'logs'),
     'DBT_TARGET_PATH': os.path.join(DBT_PROJECT_DIR, 'target'),
-    'DBT_PACKAGES_INSTALL_PATH': os.path.join(DBT_PROJECT_DIR, 'dbt_packages'),
+    'DBT_PACKAGES_INSTALL_PATH': os.environ.get('DBT_PACKAGES_INSTALL_PATH', '/opt/dbt/.cache/dbt_packages'),
 }
 
 

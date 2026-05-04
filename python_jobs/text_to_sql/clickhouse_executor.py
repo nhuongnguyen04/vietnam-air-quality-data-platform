@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import re
 import time
 
 import clickhouse_connect
@@ -48,7 +49,7 @@ class ClickHouseExecutor:
         )
 
     def _apply_default_limit(self, sql: str) -> tuple[str, bool]:
-        if " limit " in sql.lower():
+        if re.search(r"\blimit\b", sql, flags=re.IGNORECASE):
             return sql, False
         return f"{sql.rstrip()} LIMIT {self.max_rows}", True
 
