@@ -31,19 +31,17 @@ class ClickHouseExecutor:
         self.database = database or os.environ.get("CLICKHOUSE_DB", "air_quality")
 
     def _get_client(self):
-        password = os.environ.get("TEXT_TO_SQL_CLICKHOUSE_PASSWORD") or os.environ.get(
-            "CLICKHOUSE_PASSWORD"
-        )
-        if not password:
+        username = os.environ.get("TEXT_TO_SQL_CLICKHOUSE_USER")
+        password = os.environ.get("TEXT_TO_SQL_CLICKHOUSE_PASSWORD")
+        if not username or not password:
             raise ValueError(
-                "TEXT_TO_SQL_CLICKHOUSE_PASSWORD or CLICKHOUSE_PASSWORD is required"
+                "Dedicated TEXT_TO_SQL_CLICKHOUSE_USER and TEXT_TO_SQL_CLICKHOUSE_PASSWORD are required"
             )
 
         return clickhouse_connect.get_client(
             host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
             port=int(os.environ.get("CLICKHOUSE_PORT", 8123)),
-            username=os.environ.get("TEXT_TO_SQL_CLICKHOUSE_USER")
-            or os.environ.get("CLICKHOUSE_USER", "admin"),
+            username=username,
             password=password,
             database=self.database,
         )

@@ -1,52 +1,276 @@
 version: 1
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ClickHouse date function reference (embed in training documentation)
+# ──────────────────────────────────────────────────────────────────────────────
+# yesterday()                        → Date of yesterday (YYYY-MM-DD)
+# today()                            → Date of today     (YYYY-MM-DD)
+# now()                              → Current datetime
+# toStartOfMonth(today())            → First day of current month
+# toStartOfMonth(today()) - toIntervalMonth(1) → First day of last month
+# today() - toIntervalDay(7)         → 7 days ago
+# today() - toIntervalDay(30)        → 30 days ago
+# toStartOfHour(now())               → Current hour (truncated)
+# now() - toIntervalHour(24)         → 24 hours ago as datetime
+#
+# Column naming conventions:
+#   date columns    : "date"  (Date type, filter with =, >=, <=)
+#   hour columns    : "datetime_hour"  (DateTime type)
+#   month columns   : "month"  (Date type, first day of month)
+#   PM2.5 avg daily : "pm25_avg"
+#   PM2.5 current   : "pm25"
+#   AQI VN scale    : "avg_aqi_vn" (daily/hourly marts) | "current_aqi_vn" (status)
+# ──────────────────────────────────────────────────────────────────────────────
+
 questions:
+
+  # ── AQI / PM2.5 status ──────────────────────────────────────────────────────
+
   - id: vi-current-status
     lang: vi
     topic: aqi_status
-    question: "Tinh nao co AQI cao nhat trong 24 gio qua?"
-    tables: ["dm_aqi_current_status", "dm_air_quality_overview_hourly"]
+    question: "Tỉnh nào có AQI cao nhất trong 24 giờ qua?"
+    tables: ["dm_aqi_current_status"]
+    sql: |
+      SELECT province, MAX(current_aqi_vn) AS max_aqi
+      FROM dm_aqi_current_status
+      GROUP BY province
+      ORDER BY max_aqi DESC
+      LIMIT 10
+
+  - id: vi-pm25-yesterday-province
+    lang: vi
+    topic: pm25
+    question: "Tỉnh nào có chỉ số PM2.5 cao nhất trong ngày hôm qua?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT province, MAX(pm25_avg) AS highest_pm25
+      FROM fct_air_quality_province_level_daily
+      WHERE date = yesterday()
+      GROUP BY province
+      ORDER BY highest_pm25 DESC
+      LIMIT 1
+
+  - id: vi-pm25-yesterday-top10
+    lang: vi
+    topic: pm25
+    question: "Top 10 tỉnh có PM2.5 cao nhất hôm qua là những tỉnh nào?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT province, pm25_avg
+      FROM fct_air_quality_province_level_daily
+      WHERE date = yesterday()
+      ORDER BY pm25_avg DESC
+      LIMIT 10
+
+  - id: vi-aqi-today
+    lang: vi
+    topic: aqi_status
+    question: "AQI các tỉnh hôm nay là bao nhiêu?"
+    tables: ["dm_air_quality_overview_daily"]
+    sql: |
+      SELECT province, avg_aqi_vn, pm25_avg
+      FROM dm_air_quality_overview_daily
+      WHERE date = today()
+      ORDER BY avg_aqi_vn DESC
+
+  - id: vi-aqi-last-7-days
+    lang: vi
+    topic: aqi_status
+    question: "AQI trung bình 7 ngày gần đây theo từng tỉnh?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT province, AVG(avg_aqi_vn) AS avg_aqi_7d
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+      GROUP BY province
+      ORDER BY avg_aqi_7d DESC
+
+  - id: vi-pm25-last-24h
+    lang: vi
+    topic: pm25
+    question: "PM2.5 trung bình trong 24 giờ qua theo tỉnh?"
+    tables: ["dm_air_quality_overview_hourly"]
+    sql: |
+      SELECT province, AVG(pm25_avg) AS pm25_24h_avg
+      FROM dm_air_quality_overview_hourly
+      WHERE datetime_hour >= now() - toIntervalHour(24)
+      GROUP BY province
+      ORDER BY pm25_24h_avg DESC
+
+  # ── Compliance ────────────────────────────────────────────────────────────────
+
   - id: vi-compliance
     lang: vi
     topic: compliance
-    question: "Nhung tinh nao vi pham nguong PM2.5 WHO trong 7 ngay gan day?"
+    question: "Những tỉnh nào vi phạm ngưỡng PM2.5 WHO trong 7 ngày gần đây?"
     tables: ["dm_aqi_compliance_standards"]
-  - id: vi-traffic
+    sql: |
+      SELECT province, COUNT(*) AS breach_days
+      FROM dm_aqi_compliance_standards
+      WHERE date >= today() - toIntervalDay(7)
+        AND who_pm25_breach = 1
+      GROUP BY province
+      ORDER BY breach_days DESC
+
+  - id: vi-compliance-yesterday
     lang: vi
-    topic: traffic_impact
-    question: "PM2.5 thay doi the nao khi muc do un tac tang cao theo tung tinh?"
-    tables: ["dm_traffic_pollution_correlation_daily", "dm_traffic_hourly_trend"]
+    topic: compliance
+    question: "Hôm qua có bao nhiêu tỉnh vượt ngưỡng PM2.5 của Việt Nam?"
+    tables: ["dm_aqi_compliance_standards"]
+    sql: |
+      SELECT COUNT(DISTINCT province) AS provinces_breached
+      FROM dm_aqi_compliance_standards
+      WHERE date = yesterday()
+        AND tcvn_pm25_breach = 1
+
+  # ── Health risk ───────────────────────────────────────────────────────────────
+
   - id: vi-health
     lang: vi
     topic: health_risk
-    question: "Tinh nao co rui ro suc khoe cao nhat trong thang nay?"
-    tables: ["dm_regional_health_risk_ranking", "dm_aqi_health_impact_summary"]
+    question: "Tỉnh nào có rủi ro sức khỏe cao nhất trong tháng này?"
+    tables: ["dm_regional_health_risk_ranking"]
+    sql: |
+      SELECT province, MIN(health_risk_rank) AS best_rank, AVG(avg_pm25) AS avg_pm25_month
+      FROM dm_regional_health_risk_ranking
+      WHERE date >= toStartOfMonth(today())
+      GROUP BY province
+      ORDER BY best_rank ASC
+      LIMIT 10
+
+  - id: vi-health-yesterday
+    lang: vi
+    topic: health_risk
+    question: "Xếp hạng rủi ro sức khỏe các tỉnh hôm qua?"
+    tables: ["dm_regional_health_risk_ranking"]
+    sql: |
+      SELECT province, health_risk_rank, avg_pm25, population_exposure_score
+      FROM dm_regional_health_risk_ranking
+      WHERE date = yesterday()
+      ORDER BY health_risk_rank ASC
+
+  # ── Traffic correlation ───────────────────────────────────────────────────────
+
+  - id: vi-traffic
+    lang: vi
+    topic: traffic_impact
+    question: "PM2.5 thay đổi thế nào khi mức độ ùn tắc tăng cao theo từng tỉnh?"
+    tables: ["dm_traffic_pollution_correlation_daily"]
+    sql: |
+      SELECT province, AVG(pm25_daily_avg) AS avg_pm25, AVG(congestion_daily_avg) AS avg_congestion,
+             AVG(pm25_congestion_uplift) AS avg_uplift
+      FROM dm_traffic_pollution_correlation_daily
+      WHERE date >= today() - toIntervalDay(30)
+      GROUP BY province
+      ORDER BY avg_uplift DESC
+
+  # ── Weather correlation ───────────────────────────────────────────────────────
+
   - id: vi-weather
     lang: vi
     topic: weather_impact
-    question: "Do am va gio co lien quan the nao voi PM2.5 trong 30 ngay qua?"
-    tables: ["dm_weather_pollution_correlation_daily", "dm_weather_hourly_trend"]
+    question: "Độ ẩm và gió có liên quan thế nào với PM2.5 trong 30 ngày qua?"
+    tables: ["dm_weather_pollution_correlation_daily"]
+    sql: |
+      SELECT province, AVG(avg_humidity) AS avg_humidity, AVG(avg_wind_speed) AS avg_wind,
+             AVG(pm25_daily_avg) AS avg_pm25
+      FROM dm_weather_pollution_correlation_daily
+      WHERE date >= today() - toIntervalDay(30)
+      GROUP BY province
+      ORDER BY avg_pm25 DESC
+
+  # ── Monthly trends ────────────────────────────────────────────────────────────
+
+  - id: vi-monthly-trend
+    lang: vi
+    topic: monthly_trend
+    question: "Xu hướng AQI tháng này so với tháng trước theo tỉnh?"
+    tables: ["fct_air_quality_province_level_monthly"]
+    sql: |
+      SELECT province,
+             AVG(CASE WHEN month = toStartOfMonth(today()) THEN avg_aqi_vn END) AS this_month_aqi,
+             AVG(CASE WHEN month = toStartOfMonth(today()) - toIntervalMonth(1) THEN avg_aqi_vn END) AS last_month_aqi
+      FROM fct_air_quality_province_level_monthly
+      WHERE month >= toStartOfMonth(today()) - toIntervalMonth(1)
+      GROUP BY province
+      ORDER BY this_month_aqi DESC
+
+  # ── English versions ──────────────────────────────────────────────────────────
+
   - id: en-current-status
     lang: en
     topic: aqi_status
     question: "Which provinces had the worst AQI in the last 24 hours?"
-    tables: ["dm_aqi_current_status", "dm_air_quality_overview_hourly"]
+    tables: ["dm_aqi_current_status"]
+    sql: |
+      SELECT province, MAX(current_aqi_vn) AS max_aqi
+      FROM dm_aqi_current_status
+      GROUP BY province
+      ORDER BY max_aqi DESC
+      LIMIT 10
+
+  - id: en-pm25-yesterday
+    lang: en
+    topic: pm25
+    question: "Which province had the highest PM2.5 yesterday?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT province, MAX(pm25_avg) AS highest_pm25
+      FROM fct_air_quality_province_level_daily
+      WHERE date = yesterday()
+      GROUP BY province
+      ORDER BY highest_pm25 DESC
+      LIMIT 1
+
   - id: en-compliance
     lang: en
     topic: compliance
     question: "Which provinces breached the WHO PM2.5 guideline over the last 7 days?"
     tables: ["dm_aqi_compliance_standards"]
+    sql: |
+      SELECT province, COUNT(*) AS breach_days
+      FROM dm_aqi_compliance_standards
+      WHERE date >= today() - toIntervalDay(7)
+        AND who_pm25_breach = 1
+      GROUP BY province
+      ORDER BY breach_days DESC
+
   - id: en-traffic
     lang: en
     topic: traffic_impact
     question: "How does congestion align with PM2.5 uplift by province?"
-    tables: ["dm_traffic_pollution_correlation_daily", "dm_traffic_hourly_trend"]
+    tables: ["dm_traffic_pollution_correlation_daily"]
+    sql: |
+      SELECT province, AVG(pm25_daily_avg) AS avg_pm25, AVG(congestion_daily_avg) AS avg_congestion,
+             AVG(pm25_congestion_uplift) AS avg_uplift
+      FROM dm_traffic_pollution_correlation_daily
+      WHERE date >= today() - toIntervalDay(30)
+      GROUP BY province
+      ORDER BY avg_uplift DESC
+
   - id: en-health
     lang: en
     topic: health_risk
     question: "Which provinces show the highest health-risk ranking this month?"
-    tables: ["dm_regional_health_risk_ranking", "dm_aqi_health_impact_summary"]
+    tables: ["dm_regional_health_risk_ranking"]
+    sql: |
+      SELECT province, MIN(health_risk_rank) AS best_rank
+      FROM dm_regional_health_risk_ranking
+      WHERE date >= toStartOfMonth(today())
+      GROUP BY province
+      ORDER BY best_rank ASC
+      LIMIT 10
+
   - id: en-weather
     lang: en
     topic: weather_impact
     question: "How do humidity and wind speed relate to PM2.5 over the last 30 days?"
-    tables: ["dm_weather_pollution_correlation_daily", "dm_weather_hourly_trend"]
+    tables: ["dm_weather_pollution_correlation_daily"]
+    sql: |
+      SELECT province, AVG(avg_humidity) AS avg_humidity, AVG(avg_wind_speed) AS avg_wind,
+             AVG(pm25_daily_avg) AS avg_pm25
+      FROM dm_weather_pollution_correlation_daily
+      WHERE date >= today() - toIntervalDay(30)
+      GROUP BY province
+      ORDER BY avg_pm25 DESC

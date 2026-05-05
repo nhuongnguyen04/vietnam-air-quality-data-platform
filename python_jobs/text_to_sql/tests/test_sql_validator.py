@@ -32,7 +32,10 @@ def test_rejects_system_schema_access():
 @pytest.mark.unit
 def test_rejects_multi_statement_input():
     with pytest.raises(SqlValidationError, match="Multi-statement"):
-        validate_sql("SELECT 1; SELECT 2")
+        validate_sql(
+            "SELECT * FROM dm_aqi_current_status LIMIT 1; "
+            "SELECT * FROM dm_air_quality_overview_daily LIMIT 1"
+        )
 
 
 @pytest.mark.unit

@@ -1,8 +1,8 @@
 """
 OpenMetadata Metadata Setup DAG.
 
-Runs after dag_transform (every hour at minute 30):
-- dag_transform: dbt run + dbt test (minute 30)
+Runs after dag_transform:
+- dag_transform: dbt run + dbt test (trigger-based after sync or manual run)
 - dag_openmetadata_curation: OM governance + glossary sync (minute 35)
 
 Schedule: 35 * * * * (runs 5 minutes after dag_transform)

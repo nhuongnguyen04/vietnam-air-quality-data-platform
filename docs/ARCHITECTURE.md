@@ -3,7 +3,7 @@
 
 ## System Overview
 
-The Vietnam Air Quality Data Platform is a containerized, batch-oriented analytics system built around ClickHouse as the serving warehouse, Apache Airflow as the orchestrator, dbt as the transformation layer, and Streamlit plus an internal FastAPI service as the user-facing query layer. Its primary inputs are external air-quality, weather, and traffic sources (`AQI.in`, `OpenWeather`, `TomTom`) plus an alternate Google Drive CSV landing-zone path; its primary outputs are ClickHouse marts, the Streamlit analytics dashboard, the guarded Ask Data text-to-SQL workflow, OpenMetadata catalog/lineage assets, and Prometheus/Grafana operational telemetry. Architecturally, the repository is layered: orchestration and ingestion, warehouse modeling, serving interfaces, and metadata/monitoring services.
+The Vietnam Air Quality Data Platform is a containerized, batch-oriented analytics system built around ClickHouse as the serving warehouse, Apache Airflow as the sync/transform orchestrator, dbt as the transformation layer, and Streamlit plus an internal FastAPI service as the user-facing query layer. Its primary inputs are external air-quality, weather, and traffic sources (`AQI.in`, `OpenWeather`, `TomTom`) collected by GitHub Actions into a Google Drive landing zone; its primary outputs are ClickHouse marts, the Streamlit analytics dashboard, the guarded Ask Data text-to-SQL workflow, OpenMetadata catalog/lineage assets, and Prometheus/Grafana operational telemetry. Architecturally, the repository is layered: ingestion, warehouse modeling, serving interfaces, and metadata/monitoring services.
 
 ## Component Diagram
 
@@ -39,8 +39,8 @@ graph TD
 
 ### Major Components
 
-- `airflow/dags/dag_ingest_hourly.py` runs the main ingestion cycle and triggers `dag_transform` after successful source collection.
-- `airflow/dags/dag_sync_gdrive.py` handles the alternate ingest path where CSV files are produced elsewhere, staged in Google Drive, then synchronized into ClickHouse.
+- `airflow/dags/dag_sync_gdrive.py` is the primary Airflow entrypoint for the checked-in ingestion path: it bridges Google Drive landing-zone files into ClickHouse raw tables and triggers downstream transforms when new files arrive.
+- `airflow/dags/dag_ingest_hourly.py` remains as a manual legacy fallback for direct Airflow-driven ingestion, but it is not the source-of-truth trigger path.
 - `python_jobs/jobs/` contains source-specific collectors for AQI.in, OpenWeather, TomTom, Google Drive sync, and OpenMetadata bootstrap tasks.
 - `dbt/dbt_tranform/` converts raw warehouse tables into staged, intermediate, and mart-layer models, then emits `manifest.json`, `catalog.json`, and `run_results.json`.
 - `python_jobs/dashboard/` is the interactive Streamlit dashboard that reads `dm_*` and `fct_*` models from ClickHouse.
@@ -51,13 +51,13 @@ graph TD
 ## Data Flow
 
 1. **Source acquisition**
-   Airflow starts in `dag_ingest_hourly()` and runs three parallel collectors: `jobs/aqiin/ingest_measurements.py`, `jobs/openweather/ingest_openweather_unified.py`, and either `jobs/traffic/ingest_tomtom.py` or `jobs/traffic/generate_offpeak_traffic.py`, depending on Vietnam local time. These jobs call external APIs through shared helpers in `python_jobs/common/`.
+   `.github/workflows/scheduled_ingestion.yml` is the source-of-truth ingestion workflow. It is triggered externally by Google Apps Script, then runs the AQI.in, OpenWeather, and traffic collectors with `INGEST_MODE=csv`, producing landing-zone CSV files on a GitHub Actions runner before uploading them to Google Drive.
 
 2. **Raw persistence**
-   The ingestion jobs obtain a writer from `get_data_writer()` in `python_jobs/common/writer_factory.py`. In normal runtime they batch-write into ClickHouse raw tables through `ClickHouseWriter`; in CI or alternate batch flows they can emit CSV files instead.
+   The ingestion jobs obtain a writer from `get_data_writer()` in `python_jobs/common/writer_factory.py`. For the production ingest path they emit CSV files to the landing zone; the direct ClickHouse writer remains available for local or legacy/manual runs.
 
-3. **Alternate landing-zone path**
-   `.github/workflows/scheduled_ingestion.yml` can run the ingestion scripts with `INGEST_MODE=csv` and upload CSV outputs to Google Drive. `dag_sync_gdrive()` then downloads those files, maps folder paths to target raw tables, inserts them into ClickHouse, and only triggers downstream transforms if new data was synchronized.
+3. **Landing-zone sync**
+   `dag_sync_gdrive()` downloads new files from Google Drive, maps folder paths to target raw tables, inserts them into ClickHouse, and only triggers downstream transforms if new data was synchronized.
 
 4. **Transformation and test execution**
    `dag_transform()` runs `dbt deps`, `dbt seed`, `dbt run` for `staging`, `intermediate`, and `marts`, followed by `dbt test` and `dbt docs generate`. The dbt project is explicitly layered in `dbt_project.yml`, with staging models materialized as tables and downstream layers materialized incrementally.
@@ -81,8 +81,8 @@ graph TD
 
 | Abstraction | Location | Purpose |
 | --- | --- | --- |
-| `dag_ingest_hourly()` | `airflow/dags/dag_ingest_hourly.py` | Main orchestration entry point for hourly source ingestion and downstream transform triggering. |
-| `dag_sync_gdrive()` | `airflow/dags/dag_sync_gdrive.py` | Alternate ingestion DAG that bridges Google Drive landing-zone files into ClickHouse raw tables. |
+| `dag_ingest_hourly()` | `airflow/dags/dag_ingest_hourly.py` | Manual legacy fallback for direct source ingestion. |
+| `dag_sync_gdrive()` | `airflow/dags/dag_sync_gdrive.py` | Primary sync DAG that bridges Google Drive landing-zone files into ClickHouse raw tables. |
 | `dag_transform()` | `airflow/dags/dag_transform.py` | Warehouse build pipeline for `dbt deps`, `seed`, layered runs, tests, docs generation, and artifact patching. |
 | `APIClient` | `python_jobs/common/api_client.py` | Shared retrying HTTP client used by ingestion jobs to talk to external providers. |
 | `TokenManager` | `python_jobs/common/token_manager.py` | Multi-token rotation and per-token rate-limit management for high-throughput API ingestion. |

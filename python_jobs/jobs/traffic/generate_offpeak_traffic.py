@@ -55,7 +55,9 @@ def fetch_last_known_from_clickhouse():
     host = os.environ.get("CLICKHOUSE_HOST", "localhost")
     port = os.environ.get("CLICKHOUSE_PORT", "8123")
     user = os.environ.get("CLICKHOUSE_USER", "admin")
-    password = os.environ.get("CLICKHOUSE_PASSWORD", "admin123456")
+    password = os.environ.get("CLICKHOUSE_PASSWORD")
+    if password in (None, ""):
+        raise RuntimeError("CLICKHOUSE_PASSWORD environment variable is required")
     database = os.environ.get("CLICKHOUSE_DB", "air_quality")
 
     url = f"http://{user}:{password}@{host}:{port}/?database={database}"

@@ -2,7 +2,7 @@
 
 **Version:** 1.0 (Phase 5)
 **Maintained by:** air-quality-team
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-05
 
 ---
 
@@ -36,9 +36,10 @@ TRANSFORM LAYER
 │  staging (stg_aqiin__, stg_openweather__)                   │
 │    → intermediate (int_unified__, int_aqi_calculations__)                     │
 │    → marts (fct_hourly_aqi, fct_daily_aqi_summary, dim_locations)           │
-│    → analytics (mart_air_quality__dashboard, mart_air_quality__alerts)       │
+│    → analytics (dm_air_quality_overview_daily, dm_aqi_current_status,        │
+│                 mart_air_quality__alerts)                                     │
 │                                                                              │
-│  Triggered by: dag_ingest_hourly → dag_transform (Airflow)                   │
+│  Triggered by: GitHub Actions → dag_sync_gdrive → dag_transform              │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
 VISUALIZATION + MONITORING
@@ -46,23 +47,23 @@ VISUALIZATION + MONITORING
                                        ▼
          ┌──────────────────────────────┴───────────────────────────────┐
          │                     Airflow (scheduling)                     │
-         │  dag_ingest_hourly  |  dag_transform  |
-         │  dag_weekly_report  |  dag_smoke_test  |  dag_metadata_update│
+         │  dag_ingest_hourly  |  dag_transform                    │
+         │  dag_weekly_report  |  dag_smoke_test  |  dag_sync_gdrive│
          └──────────────────────────────┬───────────────────────────────┘
                                         │
                     ┌────────────────────┴────────────────────┐
                     ▼                                         ▼
          ┌──────────────────┐                   ┌──────────────────────────┐
          │  Grafana :3000   │                   │  Streamlit :8501        │
-         │  (alerts + ops)  │                   │  (5-page dashboard)     │
+         │  (alerts + ops)  │                   │  (10 pages + Ask Data)  │
          └────────┬─────────┘                   └──────────────────────────┘
                   │
                   │  🔴 CRITICAL: / 🟡 WARNING:
                   ▼
          ┌──────────────────────────────────────────────────────────────────┐
-         │                    Telegram Bot API                              │
-         │  All alerts routed to single chat (chat_id: 5602934306)          │
-         │  Bot token: ${TELEGRAM_BOT_TOKEN}                               │
+         │                    Telegram Delivery                              │
+         │  Grafana contact points use split AQ/SYS bot tokens              │
+         │  Weekly report DAG uses TELEGRAM_AQ_BOT_TOKEN/TELEGRAM_AQ_CHAT_ID │
          └──────────────────────────────────────────────────────────────────┘
 
 ALERT FLOW
@@ -117,9 +118,9 @@ METADATA & CATALOG
 
 ### Receiving Alerts
 
-1. Add your Telegram account to the bot chat (chat ID: `5602934306`)
-2. The bot will forward all alerts automatically
-3. No configuration needed — Telegram is the single notification channel
+1. Grafana alert routing is defined in `monitoring/grafana/provisioning/alerting/contact-points.yml`
+2. The checked-in provisioning currently pins concrete chat IDs and reads only the bot tokens from environment variables
+3. To change destinations, edit the provisioning file and restart Grafana
 
 ---
 
@@ -198,10 +199,12 @@ Check Telegram for the 📊 Air Quality Weekly Report message. If not received:
 2. Check Telegram credentials:
    ```bash
    docker compose exec airflow-webserver \
-     printenv TELEGRAM_BOT_TOKEN
+     printenv TELEGRAM_AQ_BOT_TOKEN
    docker compose exec airflow-webserver \
-     printenv TELEGRAM_CHAT_ID
+     printenv TELEGRAM_AQ_CHAT_ID
    ```
+
+   `dag_weekly_report` uses `TELEGRAM_AQ_BOT_TOKEN` and `TELEGRAM_AQ_CHAT_ID` through `python_jobs/jobs/alerting/telegram_client.py`.
 
 3. Test Telegram bot directly:
    ```python
@@ -239,8 +242,8 @@ If `verify_alert_created` fails → `mart_air_quality__alerts` table or write pa
 If new alert rules cause Grafana to crash or misfire:
 
 ```bash
-# 1. Restore the previous version of alert-rules.yml
-git checkout HEAD~1 -- grafana/provisioning/alerting/alert-rules.yml
+# 1. Restore the previous version of the affected Grafana alerting file
+git checkout HEAD~1 -- monitoring/grafana/provisioning/alerting/v3-alert-rules.yml
 
 # 2. Restart Grafana to reload rules
 docker compose restart grafana
@@ -280,8 +283,8 @@ If Telegram bot is malfunctioning or chat is flooded:
 
 2. **Via contact point** (temporary):
    ```bash
-   # Comment out contact point in alert-rules.yml
-   # contactPoints: [telegram-critical]  → # contactPoints: [telegram-critical]
+   # Edit the checked-in Grafana provisioning files under
+   # monitoring/grafana/provisioning/alerting/ and reload Grafana
    docker compose restart grafana
    ```
 
@@ -301,9 +304,9 @@ If Telegram bot is malfunctioning or chat is flooded:
 |------|---------|
 | On-call engineer | See rotation spreadsheet |
 | Data platform lead | Internal Slack #data-ops |
-| Telegram chat | chat ID 5602934306 |
+| Telegram chat | See Grafana provisioning and local secret inventory |
 
 ---
 
 *For OpenMetadata catalog governance, see `docs/OPENMETADATA_GOVERNANCE.md`*
-*For stack versions and dependencies, see `docs/STACK.md`*
+*For system layout and service inventory, see `docs/ARCHITECTURE.md` and `README.md`*

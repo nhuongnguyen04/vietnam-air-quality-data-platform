@@ -83,7 +83,7 @@ RUN_LIVE_TESTS=1 OPENWEATHER_API_TOKEN=... pytest tests/python/jobs/openweather/
 ```
 
 ```bash
-RUN_LIVE_TESTS=1 TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... pytest tests/python/jobs/alerting/test_telegram_client_live.py -m live
+RUN_LIVE_TESTS=1 TELEGRAM_AQ_BOT_TOKEN=... TELEGRAM_AQ_CHAT_ID=... pytest tests/python/jobs/alerting/test_telegram_client_live.py -m live
 ```
 
 ### dbt tests
@@ -102,7 +102,7 @@ Run dbt tests for a narrower slice:
 
 ```bash
 cd dbt/dbt_tranform
-dbt test --select mart_air_quality__dashboard --target dev
+dbt run --select +dm_air_quality_overview_daily +dm_aqi_current_status +dm_traffic_hourly_trend --target dev
 ```
 
 ## Writing New Tests
@@ -151,7 +151,8 @@ Tests run in `.github/workflows/ci.yml` under the `CI` workflow.
 - Job `python-unit`: installs `requirements.txt` and runs `pytest tests/python -m "not integration and not live"` with `INGEST_MODE=csv`
 - Job `python-integration`: installs `requirements.txt` and runs `pytest tests/python -m integration` with `INGEST_MODE=csv`
 - Job `compile`: installs `dbt-core==1.10.13` and `dbt-clickhouse==1.10.0`, runs `dbt deps`, then `dbt compile --target dev`
-- Job `validate`: starts a ClickHouse service, creates the `air_quality` database, then runs `dbt seed --target dev` and `dbt run --select +mart_air_quality__dashboard --target dev`
+- Job `validate`: starts a ClickHouse service, creates the `air_quality` database, then runs `dbt seed --target dev` and `dbt run --select +dm_air_quality_overview_daily +dm_aqi_current_status +dm_traffic_hourly_trend --target dev`
 - Job `test`: starts ClickHouse again, runs `dbt seed --target dev`, `dbt run --target dev`, and `dbt test --target dev`
+- Job `text-to-sql-tests`: installs `requirements.txt`, sets `TEXT_TO_SQL_PREVIEW_SECRET`, and runs `pytest python_jobs/text_to_sql/tests`
 
-The current CI workflow does not invoke `pytest python_jobs/text_to_sql/tests`, so that suite must be run explicitly in local validation unless CI is extended.
+The CI workflow now invokes `pytest python_jobs/text_to_sql/tests`; keep `TEXT_TO_SQL_PREVIEW_SECRET` set when running that suite locally.

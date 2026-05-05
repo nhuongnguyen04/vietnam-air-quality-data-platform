@@ -1,14 +1,16 @@
 """
-Google Drive Sync DAG for Air Quality Data Platform.
+Google Drive sync DAG for the GitHub Actions landing-zone ingestion path.
 
-This DAG runs on the local Airflow instance to sync CSV files 
-ingested by GitHub Actions from Google Drive to ClickHouse.
+This DAG is the Airflow entrypoint for new source data. It downloads CSV files
+uploaded by `.github/workflows/scheduled_ingestion.yml`, syncs them into
+ClickHouse raw tables, and triggers `dag_transform` only when new files were
+successfully loaded.
 """
 
 from datetime import datetime, timedelta
 from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import BranchPythonOperator
 import os
 import subprocess
 
@@ -89,15 +91,25 @@ def dag_sync_gdrive():
                 "Failed files remain in landing_zone for retry."
             )
 
-        return counters["FILES_SYNCED"] > 0
+        return counters
 
     @task
-    def log_completion():
-        print("Google Drive to ClickHouse sync completed successfully")
+    def log_completion(counters: dict[str, int]):
+        print(
+            "Google Drive to ClickHouse sync completed successfully: "
+            f"found={counters['FILES_FOUND']} "
+            f"synced={counters['FILES_SYNCED']} "
+            f"failed={counters['FILES_FAILED']}"
+        )
 
     @task
-    def log_no_data():
-        print("No new data synced from Google Drive — skipping downstream tasks")
+    def log_no_data(counters: dict[str, int]):
+        print(
+            "No new data synced from Google Drive — skipping downstream tasks: "
+            f"found={counters['FILES_FOUND']} "
+            f"synced={counters['FILES_SYNCED']} "
+            f"failed={counters['FILES_FAILED']}"
+        )
 
     trigger_transform = TriggerDagRunOperator(
         task_id='trigger_transform',
@@ -106,16 +118,18 @@ def dag_sync_gdrive():
     )
 
     # Dependencies
-    sync_has_data = sync_data()
+    sync_counters = sync_data()
+    completion = log_completion(sync_counters)
+    no_data = log_no_data(sync_counters)
 
-    check_sync = ShortCircuitOperator(
-        task_id='check_sync_data',
-        python_callable=lambda x: bool(x),
-        op_args=[sync_has_data],
+    route_after_sync = BranchPythonOperator(
+        task_id='route_after_sync',
+        python_callable=lambda counters: 'log_completion' if counters["FILES_SYNCED"] > 0 else 'log_no_data',
+        op_args=[sync_counters],
     )
 
     # Branch: proceed only if data was synced
-    check_sync >> log_completion() >> trigger_transform
-    check_sync >> log_no_data()
+    route_after_sync >> completion >> trigger_transform
+    route_after_sync >> no_data
 
 dag_sync_gdrive = dag_sync_gdrive()

@@ -1,7 +1,7 @@
 <!-- generated-by: gsd-doc-writer -->
 # Configuration
 
-This project is configured through a mix of root-level environment variables, Docker Compose service definitions, dbt profile files, Airflow and Grafana config files, and OpenMetadata workflow YAMLs. The root `.env.example` is the starting point, but it is not a complete inventory of every variable referenced by `docker-compose.yml` and the Python code.
+This project is configured through a mix of root-level environment variables, Docker Compose service definitions, dbt profile files, Airflow and Grafana config files, and OpenMetadata workflow YAMLs. The root `.env.example` is the starting point for local setups, but it is not a complete inventory of every optional override or Compose-level variable referenced by the repository.
 
 ## Environment Variables
 
@@ -14,7 +14,7 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 | `CLICKHOUSE_HOST` | Required for non-default deployments | Varies: `localhost` in dashboard/dbt helpers, `clickhouse` in Airflow/Python helpers | ClickHouse host used by dbt, the dashboard, Airflow connection setup, text-to-SQL, and Grafana datasource provisioning. |
 | `CLICKHOUSE_PORT` | Optional | `8123` | ClickHouse HTTP port. |
 | `CLICKHOUSE_USER` | Required for local stack | Varies: `admin` in Python/dbt helpers | Primary ClickHouse username used across services. |
-| `CLICKHOUSE_PASSWORD` | Required | No single safe default | Primary ClickHouse password. The dashboard refuses to start without it, and text-to-SQL falls back to it when `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` is unset. |
+| `CLICKHOUSE_PASSWORD` | Required | No single safe default | Primary ClickHouse password. The dashboard refuses to start without it, and the dedicated text-to-SQL runtime no longer falls back to it. |
 | `CLICKHOUSE_DB` | Required for local stack | Varies: `air_quality` in Compose/dbt/OpenMetadata helpers, `airquality` in `python_jobs/common/config.py` and `python_jobs/config/job_config.yaml` | Main ClickHouse database name. Set this explicitly to avoid conflicting defaults. |
 | `CLICKHOUSE_DATABASE` | Optional (documented-only) | `air_quality` in `.env.example` | Present in `.env.example`, but no repo-owned runtime code references it. |
 | `CLICKHOUSE_SECURE` | Optional (documented-only) | `false` in `.env.example` | Present in `.env.example`, but no repo-owned runtime code references it. |
@@ -25,8 +25,9 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `AIRFLOW_ADMIN_USERNAME` | Required for Compose | None | Injected into `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS` for Airflow simple auth. Referenced by `docker-compose.yml` but missing from `.env.example`. |
-| `AIRFLOW_ADMIN_PASSWORD` | Required for Compose | None | Airflow admin password paired with `AIRFLOW_ADMIN_USERNAME`. Referenced by `docker-compose.yml` but missing from `.env.example`. |
+| `AIRFLOW_ADMIN_USERNAME` | Required for Compose | None | Injected into `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS` for Airflow simple auth. |
+| `AIRFLOW_ADMIN_PASSWORD` | Required for Compose | None | Airflow admin password paired with `AIRFLOW_ADMIN_USERNAME`. |
+| `AIRFLOW__CORE__FERNET_KEY` | Required for Compose | None | Encrypts Airflow connections and variables at rest. The Compose stack now requires this to be set explicitly. |
 | `AIRFLOW_API_SECRET_KEY` | Required for Compose | None | Airflow API secret key. Passed to all Airflow services through Compose. |
 | `AIRFLOW_API_AUTH_JWT_SECRET` | Required for Compose | None | Airflow JWT signing secret for API auth. |
 | `AIRFLOW_WEBSERVER_SECRET_KEY` | Required for Compose | None | Airflow webserver session secret. |
@@ -42,7 +43,7 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 | `OPENWEATHER_API_TOKEN` | Required for OpenWeather ingestion | None | Primary OpenWeather API token. Used by Airflow DAGs and Python ingestion code. |
 | `OPENWEATHER_API_TOKENS` | Optional | None | Comma-separated list of OpenWeather tokens for `python_jobs/jobs/openweather/ingest_openweather_unified.py`. |
 | `OPENWEATHER_API_TOKEN_1` ... `OPENWEATHER_API_TOKEN_20` | Optional | None | Additional token slots scanned by the unified OpenWeather ingestion job. |
-| `TOMTOM_API_KEY` | Required for traffic ingestion | None | TomTom traffic API key used by Airflow ingestion services. Referenced by `docker-compose.yml` but missing from `.env.example`. |
+| `TOMTOM_API_KEY` | Required for traffic ingestion | None | TomTom traffic API key used by Airflow ingestion services. |
 | `AQICN_API_TOKEN` | Optional (legacy) | None | Still read by `python_jobs/common/config.py`, but the main Compose stack comments that AQICN is no longer used. |
 | `OPENAQ_API_TOKEN` | Optional (legacy) | None | Still supported by `python_jobs/common/config.py` and `python_jobs/config/job_config.yaml`. |
 | `RATE_LIMIT_OPENAQ` | Optional | `0.8` | Overrides `JobConfig.rate_limit_openaq`. |
@@ -61,10 +62,13 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 | `TEXT_TO_SQL_TIMEOUT_SECONDS` | Optional | `90` | Dashboard-side timeout for preview/execute calls to the text-to-SQL service. |
 | `GROQ_API_KEY` | Required for text-to-SQL generation | None | Required by `python_jobs/text_to_sql/vanna_runtime.py` before SQL generation can start. |
 | `GROQ_MODEL` | Optional | `qwen/qwen3-32b` | Groq-hosted model name for the Vanna runtime. |
-| `TEXT_TO_SQL_CLICKHOUSE_USER` | Recommended for text-to-SQL | Falls back to `CLICKHOUSE_USER` | Dedicated read-only ClickHouse username for text-to-SQL execution. |
-| `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` | Recommended for text-to-SQL | Falls back to `CLICKHOUSE_PASSWORD` | Dedicated read-only ClickHouse password for text-to-SQL execution. |
-| `TEXT_TO_SQL_VANNA_CLIENT` | Optional | `in-memory` | Vanna vector-store client setting. |
-| `TEXT_TO_SQL_VANNA_COLLECTION` | Optional | `air_quality_ask_data` | Vanna collection name. |
+| `TEXT_TO_SQL_CLICKHOUSE_USER` | Required for text-to-SQL execution | None | Dedicated read-only ClickHouse username for the text-to-SQL runtime. No fallback account is used. |
+| `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` | Required for text-to-SQL execution | None | Dedicated read-only ClickHouse password for the text-to-SQL runtime. No fallback account is used. |
+| `TEXT_TO_SQL_PREVIEW_SECRET` | Required for text-to-SQL execution | None | HMAC secret used to sign preview tokens between `/ask` and `/execute`. |
+| `TEXT_TO_SQL_VANNA_CLIENT` | Optional | `chromadb` | Vanna storage mode. Use `chromadb` for the persistent local Chroma store; `in-memory` remains available for ephemeral runs. |
+| `TEXT_TO_SQL_VANNA_COLLECTION` | Optional | `air_quality_ask_data` | Base Vanna collection name before the runtime resolves the active fingerprinted collection. |
+| `TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY` | Required for persistent Vanna runs | `/data/vanna` | Local directory where the text-to-SQL service stores the Chroma data and manifest. |
+| `TEXT_TO_SQL_VANNA_REBUILD` | Optional | `false` | Force a fresh Vanna collection build even when the semantic fingerprint is unchanged. |
 | `OPENAI_API_KEY` | Optional (placeholder) | None | Reserved for future OpenAI-compatible provider variants. |
 | `VANNA_API_KEY` | Optional (placeholder) | None | Reserved for future provider variants; current runtime does not require it. |
 | `MAPBOX_ACCESS_TOKEN` | Optional (documented-only) | None | Present in `.env.example`, but no repo-owned runtime code references it. |
@@ -101,12 +105,10 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `TELEGRAM_AQ_BOT_TOKEN` | Required for Grafana AQ alerts | None | Bot token injected into Grafana alerting contact points. |
-| `TELEGRAM_AQ_CHAT_ID` | Optional in current checked-in provisioning | None | Exported by Compose, but `monitoring/grafana/provisioning/alerting/contact-points.yml` currently hardcodes the AQ chat ID instead of reading this variable. |
+| `TELEGRAM_AQ_BOT_TOKEN` | Required for Grafana AQ alerts and weekly reports | None | Air-quality Telegram bot token. Used by Grafana AQ contact points and `python_jobs/jobs/alerting/telegram_client.py`. |
+| `TELEGRAM_AQ_CHAT_ID` | Required for weekly reports; optional for current checked-in Grafana provisioning | None | AQ Telegram chat ID. Used by `python_jobs/jobs/alerting/telegram_client.py`; the checked-in Grafana contact point file still hardcodes its own AQ chat ID. |
 | `TELEGRAM_SYS_BOT_TOKEN` | Required for Grafana system alerts | None | Bot token injected into Grafana alerting contact points. |
 | `TELEGRAM_SYS_CHAT_ID` | Optional in current checked-in provisioning | None | Exported by Compose, but the checked-in Grafana contact point file currently hardcodes the system chat ID instead of reading this variable. |
-| `TELEGRAM_BOT_TOKEN` | Optional (legacy Python alert client) | None | Used by `python_jobs/jobs/alerting/telegram_client.py`. This naming does not match the split AQ/SYS Grafana variables. |
-| `TELEGRAM_CHAT_ID` | Optional (legacy Python alert client) | None | Used by `python_jobs/jobs/alerting/telegram_client.py`. This naming does not match the split AQ/SYS Grafana variables. |
 
 ### dbt Advanced Paths
 
@@ -144,7 +146,7 @@ dbt_tranform:
       host: "{{ env_var('CLICKHOUSE_HOST', 'localhost') }}"
       port: "{{ env_var('CLICKHOUSE_PORT', '8123') | int }}"
       user: "{{ env_var('CLICKHOUSE_USER', 'admin') }}"
-      password: "{{ env_var('CLICKHOUSE_PASSWORD', 'admin123456') }}"
+      password: "{{ env_var('CLICKHOUSE_PASSWORD') }}"
       database: "{{ env_var('CLICKHOUSE_DB', 'air_quality') }}"
       schema: "{{ env_var('CLICKHOUSE_DB', 'air_quality') }}"
 ```
@@ -179,8 +181,11 @@ The repository does not have a single central settings validator, so requirednes
 
 | Setting | Why it is required | Failure mode in repo-owned code |
 | --- | --- | --- |
-| `CLICKHOUSE_PASSWORD` | Required for the dashboard; also used as text-to-SQL fallback | `python_jobs/dashboard/lib/clickhouse_client.py` raises `CLICKHOUSE_PASSWORD environment variable is required.` |
-| `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` or `CLICKHOUSE_PASSWORD` | Required for text-to-SQL execution | `python_jobs/text_to_sql/clickhouse_executor.py` raises `TEXT_TO_SQL_CLICKHOUSE_PASSWORD or CLICKHOUSE_PASSWORD is required`. |
+| `CLICKHOUSE_PASSWORD` | Required for the dashboard | `python_jobs/dashboard/lib/clickhouse_client.py` raises `CLICKHOUSE_PASSWORD environment variable is required.` |
+| `TEXT_TO_SQL_CLICKHOUSE_USER`, `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` | Required for text-to-SQL execution | `python_jobs/text_to_sql/clickhouse_executor.py` raises `Dedicated TEXT_TO_SQL_CLICKHOUSE_USER and TEXT_TO_SQL_CLICKHOUSE_PASSWORD are required`. |
+| `TEXT_TO_SQL_PREVIEW_SECRET` | Required for text-to-SQL execution | `python_jobs/text_to_sql/app.py` raises `TEXT_TO_SQL_PREVIEW_SECRET environment variable is required`. |
+| `TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY` | Required when `TEXT_TO_SQL_VANNA_CLIENT=chromadb` | `python_jobs/text_to_sql/vanna_runtime.py` raises `Unable to initialize Vanna persist directory: ...` if it cannot create the local store. |
+| `AIRFLOW__CORE__FERNET_KEY` | Required to start the checked-in Airflow Compose stack securely | `docker-compose.yml` passes this directly into all Airflow services with no fallback. |
 | `GROQ_API_KEY` | Required for SQL generation in the current Vanna runtime | `python_jobs/text_to_sql/vanna_runtime.py` raises `GROQ_API_KEY is required for the Vanna runtime.` |
 | `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET`, `GDRIVE_REFRESH_TOKEN` | Required for Google Drive uploader/sync and the custom OpenMetadata Google Drive connector | Google Drive helpers raise `Missing OAuth credentials...` when any of the three are absent. |
 | `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD` | Required to render the checked-in Airflow Compose environment cleanly | Missing values leave `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS` incomplete in `docker-compose.yml`. |
@@ -188,7 +193,7 @@ The repository does not have a single central settings validator, so requirednes
 | `OPENWEATHER_API_TOKEN` | Required for the default OpenWeather ingestion path | `python_jobs/jobs/openweather/ingest_openweather_unified.py` exits with `No OpenWeather tokens found.` when no token variables are present. |
 | `TOMTOM_API_KEY` | Required for traffic ingestion DAG tasks | Passed from `docker-compose.yml` into Airflow services without a fallback. |
 
-Optional settings with repo-defined defaults include `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_USER`, `OPENMETADATA_URL`, `OM_ADMIN_USER`, `OM_ADMIN_PASSWORD`, `GROQ_MODEL`, `TEXT_TO_SQL_URL`, `TEXT_TO_SQL_TIMEOUT_SECONDS`, `DBT_PACKAGES_INSTALL_PATH`, `DBT_TARGET_PATH`, `CSV_OUTPUT_DIR`, `MAX_SYNC_WORKERS`, and the Python job tuning variables.
+Optional settings with repo-defined defaults include `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_USER`, `OPENMETADATA_URL`, `OM_ADMIN_USER`, `OM_ADMIN_PASSWORD`, `GROQ_MODEL`, `TEXT_TO_SQL_URL`, `TEXT_TO_SQL_TIMEOUT_SECONDS`, `TEXT_TO_SQL_VANNA_CLIENT`, `TEXT_TO_SQL_VANNA_COLLECTION`, `TEXT_TO_SQL_VANNA_REBUILD`, `DBT_PACKAGES_INSTALL_PATH`, `DBT_TARGET_PATH`, `CSV_OUTPUT_DIR`, `MAX_SYNC_WORKERS`, and the Python job tuning variables.
 
 Settings that are currently documented or legacy rather than strongly wired into the runtime include `CLICKHOUSE_DATABASE`, `CLICKHOUSE_SECURE`, `MAPBOX_ACCESS_TOKEN`, `AQICN_API_TOKEN`, `OPENAQ_API_TOKEN`, `CLICKHOUSE_OM_READER_USER`, and `CLICKHOUSE_OM_READER_PASSWORD`.
 
@@ -205,8 +210,9 @@ The most important defaults are split across several files and are not always co
 | `GROQ_MODEL` | `qwen/qwen3-32b` | `.env.example`, `docker-compose.yml`, and `python_jobs/text_to_sql/vanna_runtime.py` |
 | `TEXT_TO_SQL_URL` | `http://localhost:8000` or `http://text-to-sql:8000` | `python_jobs/dashboard/lib/text_to_sql_client.py` and `docker-compose.yml` |
 | `TEXT_TO_SQL_TIMEOUT_SECONDS` | `90` | `python_jobs/dashboard/lib/text_to_sql_client.py`, `.env.example`, and `docker-compose.yml` |
-| `TEXT_TO_SQL_VANNA_CLIENT` | `in-memory` | `python_jobs/text_to_sql/vanna_runtime.py` |
+| `TEXT_TO_SQL_VANNA_CLIENT` | `chromadb` | `python_jobs/text_to_sql/vanna_runtime.py` |
 | `TEXT_TO_SQL_VANNA_COLLECTION` | `air_quality_ask_data` | `python_jobs/text_to_sql/vanna_runtime.py` |
+| `TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY` | `/data/vanna` | `.env.example`, `docker-compose.yml`, and `python_jobs/text_to_sql/vanna_runtime.py` |
 | `OPENMETADATA_URL` | `http://openmetadata:8585/api` | `airflow/config/setup_connections.py` |
 | `OM_ADMIN_USER` / `OM_ADMIN_PASSWORD` | `admin@open-metadata.org` / `admin` | `airflow/config/setup_connections.py` and `.env.example` |
 | `OPENMETADATA_CLUSTER_NAME` | `openmetadata` | `docker-compose.yml` |
@@ -227,7 +233,7 @@ Set the core ClickHouse variables explicitly in `.env` instead of relying on fil
 
 This repository does not include `.env.development`, `.env.production`, or `.env.test` files. The current environment strategy is file- and compose-driven:
 
-1. Local Docker development uses a root `.env` file loaded by `docker-compose.yml`. Start from `.env.example` and add the extra variables Compose expects but the example file does not list yet, especially `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD`, `TOMTOM_API_KEY`, and the Google Drive OAuth variables if that integration is enabled.
+1. Local Docker development uses a root `.env` file loaded by `docker-compose.yml`. Start from `.env.example`, replace all placeholders for the services you plan to run, and add any extra optional overrides your environment needs.
 2. CI and lightweight local verification use `docker-compose.test.yml`, which hardcodes a minimal ClickHouse-only test stack and does not depend on the full local `.env` surface.
 3. dbt has its own target-level overrides in `dbt/dbt_tranform/profiles.yml` with `dev`, `production`, and `ci` outputs. The checked-in target is `production`.
 4. Airflow, Grafana, OpenMetadata, and Streamlit use checked-in config files for service defaults. Environment variables override only the values those files or Compose definitions explicitly expose.
@@ -237,4 +243,4 @@ Known gaps in the current checked-in configuration:
 
 - `.env.example` does not list every variable interpolated by `docker-compose.yml`.
 - Grafana alert bot tokens are env-driven, but the checked-in `contact-points.yml` currently hardcodes chat IDs instead of using the exported `TELEGRAM_AQ_CHAT_ID` and `TELEGRAM_SYS_CHAT_ID`.
-- Legacy variables such as `AQICN_API_TOKEN` and `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` remain in Python code paths even though the main Compose stack has moved to newer names or workflows.
+- Legacy variables such as `AQICN_API_TOKEN` remain in older Python code paths even though the main Compose stack has moved to newer names or workflows.

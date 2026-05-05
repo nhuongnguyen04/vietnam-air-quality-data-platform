@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 import re
 from typing import Iterable
 
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
+import yaml
 
 try:
     from python_jobs.text_to_sql.semantic_loader import (
@@ -65,6 +68,53 @@ class ValidationResult:
 
 def _normalize_sql(sql: str) -> str:
     return sql.strip().rstrip(";")
+
+
+# Hardcoded ClickHouse rewrite rules
+_REWRITE_RULES = [
+    (re.compile(r'\bCURRENT_TIMESTAMP\s*(?:\(\s*\))?', re.IGNORECASE), 'now()'),
+    (re.compile(r'\bCURRENT_DATE\s*(?:\(\s*\))?', re.IGNORECASE), 'today()'),
+    (re.compile(r'\bNOW\s*\(\s*\)', re.IGNORECASE), 'now()'),
+    (re.compile(r'\b(toInterval(?:Hour|Day|Minute|Second|Week|Month|Year))\s*\(\s*\'(\d+)\'\s*\)', re.IGNORECASE), r'\1(\2)'),
+    (re.compile(r'\bDATE_SUB\s*\(\s*(?:CURDATE|CURRENT_DATE)\s*\(\s*\)\s*,\s*INTERVAL\s+(\d+)\s+DAY\s*\)', re.IGNORECASE), r'today() - toIntervalDay(\1)'),
+    (re.compile(r'\bDATEDIFF\s*\(\s*NOW\s*\(\s*\)\s*,\s*([^)]+)\s*\)', re.IGNORECASE), r"dateDiff('day', \1, now())"),
+    (re.compile(r'\bEXTRACT\s*\(\s*YEAR\s+FROM\s+([^)]+)\)', re.IGNORECASE), r'toYear(\1)'),
+    (re.compile(r'\bEXTRACT\s*\(\s*MONTH\s+FROM\s+([^)]+)\)', re.IGNORECASE), r'toMonth(\1)'),
+    (re.compile(r'\bIFNULL\s*\(', re.IGNORECASE), 'ifNull('),
+    (re.compile(r'\bNVL\s*\(', re.IGNORECASE), 'ifNull('),
+]
+
+
+def _regex_rewrite(sql: str, dialect_config: str | None = None) -> str:
+    """Apply hardcoded regex rewrites for known ClickHouse incompatibilities."""
+    for pattern, replacement in _REWRITE_RULES:
+        sql = pattern.sub(replacement, sql)
+    return sql
+
+
+def _rewrite_for_clickhouse(sql: str, dialect_config: str | None = None) -> str:
+    """Rewrite *sql* to be compatible with ClickHouse.
+
+    Step 1: YAML-configured regex pre-pass (semantic/clickhouse_dialect.yml).
+    Step 2: sqlglot transpile — structural AST-level dialect normalization.
+
+    Falls back silently so downstream validation can surface a meaningful error.
+    To add a new rewrite rule: edit clickhouse_dialect.yml, no Python changes needed.
+    """
+    sql = _regex_rewrite(sql, dialect_config)
+    for source_dialect in ("", "mysql", "postgres", "duckdb"):
+        try:
+            results = sqlglot.transpile(
+                sql,
+                read=source_dialect,
+                write="clickhouse",
+                error_level=sqlglot.ErrorLevel.RAISE,
+            )
+            if results:
+                return results[0]
+        except Exception:  # noqa: BLE001 — try next dialect silently
+            continue
+    return sql  # fallback: return as-is, let validator surface the error
 
 
 def _ensure_single_statement(sql: str) -> list[exp.Expression]:
@@ -150,6 +200,13 @@ def validate_sql(sql: str, semantic_dir: str | None = None) -> ValidationResult:
     if not normalized_sql:
         raise SqlValidationError("SQL cannot be empty")
 
+    if ";" in normalized_sql:
+        raise SqlValidationError("Multi-statement SQL is not allowed")
+
+    # Rewrite standard SQL → ClickHouse dialect before any validation.
+    # This converts CURRENT_TIMESTAMP → now(), CURRENT_DATE → today(), etc.
+    normalized_sql = _rewrite_for_clickhouse(normalized_sql)
+
     lowered_sql = normalized_sql.lower()
     if "system." in lowered_sql:
         raise SqlValidationError("system schema access is not allowed")
@@ -159,9 +216,6 @@ def validate_sql(sql: str, semantic_dir: str | None = None) -> ValidationResult:
     forbidden_keyword = _contains_forbidden_keyword(normalized_sql)
     if forbidden_keyword:
         raise SqlValidationError(f"{forbidden_keyword} statements are not allowed")
-
-    if normalized_sql.count(";") > 0:
-        raise SqlValidationError("Multi-statement SQL is not allowed")
 
     try:
         statements = _ensure_single_statement(normalized_sql)

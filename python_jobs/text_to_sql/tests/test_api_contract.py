@@ -32,6 +32,7 @@ def test_ask_returns_preview_and_referenced_tables(text_to_sql_app):
         ),
         text_to_sql_app.state.runtime,
         preview_store,
+        text_to_sql_app.state.sql_cache,
     )
 
     payload = response.model_dump()
@@ -39,6 +40,7 @@ def test_ask_returns_preview_and_referenced_tables(text_to_sql_app):
     assert payload["preview_token"]
     assert payload["referenced_tables"] == ["dm_aqi_current_status"]
     assert "warnings" in payload
+    assert payload["generator_metadata"]["model"] == "fake-model"
 
 
 @pytest.mark.unit
@@ -68,6 +70,7 @@ def test_execute_rejects_mismatched_preview_token(text_to_sql_app):
         ),
         text_to_sql_app.state.runtime,
         text_to_sql_app.state.preview_store,
+        text_to_sql_app.state.sql_cache,
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -104,6 +107,7 @@ def test_execute_revalidates_sql_even_after_preview(
         ),
         app.state.runtime,
         app.state.preview_store,
+        app.state.sql_cache,
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -131,6 +135,7 @@ def test_execute_returns_required_response_fields(text_to_sql_app):
         ),
         text_to_sql_app.state.runtime,
         text_to_sql_app.state.preview_store,
+        text_to_sql_app.state.sql_cache,
     )
 
     response = _route_endpoint(text_to_sql_app, "/execute")(

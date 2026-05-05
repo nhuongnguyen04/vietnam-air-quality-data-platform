@@ -1,6 +1,6 @@
 # Nền tảng Phân tích Chất lượng Không khí Việt Nam
 
-Pipeline Data Engineering end-to-end: AQICN + Sensors.Community + OpenWeather → Python → ClickHouse → dbt → Streamlit
+Pipeline Data Engineering end-to-end: GitHub Actions ingest (AQI.in + OpenWeather + TomTom) → Google Drive landing zone → Airflow sync/transform → ClickHouse → dbt → Streamlit
 
 **Stack**: Python (Requests), ClickHouse, dbt, Apache Airflow, Streamlit, Prometheus + Grafana  
 **Deployment**: Docker Compose
@@ -26,12 +26,14 @@ All services run via Docker Compose on the `air-quality-network` network.
 | Airflow Scheduler | — | DAG scheduling |
 | Airflow Dag-Processor | — | DAG file parsing |
 | Airflow Triggerer | — | Deferred task execution |
-| Streamlit Dashboard | 8501 | Analytics dashboards (5 pages) |
+| Streamlit Dashboard | 8501 | Analytics dashboard and Ask Data UI (10 pages total) |
+| Text-to-SQL API | 8000 | Internal FastAPI service for preview-first natural-language SQL |
 | Grafana | 3000 | Operational monitoring + alerting |
 | Prometheus | 9090 | Metrics collection |
 | Node Exporter | 9100 | Host-level metrics |
 | Docker Stats Exporter | 9888 | Container metrics |
 | PostgreSQL Exporter | 9187 | PostgreSQL metrics for Prometheus |
+| OpenMetadata | 8585 | Data catalog, lineage, and governance UI |
 
 ## Hardware Requirements
 
@@ -78,7 +80,7 @@ docker compose up -d dashboard
 |------|-------------|
 | Overview | AQI trends, city comparison, current AQI metrics |
 | Pollutants | PM2.5/PM10/O3/NO2 analysis, exceedance rates |
-| Source Comparison | AQICN vs Sensors.Community vs OpenWeather comparison |
+| Source Comparison | AQI.in vs OpenWeather comparison and freshness checks |
 | Historical Trend | Historical AQI trend analysis from measured data |
 | Alerts | AQI threshold alerts and incident timeline |
 | Traffic Impact | Traffic congestion correlation with AQI |
@@ -157,7 +159,7 @@ Grafana sends critical alerts to Telegram:
 - DAG failure
 - ClickHouse down
 
-Configure Telegram by setting `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env`.
+Configure Grafana Telegram delivery by setting `TELEGRAM_AQ_BOT_TOKEN` and `TELEGRAM_SYS_BOT_TOKEN` in `.env`. The checked-in Grafana contact-point file currently pins chat IDs directly in provisioning.
 
 ## Quick Start
 
@@ -221,7 +223,7 @@ Curation tự động qua `dag_openmetadata_curation` (chạy `35 * * * *`):
 - OM ClickHouse connector owners/tags limitation được workaround qua REST API
 
 ### Data Quality
-- **Source of truth:** dbt tests (46 tests, Plan 2.3)
+- **Source of truth:** dbt tests executed inside `dag_transform`
 - OM đọc kết quả từ `target/run_results.json` qua dbt ingestion pipeline
 - Quality dashboard trong OM hiển thị pass/fail status cho mỗi test
 
@@ -269,7 +271,7 @@ Grafana evaluates rules (every 1 min)
 | `aqi-critical-200` | AQI Critical | AQI > 200 | 🔴 CRITICAL | 1h |
 | `aqi-warning-150` | AQI Warning | AQI > 150 | 🟡 WARNING | 1h |
 | `pm25-warning-75` | PM2.5 Warning | PM2.5 > 75 µg/m³ | 🟡 WARNING | 1h |
-| `multi-source-divergence` | Source Divergence | \|AQICN−OW\| > 50 | 🟡 WARNING | 1h |
+| `multi-source-divergence` | Source Divergence | \|AQI.in−OW\| > 50 | 🟡 WARNING | 1h |
 | `dag-failure-critical` | DAG Failure | any DAG fails | 🔴 CRITICAL | 1h |
 | `clickhouse-down-critical` | ClickHouse Down | ping fails | 🔴 CRITICAL | 1h |
 | `data-freshness-warning` | Data Freshness | lag > 3h | 🟡 WARNING | 30min |
@@ -291,6 +293,8 @@ Automated Telegram report every **Monday at 09:00 (UTC+7)** via `dag_weekly_repo
 ```bash
 docker compose exec airflow-webserver airflow dags trigger dag_weekly_report
 ```
+
+`dag_weekly_report` currently sends through `python_jobs/jobs/alerting/telegram_client.py`, which reads `TELEGRAM_AQ_BOT_TOKEN` and `TELEGRAM_AQ_CHAT_ID`.
 
 ### Smoke Test
 

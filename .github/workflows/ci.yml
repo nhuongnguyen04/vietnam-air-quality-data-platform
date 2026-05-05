@@ -14,15 +14,22 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    env:
+      CLICKHOUSE_HOST: localhost
+      CLICKHOUSE_PORT: '8123'
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ''
+      CLICKHOUSE_DB: air_quality
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
-      - run: pip install sqlfluff==3.5.0 'sqlfluff-templater-dbt==3.5.0' ruff==0.11.0
-      - run: ruff check python_jobs/ airflow/dags/ --config .ruff.toml || true
-      - run: sqlfluff lint dbt/dbt_tranform/ --format github-annotation || true
+      - run: pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 sqlfluff==3.5.0 'sqlfluff-templater-dbt==3.5.0' ruff==0.11.0
+      - run: cd dbt/dbt_tranform && dbt deps
+      - run: ruff check python_jobs/ airflow/dags/ --config .ruff.toml
+      - run: sqlfluff lint dbt/dbt_tranform/ --format github-annotation
 
   python-unit:
     name: Python Unit
@@ -54,6 +61,23 @@ jobs:
         env:
           INGEST_MODE: csv
 
+  text-to-sql-tests:
+    name: Text-to-SQL Quality Gate
+    runs-on: ubuntu-latest
+    needs: python-unit
+    env:
+      TEXT_TO_SQL_PREVIEW_SECRET: ci-preview-secret
+      TEXT_TO_SQL_VANNA_CLIENT: chromadb
+      TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY: /tmp/vanna-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: pytest python_jobs/text_to_sql/tests -m "not integration"
+
   compile:
     name: Compile
     runs-on: ubuntu-latest
@@ -61,6 +85,7 @@ jobs:
       - lint
       - python-unit
       - python-integration
+      - text-to-sql-tests
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -71,11 +96,11 @@ jobs:
       - run: cd dbt/dbt_tranform && dbt deps
       - run: cd dbt/dbt_tranform && dbt compile --target dev
         env:
-          DBT_CH_HOST: localhost
-          DBT_CH_PORT: '8123'
-          DBT_CH_USER: default
-          DBT_CH_PASSWORD: ''
-          DBT_CH_DATABASE: air_quality
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ''
+          CLICKHOUSE_DB: air_quality
 
   validate:
     name: Validate
@@ -103,18 +128,18 @@ jobs:
           python -c "import clickhouse_connect; c = clickhouse_connect.get_client(host='localhost', port=8123); c.command('CREATE DATABASE IF NOT EXISTS air_quality')"
       - run: cd dbt/dbt_tranform && dbt seed --target dev
         env:
-          DBT_CH_HOST: localhost
-          DBT_CH_PORT: '8123'
-          DBT_CH_USER: default
-          DBT_CH_PASSWORD: ''
-          DBT_CH_DATABASE: air_quality
-      - run: cd dbt/dbt_tranform && dbt run --select +mart_air_quality__dashboard --target dev
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ''
+          CLICKHOUSE_DB: air_quality
+      - run: cd dbt/dbt_tranform && dbt run --select +dm_air_quality_overview_daily +dm_aqi_current_status +dm_traffic_hourly_trend --target dev
         env:
-          DBT_CH_HOST: localhost
-          DBT_CH_PORT: '8123'
-          DBT_CH_USER: default
-          DBT_CH_PASSWORD: ''
-          DBT_CH_DATABASE: air_quality
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ''
+          CLICKHOUSE_DB: air_quality
 
   test:
     name: Test
@@ -142,22 +167,22 @@ jobs:
           python -c "import clickhouse_connect; c = clickhouse_connect.get_client(host='localhost', port=8123); c.command('CREATE DATABASE IF NOT EXISTS air_quality')"
       - run: cd dbt/dbt_tranform && dbt seed --target dev
         env:
-          DBT_CH_HOST: localhost
-          DBT_CH_PORT: '8123'
-          DBT_CH_USER: default
-          DBT_CH_PASSWORD: ''
-          DBT_CH_DATABASE: air_quality
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ''
+          CLICKHOUSE_DB: air_quality
       - run: cd dbt/dbt_tranform && dbt run --target dev
         env:
-          DBT_CH_HOST: localhost
-          DBT_CH_PORT: '8123'
-          DBT_CH_USER: default
-          DBT_CH_PASSWORD: ''
-          DBT_CH_DATABASE: air_quality
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ''
+          CLICKHOUSE_DB: air_quality
       - run: cd dbt/dbt_tranform && dbt test --target dev
         env:
-          DBT_CH_HOST: localhost
-          DBT_CH_PORT: '8123'
-          DBT_CH_USER: default
-          DBT_CH_PASSWORD: ''
-          DBT_CH_DATABASE: air_quality
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ''
+          CLICKHOUSE_DB: air_quality

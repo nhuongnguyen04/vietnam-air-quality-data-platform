@@ -31,6 +31,10 @@ cp .env.example .env
 CLICKHOUSE_PASSWORD=your_clickhouse_password_here
 OPENWEATHER_API_TOKEN=your_openweather_api_token_here
 TOMTOM_API_KEY=your_tomtom_api_key_here
+TEXT_TO_SQL_PREVIEW_SECRET=replace-with-a-long-random-secret
+TEXT_TO_SQL_VANNA_CLIENT=chromadb
+TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY=/data/vanna
+AIRFLOW__CORE__FERNET_KEY=replace-with-a-generated-fernet-key
 AIRFLOW_API_SECRET_KEY=change-me-in-prod-use-long-random-string
 AIRFLOW_API_AUTH_JWT_SECRET=change-me-in-prod-use-long-random-string
 AIRFLOW_WEBSERVER_SECRET_KEY=change-me-in-prod-use-long-random-string
@@ -80,9 +84,11 @@ docker compose up -d
 
 ## Common Setup Issues
 
-- `.env.example` is not a full inventory of every Compose variable. `docker-compose.yml` also references `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD`, `TOMTOM_API_KEY`, and the Google Drive OAuth variables used by `dag_sync_gdrive` and OpenMetadata ingestion. Add them manually when you enable those paths.
+- `.env.example` now includes the common Compose secrets and Google Drive variables, but optional integrations such as OpenMetadata may still require extra settings beyond the minimum local stack.
 - The dashboard refuses to start if `CLICKHOUSE_PASSWORD` is missing. `python_jobs/dashboard/lib/clickhouse_client.py` raises `CLICKHOUSE_PASSWORD environment variable is required.`
-- The text-to-SQL service can start without `GROQ_API_KEY`, but `/ask` will fail until the key is set because `python_jobs/text_to_sql/vanna_runtime.py` requires it for SQL generation.
+- The text-to-SQL service will fail fast if `TEXT_TO_SQL_PREVIEW_SECRET` is missing, and `/ask` will fail until `GROQ_API_KEY` is set because `python_jobs/text_to_sql/vanna_runtime.py` requires it for SQL generation.
+- In the default `chromadb` mode, the text-to-SQL service also needs a writable `TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY`; otherwise Vanna cannot initialize its local store.
+- Airflow now requires `AIRFLOW__CORE__FERNET_KEY`; leave it unset and the Compose stack will not have encrypted connection storage.
 - If `docker compose up` fails on port allocation, check for local conflicts on `3000`, `5432`, `8090`, `8123`, `8501`, `8585`, `9090`, `9100`, and `9187`, or remap them in `docker-compose.yml`.
 
 ## Next Steps

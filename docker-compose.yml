@@ -64,7 +64,7 @@ services:
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
     - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
@@ -145,7 +145,7 @@ services:
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
     - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
@@ -221,7 +221,7 @@ services:
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
     - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
@@ -297,7 +297,7 @@ services:
     environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    - AIRFLOW__CORE__FERNET_KEY=
+    - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
     - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
@@ -467,24 +467,31 @@ services:
     - TEXT_TO_SQL_URL=http://text-to-sql:8000
     - TEXT_TO_SQL_CLICKHOUSE_USER=${TEXT_TO_SQL_CLICKHOUSE_USER}
     - TEXT_TO_SQL_CLICKHOUSE_PASSWORD=${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}
+    - TEXT_TO_SQL_PREVIEW_SECRET=${TEXT_TO_SQL_PREVIEW_SECRET}
+    - TEXT_TO_SQL_VANNA_CLIENT=${TEXT_TO_SQL_VANNA_CLIENT:-chromadb}
+    - TEXT_TO_SQL_VANNA_COLLECTION=${TEXT_TO_SQL_VANNA_COLLECTION:-air_quality_ask_data}
+    - TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY=${TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY:-/data/vanna}
+    - TEXT_TO_SQL_VANNA_REBUILD=${TEXT_TO_SQL_VANNA_REBUILD:-false}
     - CLICKHOUSE_HOST=clickhouse
     - CLICKHOUSE_PORT=8123
     - CLICKHOUSE_DB=air_quality
+    volumes:
+    - text-to-sql-vanna-data:/data/vanna
     depends_on:
       clickhouse:
         condition: service_healthy
-    mem_limit: 512m
+    mem_limit: 768m
     cpus: '0.5'
     healthcheck:
       test:
       - CMD
       - curl
       - --fail
-      - http://localhost:8000/health
+      - http://localhost:8000/health/ready
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 120s
     logging:
       driver: json-file
       options:
@@ -503,7 +510,7 @@ services:
     - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     - grafana-data:/var/lib/grafana
     environment:
-    - GF_SECURITY_ADMIN_PASSWORD=admin123456
+    - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
     - GF_AUTH_ANONYMOUS_ENABLED=true
     - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
     - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
@@ -879,3 +886,4 @@ volumes:
   dbt-target:
   dbt-logs:
   dbt-cache:
+  text-to-sql-vanna-data:

@@ -80,7 +80,7 @@ final_metrics AS (
     SELECT
         d.date,
         d.province,
-        '' as ward_code,
+        CAST(NULL AS Nullable(String)) as ward_code,
         d.region_3,
         d.region_8,
         d.location_type,

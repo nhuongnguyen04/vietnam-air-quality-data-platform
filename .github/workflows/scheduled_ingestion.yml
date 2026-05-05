@@ -1,8 +1,8 @@
-name: Hourly Data Ingestion  # Scheduled at minute 0
-# Refresh comment to restart stalled schedule: 2026-04-12
+name: Triggered Data Ingestion
+# Source-of-truth ingest path: Google Apps Script -> GitHub Actions -> Google Drive -> dag_sync_gdrive
 
 on:
-  workflow_dispatch:      # Allows manual trigger (e.g., from Google Apps Script)
+  workflow_dispatch:
 
 jobs:
   ingest:

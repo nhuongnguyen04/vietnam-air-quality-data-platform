@@ -9,7 +9,7 @@ This repository ships as a containerized stack managed by Docker Compose. No Kub
 | --- | --- | --- | --- |
 | Full local or single-host stack | `docker-compose.yml` | ClickHouse, Airflow, PostgreSQL, Streamlit dashboard, FastAPI text-to-SQL, Grafana, Prometheus, exporters, Elasticsearch, OpenMetadata, and OpenMetadata ingestion | Primary runtime deployment path |
 | Minimal validation stack | `docker-compose.test.yml` | ClickHouse plus schema bootstrap | Lightweight local or CI validation only |
-| GitHub-hosted ingestion job | `.github/workflows/scheduled_ingestion.yml` | Python ingestion scripts running on a GitHub Actions runner, outputting CSV files and uploading them to Google Drive | Alternate batch-ingestion path, not a full application deployment |
+| GitHub-hosted ingestion job | `.github/workflows/scheduled_ingestion.yml` | Python ingestion scripts running on a GitHub Actions runner, outputting CSV files and uploading them to Google Drive | Source-of-truth ingestion path |
 
 Start the full stack with Docker Compose:
 
@@ -44,9 +44,10 @@ Trigger conditions:
 The CI workflow runs these stages:
 
 1. **Lint**
-   - `pip install sqlfluff==3.5.0 sqlfluff-templater-dbt==3.5.0 ruff==0.11.0`
-   - `ruff check python_jobs/ airflow/dags/ --config .ruff.toml || true`
-   - `sqlfluff lint dbt/dbt_tranform/ --format github-annotation || true`
+   - `pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 sqlfluff==3.5.0 sqlfluff-templater-dbt==3.5.0 ruff==0.11.0`
+   - `cd dbt/dbt_tranform && dbt deps`
+   - `ruff check python_jobs/ airflow/dags/ --config .ruff.toml`
+   - `sqlfluff lint dbt/dbt_tranform/ --format github-annotation`
 2. **Python Unit**
    - `pip install -r requirements.txt`
    - `pytest tests/python -m "not integration and not live"`
@@ -61,8 +62,12 @@ The CI workflow runs these stages:
    - Starts a ClickHouse `25.12` service container
    - Creates the `air_quality` database
    - Runs `dbt seed --target dev`
-   - Runs `dbt run --select +mart_air_quality__dashboard --target dev`
-6. **Test**
+   - Runs `dbt run --select +dm_air_quality_overview_daily +dm_aqi_current_status +dm_traffic_hourly_trend --target dev`
+6. **Text-to-SQL Quality Gate**
+   - `pip install -r requirements.txt`
+   - `pytest python_jobs/text_to_sql/tests -m "not integration"`
+   - Covers the eval runner, persistent-store config, API contract, and Vanna runtime safety checks
+7. **Test**
    - Starts a fresh ClickHouse `25.12` service container
    - Runs `dbt seed --target dev`
    - Runs `dbt run --target dev`
@@ -81,7 +86,7 @@ docker compose up -d --build
 
 Workflow file: `.github/workflows/scheduled_ingestion.yml`
 
-This workflow is manually triggerable with `workflow_dispatch`. It is not a stack deployment, but it does operate a production-adjacent ingestion path:
+This workflow is designed to be triggered externally by Google Apps Script and also supports manual `workflow_dispatch`. It is the source-of-truth ingestion path for new raw source data:
 
 1. Checks out the repository
 2. Sets up Python `3.11`
@@ -92,7 +97,7 @@ This workflow is manually triggerable with `workflow_dispatch`. It is not a stac
 
 ## Environment Setup
 
-Use the root `.env` file for Docker Compose deployments. Start from `.env.example`, then add the missing variables referenced by `docker-compose.yml`. See `docs/CONFIGURATION.md` for the full variable inventory and defaults.
+Use the root `.env` file for Docker Compose deployments. Start from `.env.example`, replace the placeholder values, and add any environment-specific overrides you need. See `docs/CONFIGURATION.md` for the full variable inventory and defaults.
 
 ```bash
 cp .env.example .env
@@ -105,16 +110,16 @@ Minimum variables for the full Compose stack:
 | Area | Required settings |
 | --- | --- |
 | ClickHouse | `CLICKHOUSE_DB`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD` |
-| Airflow auth and secrets | `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD`, `AIRFLOW_API_SECRET_KEY`, `AIRFLOW_API_AUTH_JWT_SECRET`, `AIRFLOW_WEBSERVER_SECRET_KEY` |
+| Airflow auth and secrets | `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD`, `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_API_SECRET_KEY`, `AIRFLOW_API_AUTH_JWT_SECRET`, `AIRFLOW_WEBSERVER_SECRET_KEY` |
 | External ingestion APIs | `OPENWEATHER_API_TOKEN`, `TOMTOM_API_KEY` |
-| Text-to-SQL | `GROQ_API_KEY`, plus `TEXT_TO_SQL_CLICKHOUSE_USER` and `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` for a dedicated read-only user |
+| Text-to-SQL | `GROQ_API_KEY`, `TEXT_TO_SQL_PREVIEW_SECRET`, `TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY`, plus `TEXT_TO_SQL_CLICKHOUSE_USER` and `TEXT_TO_SQL_CLICKHOUSE_PASSWORD` for a dedicated read-only user |
 | Google Drive integrations | `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET`, `GDRIVE_REFRESH_TOKEN`, `GDRIVE_ROOT_FOLDER_ID` |
 | OpenMetadata | `OM_ADMIN_USER`, `OM_ADMIN_PASSWORD`, `POSTGRES_OM_DB`, `POSTGRES_OM_USER`, `POSTGRES_OM_PASSWORD` |
 | Grafana alerting | `TELEGRAM_AQ_BOT_TOKEN`, `TELEGRAM_SYS_BOT_TOKEN` |
 
 Deployment-specific notes verified from the repository:
 
-- `.env.example` is not a complete deployment manifest. `docker-compose.yml` also expects `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD`, and `TOMTOM_API_KEY`.
+- `.env.example` is not a complete deployment manifest; treat it as a starting template and review `docker-compose.yml` plus `docs/CONFIGURATION.md` before promoting a deployment.
 - Airflow uses checked-in config from `airflow/config/airflow.cfg` and the custom image in `airflow/Dockerfile`.
 - dbt uses `dbt/dbt_tranform/profiles.yml` with `dev`, `production`, and `ci` outputs; the checked-in target is `production`.
 - Grafana provisioning reads datasource, dashboard, and alerting files from `monitoring/grafana/provisioning/`.

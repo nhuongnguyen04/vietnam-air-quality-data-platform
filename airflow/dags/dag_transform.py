@@ -1,306 +1,232 @@
 """
-dbt Transformation DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
+dbt transformation DAG for the warehouse build pipeline.
 
-This DAG runs after hourly ingestion to transform raw data into analytics-ready models:
-- dbt deps: Install required dbt packages
-- dbt seed: Load seed data (if any)
-- dbt run: Execute staging, intermediate, and marts models
-
-Schedule: Triggered by dag_ingest_hourly via TriggerDagRunOperator — runs after each ingestion cycle completes
+This DAG is trigger-driven. In the current architecture it is primarily invoked
+by `dag_sync_gdrive` after GitHub Actions land new CSV files in Google Drive.
+It can also be triggered manually for ad hoc rebuilds.
 """
 
 from datetime import datetime, timedelta
-from airflow.sdk import dag, task
+from pathlib import Path
 import os
+import subprocess
 
-# Default arguments
+from airflow.sdk import dag, task
+
+
 default_args = {
     'owner': 'air-quality-team',
     'depends_on_past': False,
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 2,
-    'retry_delay': timedelta(minutes=5),
+    'retry_delay': timedelta(minutes=2),
 }
 
-# dbt configuration
 DBT_PROFILES_DIR = os.environ.get('DBT_PROFILES_DIR', '/opt/dbt/dbt_tranform')
 DBT_PROJECT_DIR = os.environ.get('DBT_PROJECT_DIR', '/opt/dbt/dbt_tranform')
 DBT_TARGET = os.environ.get('DBT_TARGET', 'production')
 
-# Environment variables for dbt
-DBT_ENV_VARS = {
-    'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
-    'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
-    'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-    'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
-    'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
-    'DBT_LOG_PATH': os.path.join(DBT_PROJECT_DIR, 'logs'),
-    'DBT_TARGET_PATH': os.path.join(DBT_PROJECT_DIR, 'target'),
-    'DBT_PACKAGES_INSTALL_PATH': os.environ.get('DBT_PACKAGES_INSTALL_PATH', '/opt/dbt/.cache/dbt_packages'),
-}
+
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if value in (None, ''):
+        raise RuntimeError(f"{name} environment variable is required")
+    return value
 
 
-def build_env_command() -> str:
-    """Build environment variable export commands."""
-    return ' && '.join([f"export {k}='{v}'" for k, v in DBT_ENV_VARS.items()])
+def get_dbt_env_vars() -> dict[str, str]:
+    return {
+        'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
+        'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
+        'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
+        'CLICKHOUSE_PASSWORD': _require_env('CLICKHOUSE_PASSWORD'),
+        'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
+        'DBT_LOG_PATH': os.path.join(DBT_PROJECT_DIR, 'logs'),
+        'DBT_TARGET_PATH': os.path.join(DBT_PROJECT_DIR, 'target'),
+        'DBT_PACKAGES_INSTALL_PATH': os.environ.get(
+            'DBT_PACKAGES_INSTALL_PATH', '/opt/dbt/.cache/dbt_packages'
+        ),
+    }
+
+
+def get_clickhouse_settings() -> tuple[str, int, str, str, str]:
+    return (
+        os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
+        int(os.environ.get('CLICKHOUSE_PORT', '8123')),
+        os.environ.get('CLICKHOUSE_USER', 'admin'),
+        _require_env('CLICKHOUSE_PASSWORD'),
+        os.environ.get('CLICKHOUSE_DB', 'air_quality'),
+    )
+
+
+def run_dbt_command(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env.update(get_dbt_env_vars())
+    return subprocess.run(
+        command,
+        cwd=DBT_PROJECT_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def print_dbt_result(
+    result: subprocess.CompletedProcess[str],
+    error_message: str,
+    success_message: str,
+    *,
+    allow_failure: bool = False,
+) -> bool:
+    if result.returncode != 0:
+        print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
+        if allow_failure:
+            print(error_message)
+            return False
+        raise Exception(error_message)
+    print(success_message)
+    return True
 
 
 @dag(
     default_args=default_args,
-    description='dbt transformation for air quality data — triggered by dag_ingest_hourly after each cycle',
-    schedule=None,  # Triggered by dag_ingest_hourly via TriggerDagRunOperator
-    start_date=datetime.now() - timedelta(days=1),
+    description='dbt transformation DAG — primarily triggered by dag_sync_gdrive after new landing-zone data arrives',
+    schedule=None,
+    start_date=datetime(2026, 4, 1),
     catchup=False,
     max_active_runs=1,
     max_active_tasks=10,
-    tags=['transform', 'dbt', 'triggered', 'air-quality'],
+    tags=['transform', 'dbt', 'triggered', 'air-quality', 'gdrive-sync'],
 )
 def dag_transform():
-    """dbt transformation DAG — triggered by dag_ingest_hourly after each cycle."""
+    """dbt transformation DAG for trigger-based warehouse builds."""
 
     @task
     def check_clickhouse_connection():
         """Check if ClickHouse is accessible."""
         import requests
-        
+
         clickhouse_host = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
         clickhouse_port = os.environ.get('CLICKHOUSE_PORT', '8123')
-        clickhouse_user = os.environ.get('CLICKHOUSE_USER', 'admin')
-        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
-        
         url = f"http://{clickhouse_host}:{clickhouse_port}/ping"
-        
-        try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            print(f"ClickHouse connection successful: {response.status_code}")
-            return True
-        except Exception as e:
-            print(f"ClickHouse connection failed: {e}")
-            raise
+
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        print(f"ClickHouse connection successful: {response.status_code}")
+        return True
 
     @task
     def check_dbt_ready():
-        """Check if dbt project is ready and dependencies are installed."""
-        import os
-        
-        # Check if dbt project exists
+        """Check if the dbt project directory and project file exist."""
+        dbt_project_file = os.path.join(DBT_PROJECT_DIR, 'dbt_project.yml')
         if not os.path.exists(DBT_PROJECT_DIR):
             raise FileNotFoundError(f"DBT project directory not found: {DBT_PROJECT_DIR}")
-        
-        # Check if dbt_project.yml exists
-        dbt_project_file = os.path.join(DBT_PROJECT_DIR, 'dbt_project.yml')
         if not os.path.exists(dbt_project_file):
             raise FileNotFoundError(f"dbt_project.yml not found: {dbt_project_file}")
-        
+
         print(f"DBT project is ready at: {DBT_PROJECT_DIR}")
         return True
 
     @task
     def dbt_deps():
-        """dbt deps - Install required packages."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt deps --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=600
+        """Run dbt deps only when packages.yml has changed or packages are missing."""
+        packages_file = Path(DBT_PROJECT_DIR) / 'packages.yml'
+        lock_file = Path(DBT_PROJECT_DIR) / 'package-lock.yml'
+        packages_dir = Path(get_dbt_env_vars()['DBT_PACKAGES_INSTALL_PATH'])
+
+        if not packages_file.exists():
+            print("dbt deps skipped; packages.yml is not present")
+            return False
+
+        if (
+            lock_file.exists()
+            and packages_dir.exists()
+            and lock_file.stat().st_mtime >= packages_file.stat().st_mtime
+        ):
+            print("dbt deps skipped; package-lock.yml is current and packages cache exists")
+            return False
+
+        result = run_dbt_command(
+            ['dbt', 'deps', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET],
+            timeout=600,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise Exception("dbt deps failed")
-        print("dbt deps completed")
+        print_dbt_result(result, "dbt deps failed", "dbt deps completed")
+        return True
 
     @task
     def dbt_seed():
-        """dbt seed - Load seed data (if any)."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt seed --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET} --select seeds
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=600
+        """Load seed data."""
+        result = run_dbt_command(
+            ['dbt', 'seed', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'seeds'],
+            timeout=600,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise Exception("dbt seed failed")
-        print("dbt seed completed")
+        print_dbt_result(result, "dbt seed failed", "dbt seed completed")
 
     @task
     def dbt_run_staging():
-        """dbt run staging models."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt run --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET} --select staging
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=1800
+        """Run staging models."""
+        result = run_dbt_command(
+            ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'staging'],
+            timeout=1800,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise Exception("dbt run staging failed")
-        print("dbt run staging completed")
+        print_dbt_result(result, "dbt run staging failed", "dbt run staging completed")
 
     @task
     def dbt_run_intermediate():
-        """dbt run intermediate models."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt run --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET} --select intermediate
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=1800
+        """Run intermediate models."""
+        result = run_dbt_command(
+            ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'intermediate'],
+            timeout=1800,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise Exception("dbt run intermediate failed")
-        print("dbt run intermediate completed")
+        print_dbt_result(result, "dbt run intermediate failed", "dbt run intermediate completed")
 
     @task
     def dbt_run_marts():
-        """dbt run marts models."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt run --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET} --select marts
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=1800
+        """Run mart models."""
+        result = run_dbt_command(
+            ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'marts'],
+            timeout=1800,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise Exception("dbt run marts failed")
-        print("dbt run marts completed")
+        print_dbt_result(result, "dbt run marts failed", "dbt run marts completed")
 
     @task
     def dbt_test():
-        """dbt test - Run tests."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt test --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=1800
+        """Run dbt tests as the blocking validation branch."""
+        result = run_dbt_command(
+            ['dbt', 'test', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET],
+            timeout=1800,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise Exception("dbt test failed")
-        print("dbt test completed")
+        print_dbt_result(result, "dbt test failed", "dbt test completed")
 
     @task
     def dbt_docs_generate():
-        """dbt docs generate - Generate catalog and manifest."""
-        import subprocess
-        
-        env = os.environ.copy()
-        env.update(DBT_ENV_VARS)
-        
-        cmd = f"""
-{build_env_command()} && \
-cd {DBT_PROJECT_DIR} && \
-dbt docs generate --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
-"""
-        
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=1800
+        """Generate docs artifacts without blocking the rest of the DAG on failure."""
+        result = run_dbt_command(
+            ['dbt', 'docs', 'generate', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET],
+            timeout=1800,
         )
-        if result.returncode != 0:
-            print(f"Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            # non-fatal
-            print("dbt docs generate failed, continuing")
-        else:
-            print("dbt docs generate completed")
+        print_dbt_result(
+            result,
+            "dbt docs generate failed, continuing",
+            "dbt docs generate completed",
+            allow_failure=True,
+        )
 
     @task
     def patch_dbt_artifacts():
-        """Patch manifest.json and catalog.json to ensure OpenMetadata lineage correctly bridges dbt with ClickHouse tables."""
+        """Ensure generated artifacts include the ClickHouse database name."""
         import json
-        import os
-        
+
         target_dir = os.path.join(DBT_PROJECT_DIR, 'target')
         db_name = os.environ.get('CLICKHOUSE_DB', 'air_quality')
-        
-        def patch_json(filepath, item_key):
-            if not os.path.exists(filepath): return
-            with open(filepath, 'r') as f:
-                data = json.load(f)
+
+        def patch_json(filepath: str, item_key: str | None):
+            if not os.path.exists(filepath):
+                return
+            with open(filepath, 'r', encoding='utf-8') as handle:
+                data = json.load(handle)
             changed = False
             for group in ['nodes', 'sources']:
                 for node in data.get(group, {}).values():
@@ -313,8 +239,8 @@ dbt docs generate --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
                             node[item_key]['database'] = db_name
                             changed = True
             if changed:
-                with open(filepath, 'w') as f:
-                    json.dump(data, f)
+                with open(filepath, 'w', encoding='utf-8') as handle:
+                    json.dump(data, handle)
                 print(f"Patched {filepath} database to {db_name}")
 
         patch_json(os.path.join(target_dir, 'manifest.json'), None)
@@ -323,66 +249,65 @@ dbt docs generate --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
 
     @task
     def log_dbt_stats():
-        """Log dbt transformation statistics."""
-        import requests
-        
-        clickhouse_host = os.environ.get('CLICKHOUSE_HOST', 'clickhouse')
-        clickhouse_port = os.environ.get('CLICKHOUSE_PORT', '8123')
-        clickhouse_user = os.environ.get('CLICKHOUSE_USER', 'admin')
-        clickhouse_password = os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456')
-        clickhouse_db = os.environ.get('CLICKHOUSE_DB', 'air_quality')
-        
-        url = f"http://{clickhouse_host}:{clickhouse_port}/?user={clickhouse_user}&password={clickhouse_password}"
-        
-        stats = {}
-        
+        """Log dbt transformation statistics via the ClickHouse client."""
+        import clickhouse_connect
+
+        clickhouse_host, clickhouse_port, clickhouse_user, clickhouse_password, clickhouse_db = (
+            get_clickhouse_settings()
+        )
+        stats: dict[str, int] = {}
+
+        client = clickhouse_connect.get_client(
+            host=clickhouse_host,
+            port=clickhouse_port,
+            username=clickhouse_user,
+            password=clickhouse_password,
+            database=clickhouse_db,
+        )
         try:
-            # Get staging tables count
-            query = f"SELECT count(*) FROM system.tables WHERE database = '{clickhouse_db}' AND name LIKE 'stg_%'"
-            response = requests.get(f"{url}&query={query}", timeout=30)
-            if response.status_code == 200:
-                lines = response.text.strip().split('\n')
-                if len(lines) > 1:
-                    stats['staging_tables'] = int(lines[1].strip())
-            
-            # Get intermediate tables count
-            query = f"SELECT count(*) FROM system.tables WHERE database = '{clickhouse_db}' AND name LIKE 'int_%'"
-            response = requests.get(f"{url}&query={query}", timeout=30)
-            if response.status_code == 200:
-                lines = response.text.strip().split('\n')
-                if len(lines) > 1:
-                    stats['intermediate_tables'] = int(lines[1].strip())
-            
-            # Get marts tables count
-            query = f"SELECT count(*) FROM system.tables WHERE database = '{clickhouse_db}' AND name LIKE 'fct_%'"
-            response = requests.get(f"{url}&query={query}", timeout=30)
-            if response.status_code == 200:
-                lines = response.text.strip().split('\n')
-                if len(lines) > 1:
-                    stats['marts_tables'] = int(lines[1].strip())
-            
+            table_groups = {
+                'staging_tables': "stg_%",
+                'intermediate_tables': "int_%",
+                'mart_tables': "dm_%",
+                'fact_tables': "fct_%",
+            }
+            for key, pattern in table_groups.items():
+                result = client.query(
+                    f"SELECT count(*) FROM system.tables WHERE database = '{clickhouse_db}' AND name LIKE '{pattern}'"
+                )
+                stats[key] = int(result.result_rows[0][0])
+            stats['warehouse_tables_built'] = (
+                stats['staging_tables']
+                + stats['intermediate_tables']
+                + stats['mart_tables']
+                + stats['fact_tables']
+            )
             print(f"dbt transformation statistics: {stats}")
-            
-        except Exception as e:
-            print(f"Error getting dbt stats: {e}")
-        
+        finally:
+            client.close()
+
         return stats
 
     @task
-    def update_transform_control():
-        """Update ingestion_control for dbt transformation run."""
+    def update_transform_control(stats: dict[str, int]):
+        """Update ingestion_control for the transform path using a meaningful unit count."""
         import sys
+
         sys.path.insert(0, '/opt/python/jobs')
         from common.ingestion_control import update_control as _update
-        _update(source='dbt_transform', records_ingested=0, success=True)
-        print("Updated ingestion_control for dbt_transform")
+
+        transformed_units = stats.get('warehouse_tables_built', 0)
+        _update(source='dbt_transform', records_ingested=transformed_units, success=True)
+        print(
+            "Updated ingestion_control for dbt_transform with "
+            f"records_ingested={transformed_units}"
+        )
 
     @task
     def log_completion():
         """Log completion message."""
         print("dbt transformation completed")
 
-    # Define task dependencies
     check_clickhouse = check_clickhouse_connection()
     check_dbt = check_dbt_ready()
     deps = dbt_deps()
@@ -394,9 +319,13 @@ dbt docs generate --profiles-dir {DBT_PROFILES_DIR} --target {DBT_TARGET}
     docs = dbt_docs_generate()
     patch = patch_dbt_artifacts()
     stats = log_dbt_stats()
-    update_transform_control = update_transform_control()
+    update_control = update_transform_control(stats)
     completion = log_completion()
 
-    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts >> test >> docs >> patch >> stats >> update_transform_control >> completion
+    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts
+    marts >> test
+    marts >> docs >> patch >> stats
+    [test, stats] >> update_control >> completion
+
 
 dag_transform = dag_transform()

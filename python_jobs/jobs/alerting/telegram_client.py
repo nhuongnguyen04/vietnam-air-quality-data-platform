@@ -6,8 +6,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TELEGRAM_API = "https://api.telegram.org"
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+
+def _get_credentials() -> tuple[str, str]:
+    """Return the AQ Telegram bot credentials used by reports and AQ alerts."""
+    bot_token = os.getenv("TELEGRAM_AQ_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_AQ_CHAT_ID")
+
+    if not bot_token or not chat_id:
+        raise RuntimeError(
+            "TELEGRAM_AQ_BOT_TOKEN and TELEGRAM_AQ_CHAT_ID environment variables are required"
+        )
+
+    return bot_token, chat_id
 
 
 def send_message(text: str, parse_mode: str = "HTML") -> dict:
@@ -23,8 +34,9 @@ def send_message(text: str, parse_mode: str = "HTML") -> dict:
     Raises:
         requests.HTTPError: If the bot token or chat ID is invalid.
     """
-    url = f"{TELEGRAM_API}/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": parse_mode}
+    bot_token, chat_id = _get_credentials()
+    url = f"{TELEGRAM_API}/bot{bot_token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
     resp = requests.post(url, json=payload, timeout=30)
     resp.raise_for_status()
     return resp.json()

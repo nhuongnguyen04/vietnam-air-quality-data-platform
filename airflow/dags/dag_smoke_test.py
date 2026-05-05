@@ -22,7 +22,6 @@ import random
 CLICKHOUSE_HOST = os.environ.get("CLICKHOUSE_HOST", "clickhouse")
 CLICKHOUSE_PORT = int(os.environ.get("CLICKHOUSE_PORT", 8123))
 CLICKHOUSE_USER = os.environ.get("CLICKHOUSE_USER", "admin")
-CLICKHOUSE_PASSWORD = os.environ.get("CLICKHOUSE_PASSWORD", "admin123456")
 CLICKHOUSE_DB = os.environ.get("CLICKHOUSE_DB", "air_quality")
 
 default_args = {
@@ -35,11 +34,14 @@ default_args = {
 def _get_client():
     """Return a clickhouse_connect HttpClient connected to the air_quality DB."""
     import clickhouse_connect
+    clickhouse_password = os.environ.get("CLICKHOUSE_PASSWORD")
+    if clickhouse_password in (None, ""):
+        raise RuntimeError("CLICKHOUSE_PASSWORD environment variable is required")
     return clickhouse_connect.get_client(
         host=CLICKHOUSE_HOST,
         port=CLICKHOUSE_PORT,
         username=CLICKHOUSE_USER,
-        password=CLICKHOUSE_PASSWORD,
+        password=clickhouse_password,
         database=CLICKHOUSE_DB,
     )
 

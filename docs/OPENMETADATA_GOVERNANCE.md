@@ -139,18 +139,18 @@ Project Airflow (`apache/airflow:3.1.7`, port 8090) kết nối với OM qua OM 
 **Auth:** Basic Auth — `admin` / `admin` (project Airflow credentials)
 
 **DAGs visible in OM:**
-- `dag_ingest_hourly` — hourly measurement ingestion
-- `dag_sync_gdrive` — TomTom traffic sync from Landing Zone (Phase 6)
-- `dag_transform` — dbt transformation (Air Quality + Traffic)
-- `dag_openmetadata_curation` — catalog curation
-- `dag_ingest_historical` — historical backfill (manual trigger)
-- `dag_metadata_update` — metadata refresh (daily, AQI.in stations)
+- `dag_ingest_hourly` — manual fallback ingestion for AQI.in, OpenWeather, and traffic
+- `dag_sync_gdrive` — primary landing-zone sync from Google Drive into ClickHouse
+- `dag_transform` — dbt transformation and validation pipeline
+- `dag_openmetadata_curation` — governance and glossary sync
+- `dag_weekly_report` — weekly reporting DAG
+- `dag_smoke_test` — on-demand alert-pipeline smoke test
 
 ## Data Quality
 
 ### dbt Tests (Source of Truth)
 
-46 dbt tests chạy trong `dag_transform` (schedule: `30 * * * *`). OM đọc kết quả từ `target/run_results.json` qua dbt ingestion pipeline.
+dbt tests chạy trong `dag_transform`, DAG này hiện được trigger sau `dag_sync_gdrive` hoặc chạy thủ công. OM đọc kết quả từ `target/run_results.json` qua dbt ingestion pipeline.
 
 **Test coverage:**
 - Mart tables: not_null, unique, accepted_values

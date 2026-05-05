@@ -2,8 +2,8 @@
     materialized='incremental',
     engine='ReplacingMergeTree',
     unique_key='(province, datetime_hour)',
-    order_by='(province, date)',
-    partition_by='toYYYYMM(date)'
+    order_by='(province, datetime_hour)',
+    partition_by='toYYYYMM(datetime_hour)'
 ) }}
 
 with ward_hourly as (

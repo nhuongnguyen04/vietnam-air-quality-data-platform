@@ -24,8 +24,8 @@ def _make_mock_response(ok: bool = True, message_id: int = 999, extra: dict | No
 def test_send_message_posts_expected_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_post = MagicMock(return_value=_make_mock_response())
     monkeypatch.setattr(requests, "post", mock_post)
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test_token")
-    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456")
+    monkeypatch.setenv("TELEGRAM_AQ_BOT_TOKEN", "test_token")
+    monkeypatch.setenv("TELEGRAM_AQ_CHAT_ID", "123456")
 
     module = reload(telegram_client)
     result = module.send_message("hello")
@@ -46,12 +46,23 @@ def test_send_message_raises_http_error(monkeypatch: pytest.MonkeyPatch) -> None
     response = MagicMock()
     response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
     monkeypatch.setattr(requests, "post", MagicMock(return_value=response))
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "bad_token")
-    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456")
+    monkeypatch.setenv("TELEGRAM_AQ_BOT_TOKEN", "bad_token")
+    monkeypatch.setenv("TELEGRAM_AQ_CHAT_ID", "123456")
 
     module = reload(telegram_client)
 
     with pytest.raises(requests.HTTPError):
+        module.send_message("fail")
+
+
+@pytest.mark.unit
+def test_send_message_requires_aq_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TELEGRAM_AQ_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_AQ_CHAT_ID", raising=False)
+
+    module = reload(telegram_client)
+
+    with pytest.raises(RuntimeError, match="TELEGRAM_AQ_BOT_TOKEN and TELEGRAM_AQ_CHAT_ID"):
         module.send_message("fail")
 
 

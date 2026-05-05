@@ -1,13 +1,13 @@
 """
-Hourly Ingestion DAG for Air Quality Data Platform (Airflow 3 TaskFlow API).
+Legacy manual ingestion DAG for the Air Quality Data Platform (Airflow 3 TaskFlow API).
 
-This DAG runs every hour to ingest the latest measurements from:
+This DAG can be triggered manually to ingest the latest measurements from:
 - AQI.in (~540 Vietnam monitoring stations via widget scraper)
 - OpenWeather Air Pollution API (62 Vietnam provinces)
 - TomTom Traffic Flow API (3-hourly sampling)
 - Traffic Pattern Engine (1-hourly interpolation via Python)
 
-Schedule: Every hour (0 * * * *)
+Schedule: None (manual fallback only)
 """
 
 from datetime import datetime, timedelta
@@ -30,13 +30,20 @@ PYTHON_JOBS_DIR = os.environ.get('PYTHON_JOBS_DIR', '/opt/python/jobs')
 PYTHON_PATH = PYTHON_JOBS_DIR
 
 
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if value in (None, ''):
+        raise RuntimeError(f"{name} environment variable is required")
+    return value
+
+
 def get_job_env_vars() -> dict:
     """Get environment variables at execution time (not parse time)."""
     return {
         'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
         'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
         'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-        'CLICKHOUSE_PASSWORD': os.environ.get('CLICKHOUSE_PASSWORD', 'admin123456'),
+        'CLICKHOUSE_PASSWORD': _require_env('CLICKHOUSE_PASSWORD'),
         'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
         'OPENWEATHER_API_TOKENS': os.environ.get('OPENWEATHER_API_TOKENS', os.environ.get('OPENWEATHER_API_TOKEN', '')),
         'TOMTOM_API_KEY': os.environ.get('TOMTOM_API_KEY', ''),
@@ -45,7 +52,7 @@ def get_job_env_vars() -> dict:
 
 @dag(
     default_args=default_args,
-    description='Ingestion of air quality, weather, and traffic data every hour — triggers dag_transform on completion',
+    description='Legacy manual fallback for direct ingestion into ClickHouse; GitHub Actions remains the primary scheduler',
     schedule=None,
     start_date=datetime.now() - timedelta(days=1),
     catchup=False,
@@ -54,7 +61,7 @@ def get_job_env_vars() -> dict:
     tags=['ingestion', 'hourly', 'triggers-transform', 'air-quality', 'weather', 'traffic'],
 )
 def dag_ingest_hourly():
-    """Hourly ingestion DAG for AQI.in, OpenWeather (AQI + Weather), and TomTom (Traffic)."""
+    """Manual fallback DAG for AQI.in, OpenWeather (AQI + Weather), and TomTom (Traffic)."""
 
     @task
     def check_clickhouse_connection():
@@ -150,7 +157,7 @@ def dag_ingest_hourly():
     @task
     def log_completion():
         """Log completion message."""
-        print("Hourly ingestion cycle completed (AQI + Weather + Traffic)")
+        print("Manual ingestion fallback cycle completed (AQI + Weather + Traffic)")
 
     trigger_transform = TriggerDagRunOperator(
         task_id='trigger_transform',

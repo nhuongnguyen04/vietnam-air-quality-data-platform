@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 import yaml
 
+os.environ.setdefault("TEXT_TO_SQL_PREVIEW_SECRET", "test-preview-secret")
+
 from python_jobs.text_to_sql.app import create_app
+from python_jobs.text_to_sql import semantic_loader
 from python_jobs.text_to_sql.clickhouse_executor import QueryExecutionResult
 from python_jobs.text_to_sql.vanna_runtime import GeneratedSql
+
+
+@pytest.fixture(autouse=True)
+def text_to_sql_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEXT_TO_SQL_PREVIEW_SECRET", "test-preview-secret")
 
 
 @pytest.fixture
@@ -105,6 +114,12 @@ class FakeVannaRuntime:
         return GeneratedSql(
             sql=self.sql,
             explanation=f"Preview for {question} in {lang} under {standard}",
+            referenced_tables=["dm_aqi_current_status"],
+            generator_metadata={
+                "model": "fake-model",
+                "collection": "fake-collection",
+                "semantic_fingerprint": "fake-fingerprint",
+            },
         )
 
 
@@ -145,3 +160,84 @@ def load_text():
         return Path(path).read_text(encoding="utf-8")
 
     return _load_text
+
+
+@pytest.fixture
+def fake_clickhouse_schema():
+    def _build(allowed_tables: set[str]) -> dict[str, list[dict[str, str]]]:
+        schema = {
+            table_name: [
+                {"name": "province", "type": "String"},
+                {"name": "date", "type": "Date"},
+            ]
+            for table_name in allowed_tables
+        }
+        schema.update(
+            {
+                "dm_aqi_current_status": [
+                    {"name": "province", "type": "String"},
+                    {"name": "ward_code", "type": "String"},
+                    {"name": "current_aqi_vn", "type": "Float64"},
+                    {"name": "pm25", "type": "Float64"},
+                ],
+                "dm_air_quality_overview_hourly": [
+                    {"name": "province", "type": "String"},
+                    {"name": "datetime_hour", "type": "DateTime"},
+                    {"name": "avg_aqi_vn", "type": "Float64"},
+                    {"name": "pm25_avg", "type": "Float64"},
+                ],
+                "dm_aqi_compliance_standards": [
+                    {"name": "province", "type": "String"},
+                    {"name": "date", "type": "Date"},
+                    {"name": "who_pm25_breach", "type": "UInt8"},
+                    {"name": "pm25_avg", "type": "Float64"},
+                ],
+                "dm_aqi_health_impact_summary": [
+                    {"name": "province", "type": "String"},
+                    {"name": "date", "type": "Date"},
+                    {"name": "pm25_population_exposure", "type": "Float64"},
+                ],
+                "dm_regional_health_risk_ranking": [
+                    {"name": "province", "type": "String"},
+                    {"name": "date", "type": "Date"},
+                    {"name": "health_risk_rank", "type": "UInt32"},
+                    {"name": "health_risk_score", "type": "Float64"},
+                ],
+                "dm_traffic_pollution_correlation_daily": [
+                    {"name": "province", "type": "String"},
+                    {"name": "date", "type": "Date"},
+                    {"name": "congestion_daily_avg", "type": "Float64"},
+                    {"name": "pm25_daily_avg", "type": "Float64"},
+                    {"name": "pm25_congestion_uplift", "type": "Float64"},
+                ],
+                "dm_weather_hourly_trend": [
+                    {"name": "province", "type": "String"},
+                    {"name": "datetime_hour", "type": "DateTime"},
+                    {"name": "avg_humidity", "type": "Float64"},
+                    {"name": "avg_wind_speed", "type": "Float64"},
+                ],
+                "dm_weather_pollution_correlation_daily": [
+                    {"name": "province", "type": "String"},
+                    {"name": "date", "type": "Date"},
+                    {"name": "avg_humidity", "type": "Float64"},
+                    {"name": "avg_wind_speed", "type": "Float64"},
+                    {"name": "pm25_daily_avg", "type": "Float64"},
+                ],
+            }
+        )
+        return {
+            table_name: schema[table_name]
+            for table_name in allowed_tables
+            if table_name in schema
+        }
+
+    return _build
+
+
+@pytest.fixture(autouse=True)
+def stub_clickhouse_schema(monkeypatch: pytest.MonkeyPatch, fake_clickhouse_schema) -> None:
+    monkeypatch.setattr(
+        semantic_loader,
+        "fetch_clickhouse_schema",
+        lambda allowed_tables, **kwargs: fake_clickhouse_schema(allowed_tables),
+    )

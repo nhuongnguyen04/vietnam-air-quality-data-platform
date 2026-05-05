@@ -1,7 +1,17 @@
-"""Helpers for loading and validating text-to-SQL semantic assets."""
+"""Helpers for loading and validating text-to-SQL semantic assets.
+
+Sources of truth (new architecture):
+  - allowed_tables.yml     : security allowlist (unchanged)
+  - dbt schema YAMLs       : business descriptions for models + columns
+  - ClickHouse system.columns : actual DDL types at runtime
+  - example_questions.yml  : Q+SQL training pairs (unchanged)
+
+Deprecated (kept for backward compatibility only, not used by catalog_builder):
+  - table_docs.yml
+  - generated_schema_snapshot.json
+"""
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -21,17 +31,21 @@ FORBIDDEN_PATTERNS = (
 )
 DEFAULT_SEMANTIC_DIR = Path(__file__).resolve().parent / "semantic"
 
+# dbt mart YAML files — two search strategies:
+#   1. Local dev: relative to project root (monorepo layout)
+#   2. Container: copied into the semantic/ directory at build time
+DBT_MART_YAML_RELATIVE = [
+    "dbt/dbt_tranform/models/marts/core/_mart_core__models.yml",
+    "dbt/dbt_tranform/models/marts/analytics/_mart_analytics__models.yml",
+]
+DBT_MART_YAML_BASENAMES = [
+    "_mart_core__models.yml",
+    "_mart_analytics__models.yml",
+]
+
 
 class SemanticValidationError(ValueError):
     """Raised when semantic assets violate the mart-only contract."""
-
-
-@dataclass(frozen=True)
-class SemanticBundle:
-    allowed_tables: set[str]
-    table_docs: dict[str, dict[str, Any]]
-    example_questions: list[dict[str, Any]]
-    schema_snapshot: dict[str, Any]
 
 
 def get_semantic_dir(semantic_dir: str | Path | None = None) -> Path:
@@ -72,27 +86,6 @@ def load_allowed_tables(semantic_dir: str | Path | None = None) -> set[str]:
     return {validate_table_name(table_name) for table_name in tables}
 
 
-def load_table_docs(semantic_dir: str | Path | None = None) -> dict[str, dict[str, Any]]:
-    path = get_semantic_dir(semantic_dir) / "table_docs.yml"
-    payload = _load_yaml(path)
-    docs = payload.get("tables", {})
-    if not isinstance(docs, dict) or not docs:
-        raise SemanticValidationError("table_docs.yml must define table documentation")
-    validated_docs: dict[str, dict[str, Any]] = {}
-    for table_name, table_doc in docs.items():
-        normalized = validate_table_name(table_name)
-        if not isinstance(table_doc, dict):
-            raise SemanticValidationError(f"Documentation for {table_name} must be a mapping")
-        required_fields = ("business_purpose", "grain", "key_dimensions", "safe_filters", "lineage_summary")
-        missing = [field for field in required_fields if field not in table_doc]
-        if missing:
-            raise SemanticValidationError(
-                f"Documentation for {table_name} missing fields: {', '.join(missing)}"
-            )
-        validated_docs[normalized] = table_doc
-    return validated_docs
-
-
 def load_example_questions(semantic_dir: str | Path | None = None) -> list[dict[str, Any]]:
     path = get_semantic_dir(semantic_dir) / "example_questions.yml"
     payload = _load_yaml(path)
@@ -107,76 +100,188 @@ def load_example_questions(semantic_dir: str | Path | None = None) -> list[dict[
     return questions
 
 
-def load_schema_snapshot(semantic_dir: str | Path | None = None) -> dict[str, Any]:
-    path = get_semantic_dir(semantic_dir) / "generated_schema_snapshot.json"
-    with path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    tables = payload.get("tables", [])
-    if not isinstance(tables, list) or not tables:
-        raise SemanticValidationError("generated_schema_snapshot.json must define tables")
-    for table in tables:
-        validate_table_name(table["name"])
-        for column in table.get("columns", []):
-            if any(pattern in column.lower() for pattern in FORBIDDEN_PATTERNS):
-                raise SemanticValidationError(
-                    f"Forbidden column metadata found in schema snapshot: {column}"
-                )
-    return payload
+# ── dbt schema YAML loader ────────────────────────────────────────────────────
+
+def _find_dbt_yaml_paths(project_root: Path | None = None) -> list[Path]:
+    """Resolve dbt mart YAML paths.
+
+    Search order:
+      1. Project root relative paths (local dev / monorepo)
+      2. Semantic directory (container — files copied during build/deploy)
+    """
+    root = project_root
+    if root is None:
+        try:
+            root = Path(__file__).resolve().parents[2]
+        except IndexError:
+            root = None  # shallow path (e.g. /app/), skip strategy 1
+
+    paths = []
+    # Strategy 1: project root (local dev)
+    if root is not None:
+        for rel in DBT_MART_YAML_RELATIVE:
+            p = root / rel
+            if p.exists():
+                paths.append(p)
+
+    # Strategy 2: semantic directory (container deployment)
+    if not paths:
+        semantic_dir = DEFAULT_SEMANTIC_DIR
+        for basename in DBT_MART_YAML_BASENAMES:
+            p = semantic_dir / basename
+            if p.exists():
+                paths.append(p)
+
+    return paths
 
 
-def load_semantic_bundle(semantic_dir: str | Path | None = None) -> SemanticBundle:
-    allowed_tables = load_allowed_tables(semantic_dir)
-    table_docs = load_table_docs(semantic_dir)
-    example_questions = load_example_questions(semantic_dir)
-    schema_snapshot = load_schema_snapshot(semantic_dir)
+def load_dbt_model_docs(
+    project_root: Path | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Load model descriptions and column descriptions from dbt mart YAML files.
 
-    if allowed_tables != set(table_docs):
-        missing_docs = sorted(allowed_tables - set(table_docs))
-        extra_docs = sorted(set(table_docs) - allowed_tables)
+    Returns a dict keyed by model name:
+    {
+      "fct_air_quality_province_level_daily": {
+        "description": "...",
+        "meta": {...},
+        "columns": {
+          "date": "Date of the observation.",
+          "province": "Province name.",
+          ...
+        }
+      },
+      ...
+    }
+    """
+    docs: dict[str, dict[str, Any]] = {}
+    for yaml_path in _find_dbt_yaml_paths(project_root):
+        payload = _load_yaml(yaml_path)
+        for model in payload.get("models", []):
+            name = _normalize_table_name(model.get("name", ""))
+            if not name.startswith(ALLOWED_PREFIXES):
+                continue
+            column_docs: dict[str, str] = {}
+            for col in model.get("columns", []):
+                col_name = (col.get("name") or "").strip()
+                col_desc = (col.get("description") or "").strip()
+                if col_name:
+                    column_docs[col_name] = col_desc
+            docs[name] = {
+                "description": (model.get("description") or "").strip(),
+                "meta": model.get("meta") or {},
+                "columns": column_docs,
+            }
+    return docs
+
+
+# ── ClickHouse live schema loader ─────────────────────────────────────────────
+
+def fetch_clickhouse_schema(
+    allowed_tables: set[str],
+    *,
+    host: str = "clickhouse",
+    port: int = 8123,
+    user: str = "admin",
+    password: str = "",
+    database: str = "air_quality",
+) -> dict[str, list[dict[str, str]]]:
+    """Query system.columns for the approved tables and return real ClickHouse types.
+
+    Returns:
+    {
+      "fct_air_quality_province_level_daily": [
+        {"name": "date", "type": "Date"},
+        {"name": "province", "type": "String"},
+        {"name": "pm25_avg", "type": "Nullable(Float64)"},
+        ...
+      ],
+      ...
+    }
+    """
+    import os
+
+    try:
+        import clickhouse_connect
+    except ImportError as exc:  # pragma: no cover
         raise SemanticValidationError(
-            "Semantic docs mismatch allowlist: "
-            f"missing={missing_docs or '[]'} extra={extra_docs or '[]'}"
-        )
+            "clickhouse_connect is required for live schema fetching"
+        ) from exc
 
-    snapshot_tables = {table["name"] for table in schema_snapshot["tables"]}
-    if snapshot_tables != allowed_tables:
-        missing_snapshot = sorted(allowed_tables - snapshot_tables)
-        extra_snapshot = sorted(snapshot_tables - allowed_tables)
-        raise SemanticValidationError(
-            "Schema snapshot mismatch allowlist: "
-            f"missing={missing_snapshot or '[]'} extra={extra_snapshot or '[]'}"
-        )
-
-    languages = {question["lang"] for question in example_questions}
-    if languages != {"en", "vi"}:
-        raise SemanticValidationError("Example questions must cover both vi and en")
-
-    return SemanticBundle(
-        allowed_tables=allowed_tables,
-        table_docs=table_docs,
-        example_questions=example_questions,
-        schema_snapshot=schema_snapshot,
+    host = os.environ.get("CLICKHOUSE_HOST", host)
+    port = int(os.environ.get("CLICKHOUSE_PORT", port))
+    # text-to-sql container uses TEXT_TO_SQL_CLICKHOUSE_* vars; fall back to generic
+    user = (
+        os.environ.get("TEXT_TO_SQL_CLICKHOUSE_USER")
+        or os.environ.get("CLICKHOUSE_USER")
+        or user
     )
+    password = (
+        os.environ.get("TEXT_TO_SQL_CLICKHOUSE_PASSWORD")
+        or os.environ.get("CLICKHOUSE_PASSWORD")
+        or password
+    )
+    database = os.environ.get("CLICKHOUSE_DB", database)
 
+    client = clickhouse_connect.get_client(
+        host=host, port=port, username=user, password=password, database=database
+    )
+    try:
+        table_list = ", ".join(f"'{t}'" for t in sorted(allowed_tables))
+        result = client.query(
+            f"SELECT table, name, type FROM system.columns "
+            f"WHERE database = '{database}' AND table IN ({table_list}) "
+            f"ORDER BY table, position"
+        )
+        schema: dict[str, list[dict[str, str]]] = {}
+        for row in result.result_rows:
+            table, col_name, col_type = row
+            schema.setdefault(table, []).append({"name": col_name, "type": col_type})
+        return schema
+    finally:
+        client.close()
+
+
+# ── High-level context builder ────────────────────────────────────────────────
 
 def build_table_prompt_context(
     semantic_dir: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+    clickhouse_schema: dict[str, list[dict[str, str]]] | None = None,
 ) -> list[dict[str, Any]]:
-    bundle = load_semantic_bundle(semantic_dir)
+    """Build training context for each allowed table.
+
+    Data sources (in priority order):
+      1. allowed_tables.yml        — which tables are approved
+      2. dbt YAML                  — business description, column descriptions
+      3. ClickHouse system.columns — real types (passed in or fetched live)
+
+    Returns list of dicts, one per table, ready for Vanna training.
+    """
+    allowed = load_allowed_tables(semantic_dir)
+    dbt_docs = load_dbt_model_docs(project_root)
+
+    if clickhouse_schema is None:
+        clickhouse_schema = fetch_clickhouse_schema(allowed)
+
     context = []
-    snapshot_by_name = {table["name"]: table for table in bundle.schema_snapshot["tables"]}
-    for table_name in sorted(bundle.allowed_tables):
-        table_doc = bundle.table_docs[table_name]
-        snapshot = snapshot_by_name[table_name]
+    for table_name in sorted(allowed):
+        dbt = dbt_docs.get(table_name, {})
+        ch_cols = clickhouse_schema.get(table_name, [])
+        col_names = [c["name"] for c in ch_cols]
+        col_types = {c["name"]: c["type"] for c in ch_cols}
+        col_descs = dbt.get("columns", {})
+        meta = dbt.get("meta", {})
+
         context.append(
             {
                 "table": table_name,
-                "business_purpose": table_doc["business_purpose"],
-                "grain": table_doc["grain"],
-                "key_dimensions": table_doc["key_dimensions"],
-                "safe_filters": table_doc["safe_filters"],
-                "lineage_summary": table_doc["lineage_summary"],
-                "columns": snapshot.get("columns", []),
+                "description": dbt.get("description", ""),
+                "grain": meta.get("grain", ""),
+                "columns": col_names,
+                "column_types": col_types,    # {"date": "Date", "pm25_avg": "Nullable(Float64)", ...}
+                "column_docs": col_descs,      # {"date": "Date of observation", ...}
             }
         )
     return context

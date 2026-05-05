@@ -16,7 +16,7 @@ pytestmark = [
         reason="RUN_LIVE_TESTS=1 is required for live tests",
     ),
     pytest.mark.skipif(
-        not os.environ.get("TELEGRAM_BOT_TOKEN") or not os.environ.get("TELEGRAM_CHAT_ID"),
+        not os.environ.get("TELEGRAM_AQ_BOT_TOKEN") or not os.environ.get("TELEGRAM_AQ_CHAT_ID"),
         reason="Telegram credentials are required for live tests",
     ),
 ]
