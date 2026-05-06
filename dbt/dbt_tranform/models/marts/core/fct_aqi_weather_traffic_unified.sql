@@ -208,19 +208,20 @@ SELECT
     CAST(a.pm25 * t.value AS Float32) as traffic_pollution_impact_score,
     CAST(0.0 AS Float32) as traffic_contribution_pct,
     CAST(if(t.value > 0, a.pm25 / t.value, 0) AS Float32) as traffic_pollution_ratio,
+
+    now() as dbt_updated_at,
+
     greatest(
         coalesce(a.raw_loaded_at, toDateTime('1970-01-01 00:00:00')),
         coalesce(w.raw_loaded_at, toDateTime('1970-01-01 00:00:00')),
         coalesce(t.max_raw_loaded_at, toDateTime('1970-01-01 00:00:00'))
     ) as raw_loaded_at,
-        coalesce(t.latest_raw_sync_run_id, w.raw_sync_run_id, a.raw_sync_run_id, '') as raw_sync_run_id,
-        greatest(
-            coalesce(a.raw_sync_started_at, toDateTime('1970-01-01 00:00:00')),
-            coalesce(w.raw_sync_started_at, toDateTime('1970-01-01 00:00:00')),
-            coalesce(t.latest_raw_sync_started_at, toDateTime('1970-01-01 00:00:00'))
-        ) as raw_sync_started_at,
-
-    now() as dbt_updated_at
+    coalesce(t.latest_raw_sync_run_id, w.raw_sync_run_id, a.raw_sync_run_id, '') as raw_sync_run_id,
+    greatest(
+        coalesce(a.raw_sync_started_at, toDateTime('1970-01-01 00:00:00')),
+        coalesce(w.raw_sync_started_at, toDateTime('1970-01-01 00:00:00')),
+        coalesce(t.latest_raw_sync_started_at, toDateTime('1970-01-01 00:00:00'))
+    ) as raw_sync_started_at
 
 FROM aqi a
 LEFT JOIN weather w ON

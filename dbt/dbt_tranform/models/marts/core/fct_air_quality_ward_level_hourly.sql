@@ -2,7 +2,7 @@
     materialized='incremental',
     engine='ReplacingMergeTree',
     unique_key='(province, ward_code, datetime_hour)',
-    order_by='(province, date, assumeNotNull(ward_code))',
+    order_by='(province, assumeNotNull(ward_code), datetime_hour)',
     partition_by='toYYYYMM(date)',
     query_settings={
         'max_threads': 1,
@@ -53,12 +53,12 @@ summary as (
 
 consolidated as (
     select
-        datetime_hour,
-        date,
         province,
         ward_code,
-        region_3,
-        region_8,
+        datetime_hour,
+        toDate(datetime_hour) as date,
+        any(region_3) as region_3,
+        any(region_8) as region_8,
         
         -- Standardized Weighted Average logic
         sum(final_aqi_us * source_weight) / nullIf(sum(source_weight), 0) as avg_aqi_us,
@@ -87,12 +87,9 @@ consolidated as (
         
     from summary
     group by
-        datetime_hour,
-        date,
         province,
         ward_code,
-        region_3,
-        region_8
+        datetime_hour
 ),
 
 final as (

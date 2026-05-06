@@ -55,9 +55,6 @@ daily_agg as (
 final as (
     select
         date, province, ward_code, region_3, region_8, last_ingested_at,
-        max_raw_loaded_at as raw_loaded_at,
-        latest_raw_sync_run_id as raw_sync_run_id,
-        latest_raw_sync_started_at as raw_sync_started_at,
         _avg_aqi_us as avg_aqi_us,
         _max_aqi_us as max_aqi_us,
         _min_aqi_us as min_aqi_us,
@@ -77,7 +74,10 @@ final as (
         _so2_aqi as so2_aqi,
         _o3_aqi as o3_aqi,
         -- Use macro for daily dominant pollutant
-        {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant
+        {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant,
+        max_raw_loaded_at as raw_loaded_at,
+        latest_raw_sync_run_id as raw_sync_run_id,
+        latest_raw_sync_started_at as raw_sync_started_at
     from daily_agg
 )
 
