@@ -94,9 +94,12 @@ def get_data_freshness():
     q = """
     SELECT
         source,
-        lag_hours,
-        health_status
-    FROM air_quality.dm_platform_data_health
+        reliable_pct,
+        latest_lag_hours,
+        latest_ingest_lag_hours,
+        stale_count,
+        offline_count
+    FROM air_quality.dm_platform_source_health
     WHERE source IN ('aqiin', 'openweather')
     ORDER BY source
     """
@@ -180,25 +183,32 @@ try:
     if not freshness.empty:
         freshness = freshness.copy()
         freshness["Nguồn"] = freshness["source"].map(SOURCE_LABELS)
-        FRESHNESS_COLORS = {
-            "Fresh": "#00E400",
-            "Delayed": "#FFFF00",
-            "Stale": "#FF7E00",
-            "Offline": "#FF0000",
-        }
+        freshness["latest_label"] = freshness["latest_lag_hours"].round(1).astype(str) + "h"
         fig = px.bar(
             freshness,
             x="Nguồn",
-            y="lag_hours",
-            color="health_status",
-            color_discrete_map=FRESHNESS_COLORS,
-            text="lag_hours",
-            labels={"lag_hours": t("chart_label_hour", lang), "health_status": t("chart_label_status", lang)},
+            y="reliable_pct",
+            color="source",
+            color_discrete_map=SOURCE_COLORS,
+            text="latest_label",
+            labels={
+                "reliable_pct": t("reliable_coverage", lang),
+                "source": t("chart_label_source", lang),
+            },
+            hover_data={
+                "source": False,
+                "latest_label": False,
+                "latest_lag_hours": ":.1f",
+                "latest_ingest_lag_hours": ":.1f",
+                "stale_count": True,
+                "offline_count": True,
+            },
         )
-        fig.update_layout(height=260, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
+        fig.update_yaxes(range=[0, 100], ticksuffix="%")
+        fig.update_layout(height=260, showlegend=False, margin=dict(l=0, r=0, t=10, b=30))
         fig.update_traces(textposition="outside")
         st.plotly_chart(fig, use_container_width=True)
-        st.caption("Nguồn Fresh (≤1h) | Delayed (≤3h) | Stale (≤24h) | Offline (>24h)")
+        st.caption(t("ops_dashboard_note", lang))
     else:
         st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu độ tươi."), use_container_width=True)
 

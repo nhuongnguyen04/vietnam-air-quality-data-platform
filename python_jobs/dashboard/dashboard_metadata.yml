@@ -24,7 +24,7 @@ dashboard:
       description: "So sánh dữ liệu chất lượng không khí giữa các nguồn."
       source_tables: 
         - "fct_air_quality_summary_daily"
-        - "dm_platform_data_health"
+        - "dm_platform_source_health"
     - filename: "4_Historical_Trend.py"
       name: "Historical_Trend"
       display_name: "Xu hướng lịch sử"
@@ -41,7 +41,7 @@ dashboard:
         - "dm_aqi_current_status"
         - "dm_aqi_compliance_standards"
         - "dm_aqi_health_impact_summary"
-        - "dm_platform_data_health"
+        - "dm_platform_source_health"
     - filename: "6_Traffic_Impact.py"
       name: "Traffic_Impact"
       display_name: "Ảnh hưởng Giao thông"
@@ -61,6 +61,9 @@ dashboard:
       description: "Trạng thái các trạm quan trắc và luồng dữ liệu."
       source_tables: 
         - "dm_platform_data_health"
+        - "dm_platform_health_summary"
+        - "dm_platform_source_health"
+        - "dm_platform_status_distribution"
     - filename: "9_Weather_Impact.py"
       name: "Weather_Impact"
       display_name: "Ảnh hưởng Thời tiết"

@@ -18,4 +18,5 @@ def test_dag_transform_updates_ingestion_control_from_final_task_states() -> Non
     assert "@task(trigger_rule='all_done')" in content
     assert "source='dag_transform'" in content
     assert "ti.xcom_pull(task_ids='log_dbt_stats')" in content
-    assert "failed_states = {'failed', 'upstream_failed'}" in content
+    assert "if ti.xcom_pull(task_ids=task_id) is None" in content
+    assert "get_task_instances(" not in content

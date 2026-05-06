@@ -244,3 +244,114 @@ groups:
         labels:
           severity: warning
           channel: system
+
+      - uid: sys-observation-lag-health
+        title: "Observation Freshness Warning (>3h latest observation age)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT latest_lag_hours
+                FROM air_quality.dm_platform_health_summary
+              format: table
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [3], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 10m
+        annotations:
+          summary: "Latest observation is older than 3 hours"
+          value: "{{ $values.B }}"
+          description: "Check the Data Reliability Operations dashboard and upstream source schedules."
+        labels:
+          severity: warning
+          channel: system
+
+      - uid: sys-reliable-coverage-low
+        title: "Reliable Coverage Low (<70%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT reliable_pct
+                FROM air_quality.dm_platform_health_summary
+              format: table
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [70], type: lt }
+        noDataState: OK
+        execErrState: OK
+        for: 15m
+        annotations:
+          summary: "Reliable ward/source coverage dropped below 70%"
+          value: "{{ $values.B }}"
+          description: "Stale or offline source coverage is high. Check dm_platform_source_health by source."
+        labels:
+          severity: warning
+          channel: system
+
+      - uid: sys-attention-count-high
+        title: "Stale or Offline Ward/sources High (>500)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: clickhouse-airquality
+            model:
+              maxDataPoints: 300
+              rawSql: |
+                SELECT attention_count
+                FROM air_quality.dm_platform_health_summary
+              format: table
+          - refId: B
+            datasourceUid: "-100"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            datasourceUid: "-100"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { params: [500], type: gt }
+        noDataState: OK
+        execErrState: OK
+        for: 15m
+        annotations:
+          summary: "More than 500 ward/source records are stale or offline"
+          value: "{{ $values.B }}"
+          description: "Use Data Reliability Operations to triage worst stale/offline ward-source records."
+        labels:
+          severity: warning
+          channel: system

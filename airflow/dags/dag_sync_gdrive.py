@@ -124,28 +124,27 @@ def dag_sync_gdrive():
 
         context = get_current_context()
         ti = context['ti']
-        dag_run = context['dag_run']
-        sync_task_instance = dag_run.get_task_instance('sync_data')
-        sync_state = sync_task_instance.state if sync_task_instance else 'unknown'
-        counters = ti.xcom_pull(task_ids='sync_data') or {}
+        counters = ti.xcom_pull(task_ids='sync_data')
+        sync_succeeded = isinstance(counters, dict) and bool(counters)
+        counters = counters or {}
         files_synced = int(counters.get('FILES_SYNCED', 0) or 0)
         files_failed = int(counters.get('FILES_FAILED', 0) or 0)
 
         error_message = ''
-        if sync_state != 'success':
-            error_message = f"sync_data task ended in state={sync_state}"
+        if not sync_succeeded:
+            error_message = "sync_data did not produce sync counters"
         elif files_failed > 0:
             error_message = f"Partial sync completed with {files_failed} failed file(s)"
 
         _update(
             source='dag_sync_gdrive',
             records_ingested=files_synced,
-            success=sync_state == 'success',
+            success=sync_succeeded,
             error_message=error_message,
         )
         print(
             "Updated ingestion_control for dag_sync_gdrive with "
-            f"records_ingested={files_synced}, files_failed={files_failed}, state={sync_state}"
+            f"records_ingested={files_synced}, files_failed={files_failed}, success={sync_succeeded}"
         )
 
     trigger_transform = TriggerDagRunOperator(

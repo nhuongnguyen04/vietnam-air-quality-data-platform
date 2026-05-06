@@ -104,13 +104,14 @@ def get_high_risk_heatmap(days: int, province: str | None):
 def get_platform_health():
     q = """
     SELECT
-        province,
         source,
-        lag_hours,
-        health_status
-    FROM air_quality.dm_platform_data_health
-    ORDER BY province, source
-    LIMIT 50
+        reliable_pct,
+        latest_lag_hours,
+        stale_count,
+        offline_count,
+        attention_count
+    FROM air_quality.dm_platform_source_health
+    ORDER BY source
     """
     return query_df(q)
 
@@ -223,41 +224,35 @@ try:
         st.subheader(t("chart_data_freshness", lang))
         health = get_platform_health()
         if not health.empty:
-            # Map health status
-            health_map = {
-                "Fresh": t("health_fresh", lang),
-                "Delayed": t("health_delayed", lang),
-                "Stale": t("health_stale", lang),
-                "Offline": t("health_offline", lang)
-            }
-            health["status_label"] = health["health_status"].map(health_map).fillna(health["health_status"])
-            
-            # Colors with localized labels
-            color_map = {
-                t("health_fresh", lang): "#00E400",
-                t("health_delayed", lang): "#FFFF00",
-                t("health_stale", lang): "#FF7E00",
-                t("health_offline", lang): "#FF0000"
-            }
-            
+            health["source_label"] = health["source"].str.upper()
+            health["attention_label"] = health["attention_count"].astype(int).astype(str)
             fig = px.bar(
                 health,
-                x="province",
-                y="lag_hours",
-                color="status_label",
-                color_discrete_map=color_map,
-                text="lag_hours",
-                labels={"province": t("province", lang), "lag_hours": t("chart_label_hour", lang), "status_label": t("chart_label_status", lang)},
-                custom_data=["source"],
+                x="source_label",
+                y="attention_count",
+                color="source_label",
+                text="attention_label",
+                labels={
+                    "source_label": t("chart_label_source", lang),
+                    "attention_count": t("attention_needed", lang),
+                },
+                hover_data={
+                    "source_label": False,
+                    "attention_label": False,
+                    "reliable_pct": ":.1f",
+                    "latest_lag_hours": ":.1f",
+                    "stale_count": True,
+                    "offline_count": True,
+                },
             )
-            fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
+            fig.update_layout(height=300, showlegend=False, margin=dict(l=0, r=0, t=10, b=30))
             fig.update_traces(textposition="outside")
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("Fresh≤1h | Delayed≤3h | Stale≤24h | Offline>24h")
+            st.caption(t("ops_dashboard_note", lang))
         else:
             fig = render_empty_chart("Không có dữ liệu sức khỏe hệ thống.")
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("dm_platform_data_health chưa có dữ liệu.")
+            st.caption("dm_platform_source_health chưa có dữ liệu.")
 
     # ── high-risk heatmap ─────────────────────────────────────────────────────
     st.subheader(t("chart_high_risk_hours", lang))

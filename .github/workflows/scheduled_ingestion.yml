@@ -47,7 +47,9 @@ jobs:
         run: |
           echo "Starting parallel ingestion..."
           python python_jobs/jobs/aqiin/ingest_measurements.py &
+          AQIIN_PID=$!
           python python_jobs/jobs/openweather/ingest_openweather_unified.py &
+          OPENWEATHER_PID=$!
           
           HOUR=$(date +%H)
           # Convert UTC hour to Vietnam time (UTC+7) before comparing
@@ -56,12 +58,21 @@ jobs:
           if [ $VietnamHour -ge 7 ] && [ $VietnamHour -le 20 ]; then
             echo "Peak Hour ($VietnamHour:00 VN): Running TomTom V2 Ingestion..."
             python python_jobs/jobs/traffic/ingest_tomtom.py &
+            TRAFFIC_PID=$!
           else
             echo "Off-Peak Hour ($VietnamHour:00 VN): Generating Simulated Traffic..."
             python python_jobs/jobs/traffic/generate_offpeak_traffic.py &
+            TRAFFIC_PID=$!
           fi
           
-          wait
+          status=0
+          wait "$AQIIN_PID" || { echo "AQI.in ingestion failed"; status=1; }
+          wait "$OPENWEATHER_PID" || { echo "OpenWeather ingestion failed"; status=1; }
+          wait "$TRAFFIC_PID" || { echo "Traffic ingestion failed"; status=1; }
+          if [ "$status" -ne 0 ]; then
+            echo "One or more ingestion jobs failed; skipping upload."
+            exit "$status"
+          fi
           echo "All parallel ingestion jobs finished."
 
       - name: Upload to Google Drive

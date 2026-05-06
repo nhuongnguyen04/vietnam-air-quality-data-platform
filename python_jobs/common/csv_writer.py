@@ -21,6 +21,7 @@ class CSVWriter:
     
     def __init__(self, output_dir: str = "landing_zone"):
         self.output_dir = output_dir
+        self._filename_counters = {}
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         logger.info(f"CSVWriter initialized: output_dir={output_dir}")
@@ -46,7 +47,14 @@ class CSVWriter:
         }
         short_type = type_map.get(dtype, dtype[:4])
         
-        return f"{src}_{short_type}_{ts}.csv"
+        base = f"{src}_{short_type}_{ts}"
+        counter = self._filename_counters.get(base, 0) + 1
+        while True:
+            filename = f"{base}_{counter:04d}.csv"
+            if not os.path.exists(os.path.join(self.output_dir, filename)):
+                self._filename_counters[base] = counter
+                return filename
+            counter += 1
 
     def write_batch(
         self, 

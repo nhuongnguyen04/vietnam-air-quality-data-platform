@@ -172,6 +172,7 @@ def dag_transform():
             timeout=600,
         )
         print_dbt_result(result, "dbt seed failed", "dbt seed completed")
+        return True
 
     @task
     def dbt_run_staging():
@@ -189,6 +190,7 @@ def dag_transform():
             dbt_vars=dbt_vars or None,
         )
         print_dbt_result(result, "dbt run staging failed", "dbt run staging completed")
+        return True
 
     @task
     def dbt_run_intermediate():
@@ -206,6 +208,7 @@ def dag_transform():
             dbt_vars=dbt_vars or None,
         )
         print_dbt_result(result, "dbt run intermediate failed", "dbt run intermediate completed")
+        return True
 
     @task
     def dbt_run_marts():
@@ -223,6 +226,7 @@ def dag_transform():
             dbt_vars=dbt_vars or None,
         )
         print_dbt_result(result, "dbt run marts failed", "dbt run marts completed")
+        return True
 
     @task
     def dbt_test():
@@ -232,6 +236,7 @@ def dag_transform():
             timeout=1800,
         )
         print_dbt_result(result, "dbt test failed", "dbt test completed")
+        return True
 
     @task
     def dbt_docs_generate():
@@ -331,7 +336,6 @@ def dag_transform():
 
         context = get_current_context()
         ti = context['ti']
-        dag_run = context['dag_run']
         stats = ti.xcom_pull(task_ids='log_dbt_stats') or {}
         transformed_units = 0
         if isinstance(stats, dict):
@@ -348,14 +352,9 @@ def dag_transform():
             'dbt_test',
             'log_dbt_stats',
         ]
-        failed_states = {'failed', 'upstream_failed'}
-        task_states = {
-            task_instance.task_id: task_instance.state
-            for task_instance in dag_run.get_task_instances()
-        }
         failed_tasks = [
             task_id for task_id in critical_task_ids
-            if task_states.get(task_id) in failed_states
+            if ti.xcom_pull(task_ids=task_id) is None
         ]
 
         success = not failed_tasks

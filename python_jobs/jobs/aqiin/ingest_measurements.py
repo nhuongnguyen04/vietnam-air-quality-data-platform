@@ -122,7 +122,7 @@ def load_locations(limit: int = None) -> List[str]:
         paths = [line.strip() for line in f if line.strip()]
     return paths[:limit] if limit else paths
 
-async def run(mode: str, limit: int):
+async def run(mode: str, limit: int, min_success_ratio: float):
     batch_id = f"aqiin_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     paths = load_locations(limit=limit)
     logger = logging.getLogger("ingest_aqiin")
@@ -139,6 +139,7 @@ async def run(mode: str, limit: int):
     # GHA Notice for API monitoring
     successful = sum(1 for sid, r in results if r.success)
     failed = len(results) - successful
+    success_ratio = successful / len(results) if results else 0
     token_expired = any(r.error and "Token expired" in str(r.error) for sid, r in results)
     
     if os.environ.get('GITHUB_ACTIONS') == 'true':
@@ -147,20 +148,39 @@ async def run(mode: str, limit: int):
             status_msg = "❌ TOKEN EXPIRED"
             
         print(f"::notice::AQI.in API Ingestion: {status_msg} ({successful}/{len(results)} stations), {n_m} records added")
+
+    if success_ratio < min_success_ratio:
+        raise RuntimeError(
+            "AQI.in coverage below threshold: "
+            f"{successful}/{len(results)} ({success_ratio:.2%}) < {min_success_ratio:.2%}. "
+            "Failing run to prevent partial CSV upload from being treated as complete."
+        )
     
-    return {"successful": successful, "total": len(results), "records": n_m}
+    return {
+        "successful": successful,
+        "failed": failed,
+        "total": len(results),
+        "success_ratio": round(success_ratio, 4),
+        "records": n_m,
+    }
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="full")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--min-success-ratio",
+        type=float,
+        default=float(os.environ.get("AQIIN_MIN_SUCCESS_RATIO", "0.80")),
+        help="Minimum share of stations that must scrape successfully for the run to be considered successful.",
+    )
     args = parser.parse_args()
 
     with JobLogger("ingest_aqiin", source="aqiin") as logger:
         import asyncio
         start = datetime.now(timezone.utc)
         try:
-            stats = asyncio.run(run(args.mode, args.limit))
+            stats = asyncio.run(run(args.mode, args.limit, args.min_success_ratio))
             elapsed = (datetime.now(timezone.utc) - start).total_seconds()
             logger.info(f"Completed in {elapsed:.1f}s — {stats}")
         except Exception as e:

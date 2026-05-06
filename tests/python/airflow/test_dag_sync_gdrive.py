@@ -19,3 +19,4 @@ def test_dag_sync_gdrive_updates_ingestion_control() -> None:
     assert "_update(" in content
     assert "source='dag_sync_gdrive'" in content
     assert "ti.xcom_pull(task_ids='sync_data')" in content
+    assert "get_task_instance(" not in content

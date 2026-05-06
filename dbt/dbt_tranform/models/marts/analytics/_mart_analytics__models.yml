@@ -99,16 +99,137 @@ models:
         description: Ward identifier.
       - name: source
         description: Data source name (aqiin or openweather).
-      - name: last_reading_at
+      - name: last_seen
         description: UTC timestamp of the latest reading from this source.
         tags:
           - NonSensitive
+      - name: last_ingested_at
+        description: Latest upstream ingest timestamp observed for this source at this ward.
+        tags:
+          - NonSensitive
+      - name: last_loaded_at
+        description: Latest raw load timestamp observed for this source at this ward.
+        tags:
+          - NonSensitive
+      - name: observation_lag_hours
+        description: Hours since the latest observation timestamp. This is the canonical data freshness lag.
+      - name: ingest_lag_hours
+        description: Hours since the latest raw load timestamp. This measures pipeline ingest recency, not observation freshness.
       - name: lag_hours
-        description: Number of hours since the last reading.
+        description: Backward-compatible alias for observation_lag_hours.
       - name: health_status
         description: Status string based on lag (Fresh, Delayed, Stale, Offline).
       - name: is_reliable
         description: Boolean flag for data reliability (lag ≤ 3 hours).
+
+  - name: dm_platform_source_health
+    description: |
+      Source-level rollup of data freshness and reliability.
+
+      **Grain:** One row per source.
+
+      **Business Rules:**
+      - latest_lag_hours measures age of the newest observation available from the source.
+      - reliable_pct measures the share of ward/source records with observation_lag_hours ≤ 3.
+      - active_avg_lag_hours excludes Offline records so the average describes reporting sources.
+      - all_avg_lag_hours keeps Offline records for SLA and incident analysis.
+    columns:
+      - name: source
+        description: Data source name.
+      - name: source_ward_count
+        description: Number of ward/source records represented by this source.
+      - name: reliable_count
+        description: Number of ward/source records with observation_lag_hours ≤ 3.
+      - name: reliable_pct
+        description: Share of source_ward_count that is currently reliable.
+      - name: latest_reading_at
+        description: Newest observation timestamp available from this source.
+        tags:
+          - NonSensitive
+      - name: latest_lag_hours
+        description: Hours since latest_reading_at.
+      - name: latest_ingested_at
+        description: Newest upstream ingest timestamp available from this source.
+        tags:
+          - NonSensitive
+      - name: latest_ingest_lag_hours
+        description: Hours since latest_ingested_at.
+      - name: active_avg_lag_hours
+        description: Average observation lag excluding Offline records.
+      - name: all_avg_lag_hours
+        description: Average observation lag including Offline records.
+      - name: fresh_count
+        description: Number of Fresh ward/source records.
+      - name: delayed_count
+        description: Number of Delayed ward/source records.
+      - name: stale_count
+        description: Number of Stale ward/source records.
+      - name: offline_count
+        description: Number of Offline ward/source records.
+      - name: attention_count
+        description: Number of Stale or Offline ward/source records.
+      - name: worst_lag_hours
+        description: Largest observation lag for this source.
+
+  - name: dm_platform_health_summary
+    description: |
+      Platform-level rollup of data freshness and reliability for status dashboards.
+
+      **Grain:** One row for the whole platform at query time.
+    columns:
+      - name: measured_at
+        description: Query-time timestamp for the status snapshot.
+        tags:
+          - NonSensitive
+      - name: source_ward_count
+        description: Total number of ward/source health records.
+      - name: reliable_count
+        description: Number of ward/source records with observation_lag_hours ≤ 3.
+      - name: reliable_pct
+        description: Share of ward/source records currently reliable.
+      - name: latest_reading_at
+        description: Newest observation timestamp in the platform.
+        tags:
+          - NonSensitive
+      - name: latest_lag_hours
+        description: Hours since latest_reading_at.
+      - name: latest_ingested_at
+        description: Newest upstream ingest timestamp in the platform.
+        tags:
+          - NonSensitive
+      - name: latest_ingest_lag_hours
+        description: Hours since latest_ingested_at.
+      - name: active_avg_lag_hours
+        description: Average observation lag excluding Offline records.
+      - name: all_avg_lag_hours
+        description: Average observation lag including Offline records.
+      - name: fresh_count
+        description: Number of Fresh ward/source records.
+      - name: delayed_count
+        description: Number of Delayed ward/source records.
+      - name: stale_count
+        description: Number of Stale ward/source records.
+      - name: offline_count
+        description: Number of Offline ward/source records.
+      - name: attention_count
+        description: Number of Stale or Offline ward/source records.
+      - name: worst_lag_hours
+        description: Largest observation lag in the platform.
+
+  - name: dm_platform_status_distribution
+    description: |
+      Count distribution of data health statuses by source for operational dashboards.
+
+      **Grain:** One row per (source, health_status).
+    columns:
+      - name: source
+        description: Data source name.
+      - name: health_status
+        description: Status string based on observation lag.
+      - name: source_ward_count
+        description: Number of ward/source records in this status.
+      - name: avg_lag_hours
+        description: Average observation lag for this source/status bucket.
 
   - name: dm_aqi_compliance_standards
     description: |

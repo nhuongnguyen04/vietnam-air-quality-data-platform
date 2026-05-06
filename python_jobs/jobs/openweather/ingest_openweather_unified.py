@@ -100,6 +100,12 @@ def main():
     parser.add_argument("--workers", type=int, default=None, help="Force number of workers")
     parser.add_argument("--limit", type=int, default=None, help="Limit points")
     parser.add_argument("--grid", type=float, default=0.2, help="Weather cluster grid size (degrees)")
+    parser.add_argument(
+        "--min-success-ratio",
+        type=float,
+        default=float(os.environ.get("OPENWEATHER_MIN_SUCCESS_RATIO", "0.90")),
+        help="Minimum share of wards that must return pollution records for the run to be considered successful.",
+    )
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
 
@@ -157,6 +163,9 @@ def main():
     all_pollution_records = []
     chunk_size = 100
     processed = 0
+    successful_pollution_points = 0
+    failed_pollution_points = 0
+    records_written = 0
     batch_id = f"ow__{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -168,6 +177,9 @@ def main():
                 for p in p_list:
                     p["ingest_batch_id"] = batch_id
                 all_pollution_records.extend(p_list)
+                successful_pollution_points += 1
+            else:
+                failed_pollution_points += 1
             if w_rec:
                 # Note: Meteorology  table uses cluster_lat/cluster_lon but doesn't strictly need duplicating for every ward
                 # however, if we want to query by ward_code join weather, we might want to store ward_code in meteorology  too?
@@ -179,7 +191,11 @@ def main():
             processed += 1
             if processed % chunk_size == 0:
                 if all_pollution_records:
-                    writer.write_batch("raw_openweather_measurements", all_pollution_records, source="openweather")
+                    records_written += writer.write_batch(
+                        "raw_openweather_measurements",
+                        all_pollution_records,
+                        source="openweather",
+                    )
                     all_pollution_records = []
                 logger.info(f"Progress: {processed}/{len(all_points)} wards processed.")
 
@@ -192,10 +208,37 @@ def main():
 
     # Final write
     if all_pollution_records:
-        writer.write_batch("raw_openweather_measurements", all_pollution_records, source="openweather")
+        records_written += writer.write_batch("raw_openweather_measurements", all_pollution_records, source="openweather")
 
-    logger.info(f"Ingestion complete. Total wards: {processed}, Clusters: {len(cluster_weather_lookup)}")
-    update_control(source="openweather_unified", records_ingested=processed, success=True)
+    success_ratio = successful_pollution_points / len(all_points) if all_points else 0
+    logger.info(
+        "Ingestion complete. "
+        f"Processed wards: {processed}, "
+        f"pollution_success={successful_pollution_points}, "
+        f"pollution_failed={failed_pollution_points}, "
+        f"success_ratio={success_ratio:.2%}, "
+        f"records_written={records_written}, "
+        f"clusters={len(cluster_weather_lookup)}"
+    )
+    if success_ratio < args.min_success_ratio:
+        logger.error(
+            "OpenWeather coverage below threshold: "
+            f"{successful_pollution_points}/{len(all_points)} "
+            f"({success_ratio:.2%}) < {args.min_success_ratio:.2%}. "
+            "Failing run to prevent partial CSV upload from being treated as complete."
+        )
+        update_control(
+            source="openweather_unified",
+            records_ingested=records_written,
+            success=False,
+            error_message=(
+                f"coverage {successful_pollution_points}/{len(all_points)} "
+                f"({success_ratio:.2%}) below threshold {args.min_success_ratio:.2%}"
+            ),
+        )
+        sys.exit(1)
+
+    update_control(source="openweather_unified", records_ingested=records_written, success=True)
 
 if __name__ == "__main__":
     main()
