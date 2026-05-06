@@ -321,19 +321,57 @@ def dag_transform():
 
         return stats
 
-    @task
-    def update_transform_control(stats: dict[str, int]):
-        """Update ingestion_control for the transform path using a meaningful unit count."""
+    @task(trigger_rule='all_done')
+    def update_transform_control():
+        """Update ingestion_control for the transform DAG using the final task states."""
         import sys
 
         sys.path.insert(0, '/opt/python/jobs')
         from common.ingestion_control import update_control as _update
 
-        transformed_units = stats.get('warehouse_tables_built', 0)
-        _update(source='dbt_transform', records_ingested=transformed_units, success=True)
+        context = get_current_context()
+        ti = context['ti']
+        dag_run = context['dag_run']
+        stats = ti.xcom_pull(task_ids='log_dbt_stats') or {}
+        transformed_units = 0
+        if isinstance(stats, dict):
+            transformed_units = int(stats.get('warehouse_tables_built', 0) or 0)
+
+        critical_task_ids = [
+            'check_clickhouse_connection',
+            'check_dbt_ready',
+            'dbt_deps',
+            'dbt_seed',
+            'dbt_run_staging',
+            'dbt_run_intermediate',
+            'dbt_run_marts',
+            'dbt_test',
+            'log_dbt_stats',
+        ]
+        failed_states = {'failed', 'upstream_failed'}
+        task_states = {
+            task_instance.task_id: task_instance.state
+            for task_instance in dag_run.get_task_instances()
+        }
+        failed_tasks = [
+            task_id for task_id in critical_task_ids
+            if task_states.get(task_id) in failed_states
+        ]
+
+        success = not failed_tasks
+        error_message = ''
+        if failed_tasks:
+            error_message = "Failed tasks: " + ", ".join(sorted(failed_tasks))
+
+        _update(
+            source='dag_transform',
+            records_ingested=transformed_units,
+            success=success,
+            error_message=error_message,
+        )
         print(
-            "Updated ingestion_control for dbt_transform with "
-            f"records_ingested={transformed_units}"
+            "Updated ingestion_control for dag_transform with "
+            f"records_ingested={transformed_units}, failed_tasks={failed_tasks}"
         )
 
     @task
@@ -352,7 +390,7 @@ def dag_transform():
     docs = dbt_docs_generate()
     patch = patch_dbt_artifacts()
     stats = log_dbt_stats()
-    update_control = update_transform_control(stats)
+    update_control = update_transform_control()
     completion = log_completion()
 
     check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts

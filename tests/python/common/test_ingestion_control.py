@@ -27,12 +27,14 @@ def test_update_control_skips_clickhouse_in_csv_mode(
 
 
 @pytest.mark.integration
-def test_update_control_inserts_expected_row(
+def test_update_control_inserts_expected_row_for_failed_run_preserving_last_success(
     monkeypatch: pytest.MonkeyPatch,
     mock_clickhouse_client: MagicMock,
 ) -> None:
     last_run = datetime(2026, 4, 22, 10, 0, tzinfo=timezone.utc)
+    previous_success = datetime(2026, 4, 22, 9, 0, tzinfo=timezone.utc)
     monkeypatch.delenv("INGEST_MODE", raising=False)
+    mock_clickhouse_client.query.return_value.result_rows = [[previous_success]]
     monkeypatch.setattr(
         "python_jobs.common.ingestion_control.get_clickhouse_client",
         MagicMock(return_value=mock_clickhouse_client),
@@ -52,9 +54,9 @@ def test_update_control_inserts_expected_row(
     row = args[1][0]
     assert row[0] == "openweather"
     assert row[1] == last_run
-    assert row[2] == datetime(1970, 1, 1, tzinfo=timezone.utc)
+    assert row[2] == previous_success
     assert row[3] == 25
-    assert row[4] == -1
+    assert row[4] == 3600
     assert row[5] == "temporary error"
     assert kwargs["column_names"] == [
         "source",
@@ -66,3 +68,33 @@ def test_update_control_inserts_expected_row(
         "updated_at",
     ]
     mock_clickhouse_client.close.assert_called_once()
+
+
+@pytest.mark.integration
+def test_update_control_success_sets_last_success_to_current_run(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_clickhouse_client: MagicMock,
+) -> None:
+    last_run = datetime(2026, 4, 22, 10, 0, tzinfo=timezone.utc)
+    monkeypatch.delenv("INGEST_MODE", raising=False)
+    mock_clickhouse_client.query.return_value.result_rows = [[None]]
+    monkeypatch.setattr(
+        "python_jobs.common.ingestion_control.get_clickhouse_client",
+        MagicMock(return_value=mock_clickhouse_client),
+    )
+
+    update_control(
+        source="dag_sync_gdrive",
+        records_ingested=4,
+        success=True,
+        last_run=last_run,
+    )
+
+    args, _ = mock_clickhouse_client.insert.call_args
+    row = args[1][0]
+    assert row[0] == "dag_sync_gdrive"
+    assert row[1] == last_run
+    assert row[2] == last_run
+    assert row[3] == 4
+    assert row[4] == 0
+    assert row[5] == ""

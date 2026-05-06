@@ -88,7 +88,7 @@ graph TD
 | `TokenManager` | `python_jobs/common/token_manager.py` | Multi-token rotation and per-token rate-limit management for high-throughput API ingestion. |
 | `DataWriter` / `get_data_writer()` | `python_jobs/common/base_writer.py`, `python_jobs/common/writer_factory.py` | Write abstraction that switches between ClickHouse persistence and CSV output depending on runtime mode. |
 | `ClickHouseWriter` | `python_jobs/common/clickhouse_writer.py` | Batch insert implementation for raw table ingestion, including retry and batch-id decoration. |
-| `update_control()` | `python_jobs/common/ingestion_control.py` | Writes operational run metadata into the `ingestion_control` warehouse table after pipeline steps complete. |
+| `update_control()` | `python_jobs/common/ingestion_control.py` | Writes the latest run state and latest successful-run timestamp for ingest/transform pipeline steps into `ingestion_control`. |
 | `VannaRuntime` | `python_jobs/text_to_sql/vanna_runtime.py` | SQL-generation boundary for Ask Data; trains Vanna on the approved mart catalog but does not execute SQL. |
 | `validate_sql()` | `python_jobs/text_to_sql/sql_validator.py` | Contract gate that rejects non-`SELECT` queries, non-allowlisted tables, and raw/staging/intermediate access. |
 | `ClickHouseExecutor` | `python_jobs/text_to_sql/clickhouse_executor.py` | Read-only execution boundary that adds row caps and timeout settings to approved Ask Data queries. |

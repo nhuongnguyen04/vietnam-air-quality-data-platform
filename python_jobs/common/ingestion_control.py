@@ -11,6 +11,8 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
+NEVER_SUCCEEDED = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
 
 def get_clickhouse_client():
     """Create a ClickHouse client using environment variables."""
@@ -22,6 +24,31 @@ def get_clickhouse_client():
         password=os.environ.get('CLICKHOUSE_PASSWORD', 'admin'),
         database=os.environ.get('CLICKHOUSE_DB', 'air_quality'),
     )
+
+
+def _normalize_utc_timestamp(value: object) -> Optional[datetime]:
+    """Normalize ClickHouse timestamps into timezone-aware UTC datetimes."""
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _get_previous_last_success(client, source: str) -> Optional[datetime]:
+    """Return the latest successful run timestamp already stored for a source."""
+    safe_source = source.replace("'", "''")
+    result = client.query(
+        "SELECT max(last_success) "
+        f"FROM ingestion_control WHERE source = '{safe_source}'"
+    )
+    if not result.result_rows:
+        return None
+
+    previous = _normalize_utc_timestamp(result.result_rows[0][0])
+    if previous is None or previous <= NEVER_SUCCEEDED:
+        return None
+    return previous
 
 
 def update_control(
@@ -43,33 +70,38 @@ def update_control(
         return
 
     client = get_clickhouse_client()
+    try:
+        now = last_run or datetime.now(timezone.utc)
+        previous_last_success = _get_previous_last_success(client, source)
+        effective_last_success = now if success else previous_last_success
 
-    now = last_run or datetime.now(timezone.utc)
-    # Sentinel value for "never succeeded" — clickhouse_connect 0.9.2 crashes
-    # when a datetime column contains bare Python None.
-    NEVER_SUCCEEDED = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    last_success = now if success else NEVER_SUCCEEDED
-    lag_seconds = 0 if success else -1
+        if effective_last_success is None:
+            stored_last_success = NEVER_SUCCEEDED
+            lag_seconds = -1
+        else:
+            stored_last_success = effective_last_success
+            lag_seconds = 0 if success else int((now - effective_last_success).total_seconds())
 
-    client.insert(
-        'ingestion_control',
-        [[
-            source,
-            now,
-            last_success,
-            records_ingested,
-            lag_seconds,
-            error_message,
-            now,
-        ]],
-        column_names=[
-            'source',
-            'last_run',
-            'last_success',
-            'records_ingested',
-            'lag_seconds',
-            'error_message',
-            'updated_at',
-        ],
-    )
-    client.close()
+        client.insert(
+            'ingestion_control',
+            [[
+                source,
+                now,
+                stored_last_success,
+                records_ingested,
+                lag_seconds,
+                error_message,
+                now,
+            ]],
+            column_names=[
+                'source',
+                'last_run',
+                'last_success',
+                'records_ingested',
+                'lag_seconds',
+                'error_message',
+                'updated_at',
+            ],
+        )
+    finally:
+        client.close()

@@ -7,11 +7,13 @@ sources:
     tables:
       - name: ingestion_control
         description: |
-          Bảng kiểm soát và giám sát ingestion — một bản ghi cho mỗi data source.
-          Được dag_ingest_hourly cập nhật sau mỗi lần ingest.
+          Bảng kiểm soát và giám sát pipeline — một bản ghi mới nhất cho mỗi source/DAG vận hành.
+          Được luồng chính `dag_sync_gdrive` và `dag_transform` cập nhật; `dag_ingest_hourly`
+          chỉ còn là manual fallback legacy.
           Columns: source, last_run, last_success, records_ingested, lag_seconds, error_message, updated_at.
           ReplacingMergeTree(updated_at) — luôn giữ bản ghi mới nhất của mỗi source.
-          Monitored bởi Grafana (freshness dashboard) và Prometheus alerting.
+          Freshness nên được tính từ `last_success`; `lag_seconds` là snapshot tại thời điểm ghi.
+          Monitored bởi Grafana alerting.
         meta:
           openmetadata:
             tier: "Tier.Tier2"

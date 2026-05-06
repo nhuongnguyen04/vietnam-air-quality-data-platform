@@ -33,8 +33,9 @@ Primary Airflow entrypoint for the checked-in ingest flow. Downloads CSV files u
 **Tasks**:
 1. Run `python_jobs/jobs/sync/gdrive_sync.py`
 2. Parse `FILES_FOUND`, `FILES_SYNCED`, and `FILES_FAILED`
-3. Branch on `FILES_SYNCED`
-4. Trigger `dag_transform` when new data arrived
+3. Update `ingestion_control` for the sync step
+4. Branch on `FILES_SYNCED`
+5. Trigger `dag_transform` when new data arrived
 
 ### 3. `dag_transform.py` - dbt Warehouse Build
 
@@ -53,7 +54,7 @@ Trigger-driven dbt pipeline for staged, intermediate, mart, and analytics models
 8. Run blocking `dbt test`
 9. Run non-blocking `dbt docs generate`
 10. Patch dbt artifacts and log warehouse build statistics
-11. Update `ingestion_control`
+11. Update `ingestion_control` with final DAG success/failure state
 
 ### 4. `dag_openmetadata_curation.py` - OpenMetadata Governance Sync
 
