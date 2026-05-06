@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from python_jobs.jobs.sync.gdrive_sync import format_value
+from python_jobs.jobs.sync.gdrive_sync import format_value, resolve_table_for_file
 
 
 def test_format_datetime_with_microseconds_and_timezone():
@@ -34,3 +34,24 @@ def test_format_uint8_boolean_strings():
 def test_format_bool_without_type():
     assert format_value(False) == "0"
     assert format_value(True) == "1"
+
+
+def test_resolve_table_for_nested_openweather_measurement_chunk():
+    assert (
+        resolve_table_for_file("openweather/measurements", "openweather_meas_20260506_1610_0001.csv")
+        == "raw_openweather_measurements"
+    )
+
+
+def test_resolve_table_for_flat_openweather_measurement_chunk():
+    assert (
+        resolve_table_for_file("", "openweather_meas_20260506_1610_0001.csv")
+        == "raw_openweather_measurements"
+    )
+
+
+def test_resolve_table_for_flat_openweather_weather_chunk():
+    assert (
+        resolve_table_for_file("", "openweather_weat_20260506_1621_0001.csv")
+        == "raw_openweather_meteorology"
+    )

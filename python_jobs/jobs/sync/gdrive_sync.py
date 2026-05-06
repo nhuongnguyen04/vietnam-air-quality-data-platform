@@ -47,6 +47,8 @@ PATH_TO_TABLE = {
 TABLE_MAPPING = {
     "aqiin_raw": "raw_aqiin_measurements",
     "aqiin_meas": "raw_aqiin_measurements",
+    "openweather_meas": "raw_openweather_measurements",
+    "openweather_weat": "raw_openweather_meteorology",
     "ow_meas": "raw_openweather_measurements",
     "ow_weat": "raw_openweather_meteorology",
     "tomtom_traf": "raw_tomtom_traffic"
@@ -131,6 +133,16 @@ def format_value(val: Any, ch_type: Optional[str] = None) -> str:
     # Escape single quotes and wrap in quotes
     safe_val = str(val).replace("'", "''")
     return f"'{safe_val}'"
+
+
+def resolve_table_for_file(rel_path: str, filename: str) -> Optional[str]:
+    """Resolve the raw table for a Google Drive landing-zone file."""
+    table = PATH_TO_TABLE.get(rel_path)
+    if table:
+        return table
+
+    prefix = "_".join(filename.split('_')[:2])
+    return TABLE_MAPPING.get(prefix)
 
 def get_drive_service():
     if not hasattr(thread_local, "drive_service"):
@@ -226,12 +238,7 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
     
     try:
         # 1. Determine Target Table
-        table = PATH_TO_TABLE.get(rel_path)
-        
-        if not table:
-            # Fallback to prefix-based mapping
-            prefix = "_".join(filename.split('_')[:2])
-            table = TABLE_MAPPING.get(prefix)
+        table = resolve_table_for_file(rel_path, filename)
             
         if not table:
             error = f"No table mapping for file at path: {rel_path}"
