@@ -23,9 +23,7 @@ with unified as (
         weather_influence_pct,
         stagnant_air_probability
     from {{ ref('fct_aqi_weather_traffic_unified') }}
-    {% if is_incremental() %}
-    where datetime_hour >= (select max(datetime_hour) - interval 1 day from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 )
 
 select * from unified

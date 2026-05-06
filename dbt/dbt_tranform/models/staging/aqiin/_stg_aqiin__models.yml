@@ -16,6 +16,8 @@ models:
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [station_name, timestamp_utc, parameter]
+          config:
+            where: "raw_loaded_at >= now() - interval 7 day"
     columns:
       - name: station_name
         description: |
@@ -74,8 +76,22 @@ models:
           Only 'valid' records should be used for production metrics.
       - name: ingest_time
         description: |
-          Timestamp when the record was written to ClickHouse.
-          Used for deduplication ordering (most recent wins).
+          Upstream AQI.in batch timestamp carried in the CSV payload.
+          Preserved for source semantics and late-delivery auditing.
+        tags:
+          - NonSensitive
+      - name: raw_loaded_at
+        description: |
+          Timestamp when the row was inserted into the raw ClickHouse table by `dag_sync_gdrive`.
+          Used as the version column for deterministic replacement in this staging model.
+        tags:
+          - NonSensitive
+      - name: raw_sync_run_id
+        description: |
+          Identifier of the Google Drive sync batch that produced this staged row version.
+      - name: raw_sync_started_at
+        description: |
+          Start timestamp of the Google Drive sync batch that produced this staged row version.
         tags:
           - NonSensitive
     meta:

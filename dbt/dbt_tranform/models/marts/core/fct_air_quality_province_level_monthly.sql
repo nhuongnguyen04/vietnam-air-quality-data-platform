@@ -8,9 +8,7 @@
 
 with province_daily as (
     select * from {{ ref('fct_air_quality_province_level_daily') }}
-    {% if is_incremental() %}
-    where date >= toStartOfMonth(today()) - interval 1 month
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 monthly_agg as (
@@ -45,7 +43,10 @@ monthly_agg as (
         avg(o3_aqi)   as _o3_aqi,
         
         count(*) as samples_count,
-        max(last_ingested_at) as last_ingested_at
+        max(last_ingested_at) as last_ingested_at,
+        max(raw_loaded_at) as max_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
         
     from province_daily
     group by month, province
@@ -54,6 +55,9 @@ monthly_agg as (
 final as (
     select
         month, province, region_3, region_8, samples_count, last_ingested_at,
+        max_raw_loaded_at as raw_loaded_at,
+        latest_raw_sync_run_id as raw_sync_run_id,
+        latest_raw_sync_started_at as raw_sync_started_at,
         _avg_aqi_us as avg_aqi_us,
         _max_aqi_us as max_aqi_us,
         _min_aqi_us as min_aqi_us,

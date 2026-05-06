@@ -8,9 +8,7 @@
 
 with ward_monthly as (
     select * from {{ ref('fct_air_quality_ward_level_monthly') }}
-    {% if is_incremental() %}
-    where month >= (select max(date) - interval 1 month from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 admin_units as (

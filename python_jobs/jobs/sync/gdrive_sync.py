@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import local
 from typing import List, Dict, Any, Optional
+from uuid import uuid4
 import clickhouse_connect
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -63,6 +64,12 @@ class SyncResult:
     table: Optional[str] = None
     error: Optional[str] = None
     reason: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class SyncBatchMetadata:
+    run_id: str
+    started_at: datetime
 
 
 def _base_type(ch_type: Optional[str]) -> str:
@@ -208,7 +215,7 @@ def list_files_recursive(service, folder_id, current_rel_path=""):
             
     return results
 
-def process_file_task(file_info, archive_source_mapping) -> SyncResult:
+def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMetadata) -> SyncResult:
     """Worker task to process a single file."""
     service = get_drive_service()
     ch_client = get_ch_client()
@@ -252,6 +259,12 @@ def process_file_task(file_info, archive_source_mapping) -> SyncResult:
             except Exception as e:
                 logger.warning(f"Could not fetch columns for {table}: {e}. Falling back to original columns.")
                 col_types = {col: None for col in records[0].keys()}
+
+            for record in records:
+                record["raw_sync_run_id"] = sync_batch.run_id
+                record["raw_sync_started_at"] = sync_batch.started_at
+                record["raw_source_file_name"] = filename
+                record["raw_source_file_id"] = file_id
 
             # Build SQL INSERT statement (allows ClickHouse to handle type conversion)
             # Filter columns to only include those that exist in the target table
@@ -313,6 +326,12 @@ def main():
         logger.error("GDRIVE_ROOT_FOLDER_ID not set")
         return
     
+    sync_started_at = datetime.now(timezone.utc)
+    sync_run_id = os.environ.get("AIRFLOW_CTX_DAG_RUN_ID")
+    if not sync_run_id:
+        sync_run_id = f"gdrive_sync__{sync_started_at.strftime('%Y%m%dT%H%M%SZ')}__{uuid4().hex[:8]}"
+    sync_batch = SyncBatchMetadata(run_id=sync_run_id, started_at=sync_started_at)
+
     # Initial setup in main thread to get global IDs
     service = get_drive_service()
     landing_zone_id = find_folder(service, "landing_zone", DRIVE_ROOT_ID)
@@ -328,6 +347,8 @@ def main():
     
     if not all_files:
         logger.info("No files found in landing zone")
+        print(f"SYNC_RUN_ID={sync_batch.run_id}")
+        print(f"SYNC_STARTED_AT={sync_batch.started_at.strftime('%Y-%m-%d %H:%M:%S')}")
         print("FILES_FOUND=0")
         print("FILES_SYNCED=0")
         print("FILES_FAILED=0")
@@ -340,7 +361,10 @@ def main():
     failed_results: List[SyncResult] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
-        futures = {executor.submit(process_file_task, f, source_mapping): f for f in all_files}
+        futures = {
+            executor.submit(process_file_task, f, source_mapping, sync_batch): f
+            for f in all_files
+        }
         
         for future in concurrent.futures.as_completed(futures):
             f_info = futures[future]
@@ -389,6 +413,8 @@ def main():
         )
 
     # Output for Airflow to parse
+    print(f"SYNC_RUN_ID={sync_batch.run_id}")
+    print(f"SYNC_STARTED_AT={sync_batch.started_at.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"FILES_FOUND={len(all_files)}")
     print(f"FILES_SYNCED={success_count}")
     print(f"FILES_FAILED={failed_count}")

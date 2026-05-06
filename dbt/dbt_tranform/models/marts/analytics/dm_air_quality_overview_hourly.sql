@@ -8,9 +8,7 @@
 
 with ward_hourly as (
     select * from {{ ref('fct_air_quality_ward_level_hourly') }}
-    {% if is_incremental() %}
-    where datetime_hour >= (select max(datetime_hour) - interval 1 day from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 admin_units as (

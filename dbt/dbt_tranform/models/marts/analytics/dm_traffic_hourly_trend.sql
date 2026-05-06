@@ -6,15 +6,7 @@
     partition_by='toYYYYMM(date)'
 ) }}
 
-with window_bounds as (
-    select
-        {% if is_incremental() %}
-        (select max(datetime_hour) - interval 1 day from {{ this }}) as window_start
-        {% else %}
-        toDateTime('1970-01-01 00:00:00') as window_start
-        {% endif %}
-),
-
+with
 province_coverage as (
     select
         province,
@@ -38,7 +30,7 @@ traffic_by_province_hour as (
     from {{ ref('stg_tomtom__flow') }} t
     left join {{ ref('dim_administrative_units') }} a
         on t.ward_code = a.ward_code
-    where t.timestamp_utc >= (select window_start from window_bounds)
+    where {{ downstream_incremental_predicate('t.raw_sync_run_id', 't.raw_loaded_at') }}
     group by
         datetime_hour,
         date,
@@ -57,7 +49,7 @@ aqi_by_province_hour as (
         co_avg as co,
         last_ingested_at
     from {{ ref('fct_air_quality_province_level_hourly') }}
-    where datetime_hour >= (select window_start from window_bounds)
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 joined as (

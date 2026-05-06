@@ -24,14 +24,12 @@ with incremental_source as (
         CAST(parameter AS String) as parameter,
         value,
         aqi_reported,
-        ingest_time
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ source('openweather', 'raw_openweather_measurements') }}
-    {% if is_incremental() %}
-    where ingest_time >= (
-        select max(ingest_time) - interval 24 hour
-        from {{ this }}
-    )
-    {% endif %}
+    {{ staging_incremental_where('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 deduplicated as (
@@ -39,13 +37,16 @@ deduplicated as (
         ward_code,
         timestamp_utc,
         parameter,
-        argMax(ward_name, ingest_time) as ward_name,
-        argMax(province_name, ingest_time) as province_name,
-        argMax(latitude, ingest_time) as latitude,
-        argMax(longitude, ingest_time) as longitude,
-        argMax(value, ingest_time) as value,
-        argMax(aqi_reported, ingest_time) as aqi_reported,
-        max(ingest_time) as latest_ingest_time
+        argMax(ward_name, raw_loaded_at) as ward_name,
+        argMax(province_name, raw_loaded_at) as province_name,
+        argMax(latitude, raw_loaded_at) as latitude,
+        argMax(longitude, raw_loaded_at) as longitude,
+        argMax(value, raw_loaded_at) as value,
+        argMax(aqi_reported, raw_loaded_at) as aqi_reported,
+        argMax(ingest_time, raw_loaded_at) as latest_ingest_time,
+        max(raw_loaded_at) as latest_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
     from incremental_source
     group by
         ward_code,
@@ -66,7 +67,10 @@ cleaned as (
         value,
         aqi_reported,
         'valid' as quality_flag,
-        latest_ingest_time as ingest_time
+        latest_ingest_time as ingest_time,
+        latest_raw_loaded_at as raw_loaded_at,
+        latest_raw_sync_run_id as raw_sync_run_id,
+        latest_raw_sync_started_at as raw_sync_started_at
     from deduplicated
 )
 

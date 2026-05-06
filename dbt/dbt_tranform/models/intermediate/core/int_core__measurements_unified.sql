@@ -1,6 +1,6 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree',
+    engine='ReplacingMergeTree(raw_loaded_at)',
     incremental_strategy='append',
     unique_key='(source, ward_code, timestamp_utc, parameter)',
     order_by='(province, timestamp_utc, ward_code, source, parameter)',
@@ -22,12 +22,13 @@ with aqiin as (
         m.value,
         m.aqi_reported,
         m.quality_flag,
-        m.ingest_time
+        m.ingest_time,
+        m.raw_loaded_at,
+        m.raw_sync_run_id,
+        m.raw_sync_started_at
     from {{ ref('stg_aqiin__measurements') }} m
     join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
-    {% if is_incremental() %}
-    where m.ingest_time > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('m.raw_sync_run_id', 'm.raw_loaded_at') }}
 ),
 
 openweather as (
@@ -42,11 +43,12 @@ openweather as (
         value,
         aqi_reported,
         quality_flag,
-        ingest_time
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('stg_openweather__measurements') }}
-    {% if is_incremental() %}
-    where ingest_time > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 unified as (
@@ -91,7 +93,10 @@ filtered as (
         u.value,
         u.aqi_reported,
         u.quality_flag,
-        u.ingest_time
+        u.ingest_time,
+        u.raw_loaded_at,
+        u.raw_sync_run_id,
+        u.raw_sync_started_at
     from unified u
     left join ward_station_flags w on u.ward_code = w.ward_code
     -- We filter OUT OpenWeather records ONLY IF there is a nearby AQI.in station
@@ -115,6 +120,9 @@ with_regions as (
         f.aqi_reported,
         f.quality_flag,
         f.ingest_time,
+        f.raw_loaded_at,
+        f.raw_sync_run_id,
+        f.raw_sync_started_at,
         {{ get_vietnam_region_3('f.province') }} as region_3,
         {{ get_vietnam_region_8('f.province') }} as region_8
     from filtered f
@@ -156,6 +164,9 @@ select
     aqi_reported,
     quality_flag,
     ingest_time,
+    raw_loaded_at,
+    raw_sync_run_id,
+    raw_sync_started_at,
     region_3,
     region_8
 from calibrated

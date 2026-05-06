@@ -1,6 +1,7 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree',
+    incremental_strategy='append',
+    engine='ReplacingMergeTree(last_ingested_at)',
     unique_key='(province, ward_code, date)',
     order_by='(province, date, assumeNotNull(ward_code))',
     partition_by='toYYYYMM(date)'
@@ -8,9 +9,7 @@
 
 with ward_daily as (
     select * from {{ ref('fct_air_quality_ward_level_daily') }}
-    {% if is_incremental() %}
-    where date >= (select max(date) - interval 2 day from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 admin_units as (

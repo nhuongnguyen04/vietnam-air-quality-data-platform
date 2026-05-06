@@ -1,13 +1,16 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree',
-    unique_key='(ward_code, timestamp_utc, parameter)',
-    order_by='(province_name, timestamp_utc, ward_code)',
+    incremental_strategy='append',
+    engine='ReplacingMergeTree(raw_loaded_at)',
+    unique_key=['ward_code', 'timestamp_utc', 'parameter'],
+    order_by='(ward_code, timestamp_utc, parameter)',
     partition_by='toYYYYMM(timestamp_utc)',
     query_settings={
-        'max_threads': 2,
-        'max_bytes_before_external_sort': 100000000,
-        'max_bytes_before_external_group_by': 100000000
+        'max_threads': 1,
+        'max_block_size': 4096,
+        'max_bytes_before_external_sort': 67108864,
+        'max_bytes_before_external_group_by': 67108864,
+        'optimize_aggregation_in_order': 1
     }
 ) }}
 
@@ -26,14 +29,12 @@ WITH incremental_source AS (
         current_speed,
         free_flow_speed,
         confidence,
-        ingest_time
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     FROM {{ source('tomtom', 'raw_tomtom_traffic') }}
-    {% if is_incremental() %}
-    WHERE ingest_time >= (
-        SELECT max(ingest_time) - interval 24 hour
-        FROM {{ this }}
-    )
-    {% endif %}
+    {{ staging_incremental_where('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 calculated_ratios AS (
@@ -52,6 +53,9 @@ calculated_ratios AS (
         free_flow_speed,
         confidence,
         ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at,
         -- Formula: (current travel time - free flow travel time) / free flow travel time
         -- Fallback: (free flow speed / current speed) - 1
         CASE
@@ -64,25 +68,29 @@ calculated_ratios AS (
     FROM incremental_source
 ),
 
-hourly_aggregated AS (
+latest_per_hour AS (
     SELECT
         source,
         ward_code,
+        ward_name,
+        province_name,
+        latitude,
+        longitude,
         hourly_timestamp,
-        -- Use argMax to get the coordinates associated with the most recent sample
-        argMax(latitude, ingest_time) as latitude,
-        argMax(longitude, ingest_time) as longitude,
-        avg(raw_congestion_ratio) as avg_congestion_ratio,
-        avg(confidence) as avg_confidence,
-        argMax(traffic_source, ingest_time) as primary_traffic_source,
-        argMax(ward_name, ingest_time) as ward_name,
-        argMax(province_name, ingest_time) as province_name,
-        max(ingest_time) as max_ingest_time
+        traffic_source,
+        confidence,
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at,
+        raw_congestion_ratio
     FROM calculated_ratios
-    GROUP BY
-        source,
+    ORDER BY
         ward_code,
-        hourly_timestamp
+        hourly_timestamp,
+        source,
+        raw_loaded_at desc
+    LIMIT 1 BY ward_code, hourly_timestamp, source
 )
 
 SELECT
@@ -93,10 +101,13 @@ SELECT
     latitude,
     longitude,
     hourly_timestamp as timestamp_utc,
-    clamp(avg_congestion_ratio, 0, 5) as value,
+    clamp(raw_congestion_ratio, 0, 5) as value,
     'congestion_ratio' as parameter,
-    primary_traffic_source as traffic_source,
-    avg_confidence as quality_flag,
-    max_ingest_time as ingest_time,
+    traffic_source,
+    confidence as quality_flag,
+    ingest_time,
+    raw_loaded_at,
+    raw_sync_run_id,
+    raw_sync_started_at,
     now() as dbt_updated_at
-FROM hourly_aggregated
+FROM latest_per_hour

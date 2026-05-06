@@ -7,10 +7,7 @@
 
 with hourly_aqi as (
     select * from {{ ref('fct_air_quality_ward_level_hourly') }}
-    {% if is_incremental() %}
-    -- Only process new data to update current status
-    where last_ingested_at > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 admin_units as (

@@ -28,6 +28,11 @@ CREATE TABLE IF NOT EXISTS raw_openweather_measurements
 (
     source              LowCardinality(String) DEFAULT 'openweather',
     ingest_time        DateTime DEFAULT now(),
+    raw_loaded_at      DateTime DEFAULT now(),
+    raw_sync_run_id    String DEFAULT '',
+    raw_sync_started_at DateTime DEFAULT raw_loaded_at,
+    raw_source_file_name String DEFAULT '',
+    raw_source_file_id String DEFAULT '',
     ingest_batch_id    String,
     ingest_date        Date MATERIALIZED toDate(ingest_time),
 
@@ -55,6 +60,11 @@ CREATE TABLE IF NOT EXISTS raw_aqiin_measurements
 (
     source              LowCardinality(String) DEFAULT 'aqiin',
     ingest_time         DateTime DEFAULT now(),
+    raw_loaded_at       DateTime DEFAULT now(),
+    raw_sync_run_id     String DEFAULT '',
+    raw_sync_started_at DateTime DEFAULT raw_loaded_at,
+    raw_source_file_name String DEFAULT '',
+    raw_source_file_id  String DEFAULT '',
     ingest_batch_id     String,
     ingest_date         Date MATERIALIZED toDate(ingest_time),
 
@@ -118,6 +128,11 @@ CREATE TABLE IF NOT EXISTS raw_tomtom_traffic
     source              LowCardinality(String) DEFAULT 'tomtom',
     traffic_source      LowCardinality(String),
     ingest_time         DateTime DEFAULT now(),
+    raw_loaded_at       DateTime DEFAULT now(),
+    raw_sync_run_id     String DEFAULT '',
+    raw_sync_started_at DateTime DEFAULT raw_loaded_at,
+    raw_source_file_name String DEFAULT '',
+    raw_source_file_id  String DEFAULT '',
     ingest_batch_id     String,
     ward_code           String,
     ward_name           String,
@@ -162,6 +177,11 @@ CREATE TABLE IF NOT EXISTS raw_openweather_meteorology
 (
     source              LowCardinality(String) DEFAULT 'openweather',
     ingest_time        DateTime DEFAULT now(),
+    raw_loaded_at      DateTime DEFAULT now(),
+    raw_sync_run_id    String DEFAULT '',
+    raw_sync_started_at DateTime DEFAULT raw_loaded_at,
+    raw_source_file_name String DEFAULT '',
+    raw_source_file_id String DEFAULT '',
     ingest_batch_id    String,
     province_name      String,
     weather_cluster    String,

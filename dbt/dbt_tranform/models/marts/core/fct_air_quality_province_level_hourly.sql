@@ -27,11 +27,12 @@ with ward_hourly as (
         no2_aqi,
         so2_aqi,
         o3_aqi,
-        last_ingested_at
+        last_ingested_at,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('fct_air_quality_ward_level_hourly') }}
-    {% if is_incremental() %}
-    where datetime_hour >= (select max(datetime_hour) - interval 24 hour from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 province_hourly as (
@@ -62,7 +63,10 @@ province_hourly as (
         avg(so2_aqi)  as so2_aqi,
         avg(o3_aqi)   as o3_aqi,
         
-        max(last_ingested_at) as last_ingested_at
+        max(last_ingested_at) as last_ingested_at,
+        max(raw_loaded_at) as max_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
         
     from ward_hourly
     group by
@@ -75,7 +79,29 @@ province_hourly as (
 
 final as (
     select
-        *,
+        datetime_hour,
+        date,
+        province,
+        region_3,
+        region_8,
+        avg_aqi_us,
+        avg_aqi_vn,
+        pm25_avg,
+        pm10_avg,
+        co_avg,
+        no2_avg,
+        so2_avg,
+        o3_avg,
+        pm25_aqi,
+        pm10_aqi,
+        co_aqi,
+        no2_aqi,
+        so2_aqi,
+        o3_aqi,
+        last_ingested_at,
+        max_raw_loaded_at as raw_loaded_at,
+        latest_raw_sync_run_id as raw_sync_run_id,
+        latest_raw_sync_started_at as raw_sync_started_at,
         -- Provincial main pollutant based on averaged sub-AQIs
         {{ get_main_pollutant('pm25_aqi', 'pm10_aqi', 'co_aqi', 'no2_aqi', 'so2_aqi', 'o3_aqi') }} as main_pollutant
     from province_hourly

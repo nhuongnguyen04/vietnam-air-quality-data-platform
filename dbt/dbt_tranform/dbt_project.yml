@@ -24,6 +24,9 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "{{ env_var('DBT_TARGET_PATH', 'target') }}"
   - "{{ env_var('DBT_PACKAGES_INSTALL_PATH', 'dbt_packages') }}"
 
+vars:
+  staging_incremental_lookback_hours: 6
+
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models

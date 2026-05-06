@@ -8,9 +8,7 @@
 
 with summary as (
     select * from {{ ref('fct_air_quality_summary_daily') }}
-    {% if is_incremental() %}
-    where date >= (select max(month) - interval 1 month from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 pivoted as (
@@ -39,10 +37,36 @@ pivoted as (
         avg(o3_daily_avg)   as o3_monthly_avg,
         
         -- Dominant Pollutant (Most frequent in month)
-        topK(1)(dominant_pollutant_vn)[1] as dominant_pollutant_vn
+        topK(1)(dominant_pollutant_vn)[1] as dominant_pollutant_vn,
+        max(ingest_time) as ingest_time,
+        max(raw_loaded_at) as max_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
         
     from summary
     group by month, province, ward_code, source
 )
 
-select * from pivoted
+select
+    month,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    source,
+    monthly_avg_aqi_us,
+    monthly_avg_aqi_vn,
+    monthly_max_aqi_us,
+    monthly_min_aqi_us,
+    pm25_monthly_avg,
+    pm10_monthly_avg,
+    co_monthly_avg,
+    no2_monthly_avg,
+    so2_monthly_avg,
+    o3_monthly_avg,
+    dominant_pollutant_vn,
+    ingest_time,
+    max_raw_loaded_at as raw_loaded_at,
+    latest_raw_sync_run_id as raw_sync_run_id,
+    latest_raw_sync_started_at as raw_sync_started_at
+from pivoted

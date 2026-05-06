@@ -61,8 +61,21 @@ models:
           Data quality flag. Hardcoded to 'valid'.
       - name: ingest_time
         description: |
-          Timestamp when the record was written to ClickHouse.
-
+          Upstream OpenWeather batch timestamp carried in the CSV payload.
+        tags:
+          - NonSensitive
+      - name: raw_loaded_at
+        description: |
+          Timestamp when the row was inserted into the raw ClickHouse table by `dag_sync_gdrive`.
+          Used as the version column for deterministic replacement in this staging model.
+        tags:
+          - NonSensitive
+      - name: raw_sync_run_id
+        description: |
+          Identifier of the Google Drive sync batch that produced this staged row version.
+      - name: raw_sync_started_at
+        description: |
+          Start timestamp of the Google Drive sync batch that produced this staged row version.
         tags:
           - NonSensitive
     meta:
@@ -155,7 +168,21 @@ models:
           Cloudiness percentage.
       - name: ingest_time
         description: |
-          Timestamp when the record was written to ClickHouse.
+          Upstream OpenWeather batch timestamp carried in the CSV payload.
+        tags:
+          - NonSensitive
+      - name: raw_loaded_at
+        description: |
+          Timestamp when the row was inserted into the raw ClickHouse table by `dag_sync_gdrive`.
+          Used as the version column for deterministic replacement in this staging model.
+        tags:
+          - NonSensitive
+      - name: raw_sync_run_id
+        description: |
+          Identifier of the Google Drive sync batch that produced this staged row version.
+      - name: raw_sync_started_at
+        description: |
+          Start timestamp of the Google Drive sync batch that produced this staged row version.
         tags:
           - NonSensitive
       - name: dbt_updated_at

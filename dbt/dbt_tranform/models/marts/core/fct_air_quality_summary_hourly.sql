@@ -1,6 +1,6 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree(ingest_time)',
+    engine='ReplacingMergeTree(raw_loaded_at)',
     incremental_strategy='delete_insert',
     unique_key=['province', 'ward_code', 'datetime_hour', 'source'],
     order_by='(province, ward_code, datetime_hour, source)',
@@ -25,11 +25,12 @@ with calculations as (
         value,
         aqi_us,
         aqi_vn,
-        ingest_time
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('int_aqi__calculations') }}
-    {% if is_incremental() %}
-    where ingest_time >= (select max(ingest_time) - interval 24 hour from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 pivoted as (
@@ -66,7 +67,10 @@ pivoted as (
         -- Dominant Pollutants
         argMax(parameter, aqi_us) as dominant_pollutant_us,
         argMax(parameter, aqi_vn) as dominant_pollutant_vn,
-        max(ingest_time) as ingest_time
+        max(ingest_time) as ingest_time,
+        max(raw_loaded_at) as max_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
         
     from calculations
     where parameter in ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
@@ -77,4 +81,33 @@ pivoted as (
         source
 )
 
-select * from pivoted
+select
+    datetime_hour,
+    date,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    source,
+    source_weight,
+    final_aqi_us,
+    final_aqi_vn,
+    pm25_value,
+    pm10_value,
+    co_value,
+    no2_value,
+    so2_value,
+    o3_value,
+    pm25_aqi,
+    pm10_aqi,
+    co_aqi,
+    no2_aqi,
+    so2_aqi,
+    o3_aqi,
+    dominant_pollutant_us,
+    dominant_pollutant_vn,
+    ingest_time,
+    max_raw_loaded_at as raw_loaded_at,
+    latest_raw_sync_run_id as raw_sync_run_id,
+    latest_raw_sync_started_at as raw_sync_started_at
+from pivoted

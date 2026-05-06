@@ -7,11 +7,12 @@ It can also be triggered manually for ad hoc rebuilds.
 """
 
 from datetime import datetime, timedelta
+import json
 from pathlib import Path
 import os
 import subprocess
 
-from airflow.sdk import dag, task
+from airflow.sdk import dag, task, get_current_context
 
 
 default_args = {
@@ -60,11 +61,19 @@ def get_clickhouse_settings() -> tuple[str, int, str, str, str]:
     )
 
 
-def run_dbt_command(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+def run_dbt_command(
+    command: list[str],
+    *,
+    timeout: int,
+    dbt_vars: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(get_dbt_env_vars())
+    final_command = list(command)
+    if dbt_vars:
+        final_command.extend(['--vars', json.dumps(dbt_vars)])
     return subprocess.run(
-        command,
+        final_command,
         cwd=DBT_PROJECT_DIR,
         env=env,
         capture_output=True,
@@ -167,27 +176,51 @@ def dag_transform():
     @task
     def dbt_run_staging():
         """Run staging models."""
+        context = get_current_context()
+        dag_run = context.get('dag_run')
+        dag_conf = dag_run.conf if dag_run else {}
+        dbt_vars = {}
+        if dag_conf and dag_conf.get('raw_sync_run_id'):
+            dbt_vars['staging_sync_run_id'] = dag_conf['raw_sync_run_id']
+
         result = run_dbt_command(
             ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'staging'],
             timeout=1800,
+            dbt_vars=dbt_vars or None,
         )
         print_dbt_result(result, "dbt run staging failed", "dbt run staging completed")
 
     @task
     def dbt_run_intermediate():
         """Run intermediate models."""
+        context = get_current_context()
+        dag_run = context.get('dag_run')
+        dag_conf = dag_run.conf if dag_run else {}
+        dbt_vars = {}
+        if dag_conf and dag_conf.get('raw_sync_run_id'):
+            dbt_vars['staging_sync_run_id'] = dag_conf['raw_sync_run_id']
+
         result = run_dbt_command(
             ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'intermediate'],
             timeout=1800,
+            dbt_vars=dbt_vars or None,
         )
         print_dbt_result(result, "dbt run intermediate failed", "dbt run intermediate completed")
 
     @task
     def dbt_run_marts():
         """Run mart models."""
+        context = get_current_context()
+        dag_run = context.get('dag_run')
+        dag_conf = dag_run.conf if dag_run else {}
+        dbt_vars = {}
+        if dag_conf and dag_conf.get('raw_sync_run_id'):
+            dbt_vars['staging_sync_run_id'] = dag_conf['raw_sync_run_id']
+
         result = run_dbt_command(
             ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'marts'],
             timeout=1800,
+            dbt_vars=dbt_vars or None,
         )
         print_dbt_result(result, "dbt run marts failed", "dbt run marts completed")
 

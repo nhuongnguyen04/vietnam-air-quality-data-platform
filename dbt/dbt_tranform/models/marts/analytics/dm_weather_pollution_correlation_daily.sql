@@ -17,11 +17,12 @@ WITH source_data AS (
         pm10,
         temperature as temp,
         humidity,
-        wind_speed
+        wind_speed,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     FROM {{ ref('fct_aqi_weather_traffic_unified') }}
-    {% if is_incremental() %}
-    WHERE date >= (select max(date) - interval 1 day from {{ this }})
-    {% endif %}
+    WHERE {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 daily_stats AS (
@@ -96,8 +97,9 @@ final_metrics AS (
                 0
             ) * 100 AS Float32
         ) as weather_influence_pct,
+
+        m.stagnant_air_probability,
         
-        m.stagnant_air_probability
     FROM daily_stats d
     LEFT JOIN weather_modes m 
         ON d.date = m.date 
@@ -106,7 +108,28 @@ final_metrics AS (
 )
 
 SELECT
-    *,
+    date,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    pm25_daily_avg,
+    pm10_daily_avg,
+    temp_daily_avg,
+    humidity_daily_avg,
+    wind_daily_avg,
+    sum_pm25,
+    sum_pm10,
+    total_hours,
+    stagnant_pm25_sum,
+    stagnant_pm10_sum,
+    stagnant_hours,
+    dispersive_pm25_sum,
+    dispersive_pm10_sum,
+    dispersive_hours,
+    wind_dispersal_risk_index,
+    weather_influence_pct,
+    stagnant_air_probability,
     now() as dbt_updated_at
 FROM final_metrics
 WHERE province != '' AND ward_code != ''

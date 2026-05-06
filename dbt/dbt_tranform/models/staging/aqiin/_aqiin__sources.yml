@@ -44,7 +44,7 @@ sources:
         freshness:
           warn_after: {count: 12, period: hour}
           error_after: {count: 24, period: hour}
-        loaded_at_field: ingest_time
+        loaded_at_field: raw_loaded_at
         meta:
           openmetadata:
             tier: "Tier.Tier3"
@@ -98,7 +98,28 @@ sources:
               Values: 'valid', 'suspect', 'missing', 'error'
           - name: ingest_time
             description: |-
-              ClickHouse ingest timestamp.
-              Used for deduplication and freshness monitoring.
+              Upstream batch timestamp recorded when the AQI.in scraper produced the row.
+              Used for deduplication of repeated deliveries for the same business key.
             tags:
               - NonSensitive
+          - name: raw_loaded_at
+            description: |-
+              Warehouse load timestamp set by ClickHouse when the Google Drive sync job
+              inserted the row into the raw table.
+              Used for source freshness checks and staging incremental filtering.
+            tags:
+              - NonSensitive
+          - name: raw_sync_run_id
+            description: |-
+              Identifier of the `dag_sync_gdrive` batch that loaded the file into ClickHouse raw.
+          - name: raw_sync_started_at
+            description: |-
+              Batch-level sync start timestamp for the `dag_sync_gdrive` run that inserted the row.
+            tags:
+              - NonSensitive
+          - name: raw_source_file_name
+            description: |-
+              Google Drive CSV filename used to load the row into the raw table.
+          - name: raw_source_file_id
+            description: |-
+              Google Drive file identifier used to load the row into the raw table.

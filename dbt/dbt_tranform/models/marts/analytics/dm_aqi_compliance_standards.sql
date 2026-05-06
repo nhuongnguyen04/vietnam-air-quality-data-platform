@@ -15,12 +15,12 @@ with daily_data as (
         avg_aqi_vn,
         pm25_avg,
         pm10_avg,
-        last_ingested_at as ingest_time
+        last_ingested_at as ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('fct_air_quality_province_level_daily') }}
-    {% if is_incremental() %}
-    -- Simple incremental for daily data
-    where last_ingested_at > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 compliance as (

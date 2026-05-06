@@ -76,11 +76,14 @@ def dag_sync_gdrive():
             "FILES_FOUND": 0,
             "FILES_SYNCED": 0,
             "FILES_FAILED": 0,
+            "SYNC_RUN_ID": "",
+            "SYNC_STARTED_AT": "",
         }
         for line in result.stdout.splitlines():
             for key in counters:
                 if line.startswith(f"{key}="):
-                    counters[key] = int(line.split("=", 1)[1])
+                    value = line.split("=", 1)[1]
+                    counters[key] = int(value) if key.startswith("FILES_") else value
 
         if counters["FILES_FAILED"] > 0:
             print(
@@ -115,6 +118,10 @@ def dag_sync_gdrive():
         task_id='trigger_transform',
         trigger_dag_id='dag_transform',
         wait_for_completion=False,
+        conf={
+            'raw_sync_run_id': "{{ ti.xcom_pull(task_ids='sync_data')['SYNC_RUN_ID'] }}",
+            'raw_sync_started_at': "{{ ti.xcom_pull(task_ids='sync_data')['SYNC_STARTED_AT'] }}",
+        },
     )
 
     # Dependencies

@@ -17,10 +17,15 @@ WITH source_data AS (
         avg_congestion,
         traffic_ward_count,
         positive_traffic_ward_count,
-        traffic_coverage_ratio
+        traffic_coverage_ratio,
+        last_traffic_ingested_at,
+        last_ingested_at
     FROM {{ ref('dm_traffic_hourly_trend') }}
     {% if is_incremental() %}
-    WHERE date >= (select max(date) - interval 1 day from {{ this }})
+    WHERE greatest(
+        coalesce(last_traffic_ingested_at, toDateTime('1970-01-01 00:00:00')),
+        coalesce(last_ingested_at, toDateTime('1970-01-01 00:00:00'))
+    ) >= now() - interval 7 day
     {% endif %}
 ),
 

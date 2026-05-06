@@ -16,11 +16,12 @@ with hourly_data as (
         avg_aqi_vn,
         pm25_avg,
         pm10_avg,
-        last_ingested_at
+        last_ingested_at,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('fct_air_quality_province_level_hourly') }}
-    {% if is_incremental() %}
-    where last_ingested_at > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 aggregates as (
@@ -40,4 +41,16 @@ aggregates as (
     group by province, hour_of_day, day_of_week
 )
 
-select * from aggregates
+select
+    province,
+    region_3,
+    region_8,
+    hour_of_day,
+    day_of_week,
+    avg_aqi_us,
+    avg_aqi_vn,
+    avg_pm25,
+    avg_pm10,
+    reading_count,
+    ingest_time
+from aggregates

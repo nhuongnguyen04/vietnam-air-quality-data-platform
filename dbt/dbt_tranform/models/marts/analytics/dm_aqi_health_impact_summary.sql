@@ -2,7 +2,14 @@
     materialized='incremental',
     engine='MergeTree',
     order_by='(province, date)',
-    partition_by='toYYYYMM(date)'
+    partition_by='toYYYYMM(date)',
+    query_settings={
+        'max_threads': 1,
+        'max_block_size': 4096,
+        'max_bytes_before_external_sort': 67108864,
+        'max_bytes_before_external_group_by': 67108864,
+        'optimize_aggregation_in_order': 1
+    }
 ) }}
 
 with hourly_summary as (
@@ -14,11 +21,12 @@ with hourly_summary as (
         region_8,
         avg_aqi_us as final_aqi_us,
         main_pollutant as pollutant_key,
-        last_ingested_at as ingest_time
+        last_ingested_at as ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('fct_air_quality_ward_level_hourly') }}
-    {% if is_incremental() %}
-    where last_ingested_at > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 health_benchmarks as (
@@ -73,4 +81,15 @@ daily_impact_stats as (
     group by date, province, ward_code
 )
 
-select * from daily_impact_stats
+select
+    date,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    total_hours,
+    high_risk_hours,
+    high_risk_exposure_pct,
+    primary_health_advice,
+    ingest_time
+from daily_impact_stats

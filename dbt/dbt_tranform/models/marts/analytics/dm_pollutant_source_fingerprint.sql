@@ -14,12 +14,13 @@ with hourly_data as (
         region_8,
         pm25_avg as pm25_value,
         pm10_avg as pm10_value,
-        last_ingested_at as ingest_time
+        last_ingested_at as ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ ref('fct_air_quality_ward_level_hourly') }}
     where pm25_avg > 0 and pm10_avg > 0
-    {% if is_incremental() %}
-    and last_ingested_at > (select max(ingest_time) from {{ this }})
-    {% endif %}
+    and {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 source_calc as (
@@ -42,4 +43,15 @@ source_calc as (
     group by date, province, ward_code
 )
 
-select * from source_calc
+select
+    date,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    pm25,
+    pm10,
+    pm25_pm10_ratio,
+    probable_source,
+    ingest_time
+from source_calc

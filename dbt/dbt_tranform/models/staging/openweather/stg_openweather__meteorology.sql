@@ -2,7 +2,7 @@
     materialized='incremental',
     incremental_strategy='append',
     on_schema_change='append_new_columns',
-    engine='ReplacingMergeTree(ingest_time)',
+    engine='ReplacingMergeTree(raw_loaded_at)',
     unique_key='(ward_code, timestamp_utc)',
     order_by='(province, timestamp_utc, ward_code)',
     partition_by='toYYYYMM(timestamp_utc)',
@@ -46,14 +46,12 @@ incremental_source as (
         wind_speed,
         wind_deg,
         clouds_all,
-        ingest_time
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at
     from {{ source('openweather', 'raw_openweather_meteorology') }}
-    {% if is_incremental() %}
-    where ingest_time >= (
-        select max(ingest_time) - interval 6 hour
-        from {{ this }}
-    )
-    {% endif %}
+    {{ staging_incremental_where('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 mapped_to_wards as (
@@ -75,7 +73,10 @@ mapped_to_wards as (
         s.wind_speed,
         s.wind_deg,
         s.clouds_all,
-        s.ingest_time
+        s.ingest_time,
+        s.raw_loaded_at,
+        s.raw_sync_run_id,
+        s.raw_sync_started_at
     from incremental_source s
     inner join ward_cluster_map m
         on s.weather_cluster = m.weather_cluster
@@ -102,6 +103,9 @@ final as (
         wind_deg,
         clouds_all,
         ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at,
         now() as dbt_updated_at
     from mapped_to_wards
     where ward_code != ''
