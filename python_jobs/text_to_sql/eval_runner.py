@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 from typing import Any
+import unicodedata
 
 import yaml
 
@@ -44,7 +45,12 @@ def get_eval_path(eval_path: str | Path | None = None) -> Path:
 
 
 def _normalize_question(question: str) -> str:
-    return re.sub(r"\s+", " ", question).strip().lower()
+    without_accents = "".join(
+        char
+        for char in unicodedata.normalize("NFD", question)
+        if unicodedata.category(char) != "Mn"
+    )
+    return re.sub(r"\s+", " ", without_accents).strip().lower()
 
 
 def load_eval_cases(eval_path: str | Path | None = None) -> list[EvalCase]:
@@ -134,6 +140,23 @@ def _matches_shape(shape: str, sql: str, referenced_tables: list[str]) -> bool:
             ("humidity" in lowered_sql and "wind" in lowered_sql)
             or any("weather" in table for table in referenced_tables_set)
         )
+    if shape == "yesterday_filter":
+        return "yesterday()" in lowered_sql or bool(
+            re.search(r"today\(\)\s*-\s*(?:tointervalday\(\s*1\s*\)|1\b)", lowered_sql)
+        )
+    if shape == "single_province_filter":
+        return bool(
+            re.search(
+                r"\bwhere\b[\s\S]+(?:[a-z0-9_]+\.)?province\s*=\s*'[^']+'",
+                lowered_sql,
+            )
+        )
+    if shape == "scalar_aggregate":
+        return bool(re.search(r"\bselect\b[\s\S]+\b(?:max|avg|min|count|sum)\s*\(", lowered_sql)) and (
+            " group by " not in f" {lowered_sql} "
+        )
+    if shape == "aqi_metric":
+        return "aqi" in lowered_sql
     return True
 
 

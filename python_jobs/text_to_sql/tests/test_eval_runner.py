@@ -28,6 +28,12 @@ GOOD_SQL_BY_CASE_ID = {
         ORDER BY breach_days DESC
         LIMIT 20
     """,
+    "vi-hanoi-aqi-yesterday": """
+        SELECT MAX(max_aqi_vn) AS highest_aqi_vn
+        FROM fct_air_quality_province_level_daily
+        WHERE date = yesterday()
+          AND province = 'Hà Nội'
+    """,
     "vi-traffic": """
         SELECT province, AVG(congestion_daily_avg) AS avg_congestion, AVG(pm25_daily_avg) AS avg_pm25
         FROM dm_traffic_pollution_correlation_daily
@@ -79,6 +85,17 @@ def test_find_matching_eval_case_by_question_and_language():
 
 
 @pytest.mark.unit
+def test_find_matching_eval_case_ignores_vietnamese_accents():
+    case = find_matching_eval_case(
+        question="Chỉ số AQI cao nhất của Hà Nội ngày hôm qua là bao nhiêu?",
+        lang="vi",
+    )
+
+    assert case is not None
+    assert case.id == "vi-hanoi-aqi-yesterday"
+
+
+@pytest.mark.unit
 def test_eval_runner_accepts_repo_eval_corpus(semantic_dir):
     for case in load_eval_cases():
         result = evaluate_sql_against_case(
@@ -88,6 +105,27 @@ def test_eval_runner_accepts_repo_eval_corpus(semantic_dir):
         )
         assert result.case_id == case.id
         assert result.referenced_tables
+
+
+@pytest.mark.unit
+def test_eval_runner_rejects_non_scalar_hanoi_aqi_shape(semantic_dir):
+    case = find_matching_eval_case(
+        question="Chi so AQI cao nhat cua Ha Noi ngay hom qua la bao nhieu?",
+        lang="vi",
+    )
+    assert case is not None
+
+    with pytest.raises(EvalValidationError, match="expected SQL shapes"):
+        evaluate_sql_against_case(
+            """
+            SELECT max_aqi_vn
+            FROM fct_air_quality_province_level_daily
+            WHERE date = yesterday()
+              AND province = 'Hà Nội'
+            """,
+            case,
+            semantic_dir=str(semantic_dir),
+        )
 
 
 @pytest.mark.unit

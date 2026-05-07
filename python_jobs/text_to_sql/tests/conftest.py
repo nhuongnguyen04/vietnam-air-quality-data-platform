@@ -147,11 +147,13 @@ def fake_clickhouse_executor() -> FakeClickHouseExecutor:
 
 @pytest.fixture
 def text_to_sql_app(semantic_dir: Path, fake_vanna_runtime: FakeVannaRuntime, fake_clickhouse_executor: FakeClickHouseExecutor):
-    return create_app(
+    app = create_app(
         runtime=fake_vanna_runtime,
         executor=fake_clickhouse_executor,
         semantic_dir=str(semantic_dir),
     )
+    app.state.vanna_ready = True
+    return app
 
 
 @pytest.fixture

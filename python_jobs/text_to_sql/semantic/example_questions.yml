@@ -51,6 +51,17 @@ questions:
       ORDER BY highest_pm25 DESC
       LIMIT 1
 
+  - id: vi-aqi-hanoi-yesterday-scalar
+    lang: vi
+    topic: aqi_status
+    question: "Chỉ số AQI cao nhất của Hà Nội ngày hôm qua là bao nhiêu?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT MAX(max_aqi_vn) AS highest_aqi_vn
+      FROM fct_air_quality_province_level_daily
+      WHERE date = yesterday()
+        AND province = 'Hà Nội'
+
   - id: vi-pm25-yesterday-top10
     lang: vi
     topic: pm25

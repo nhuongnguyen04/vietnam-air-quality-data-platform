@@ -20,10 +20,10 @@ groups:
     rules:
 
       # ─────────────────────────────────────────────────────────────
-      # Rule 1: AQI Warning (>150) — Unhealthy for Sensitive Groups
+      # Rule 1: AQI VN Warning (>150) — Xấu
       # ─────────────────────────────────────────────────────────────
       - uid: aqi-warning-150-v3
-        title: "AQI Warning (>150) — Unhealthy (v3)"
+        title: "AQI VN Warning (>150) — Xấu (v3)"
         condition: C
         data:
           - refId: A
@@ -35,7 +35,7 @@ groups:
                 SELECT 
                   toStartOfInterval(now(), INTERVAL 1 MINUTE) AS time,
                   province, 
-                  MAX(current_aqi_us) AS aqi
+                  MAX(current_aqi_vn) AS aqi
                 FROM air_quality.dm_aqi_current_status
                 WHERE latest_hour >= NOW() - INTERVAL 2 HOUR
                 GROUP BY province, time
@@ -57,17 +57,17 @@ groups:
         execErrState: OK
         for: 10m
         annotations:
-          summary: "AQI (US) vượt ngưỡng 150"
+          summary: "AQI VN vượt ngưỡng 150 — mức Xấu"
           value: "{{ $values.B.Value | printf \"%.0f\" }}"
         labels:
           severity: warning
           channel: air-quality
 
       # ─────────────────────────────────────────────────────────────
-      # Rule 2: AQI Critical (>200) — Very Unhealthy
+      # Rule 2: AQI VN Critical (>200) — Rất xấu
       # ─────────────────────────────────────────────────────────────
       - uid: aqi-critical-200-v3
-        title: "AQI Critical (>200) — Very Unhealthy (v3)"
+        title: "AQI VN Critical (>200) — Rất xấu (v3)"
         condition: C
         data:
           - refId: A
@@ -79,7 +79,7 @@ groups:
                 SELECT 
                   toStartOfInterval(now(), INTERVAL 1 MINUTE) AS time,
                   province, 
-                  MAX(current_aqi_us) AS aqi
+                  MAX(current_aqi_vn) AS aqi
                 FROM air_quality.dm_aqi_current_status
                 WHERE latest_hour >= NOW() - INTERVAL 2 HOUR
                 GROUP BY province, time
@@ -101,7 +101,7 @@ groups:
         execErrState: OK
         for: 5m
         annotations:
-          summary: "AQI (US) vượt ngưỡng 200 — MỨC NGUY HẠI"
+          summary: "AQI VN vượt ngưỡng 200 — mức Rất xấu"
           value: "{{ $values.B.Value | printf \"%.0f\" }}"
         labels:
           severity: critical
@@ -201,8 +201,9 @@ groups:
     rules:
 
       # ─────────────────────────────────────────────────────────────
-      # Rule: Data Freshness Warning (>3h since last successful run)
-      # Queries ingestion_control table in ClickHouse via Grafana-native
+      # Rule: Data Freshness Warning (>3h since latest raw ingest)
+      # Queries the canonical platform health mart instead of historical
+      # ingestion_control rows, which include legacy/manual sources.
       # Not in Prometheus rules — needs ClickHouse datasource
       # ─────────────────────────────────────────────────────────────
       - uid: sys-data-freshness
@@ -216,10 +217,8 @@ groups:
               maxDataPoints: 300
               rawSql: |
                 SELECT
-                  source,
-                  dateDiff('second', MAX(last_success), now()) AS max_lag
-                FROM air_quality.ingestion_control
-                GROUP BY source
+                  toFloat64(latest_ingest_lag_hours) AS ingest_lag_hours
+                FROM air_quality.dm_platform_health_summary
               format: table
           - refId: B
             datasourceUid: "-100"
@@ -233,13 +232,13 @@ groups:
               type: threshold
               expression: B
               conditions:
-                - evaluator: { params: [10800], type: gt }
+                - evaluator: { params: [3], type: gt }
         noDataState: OK
         execErrState: OK
         for: 10m
         annotations:
           summary: "No new data ingested in >3 hours"
-          value: "{{ $values.B }}"
+          value: "{{ $values.B.Value | printf \"%.1f\" }}h"
           description: "Check Airflow DAGs at http://localhost:8090"
         labels:
           severity: warning

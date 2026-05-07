@@ -128,37 +128,63 @@ with_regions as (
     from filtered f
 ),
 
+calibration_factors as (
+    select
+        source,
+        parameter,
+        any(calibration_factor) as calibration_factor
+    from {{ ref('source_calibration') }}
+    group by
+        source,
+        parameter
+),
+
 calibrated as (
     select
-        *,
+        r.*,
         case 
-            when source = 'aqiin' then 5 
+            when r.source = 'aqiin' then 5 
             else 1 
         end as source_weight,
-        -- Apply calibration factors for OpenWeather to align with ground truth
-        case
-            when source = 'openweather' then
-                case 
-                    when parameter = 'o3' then value * 0.20
-                    when parameter = 'no2' then value * 2.00
-                    when parameter = 'pm25' then value * 0.80
-                    when parameter = 'co' then value * 0.80
-                    else value
-                end
-            else value
-        end as calibrated_value
-    from with_regions
+        r.value * coalesce(c.calibration_factor, 1.0) as calibrated_value
+    from with_regions r
+    left join calibration_factors c
+        on r.source = c.source
+        and r.parameter = c.parameter
+),
+
+prepared as (
+    select
+        source,
+        assumeNotNull(ward_code) as ward_code,
+        assumeNotNull(province) as province,
+        latitude,
+        longitude,
+        timestamp_utc,
+        parameter,
+        value as raw_value,
+        calibrated_value,
+        source_weight,
+        aqi_reported,
+        quality_flag,
+        ingest_time,
+        raw_loaded_at,
+        raw_sync_run_id,
+        raw_sync_started_at,
+        region_3,
+        region_8
+    from calibrated
 )
 
 select 
     source,
-    assumeNotNull(ward_code) as ward_code,
-    assumeNotNull(province) as province,
+    ward_code,
+    province,
     latitude,
     longitude,
     timestamp_utc,
     parameter,
-    value as raw_value,
+    raw_value,
     calibrated_value as value,
     source_weight,
     aqi_reported,
@@ -169,4 +195,4 @@ select
     raw_sync_started_at,
     region_3,
     region_8
-from calibrated
+from prepared

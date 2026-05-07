@@ -44,6 +44,27 @@ def test_ask_returns_preview_and_referenced_tables(text_to_sql_app):
 
 
 @pytest.mark.unit
+def test_ask_rejects_requests_until_runtime_is_ready(text_to_sql_app):
+    text_to_sql_app.state.vanna_ready = False
+
+    with pytest.raises(HTTPException) as exc:
+        _route_endpoint(text_to_sql_app, "/ask")(
+            AskRequest(
+                question="Tinh nao co AQI cao nhat?",
+                lang="vi",
+                standard="TCVN",
+                session_id="session-warmup",
+            ),
+            text_to_sql_app.state.runtime,
+            text_to_sql_app.state.preview_store,
+            text_to_sql_app.state.sql_cache,
+        )
+
+    assert exc.value.status_code == 503
+    assert "warming up" in exc.value.detail
+
+
+@pytest.mark.unit
 def test_execute_rejects_missing_preview_token(text_to_sql_app):
     with pytest.raises(HTTPException) as exc:
         _route_endpoint(text_to_sql_app, "/execute")(
@@ -98,6 +119,7 @@ def test_execute_revalidates_sql_even_after_preview(
         executor=fake_clickhouse_executor,
         semantic_dir=str(semantic_dir),
     )
+    app.state.vanna_ready = True
     ask_response = _route_endpoint(app, "/ask")(
         AskRequest(
             question="show current AQI",

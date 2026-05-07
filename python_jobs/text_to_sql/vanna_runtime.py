@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import threading
 import time
 from typing import Any
 
@@ -76,6 +77,7 @@ class VannaRuntime:
         self._catalog_bundle: dict[str, Any] | None = None
         self._runtime_config: VannaRuntimeConfig | None = None
         self._training_manifest: TrainingManifest | None = None
+        self._client_lock = threading.Lock()
 
     def _resolve_vanna_config(self) -> VannaRuntimeConfig:
         groq_api_key = os.environ.get("GROQ_API_KEY")
@@ -362,6 +364,10 @@ class VannaRuntime:
         - For "trong N ngay qua" (last N days): WHERE date >= today() - toIntervalDay(N)
         - For "thang nay" (this month): WHERE date >= toStartOfMonth(today())
         - For province-level PM2.5/AQI: prefer fct_air_quality_province_level_daily over ward/summary tables.
+        - For a scalar question about one province, such as "AQI cao nhat cua Ha Noi hom qua",
+          return one aggregate row: SELECT MAX(max_aqi_vn) ... WHERE date = yesterday() AND province = ...
+        - Do not answer scalar province questions by selecting max_aqi_vn directly from
+          dm_air_quality_overview_daily; that table is ward-level and will return many rows.
         """
         client.train(documentation=system_docs.strip())
         # 3. DDL + business documentation per table
@@ -393,7 +399,13 @@ class VannaRuntime:
             ) from exc
 
     def _get_vanna_client(self) -> Any:
-        if self._vanna_client is None:
+        if self._vanna_client is not None:
+            return self._vanna_client
+
+        with self._client_lock:
+            if self._vanna_client is not None:
+                return self._vanna_client
+
             config = self._get_runtime_config()
             bundle = self._get_catalog_bundle()
             self._ensure_persist_directory()
@@ -401,7 +413,7 @@ class VannaRuntime:
             current_manifest = self._build_training_manifest(config, bundle, existing_manifest)
             retrain = self._should_retrain(config, current_manifest, existing_manifest)
             self._training_manifest = current_manifest
-            self._vanna_client = self._create_vanna_client()
+            vanna_client = self._create_vanna_client()
             action = "rebuild" if retrain else "reuse"
             print(
                 "Vanna runtime state: "
@@ -412,8 +424,10 @@ class VannaRuntime:
                 f"semantic_fingerprint={current_manifest.semantic_fingerprint}"
             )
             if retrain:
-                self._train_vanna_client(self._vanna_client)
+                self._train_vanna_client(vanna_client)
                 self._write_training_manifest(config, current_manifest)
+
+            self._vanna_client = vanna_client
         return self._vanna_client
 
     def metadata_context(self) -> list[dict[str, Any]]:

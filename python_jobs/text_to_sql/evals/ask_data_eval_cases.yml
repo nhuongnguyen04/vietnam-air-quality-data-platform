@@ -27,6 +27,17 @@ cases:
       - "recent_7_days"
     forbidden_targets: ["raw_openweather_measurements", "int_core__measurements_unified", "information_schema.tables"]
     expected_business_intent: "List provinces that breached WHO PM2.5 guidance recently."
+  - id: vi-hanoi-aqi-yesterday
+    lang: vi
+    question: "Chi so AQI cao nhat cua Ha Noi ngay hom qua la bao nhieu?"
+    expected_tables: ["fct_air_quality_province_level_daily"]
+    expected_sql_shape:
+      - "yesterday_filter"
+      - "single_province_filter"
+      - "scalar_aggregate"
+      - "aqi_metric"
+    forbidden_targets: ["dm_air_quality_overview_daily", "fct_air_quality_ward_level_daily", "raw_aqiin_measurements", "system.tables"]
+    expected_business_intent: "Return one province-level highest Vietnam AQI value for Hanoi yesterday."
   - id: vi-traffic
     lang: vi
     question: "PM2.5 thay doi the nao khi muc do un tac tang cao theo tung tinh?"

@@ -294,6 +294,36 @@ def test_runtime_rejects_sql_that_misses_eval_shape(monkeypatch, semantic_dir, t
 
 
 @pytest.mark.unit
+def test_runtime_rejects_non_scalar_hanoi_aqi_answer(monkeypatch, semantic_dir, tmp_path):
+    class NonScalarHanoiAqiVanna(FakeVanna):
+        def generate_sql(self, *, question):
+            self.questions.append(question)
+            return """
+            SELECT max_aqi_vn
+            FROM dm_air_quality_overview_daily
+            WHERE date = today() - 1
+              AND province = 'Hà Nội'
+            """
+
+    fake_vanna = NonScalarHanoiAqiVanna()
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY", str(tmp_path / "vanna"))
+    monkeypatch.setattr(VannaRuntime, "_create_vanna_client", lambda self: fake_vanna)
+
+    runtime = VannaRuntime(str(semantic_dir))
+    with pytest.raises(
+        RuntimeGenerationError,
+        match="expected SQL shapes|forbidden targets|expected tables",
+    ):
+        runtime.generate_sql(
+            question="Chỉ số AQI cao nhất của Hà Nội ngày hôm qua là bao nhiêu?",
+            lang="vi",
+            standard="TCVN",
+            session_id="session-hanoi-aqi",
+        )
+
+
+@pytest.mark.unit
 def test_runtime_wraps_vanna_generation_errors(monkeypatch, semantic_dir, tmp_path):
     class BrokenVanna:
         def train(self, **kwargs):

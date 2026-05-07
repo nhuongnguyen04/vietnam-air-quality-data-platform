@@ -223,6 +223,9 @@ def create_app(
         preview_store: PreviewStore = Depends(get_preview_store),
         sql_cache: SqlResponseCache = Depends(get_sql_cache),
     ) -> AskResponse:
+        if not app.state.vanna_ready:
+            raise HTTPException(status_code=503, detail="Vanna runtime is warming up")
+
         # --- Cache hit: skip LLM entirely for repeated questions ---------------
         cached = sql_cache.get(request.question, request.lang, request.standard)
         if cached is not None:

@@ -46,7 +46,7 @@ templates:
       {{- if eq $first.Labels.severity "critical" }}
       ⚠️ <b>Khuyến cáo:</b> Hạn chế tối đa ra ngoài. Ở trong nhà, đóng cửa sổ.
       {{- else }}
-      ⚠️ <b>Khuyến cáo:</b> Người nhạy cảm nên hạn chế hoạt động ngoài trời kéo dài.
+      ⚠️ <b>Khuyến cáo:</b> Mọi người nên giảm hoạt động ngoài trời kéo dài hoặc gắng sức. Người nhạy cảm nên tránh hoạt động ngoài trời.
       {{- end }}
       {{- end }}
       {{- end }}
