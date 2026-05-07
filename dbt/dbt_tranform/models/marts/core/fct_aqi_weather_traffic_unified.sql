@@ -1,9 +1,9 @@
 -- depends_on: {{ ref('fct_air_quality_ward_level_hourly') }}
 {{ config(
     materialized='incremental',
-    incremental_strategy='append',
+    incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(raw_loaded_at)',
-    unique_key='(ward_code, datetime_hour)',
+    unique_key=['ward_code', 'datetime_hour'],
     order_by='(province, datetime_hour, ward_code)',
     partition_by='toYYYYMM(date)',
     query_settings={

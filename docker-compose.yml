@@ -65,7 +65,8 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
-    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -146,7 +147,8 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
-    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -222,7 +224,8 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
-    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -298,7 +301,8 @@ services:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
     - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
-    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_PASSWORD}
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
     - AIRFLOW__CORE__LOAD_EXAMPLES=false
     - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
@@ -391,19 +395,23 @@ services:
     container_name: airflow-init
     environment:
     - AIRFLOW_SKIP_DB_MIGRATE=true
+    - AIRFLOW_ADMIN_USERNAME=${AIRFLOW_ADMIN_USERNAME:-admin}
+    - AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD}
     - OM_ADMIN_USER=${OM_ADMIN_USER}
     - OM_ADMIN_PASSWORD=${OM_ADMIN_PASSWORD}
     volumes:
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/config:/opt/airflow/config:ro
     - ./dbt/dbt_tranform:/opt/dbt/dbt_tranform
     - dbt-target:/opt/dbt/dbt_tranform/target
     - dbt-logs:/opt/dbt/dbt_tranform/logs
     - dbt-cache:/opt/dbt/.cache
     command: >
       bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache/dbt_packages
-      && chown -R airflow:0 /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache
+      && python /opt/airflow/config/write_simple_auth_passwords.py /opt/airflow/simple_auth_manager_passwords.json
+      && chown -R airflow:0 /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache
       && chmod -R 777 /opt/airflow/logs /opt/dbt/dbt_tranform
       && echo 'Permissions setup complete.'"
     networks:
@@ -847,11 +855,12 @@ services:
     - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
     - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
     - PYTHONPATH=/opt/airflow/plugins
+    - STREAMLIT_DASHBOARD_DIR=/opt/openmetadata/dashboard
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - dbt-target:/opt/dbt-artifacts:ro
     - ./openmetadata/custom_connectors:/opt/airflow/plugins/custom_connectors
-    - ./python_jobs/dashboard:/opt/airflow/plugins/dashboard:ro
+    - ./python_jobs/dashboard/dashboard_metadata.yml:/opt/openmetadata/dashboard/dashboard_metadata.yml:ro
     depends_on:
       postgres:
         condition: service_healthy

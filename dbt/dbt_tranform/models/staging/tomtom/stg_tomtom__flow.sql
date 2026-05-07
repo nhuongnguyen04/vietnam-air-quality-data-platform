@@ -1,6 +1,6 @@
 {{ config(
     materialized='incremental',
-    incremental_strategy='append',
+    incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(raw_loaded_at)',
     unique_key=['ward_code', 'timestamp_utc', 'parameter'],
     order_by='(ward_code, timestamp_utc, parameter)',

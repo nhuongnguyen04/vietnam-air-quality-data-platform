@@ -25,8 +25,8 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `AIRFLOW_ADMIN_USERNAME` | Required for Compose | None | Injected into `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS` for Airflow simple auth. |
-| `AIRFLOW_ADMIN_PASSWORD` | Required for Compose | None | Airflow admin password paired with `AIRFLOW_ADMIN_USERNAME`. |
+| `AIRFLOW_ADMIN_USERNAME` | Required for Compose | None | Airflow Simple Auth Manager username. Compose maps this user to the `admin` role. |
+| `AIRFLOW_ADMIN_PASSWORD` | Required for Compose | None | Written by `airflow-init` to the Simple Auth Manager password JSON file. |
 | `AIRFLOW__CORE__FERNET_KEY` | Required for Compose | None | Encrypts Airflow connections and variables at rest. The Compose stack now requires this to be set explicitly. |
 | `AIRFLOW_API_SECRET_KEY` | Required for Compose | None | Airflow API secret key. Passed to all Airflow services through Compose. |
 | `AIRFLOW_API_AUTH_JWT_SECRET` | Required for Compose | None | Airflow JWT signing secret for API auth. |
@@ -188,7 +188,7 @@ The repository does not have a single central settings validator, so requirednes
 | `AIRFLOW__CORE__FERNET_KEY` | Required to start the checked-in Airflow Compose stack securely | `docker-compose.yml` passes this directly into all Airflow services with no fallback. |
 | `GROQ_API_KEY` | Required for SQL generation in the current Vanna runtime | `python_jobs/text_to_sql/vanna_runtime.py` raises `GROQ_API_KEY is required for the Vanna runtime.` |
 | `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET`, `GDRIVE_REFRESH_TOKEN` | Required for Google Drive uploader/sync and the custom OpenMetadata Google Drive connector | Google Drive helpers raise `Missing OAuth credentials...` when any of the three are absent. |
-| `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD` | Required to render the checked-in Airflow Compose environment cleanly | Missing values leave `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS` incomplete in `docker-compose.yml`. |
+| `AIRFLOW_ADMIN_USERNAME`, `AIRFLOW_ADMIN_PASSWORD` | Required to start the checked-in Airflow Compose stack with fixed login credentials | `AIRFLOW_ADMIN_PASSWORD` must be set so `airflow-init` can write the Simple Auth Manager password file instead of letting Airflow generate one. |
 | `AIRFLOW_API_SECRET_KEY`, `AIRFLOW_API_AUTH_JWT_SECRET`, `AIRFLOW_WEBSERVER_SECRET_KEY` | Required by the checked-in Airflow Compose stack | `docker-compose.yml` interpolates these without fallbacks. |
 | `OPENWEATHER_API_TOKEN` | Required for the default OpenWeather ingestion path | `python_jobs/jobs/openweather/ingest_openweather_unified.py` exits with `No OpenWeather tokens found.` when no token variables are present. |
 | `TOMTOM_API_KEY` | Required for traffic ingestion DAG tasks | Passed from `docker-compose.yml` into Airflow services without a fallback. |

@@ -33,7 +33,7 @@ class StreamlitDashboardSource(Source):
         self.metadata = metadata_config
         
         # Paths
-        self.dashboard_dir = "/opt/airflow/plugins/dashboard"
+        self.dashboard_dir = os.getenv("STREAMLIT_DASHBOARD_DIR", "/opt/openmetadata/dashboard")
         self.service_name = self.config.serviceName
         self.dashboard_name = "Phân tích Chất lượng Không khí Việt Nam"
         # Variables for ClickHouse FQN (configurable via ENV or defaults)
