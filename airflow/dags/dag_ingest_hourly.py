@@ -10,10 +10,11 @@ This DAG can be triggered manually to ingest the latest measurements from:
 Schedule: None (manual fallback only)
 """
 
+import os
 from datetime import datetime, timedelta
+
 from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-import os
 
 # Default arguments
 default_args = {
@@ -117,18 +118,18 @@ def dag_ingest_hourly():
     @task
     def run_traffic_processing(**context):
         """Run TomTom Traffic Ingestion (Peak) or Off-peak Generation."""
+        import os
         import subprocess
         from datetime import datetime
-        import os
-        
+
         # Get Vietnam Hour
         data_interval_start = context.get('data_interval_start')
         # Airflow data_interval_start is in UTC, convert to VN (UTC+7)
         hour = (data_interval_start.hour + 7) % 24 if data_interval_start else (datetime.now().hour + 7) % 24
-        
+
         env = os.environ.copy()
         env.update(get_job_env_vars())
-        
+
         if 7 <= hour <= 20:
             print(f"Peak Hour ({hour}:00 VN): Running TomTom Ingestion...")
             cmd = f"cd {PYTHON_PATH} && python jobs/traffic/ingest_tomtom.py"
@@ -140,7 +141,7 @@ def dag_ingest_hourly():
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
-            
+
         print(f"Traffic processing completed for hour {hour}")
         return True
 
@@ -148,9 +149,10 @@ def dag_ingest_hourly():
     def update_ingestion_control():
         """Update ingestion_control for all sources."""
         import sys
+
         sys.path.insert(0, '/opt/python/jobs')
         from common.ingestion_control import update_control as _update
-        
+
         _update(source='dag_ingest_hourly', records_ingested=0, success=True)
         print("Updated ingestion_control summary")
 
@@ -166,11 +168,11 @@ def dag_ingest_hourly():
     )
 
     check_ch = check_clickhouse_connection()
-    
+
     aqiin = run_aqiin_measurements_ingestion()
     ow_unified = run_openweather_unified_ingestion()
     tt_processing = run_traffic_processing()
-    
+
     update_control = update_ingestion_control()
     completion = log_completion()
 
