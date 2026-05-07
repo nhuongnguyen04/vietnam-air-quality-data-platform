@@ -145,7 +145,7 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} / 1000000000
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|nsfs|proc|sysfs|devtmpfs|devpts|securityfs|debugfs|tracefs|configfs|pstore|bpf|autofs|mqueue|hugetlbfs|rpc_pipefs", mountpoint!~"^/(run|snap)(/.*)?$|^/mnt/wsl/docker-desktop.*|^/init$"} / 1000000000) and on(instance, device, mountpoint, fstype) (node_filesystem_readonly == 0)
               instant: true
               intervalMs: 1000
               legendFormat: "{{mountpoint}}"
@@ -171,7 +171,7 @@ groups:
         annotations:
           summary: "Disk Space Warning on {{ $labels.mountpoint }}"
           value: "{{ $values.B.Value | printf \"%.2f GB free\" }}"
-          description: "{{ $labels.mountpoint }} has < 20GB free. Run: du -sh /path/* to find large dirs."
+          description: "{{ $labels.mountpoint }} has less than 20GB free. Run: du -sh /path/* to find large dirs."
         labels:
           severity: warning
           channel: system
@@ -188,7 +188,7 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} / 1000000000
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|nsfs|proc|sysfs|devtmpfs|devpts|securityfs|debugfs|tracefs|configfs|pstore|bpf|autofs|mqueue|hugetlbfs|rpc_pipefs", mountpoint!~"^/(run|snap)(/.*)?$|^/mnt/wsl/docker-desktop.*|^/init$"} / 1000000000) and on(instance, device, mountpoint, fstype) (node_filesystem_readonly == 0)
               instant: true
               intervalMs: 1000
               legendFormat: "{{mountpoint}}"
@@ -214,7 +214,7 @@ groups:
         annotations:
           summary: "CRITICAL: Disk Space on {{ $labels.mountpoint }}"
           value: "{{ $values.B.Value | printf \"%.2f GB free\" }}"
-          description: "{{ $labels.mountpoint }} has < 5GB free. Move data or increase disk IMMEDIATELY."
+          description: "{{ $labels.mountpoint }} has less than 5GB free. Move data or increase disk IMMEDIATELY."
         labels:
           severity: critical
           channel: system

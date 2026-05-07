@@ -48,24 +48,24 @@ groups:
 
       # ── Resource exhaustion ─────────────────────────────────────────
       - alert: sys-disk-warning
-        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} < 20000000000
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|nsfs|proc|sysfs|devtmpfs|devpts|securityfs|debugfs|tracefs|configfs|pstore|bpf|autofs|mqueue|hugetlbfs|rpc_pipefs", mountpoint!~"^/(run|snap)(/.*)?$|^/mnt/wsl/docker-desktop.*|^/init$"} < 20000000000) and on(instance, device, mountpoint, fstype) (node_filesystem_readonly == 0)
         for: 5m
         labels:
           severity: warning
           channel: system
         annotations:
           summary: "Disk Space Warning on {{ $labels.mountpoint }}"
-          description: "{{ $labels.mountpoint }} has < 20GB free. Run: du -sh /path/* to find large dirs."
+          description: "{{ $labels.mountpoint }} has less than 20GB free. Run: du -sh /path/* to find large dirs."
 
       - alert: sys-disk-critical
-        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.clnt"} < 5000000000
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|nsfs|proc|sysfs|devtmpfs|devpts|securityfs|debugfs|tracefs|configfs|pstore|bpf|autofs|mqueue|hugetlbfs|rpc_pipefs", mountpoint!~"^/(run|snap)(/.*)?$|^/mnt/wsl/docker-desktop.*|^/init$"} < 5000000000) and on(instance, device, mountpoint, fstype) (node_filesystem_readonly == 0)
         for: 1m
         labels:
           severity: critical
           channel: system
         annotations:
           summary: "CRITICAL: Disk Space on {{ $labels.mountpoint }}"
-          description: "{{ $labels.mountpoint }} has < 5GB free. Move data or increase disk IMMEDIATELY."
+          description: "{{ $labels.mountpoint }} has less than 5GB free. Move data or increase disk IMMEDIATELY."
 
       - alert: sys-memory-high
         expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
