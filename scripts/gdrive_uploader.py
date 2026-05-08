@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import os
-import json
 import logging
+import os
 from pathlib import Path
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ def get_drive_service():
     """Authenticate and return the Drive service using Refresh Token."""
     if not all([CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN]):
         raise ValueError("Missing OAuth credentials: GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, or GDRIVE_REFRESH_TOKEN")
-    
+
     creds = Credentials(
         None,
         refresh_token=REFRESH_TOKEN,
@@ -33,11 +33,11 @@ def get_drive_service():
         client_secret=CLIENT_SECRET,
         scopes=SCOPES
     )
-    
+
     # Refresh token if needed
     if not creds.valid:
         creds.refresh(Request())
-        
+
     return build('drive', 'v3', credentials=creds)
 
 def find_or_create_folder(service, name, parent_id):
@@ -45,10 +45,10 @@ def find_or_create_folder(service, name, parent_id):
     query = f"name = '{name}' and '{parent_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
     results = service.files().list(q=query, fields="files(id, name)").execute()
     files = results.get('files', [])
-    
+
     if files:
         return files[0]['id']
-    
+
     # Create folder
     file_metadata = {
         'name': name,
@@ -63,21 +63,21 @@ def get_target_folder_id(service, filename):
     """Determine GDrive folder ID based on filename convention."""
     # Convention: [source]_[type]_[timestamp].csv
     # e.g., aqiin_meas_..., openweather_meas_..., tomtom_traf_...
-    
+
     # 1. Get/Create landing_zone folder
     landing_zone_id = find_or_create_folder(service, "landing_zone", DRIVE_ROOT_ID)
-    
+
     parts = filename.split('_')
     if len(parts) < 2:
         return landing_zone_id
-        
+
     source_prefix = parts[0].lower()
     type_prefix = parts[1].lower()
-    
+
     # Mapping for AQI.in
     if source_prefix == "aqiin":
         return find_or_create_folder(service, "aqi_in", landing_zone_id)
-    
+
     # Mapping for OpenWeather (ow or openweather)
     elif source_prefix in ["ow", "openweather"]:
         ow_id = find_or_create_folder(service, "openweather", landing_zone_id)
@@ -86,33 +86,33 @@ def get_target_folder_id(service, filename):
         elif "mete" in type_prefix or "weat" in type_prefix:
             return find_or_create_folder(service, "weather", ow_id)
         return ow_id
-        
+
     # Mapping for TomTom
     elif source_prefix == "tomtom":
         tomtom_id = find_or_create_folder(service, "tomtom", landing_zone_id)
         if "traf" in type_prefix or "flow" in type_prefix:
             return find_or_create_folder(service, "traffic", tomtom_id)
         return tomtom_id
-    
+
     return landing_zone_id
 
 def upload_file(service, local_path):
     """Upload a single file to the correct GDrive folder."""
     filename = local_path.name
     folder_id = get_target_folder_id(service, filename)
-    
+
     file_metadata = {
         'name': filename,
         'parents': [folder_id]
     }
     media = MediaFileUpload(str(local_path), mimetype='text/csv')
-    
+
     file = service.files().create(
         body=file_metadata,
         media_body=media,
         fields='id'
     ).execute()
-    
+
     logger.info(f"Uploaded {filename} with ID: {file.get('id')}")
     return file.get('id')
 

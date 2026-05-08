@@ -15,7 +15,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.10"
-  DBT_PROJECT_DIR: dbt/dbt_tranform
+  DBT_PROJECT_PATH: dbt/dbt_tranform
   CLICKHOUSE_HOST: localhost
   CLICKHOUSE_PORT: "8123"
   CLICKHOUSE_USER: default
@@ -150,7 +150,7 @@ jobs:
           pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 clickhouse-connect sqlfluff==3.5.0 sqlfluff-templater-dbt==3.5.0
 
       - name: dbt deps
-        working-directory: ${{ env.DBT_PROJECT_DIR }}
+        working-directory: ${{ env.DBT_PROJECT_PATH }}
         run: dbt deps
 
       - name: Prepare ClickHouse database
@@ -163,15 +163,15 @@ jobs:
           PY
 
       - name: dbt parse
-        working-directory: ${{ env.DBT_PROJECT_DIR }}
+        working-directory: ${{ env.DBT_PROJECT_PATH }}
         run: dbt parse --target dev
 
       - name: dbt compile
-        working-directory: ${{ env.DBT_PROJECT_DIR }}
+        working-directory: ${{ env.DBT_PROJECT_PATH }}
         run: dbt compile --target dev
 
       - name: SQL lint
-        run: sqlfluff lint ${{ env.DBT_PROJECT_DIR }} --format github-annotation
+        run: sqlfluff lint ${{ env.DBT_PROJECT_PATH }} --format github-annotation
 
   dbt-build-clickhouse:
     name: dbt Build on ClickHouse
@@ -214,7 +214,7 @@ jobs:
           pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 clickhouse-connect
 
       - name: dbt deps
-        working-directory: ${{ env.DBT_PROJECT_DIR }}
+        working-directory: ${{ env.DBT_PROJECT_PATH }}
         run: dbt deps
 
       - name: Initialize ClickHouse schema
@@ -241,9 +241,9 @@ jobs:
           PY
 
       - name: dbt seed
-        working-directory: ${{ env.DBT_PROJECT_DIR }}
+        working-directory: ${{ env.DBT_PROJECT_PATH }}
         run: dbt seed --target dev
 
       - name: dbt build
-        working-directory: ${{ env.DBT_PROJECT_DIR }}
+        working-directory: ${{ env.DBT_PROJECT_PATH }}
         run: dbt build --target dev

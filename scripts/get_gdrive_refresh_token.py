@@ -18,7 +18,6 @@ Lưu ý: Refresh token sẽ bị revoke nếu bạn:
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -111,7 +110,6 @@ def main():
     # 6. Test xác thực
     print("Testing OAuth token...")
     try:
-        from google.api_core.optional_imports import import_library
         from google.auth.transport.requests import Request
 
         credentials.refresh(Request())
