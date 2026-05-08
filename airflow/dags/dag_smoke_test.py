@@ -12,11 +12,12 @@ Tests the alert pipeline without any external dependencies:
 Does NOT send Telegram messages (D-12 compliance).
 """
 
-from datetime import datetime, timedelta
-from airflow.sdk import dag, task
 import os
-import time
 import random
+import time
+from datetime import datetime, timedelta
+
+from airflow.sdk import dag, task
 
 # ClickHouse connection — shared by all tasks in this DAG
 CLICKHOUSE_HOST = os.environ.get("CLICKHOUSE_HOST", "clickhouse")
@@ -65,7 +66,6 @@ def dag_smoke_test():
         Uses a randomised station ID to avoid collisions on rapid re-runs.
         Row values are deliberately high-AQI to simulate a real threshold breach.
         """
-        import clickhouse_connect
 
         client = _get_client()
 
@@ -101,7 +101,6 @@ def dag_smoke_test():
     @task
     def verify_alert_created(task_instance):
         """SELECT from mart_air_quality__alerts to confirm the test row exists and is readable."""
-        import clickhouse_connect
 
         # Receive station_id from insert_test_alert via xcom (Airflow TaskFlow pattern)
         test_station_id = task_instance.xcom_pull(task_ids="insert_test_alert")["station_id"]
@@ -144,7 +143,6 @@ def dag_smoke_test():
     @task
     def cleanup_test_alert(task_instance):
         """Delete the test row from mart_air_quality__alerts to leave the mart clean after test."""
-        import clickhouse_connect
 
         test_station_id = task_instance.xcom_pull(task_ids="insert_test_alert")["station_id"]
 

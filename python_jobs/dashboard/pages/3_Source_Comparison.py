@@ -1,22 +1,22 @@
 """Source Comparison page — AQI.in vs OpenWeather comparison."""
 from __future__ import annotations
 
+# ruff: noqa: E402
 import sys
+
 sys.path.insert(0, "..")
 
 """
-Trang So sánh Nguồn (Source Comparison) đối chiếu dữ liệu chất lượng không khí từ nhiều 
-nguồn khác nhau (PAM Air, OpenAQ, v.v.). Điều này giúp đánh giá độ chính xác và tính 
+Trang So sánh Nguồn (Source Comparison) đối chiếu dữ liệu chất lượng không khí từ nhiều
+nguồn khác nhau (PAM Air, OpenAQ, v.v.). Điều này giúp đánh giá độ chính xác và tính
 nhất quán của dữ liệu từ các hệ thống quan trắc khác nhau.
 """
-import streamlit as st
-import pandas as pd
 import plotly.express as px
-
+import streamlit as st
+from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
-from lib.aqi_utils import EPA_COLORS, render_empty_chart
-from lib.filters import render_sidebar_filters
 from lib.data_service import build_where_clause
+from lib.filters import render_sidebar_filters
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ try:
             },
             custom_data=["source"],
         )
-        fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=40))
+        fig.update_layout(height=320, margin={"l": 0, "r": 0, "t": 10, "b": 40})
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu so sánh nguồn."), use_container_width=True)
@@ -148,7 +148,7 @@ try:
                 labels={"source": t("nav_status", lang) if lang=="en" else "Nguồn", "avg_aqi": "AQI US"},
                 custom_data=["source"],
             )
-            fig.update_layout(height=300, showlegend=False, margin=dict(l=0, r=0, t=10, b=30))
+            fig.update_layout(height=300, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu phân bố."), use_container_width=True)
@@ -205,7 +205,7 @@ try:
             },
         )
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
-        fig.update_layout(height=260, showlegend=False, margin=dict(l=0, r=0, t=10, b=30))
+        fig.update_layout(height=260, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
         fig.update_traces(textposition="outside")
         st.plotly_chart(fig, use_container_width=True)
         st.caption(t("ops_dashboard_note", lang))

@@ -12,13 +12,11 @@ Deprecated (kept for backward compatibility only, not used by catalog_builder):
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 ALLOWED_PREFIXES = ("dm_", "fct_")
 FORBIDDEN_PATTERNS = (

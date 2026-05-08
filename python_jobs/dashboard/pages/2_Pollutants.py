@@ -1,17 +1,15 @@
 """
-Trang Chất ô nhiễm (Pollutants) phân tích chi tiết nồng độ các chất gây ô nhiễm chính 
-(PM2.5, PM10, NO2, O3, CO, SO2) theo thời gian và địa điểm, giúp người dùng hiểu sâu 
+Trang Chất ô nhiễm (Pollutants) phân tích chi tiết nồng độ các chất gây ô nhiễm chính
+(PM2.5, PM10, NO2, O3, CO, SO2) theo thời gian và địa điểm, giúp người dùng hiểu sâu
 về thành phần ô nhiễm tại khu vực.
 """
-import streamlit as st
-import pandas as pd
 import plotly.express as px
+import streamlit as st
 from lib.clickhouse_client import query_df
-from lib.data_service import get_source_table, build_where_clause
-from lib.style import get_plotly_layout
-from lib.aqi_utils import render_empty_chart
-from lib.i18n import t
+from lib.data_service import build_where_clause, get_source_table
 from lib.filters import render_sidebar_filters
+from lib.i18n import t
+from lib.style import get_plotly_layout
 
 # ── Translation Helper ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
@@ -32,11 +30,10 @@ def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates):
     where_clause = build_where_clause(grain, scope_val, dates)
 
     # Use fct_air_quality_summary_daily if table is _daily for individual pollutant AQIs
-    source_table = f"air_quality.{table}"
     if table.endswith("_daily"):
-        source_table = "air_quality.fct_air_quality_summary_daily"
+        pass
     elif table.endswith("_hourly"):
-        source_table = f"air_quality.{table}"
+        pass
 
     q = f"""
     SELECT
@@ -57,7 +54,7 @@ def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates):
 @st.cache_data(ttl=300)
 def get_source_fingerprint(grain: str, scope_val: str | None, dates):
     where_clause = build_where_clause(grain, scope_val, dates)
-    
+
     q = f"""
     SELECT
         probable_source,
@@ -102,13 +99,13 @@ if not trend.empty:
     }
     plot_df = trend.rename(columns=col_map)
     display_pollutants = list(col_map.values())
-    
+
     # Highlight selected pollutant if applicable
     highlight_poll = pollutant.upper() if pollutant != "aqi" else None
-    
+
     fig = px.line(plot_df, x="date", y=display_pollutants)
     fig.update_layout(get_plotly_layout(height=400), hovermode="x unified")
-    
+
     # If a specific pollutant is selected, make its line thicker
     if highlight_poll:
         for trace in fig.data:
@@ -117,7 +114,7 @@ if not trend.empty:
             else:
                 trace.line.width = 1.5
                 trace.opacity = 0.6
-                
+
     st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
@@ -135,7 +132,7 @@ with c1:
             'Mixed': t('source_mixed', lang)
         }
         df_source['source_label'] = df_source['probable_source'].map(source_map).fillna(df_source['probable_source'])
-        
+
         # Color mapping needs to use the same keys as the data passed to plotly
         color_map = {
             t('source_traffic', lang): '#ff7f0e',
@@ -144,15 +141,15 @@ with c1:
         }
 
         fig_pie = px.pie(
-            df_source, 
-            values='cnt', 
+            df_source,
+            values='cnt',
             names='source_label',
             color='source_label',
             hole=0.4,
             color_discrete_map=color_map,
             labels={'source_label': t('chart_label_type', lang), 'cnt': t('chart_label_count', lang)}
         )
-        fig_pie.update_layout(margin=dict(l=20, r=20, t=20, b=20), height=350)
+        fig_pie.update_layout(margin={"l": 20, "r": 20, "t": 20, "b": 20}, height=350)
         st.plotly_chart(fig_pie, use_container_width=True)
     else:
         st.caption(t("no_data", lang) if lang=="en" else "Chưa có dữ liệu phân tích nguồn.")
@@ -168,7 +165,7 @@ with c2:
             'Unhealthy (TCVN Breach)': t('compliance_tcvn', lang)
         }
         compliance['status_label'] = compliance['compliance_status'].map(comp_map).fillna(compliance['compliance_status'])
-        
+
         color_map = {
             t('compliance_good', lang): "#09ab3b",
             t('compliance_who', lang): "#ffa500",

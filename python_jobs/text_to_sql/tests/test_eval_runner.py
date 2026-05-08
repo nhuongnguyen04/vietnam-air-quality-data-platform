@@ -4,11 +4,10 @@ import pytest
 
 from python_jobs.text_to_sql.eval_runner import (
     EvalValidationError,
+    evaluate_sql_against_case,
     find_matching_eval_case,
     load_eval_cases,
-    evaluate_sql_against_case,
 )
-
 
 GOOD_SQL_BY_CASE_ID = {
     "vi-current-status": """

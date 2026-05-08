@@ -1,6 +1,8 @@
 """ClickHouse client for Streamlit dashboard."""
 from __future__ import annotations
+
 import os
+
 import clickhouse_connect
 import pandas as pd
 

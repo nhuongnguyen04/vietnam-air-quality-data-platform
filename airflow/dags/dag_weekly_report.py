@@ -7,10 +7,11 @@ Owner: air-quality-team
 Queries current warehouse marts and sends a formatted Telegram message
 with: province AQI averages, top 5 worst wards, 7-day trend, pollutant analysis.
 """
-from datetime import datetime, timedelta
-from airflow.sdk import dag, task
 import os
 import sys
+from datetime import datetime, timedelta
+
+from airflow.sdk import dag, task
 
 # Add python_jobs to path for imports in container
 sys.path.insert(0, "/opt/python/jobs")

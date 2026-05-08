@@ -3,31 +3,32 @@ Writer Factory Module - Centralized factory for creating data writers.
 """
 
 import os
-from typing import Optional
+
 from .base_writer import DataWriter
-from .csv_writer import CSVWriter
 from .clickhouse_writer import ClickHouseWriter
+from .csv_writer import CSVWriter
+
 
 def get_data_writer(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    database: Optional[str] = None,
+    host: str | None = None,
+    port: int | None = None,
+    database: str | None = None,
     batch_size: int = 1000
 ) -> DataWriter:
     """
     Factory function to create a writer based on environment mode.
-    
+
     Args:
         host: ClickHouse host
         port: ClickHouse port
         database: ClickHouse database
         batch_size: Number of records per batch
-        
+
     Returns:
         An implementation of DataWriter (CSVWriter or ClickHouseWriter)
     """
     mode = os.environ.get("INGEST_MODE", "clickhouse").lower()
-    
+
     if mode == "csv":
         output_dir = os.environ.get("CSV_OUTPUT_DIR", "landing_zone")
         return CSVWriter(output_dir=output_dir)

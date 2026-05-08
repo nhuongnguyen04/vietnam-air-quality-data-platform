@@ -9,6 +9,9 @@ tables:
   - dm_aqi_health_impact_summary
   - dm_aqi_temporal_patterns
   - dm_platform_data_health
+  - dm_platform_health_summary
+  - dm_platform_source_health
+  - dm_platform_status_distribution
   - dm_pollutant_source_fingerprint
   - dm_regional_health_risk_ranking
   - dm_traffic_hourly_trend

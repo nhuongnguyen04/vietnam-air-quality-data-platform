@@ -1,11 +1,10 @@
 """Evaluate Vanna SQL generation against the bilingual Ask Data corpus."""
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-import re
-from typing import Any
-import unicodedata
 
 import yaml
 

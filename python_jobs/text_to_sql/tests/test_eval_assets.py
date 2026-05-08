@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import yaml
 
 from python_jobs.text_to_sql.semantic_loader import load_allowed_tables

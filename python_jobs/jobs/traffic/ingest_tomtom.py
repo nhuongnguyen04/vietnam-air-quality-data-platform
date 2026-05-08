@@ -10,16 +10,17 @@ This script implements:
 Author: Air Quality Data Platform
 """
 
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
-import pandas as pd
-import numpy as np
-from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from scipy.spatial import cKDTree
+from datetime import datetime, timezone
+
+import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
+from scipy.spatial import cKDTree
 
 # Add project root to path
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,10 +28,10 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_script_dir)))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "python_jobs"))
 
-from common.api_client import APIClient
-from common.token_manager import TokenManager
-from common import get_data_writer
-from common.ingestion_control import update_control
+from common import get_data_writer  # noqa: E402
+from common.api_client import APIClient  # noqa: E402
+from common.ingestion_control import update_control  # noqa: E402
+from common.token_manager import TokenManager  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,10 @@ def select_tier_1(df, limit=600):
     # We prioritize by population to get the most important urban centers as anchors.
     # We still filter for distance <= 1km to avoid truly off-grid points.
     near_roads = df[df['distance_to_road_km'] <= 1.0].copy()
-    
+
     if len(near_roads) < limit:
         return df.sort_values(by=['population'], ascending=False).head(limit)
-    
+
     return near_roads.sort_values(by=['population'], ascending=False).head(limit)
 
 def get_osm_proxy(highway_type, dist_km):
@@ -70,11 +71,11 @@ def get_osm_proxy(highway_type, dist_km):
         'residential': 0.1
     }
     base = weights.get(highway_type, 0.2)
-    
+
     # Distance penalty: congestion probability drops as we move away from the nearest road segment
     # e.g., if 1km away, factor is 0.5
-    dist_factor = np.exp(-1.0 * dist_km) 
-    
+    dist_factor = np.exp(-1.0 * dist_km)
+
     return base * dist_factor
 
 def fetch_traffic_for_point(point_data, client, batch_id):
@@ -83,16 +84,16 @@ def fetch_traffic_for_point(point_data, client, batch_id):
     lat = point_data.get('snapped_lat', point_data['lat'])
     lon = point_data.get('snapped_lon', point_data['lon'])
     code = point_data.get('code', 'unknown')
-    
+
     try:
         # TomTom Point Flow Segment API - Zoom 22 for max precision
         endpoint = "/traffic/services/4/flowSegmentData/absolute/22/json"
         flow = client.get(endpoint, params={"point": f"{lat},{lon}"})
-        
+
         data = flow.get("flowSegmentData", {})
         if not data or data.get("currentSpeed") is None:
             return code, None
-            
+
         record = {
             "source": "tomtom",
             "traffic_source": "api",
@@ -115,7 +116,7 @@ def fetch_traffic_for_point(point_data, client, batch_id):
             "raw_payload": str(data)
         }
         return code, record
-        
+
     except Exception as e:
         logger.warning(f"Failed to fetch traffic for {code} ({lat},{lon}): {e}")
         return code, None
@@ -133,43 +134,43 @@ def interpolate_tier_2(all_wards, tier_1_results, batch_id):
     # We use congestion_ratio (0-1) as the interpolation target
     # Ratio = 1 - (Speed / FreeFlow)
     known_ratios = [1.0 - (r['current_speed'] / max(r['free_flow_speed'], 1.0)) for r in tier_1_results]
-    known_speeds = [r['current_speed'] for r in tier_1_results]
+    [r['current_speed'] for r in tier_1_results]
     known_ff_speeds = [r['free_flow_speed'] for r in tier_1_results]
-    
+
     tree = cKDTree(known_coords)
-    
-    tier_1_codes = set([r['ward_code'] for r in tier_1_results])
+
+    tier_1_codes = {r['ward_code'] for r in tier_1_results}
     tier_2_records = []
-    
+
     for _, ward in all_wards.iterrows():
         code = str(ward['code'])
         if code in tier_1_codes:
             continue
-            
+
         # 1. IDW Interpolation
         # Query nearest 10 neighbors
         dists, indices = tree.query([ward['lat'], ward['lon']], k=min(10, len(known_coords)))
-        
+
         # Avoid division by zero
         dists = np.clip(dists, 1e-6, None)
         weights = 1.0 / (dists ** 2)
         total_weight = np.sum(weights)
-        
+
         interp_ratio = np.sum(np.array([known_ratios[i] for i in indices]) * weights) / total_weight
         interp_ff = np.sum(np.array([known_ff_speeds[i] for i in indices]) * weights) / total_weight
-        
+
         # 2. OSM Proxy
         osm_proxy = get_osm_proxy(ward.get('nearest_highway_type', 'unknown'), ward.get('distance_to_road_km', 0.5))
-        
+
         # 3. Blending
         # 65% Interpolation + 35% OSM Context
         final_ratio = (interp_ratio * 0.65) + (osm_proxy * 0.35)
         # Cap at [0, 1]
         final_ratio = max(0, min(1, final_ratio))
-        
+
         # Derive speed back
         final_speed = interp_ff * (1.0 - final_ratio)
-        
+
         tier_2_records.append({
             "source": "tomtom",
             "traffic_source": "interpolated",
@@ -191,7 +192,7 @@ def interpolate_tier_2(all_wards, tier_1_results, batch_id):
             "road_closure": False,
             "raw_payload": f"Interpolated from {len(indices)} neighbors + OSM Proxy"
         })
-        
+
     return tier_2_records
 
 def main():
@@ -202,7 +203,7 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    
+
     # Load env
     load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
@@ -211,51 +212,52 @@ def main():
     keys_str = os.environ.get("TOMTOM_API_KEYS")
     if keys_str:
         tokens = [t.strip() for t in keys_str.split(",") if t.strip()]
-    
+
     # Fallback/Backward Compatibility for individual keys
     if not tokens:
         for i in ["", "_2", "_3", "_4"]:
             key = f"TOMTOM_API_KEY{i}"
             val = os.environ.get(key)
-            if val: tokens.append(val.strip())
-    
+            if val:
+                tokens.append(val.strip())
+
     if not tokens:
         logger.error("No TomTom tokens found in .env (expected TOMTOM_API_KEYS or TOMTOM_API_KEY)")
         sys.exit(1)
-        
+
     token_manager = TokenManager(tokens, requests_per_minute=2500/(24*60)*60) # Approx rate limiter
     client = APIClient(
         base_url="https://api.tomtom.com",
         token_manager=token_manager,
         auth_header_name="key" # TomTom uses 'key' as param
     )
-    
+
     writer = get_data_writer()
     batch_id = f"tomtom_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-    
+
     # 1. Load Wards and Select Tier 1
     all_wards = load_enriched_wards()
     tier_1 = select_tier_1(all_wards, limit=args.limit_tier1)
-    
+
     logger.info(f"Starting Tier 1 ingestion for {len(tier_1)} points.")
-    
+
     # 2. Phase 1: API Ingestion
     tier_1_results = []
     num_workers = args.workers or (len(tokens) * 10)
-    
+
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(fetch_traffic_for_point, row, client, batch_id): row['code'] for _, row in tier_1.iterrows()}
         for future in as_completed(futures):
             code, record = future.result()
             if record:
                 tier_1_results.append(record)
-    
+
     logger.info(f"Tier 1 complete: {len(tier_1_results)} successful fetches.")
-    
+
     # 3. Phase 2: Interpolation
     logger.info("Starting Phase 2: Spatial Interpolation for Tier 2.")
     tier_2_results = interpolate_tier_2(all_wards, tier_1_results, batch_id)
-    
+
     # 4. Final Write
     total_records = tier_1_results + tier_2_results
     if total_records:

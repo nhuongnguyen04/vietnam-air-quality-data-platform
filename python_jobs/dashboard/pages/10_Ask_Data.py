@@ -5,10 +5,8 @@ import uuid
 
 import pandas as pd
 import streamlit as st
-
 from lib.i18n import t
 from lib.text_to_sql_client import TextToSqlClient, TextToSqlClientError
-
 
 lang = st.session_state.get("lang", "vi")
 PREVIEW_LABEL_VI = "Xem trước SQL"
@@ -76,7 +74,7 @@ with st.container():
     )
     st.caption(t("ask_data_examples_label", lang))
     example_columns = st.columns(3)
-    for column, example_question in zip(example_columns, example_questions):
+    for column, example_question in zip(example_columns, example_questions, strict=False):
         with column:
             st.button(
                 example_question,

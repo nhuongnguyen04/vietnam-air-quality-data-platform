@@ -1,17 +1,16 @@
 """
 Trang Tổng quan (Overview) cung cấp cái nhìn toàn diện về chất lượng không khí tại Việt Nam.
-Bao gồm các chỉ số KPI chính (AQI trung bình, chất ô nhiễm chính, điểm nóng ô nhiễm) 
+Bao gồm các chỉ số KPI chính (AQI trung bình, chất ô nhiễm chính, điểm nóng ô nhiễm)
 và bản đồ phân bố không gian theo Tỉnh/Thành phố hoặc Phường/Xã.
 """
-import streamlit as st
-import pandas as pd
 import plotly.express as px
+import streamlit as st
+from lib.aqi_utils import EPA_COLORS, get_epa_continuous_scale, render_empty_chart
 from lib.clickhouse_client import query_df
-from lib.data_service import get_source_table, build_where_clause, get_pollutant_col, get_pollutant_cols
-from lib.style import render_metric_card, get_plotly_layout
-from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart, get_aqi_category, EPA_COLORS
-from lib.i18n import t
+from lib.data_service import build_where_clause, get_pollutant_cols, get_source_table
 from lib.filters import render_sidebar_filters
+from lib.i18n import t
+from lib.style import get_plotly_layout, render_metric_card
 
 # ── Translation & Standard Helpers ─────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
@@ -47,7 +46,7 @@ def get_national_summary(table, col, scope, dates):
     # The helper get_pollutant_cols already handled the max_col mapping safely.
     # However, if we are in hourly view, we just use the original column as max.
     m_col = col if table.endswith("_hourly") else max_col
-    
+
     q = f"""
     SELECT
         avg({col}) as avg_val,
@@ -63,7 +62,7 @@ def get_national_summary(table, col, scope, dates):
 def get_chart_data(table, col, grain, scope, dates):
     """Fetch data for maps and charts with proper hierarchical aggregation."""
     where_clause = build_where_clause(grain, scope, dates)
-    
+
     # Switch grain based on display level: "Tỉnh" or "Phường" triggers ward-level drill down
     if grain in ["Tỉnh", "Phường"]:
         q = f"""
@@ -98,7 +97,7 @@ def get_chart_data(table, col, grain, scope, dates):
 def get_aqi_distribution(table, col, scope, dates):
     """Calculate AQI category distribution directly in SQL."""
     where_clause = build_where_clause(None, scope, dates)
-    
+
     q = f"""
     SELECT
         CASE
@@ -123,10 +122,10 @@ def get_aqi_distribution(table, col, scope, dates):
 summary = get_national_summary(table_name, display_col, scope_val, date_range)
 if not summary.empty:
     row = summary.iloc[0]
-    
+
     # Label formatting based on pollutant
     val_label = "AQI" if pollutant == "aqi" else pollutant.upper()
-    
+
     with metric_row[0]:
         render_metric_card(f"{t('metric_national_avg', lang)} ({val_label})", f"{int(row.avg_val or 0)}", icon="insights")
     with metric_row[1]:
@@ -176,10 +175,10 @@ with c1:
         st.subheader(t("chart_aqi_dist", lang))
         df_dist = get_aqi_distribution(table_name, display_col, scope_val, date_range)
         if not df_dist.empty:
-            # Create color map with translated keys if necessary, 
+            # Create color map with translated keys if necessary,
             # but EPA_COLORS uses English keys. We should map translated labels to colors.
             color_map = {t(k, lang): v for k, v in EPA_COLORS.items()}
-            fig_pie = px.pie(df_dist, values='count', names='aqi_category', 
+            fig_pie = px.pie(df_dist, values='count', names='aqi_category',
                             color='aqi_category', color_discrete_map=color_map)
             fig_pie.update_layout(get_plotly_layout(height=400))
             st.plotly_chart(fig_pie, use_container_width=True)
@@ -187,7 +186,7 @@ with c1:
         dist_title = f"{t('chart_label_dist', lang)} {val_label}" if lang=="en" else f"Phân bố {val_label}"
         st.subheader(dist_title)
         if not map_df.empty:
-            fig_hist = px.histogram(map_df, x="display_val", marginal="box", 
+            fig_hist = px.histogram(map_df, x="display_val", marginal="box",
                                    labels={"display_val": val_label, "count": t("chart_label_count", lang)})
             fig_hist.update_layout(get_plotly_layout(height=400))
             st.plotly_chart(fig_hist, use_container_width=True)
@@ -199,7 +198,7 @@ with c2:
         df_top = df_top.sort_values('display_val', ascending=True)
         fig_bar = px.bar(df_top, y=label_col, x='display_val', orientation='h',
                         color='display_val', color_continuous_scale=color_scale,
-                        range_color=range_val, 
+                        range_color=range_val,
                         labels={"display_val": val_label, "province": t("province", lang), "ward_name": t("location", lang)})
         fig_bar.update_layout(get_plotly_layout(height=400))
         st.plotly_chart(fig_bar, use_container_width=True)

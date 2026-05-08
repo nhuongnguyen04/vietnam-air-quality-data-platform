@@ -13,8 +13,8 @@ Schedule: None (manual fallback only)
 import os
 from datetime import datetime, timedelta
 
-from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sdk import dag, task
 
 # Default arguments
 default_args = {

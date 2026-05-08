@@ -1,19 +1,20 @@
 """Alerts page — compliance timeline, WHO/TCVN breaches, high-risk heatmap, platform health."""
 from __future__ import annotations
 
+# ruff: noqa: E402
 import sys
+
 sys.path.insert(0, "..")
 
 """
-Trang Cảnh báo (Alerts) theo dõi và thông báo về các sự kiện ô nhiễm vượt ngưỡng quy định. 
+Trang Cảnh báo (Alerts) theo dõi và thông báo về các sự kiện ô nhiễm vượt ngưỡng quy định.
 Hệ thống cung cấp lịch sử các đợt cảnh báo và chi tiết về mức độ rủi ro tại từng khu vực.
 """
-import streamlit as st
 import pandas as pd
 import plotly.express as px
-
+import streamlit as st
+from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
-from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ try:
             "Unhealthy (TCVN Breach)": t("compliance_tcvn", lang)
         }
         timeline["status_label"] = timeline["compliance_status"].map(comp_map).fillna(timeline["compliance_status"])
-        
+
         # Color map with localized labels
         localized_colors = {t(k, lang) if k in ["Good/Safe", "Warning (WHO Breach)", "Unhealthy (TCVN Breach)"] else k: v for k, v in COMPLIANCE_COLORS.items()}
         # Handle cases where COMPLIANCE_COLORS uses original keys
@@ -174,7 +175,7 @@ try:
             barmode="stack",
             labels={"date": t("chart_label_date", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
         )
-        fig.update_layout(height=280, showlegend=True, margin=dict(l=0, r=0, t=10, b=40))
+        fig.update_layout(height=280, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 40})
         st.plotly_chart(fig, use_container_width=True)
     else:
         fig = render_empty_chart("Không có dữ liệu tuân thủ. Mức AQI đang ở ngưỡng an toàn.")
@@ -213,7 +214,7 @@ try:
                 },
                 labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
             )
-            fig.update_layout(height=300, showlegend=True, margin=dict(l=0, r=0, t=10, b=30))
+            fig.update_layout(height=300, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 30})
             st.plotly_chart(fig, use_container_width=True)
         else:
             fig = render_empty_chart("Không có dữ liệu vi phạm tiêu chuẩn.")
@@ -245,7 +246,7 @@ try:
                     "offline_count": True,
                 },
             )
-            fig.update_layout(height=300, showlegend=False, margin=dict(l=0, r=0, t=10, b=30))
+            fig.update_layout(height=300, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
             fig.update_traces(textposition="outside")
             st.plotly_chart(fig, use_container_width=True)
             st.caption(t("ops_dashboard_note", lang))
@@ -285,7 +286,7 @@ try:
                 "high_risk_hours": t("chart_label_hour", lang),
             },
         )
-        fig.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=30))
+        fig.update_layout(height=360, margin={"l": 0, "r": 0, "t": 10, "b": 30})
         st.plotly_chart(fig, use_container_width=True)
     else:
         fig = render_empty_chart("Không có giờ rủi ro cao. Chất lượng không khí đang tốt.")

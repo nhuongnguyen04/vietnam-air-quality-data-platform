@@ -9,7 +9,6 @@ Author: Air Quality Data Platform
 
 import os
 from datetime import datetime, timezone
-from typing import Optional
 
 NEVER_SUCCEEDED = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -26,7 +25,7 @@ def get_clickhouse_client():
     )
 
 
-def _normalize_utc_timestamp(value: object) -> Optional[datetime]:
+def _normalize_utc_timestamp(value: object) -> datetime | None:
     """Normalize ClickHouse timestamps into timezone-aware UTC datetimes."""
     if not isinstance(value, datetime):
         return None
@@ -35,7 +34,7 @@ def _normalize_utc_timestamp(value: object) -> Optional[datetime]:
     return value.astimezone(timezone.utc)
 
 
-def _get_previous_last_success(client, source: str) -> Optional[datetime]:
+def _get_previous_last_success(client, source: str) -> datetime | None:
     """Return the latest successful run timestamp already stored for a source."""
     safe_source = source.replace("'", "''")
     result = client.query(
@@ -56,7 +55,7 @@ def update_control(
     records_ingested: int,
     success: bool,
     error_message: str = '',
-    last_run: Optional[datetime] = None,
+    last_run: datetime | None = None,
 ) -> None:
     """
     Write or update a row in `ingestion_control` for the given source.

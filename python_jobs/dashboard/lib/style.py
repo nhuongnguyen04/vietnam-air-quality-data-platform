@@ -1,5 +1,5 @@
 import streamlit as st
-from lib.i18n import t
+
 
 def inject_style():
     """Inject custom CSS for premium UI look and feel."""
@@ -183,14 +183,14 @@ def render_top_bar():
     # c_lang: segmented control
     # c_theme: toggle button
     c_spacer, c_globe, c_lang, c_theme = st.columns(
-        [0.8, 0.03, 0.12, 0.05], 
-        vertical_alignment="center", 
+        [0.8, 0.03, 0.12, 0.05],
+        vertical_alignment="center",
         gap="small"
     )
-    
+
     with c_globe:
         st.markdown("🌐")
-        
+
     with c_lang:
         new_lang = st.segmented_control(
             label="Language",
@@ -267,25 +267,25 @@ def get_plotly_layout(height=400, animate=False):
     text_color = "#cbd5e1" if theme == "dark" else "#0f172a"
     grid_color = "rgba(255, 255, 255, 0.05)" if theme == "dark" else "rgba(0, 0, 0, 0.05)"
 
-    layout = dict(
-        height=height,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='Inter, sans-serif', color=text_color),
-        margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(gridcolor=grid_color, zeroline=False),
-        yaxis=dict(gridcolor=grid_color, zeroline=False),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.05,
-            xanchor="center",
-            x=0.5,
-            title_text=None
-        )
-    )
+    layout = {
+        "height": height,
+        "paper_bgcolor": 'rgba(0,0,0,0)',
+        "plot_bgcolor": 'rgba(0,0,0,0)',
+        "font": {"family": 'Inter, sans-serif', "color": text_color},
+        "margin": {"l": 20, "r": 20, "t": 40, "b": 20},
+        "xaxis": {"gridcolor": grid_color, "zeroline": False},
+        "yaxis": {"gridcolor": grid_color, "zeroline": False},
+        "legend": {
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.05,
+            "xanchor": "center",
+            "x": 0.5,
+            "title_text": None
+        }
+    }
 
     if animate:
-        layout["transition"] = dict(duration=500, easing="cubic-in-out")
+        layout["transition"] = {"duration": 500, "easing": "cubic-in-out"}
 
     return layout

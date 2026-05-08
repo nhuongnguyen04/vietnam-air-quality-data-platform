@@ -127,21 +127,21 @@ def apply_epa_template(fig, height: int = 400):
         Modified figure with EPA theme applied.
     """
     fig.update_layout(
-        font=dict(family="sans-serif", size=12),
+        font={"family": "sans-serif", "size": 12},
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="rgba(240,242,246,0.4)",
-        margin=dict(l=20, r=20, t=30, b=20),
+        margin={"l": 20, "r": 20, "t": 30, "b": 20},
         height=height,
     )
     fig.update_xaxes(
         showgrid=True,
         gridcolor="rgba(200,200,200,0.3)",
-        title_font=dict(size=11),
+        title_font={"size": 11},
     )
     fig.update_yaxes(
         showgrid=True,
         gridcolor="rgba(200,200,200,0.3)",
-        title_font=dict(size=11),
+        title_font={"size": 11},
     )
     fig.update_traces(marker_line_width=0)
     return fig
@@ -162,19 +162,19 @@ def render_empty_chart(message: str, height: int = 250):
 
     fig = go.Figure()
     fig.update_layout(
-        xaxis=dict(visible=False, showgrid=False),
-        yaxis=dict(visible=False, showgrid=False),
-        annotations=[dict(
-            text=message,
-            x=0.5, y=0.5,
-            showarrow=False,
-            font=dict(size=14, color=text_color),
-            xref="paper", yref="paper",
-        )],
+        xaxis={"visible": False, "showgrid": False},
+        yaxis={"visible": False, "showgrid": False},
+        annotations=[{
+            "text": message,
+            "x": 0.5, "y": 0.5,
+            "showarrow": False,
+            "font": {"size": 14, "color": text_color},
+            "xref": "paper", "yref": "paper",
+        }],
         height=height,
         paper_bgcolor=bg_color,
         plot_bgcolor=bg_color,
-        margin=dict(l=10, r=10, t=30, b=10),
-        transition=dict(duration=300, easing="cubic-in-out"),
+        margin={"l": 10, "r": 10, "t": 30, "b": 10},
+        transition={"duration": 300, "easing": "cubic-in-out"},
     )
     return fig

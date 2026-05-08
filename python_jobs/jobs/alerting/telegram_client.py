@@ -1,5 +1,6 @@
 """Telegram client for sending air quality alerts and reports."""
 import os
+
 import requests
 from dotenv import load_dotenv
 

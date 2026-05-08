@@ -1,6 +1,6 @@
 import streamlit as st
-from lib.style import inject_style, render_top_bar
 from lib.i18n import t
+from lib.style import inject_style, render_top_bar
 
 # ── Page Configuration ────────────────────────────────────────────────────────
 st.set_page_config(
@@ -48,9 +48,9 @@ pages = {
 
 # ── Sidebar Utilities ────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f"# VN Air Quality")
+    st.markdown("# VN Air Quality")
     st.divider()
-    
+
     st.subheader(t("standard_guidelines", lang))
     st.select_slider(
         label=t("standard_guidelines", lang),

@@ -1,19 +1,19 @@
 """
-Trang Ảnh hưởng Giao thông (Traffic Impact) phân tích mối tương quan giữa mật độ 
-phương tiện giao thông và chất lượng không khí. Giúp xác định vai trò của khí thải 
+Trang Ảnh hưởng Giao thông (Traffic Impact) phân tích mối tương quan giữa mật độ
+phương tiện giao thông và chất lượng không khí. Giúp xác định vai trò của khí thải
 giao thông trong việc gây ô nhiễm tại các đô thị lớn.
 """
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import streamlit as st
+from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause
-from lib.style import render_metric_card, get_plotly_layout
-from lib.aqi_utils import render_empty_chart
-from lib.i18n import t
 from lib.filters import render_sidebar_filters
+from lib.i18n import t
+from lib.style import get_plotly_layout, render_metric_card
+from plotly.subplots import make_subplots
 
 # ── Translation Helper ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
@@ -38,7 +38,7 @@ if pollutant != "pm25":
 def get_traffic_correlation_hourly(dates, grain, scope, col="pm25"):
     where_clause = build_where_clause(grain, scope, dates)
     target_col = col if col in ["pm25", "pm10", "co"] else "pm25"
-    
+
     q = f"""
     SELECT
         toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh') as datetime_hour,
@@ -56,7 +56,7 @@ def get_traffic_correlation_hourly(dates, grain, scope, col="pm25"):
 @st.cache_data(ttl=300)
 def get_traffic_summary_stats(grain: str, scope: str | None = None, dates=None):
     where_clause = build_where_clause(grain, scope, dates)
-    
+
     q = f"""
     SELECT
         avg(pm25_daily_avg) as avg_pm25,
@@ -115,7 +115,7 @@ def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, c
         LIMIT 15
         """
         return query_df(q)
-    
+
     q = f"""
     SELECT
         province as label_col,
@@ -209,7 +209,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_pm25):
 
     # ── Row 1: KPI Cards ──────────────────────────────────────────────────────
     c1, c2, c3 = st.columns(3)
-    
+
     traffic_display = f"{avg_traffic:.1%}" if avg_traffic > 0 else "N/A"
 
     with c1:
@@ -221,21 +221,21 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_pm25):
         render_metric_card(t("traffic_impact", lang), f"{comovement_score:.2f}", icon="analytics")
 
     st.markdown("---")
-    
+
     # ── Row 2: Hourly Correlation Charts ──────────────────────────────────────
     st.subheader(t("traffic_hourly_correlation", lang))
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
         go.Scatter(x=df_hourly.datetime_hour, y=df_hourly.avg_congestion, name="Chỉ số tắc nghẽn giao thông",
-                  line=dict(color='#1f77b4', width=3)),
+                  line={"color": '#1f77b4', "width": 3}),
         secondary_y=True,
     )
     fig.add_trace(
         go.Scatter(x=df_hourly.datetime_hour, y=df_hourly.avg_p, name=target_poll.upper(),
-                  fill='tozeroy', line=dict(color='#ff7f0e', width=2)),
+                  fill='tozeroy', line={"color": '#ff7f0e', "width": 2}),
         secondary_y=False,
     )
-    fig.update_layout(get_plotly_layout(height=450), margin=dict(l=60, r=60, t=20, b=80), hovermode="x unified")
+    fig.update_layout(get_plotly_layout(height=450), margin={"l": 60, "r": 60, "t": 20, "b": 80}, hovermode="x unified")
     fig.update_yaxes(title_text=target_poll.upper(), secondary_y=False)
     fig.update_yaxes(title_text="Chỉ số tắc nghẽn giao thông", secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)

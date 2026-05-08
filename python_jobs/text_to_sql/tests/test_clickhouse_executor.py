@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from python_jobs.text_to_sql.app import PreviewStore
 from python_jobs.text_to_sql.clickhouse_executor import ClickHouseExecutor

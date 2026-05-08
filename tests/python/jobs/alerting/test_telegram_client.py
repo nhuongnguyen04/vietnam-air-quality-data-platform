@@ -57,8 +57,8 @@ def test_send_message_raises_http_error(monkeypatch: pytest.MonkeyPatch) -> None
 
 @pytest.mark.unit
 def test_send_message_requires_aq_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("TELEGRAM_AQ_BOT_TOKEN", raising=False)
-    monkeypatch.delenv("TELEGRAM_AQ_CHAT_ID", raising=False)
+    monkeypatch.setenv("TELEGRAM_AQ_BOT_TOKEN", "")
+    monkeypatch.setenv("TELEGRAM_AQ_CHAT_ID", "")
 
     module = reload(telegram_client)
 

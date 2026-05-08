@@ -8,35 +8,37 @@ It uses a TokenManager to rotate through multiple API keys, maximizing throughpu
 Author: Air Quality Data Platform
 """
 
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+from typing import Any
+
 from dotenv import load_dotenv
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from common.api_client import APIClient
-from common.token_manager import TokenManager
 from common import get_data_writer
+from common.api_client import APIClient
 from common.ingestion_control import update_control
+from common.token_manager import TokenManager
 from models.openweather_models import (
-    load_ingestion_points,
     get_weather_clusters,
+    load_ingestion_points,
     transform_city_response,
 )
 
+
 # Reuse transform from ingest_weather.py logic
-def transform_weather_response(resp: Dict[str, Any], cluster_id: str, province: str, lat: float, lon: float) -> Dict[str, Any]:
+def transform_weather_response(resp: dict[str, Any], cluster_id: str, province: str, lat: float, lon: float) -> dict[str, Any]:
     """Transform OpenWeather /weather response to meteorology schema."""
     main = resp.get("main", {})
     wind = resp.get("wind", {})
     clouds = resp.get("clouds", {})
-    
+
     return {
         "source": "openweather",
         "ingest_time": datetime.now(timezone.utc),
@@ -58,7 +60,7 @@ def transform_weather_response(resp: Dict[str, Any], cluster_id: str, province: 
         "raw_payload": str(resp)
     }
 
-def fetch_weather_for_cluster(cid: str, data: Dict[str, Any], client: APIClient) -> Tuple[str, Optional[Dict]]:
+def fetch_weather_for_cluster(cid: str, data: dict[str, Any], client: APIClient) -> tuple[str, dict | None]:
     """Fetch weather for a cluster representative."""
     lat, lon = data["lat"], data["lon"]
     province = data["province"]
@@ -70,14 +72,14 @@ def fetch_weather_for_cluster(cid: str, data: Dict[str, Any], client: APIClient)
         logging.getLogger(__name__).warning(f"Cluster weather failed for {cid}: {e}")
         return cid, None
 
-def fetch_pollution_for_point(pid: str, data: Dict[str, Any], client: APIClient, cluster_weather_lookup: Dict[str, Dict]) -> Tuple[Optional[List], Optional[Dict]]:
+def fetch_pollution_for_point(pid: str, data: dict[str, Any], client: APIClient, cluster_weather_lookup: dict[str, dict]) -> tuple[list | None, dict | None]:
     """Fetch pollution for a point and associate with cluster weather."""
     lat, lon = data["lat"], data["lon"]
     province = data["province"]
     ward = data.get("ward", "")
     code = data.get("code", pid)
     cluster_id = data.get("cluster_id")
-    
+
     pollution_records = []
 
     # 1. Fetch Pollution
@@ -120,12 +122,13 @@ def main():
         tokens.extend([t.strip() for t in token_str.split(",") if t.strip()])
     for i in range(1, 21):
         val = os.environ.get(f"OPENWEATHER_API_TOKEN_{i}")
-        if val: tokens.append(val.strip())
+        if val:
+            tokens.append(val.strip())
 
     if not tokens:
         logger.error("No OpenWeather tokens found.")
         sys.exit(1)
-    
+
     tokens = list(set(tokens))
     token_manager = TokenManager(tokens)
     client = APIClient(
@@ -139,10 +142,10 @@ def main():
     all_points = load_ingestion_points()
     if args.limit:
         all_points = dict(list(all_points.items())[:args.limit])
-    
+
     # 1. Clustering
     clusters = get_weather_clusters(all_points, grid_size=args.grid)
-    
+
     # Calculate workers
     num_workers = args.workers or (len(tokens) * 5)
     logger.info(f"Starting  ingestion for {len(all_points)} wards using {len(clusters)} weather clusters.")
@@ -155,11 +158,10 @@ def main():
             cid, record = future.result()
             if record:
                 cluster_weather_lookup[cid] = record
-    
+
     logger.info(f"Weather clusters fetched: {len(cluster_weather_lookup)}")
 
     # 3. Phase 2: Pollution for all points
-    all_weather_records = []
     all_pollution_records = []
     chunk_size = 100
     processed = 0
@@ -170,7 +172,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(fetch_pollution_for_point, pid, d, client, cluster_weather_lookup): pid for pid, d in all_points.items()}
-        
+
         for future in as_completed(futures):
             p_list, w_rec = future.result()
             if p_list:
@@ -187,7 +189,7 @@ def main():
                 # To minimize data volume, we keep 1 record per cluster in meteorology_.
                 # Actually, the user's DDL doesn't have ward_code in meteorology_.
                 pass
-            
+
             processed += 1
             if processed % chunk_size == 0:
                 if all_pollution_records:

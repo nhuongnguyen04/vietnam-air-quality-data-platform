@@ -6,14 +6,13 @@ by `dag_sync_gdrive` after GitHub Actions land new CSV files in Google Drive.
 It can also be triggered manually for ad hoc rebuilds.
 """
 
-from datetime import datetime, timedelta
 import json
-from pathlib import Path
 import os
 import subprocess
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from airflow.sdk import dag, task, get_current_context
-
+from airflow.sdk import dag, get_current_context, task
 
 default_args = {
     'owner': 'air-quality-team',
@@ -263,7 +262,7 @@ def dag_transform():
         def patch_json(filepath: str, item_key: str | None):
             if not os.path.exists(filepath):
                 return
-            with open(filepath, 'r', encoding='utf-8') as handle:
+            with open(filepath, encoding='utf-8') as handle:
                 data = json.load(handle)
             changed = False
             for group in ['nodes', 'sources']:

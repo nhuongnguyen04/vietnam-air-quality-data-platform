@@ -1,15 +1,15 @@
 """
-Trang Rủi ro Sức khỏe (Health Risk) đánh giá tác động của ô nhiễm không khí đối với 
-sức khỏe con người. Cung cấp các khuyến nghị hành động dựa trên chỉ số AQI để bảo vệ 
+Trang Rủi ro Sức khỏe (Health Risk) đánh giá tác động của ô nhiễm không khí đối với
+sức khỏe con người. Cung cấp các khuyến nghị hành động dựa trên chỉ số AQI để bảo vệ
 nhân dân, đặc biệt là các nhóm nhạy cảm.
 """
+import plotly.express as px
 import streamlit as st
+from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import get_hierarchy_metadata
-from lib.style import render_metric_card, get_plotly_layout
-from lib.aqi_utils import render_empty_chart
 from lib.i18n import t
-import plotly.express as px
+from lib.style import get_plotly_layout, render_metric_card
 
 # ── Translation Helper ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
@@ -40,7 +40,7 @@ def get_health_risks(spatial_grain, scope_val):
         where = f"region_3 = '{scope_val}'"
     elif spatial_grain == "Khu vực" and scope_val:
         where = f"region_8 = '{scope_val}'"
-        
+
     q = f"""
     SELECT
         province,
@@ -59,7 +59,7 @@ df = get_health_risks(spatial_grain, scope_val)
 
 if not df.empty:
     top_risk = df.iloc[0]
-    
+
     col1, col2, col3 = st.columns(3)
     with col1:
         render_metric_card(t("worst_location", lang), top_risk.province, icon="health")
@@ -71,13 +71,13 @@ if not df.empty:
         render_metric_card(t("critical_hotspots", lang), str(high_risk_count), icon="error")
 
     st.markdown("---")
-    
+
     # Risk Distribution Bar Chart
     st.subheader(t("risk_ranking_title", lang))
-    
+
     # Sort ascending for horizontal bar (longest bar at bottom/end)
     df_plot = df.sort_values("total_exposure_index_m", ascending=True)
-    
+
     fig = px.bar(df_plot, x="total_exposure_index_m", y="province", color="risk_category",
                 orientation='h',
                 color_discrete_map={
@@ -86,12 +86,12 @@ if not df.empty:
                     "MODERATE": "#09ab3b",
                     "LOW": "#3b82f6"
                 })
-    
+
     chart_height = max(400, len(df_plot) * 25)
     fig.update_layout(get_plotly_layout(height=chart_height))
     fig.update_layout(
         yaxis={'categoryorder':'total ascending', 'dtick': 1},
-        margin=dict(l=150)
+        margin={"l": 150}
     )
     st.plotly_chart(fig, use_container_width=True)
 else:

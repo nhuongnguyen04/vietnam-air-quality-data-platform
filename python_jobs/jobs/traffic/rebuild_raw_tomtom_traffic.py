@@ -18,10 +18,10 @@ import io
 import logging
 import os
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import clickhouse_connect
 import numpy as np
@@ -31,7 +31,6 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from scipy.spatial import cKDTree
-
 
 logger = logging.getLogger("rebuild_raw_tomtom_traffic")
 
@@ -77,7 +76,7 @@ class ArchiveFile:
     file_id: str
     name: str
     rel_path: str
-    modified_time: Optional[datetime]
+    modified_time: datetime | None
 
 
 class WardMapper:
@@ -111,7 +110,7 @@ class WardMapper:
         except (TypeError, ValueError):
             return ""
 
-    def enrich(self, frame: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def enrich(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Map latitude/longitude to nearest ward metadata."""
         if frame.empty:
             return frame.copy(), frame.iloc[0:0].copy()
@@ -203,7 +202,7 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds), drive_root
 
 
-def find_folder(service, name: str, parent_id: str) -> Optional[str]:
+def find_folder(service, name: str, parent_id: str) -> str | None:
     query = (
         f"name = '{name}' and '{parent_id}' in parents "
         "and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
@@ -213,7 +212,7 @@ def find_folder(service, name: str, parent_id: str) -> Optional[str]:
     return files[0]["id"] if files else None
 
 
-def list_children(service, parent_id: str) -> List[dict]:
+def list_children(service, parent_id: str) -> list[dict]:
     query = f"'{parent_id}' in parents and trashed = false"
     response = service.files().list(
         q=query,
@@ -223,7 +222,7 @@ def list_children(service, parent_id: str) -> List[dict]:
     return response.get("files", [])
 
 
-def archive_day_to_key(archive_day: str) -> Tuple[int, int, int]:
+def archive_day_to_key(archive_day: str) -> tuple[int, int, int]:
     parts = archive_day.strip("/").split("/")
     if len(parts) != 3:
         raise ValueError(f"archive_day must be YYYY/MM/DD, got: {archive_day}")
@@ -236,14 +235,14 @@ def list_archive_tomtom_files(
     archive_day: str,
     start_file_name: str,
     onward: bool = False,
-) -> List[ArchiveFile]:
+) -> list[ArchiveFile]:
     archived_id = find_folder(service, "archived", drive_root_id)
     if not archived_id:
         logger.warning("Archived folder not found in Google Drive")
         return []
 
     start_key = archive_day_to_key(archive_day)
-    files: List[ArchiveFile] = []
+    files: list[ArchiveFile] = []
 
     for year in list_children(service, archived_id):
         if year["mimeType"] != "application/vnd.google-apps.folder":
@@ -290,7 +289,7 @@ def list_archive_tomtom_files(
     return files
 
 
-def infer_file_timestamp(name: str) -> Optional[datetime]:
+def infer_file_timestamp(name: str) -> datetime | None:
     stem = Path(name).stem
     parts = stem.split("_")
     if len(parts) < 4:
@@ -302,7 +301,7 @@ def infer_file_timestamp(name: str) -> Optional[datetime]:
         return None
 
 
-def query_columns(client, database: str, table: str) -> List[str]:
+def query_columns(client, database: str, table: str) -> list[str]:
     result = client.query(
         f"SELECT name FROM system.columns WHERE database = '{database}' AND table = '{table}' ORDER BY position"
     )
@@ -410,7 +409,7 @@ def transform_legacy_rows(
     frame: pd.DataFrame,
     mapper: WardMapper,
     batch_id_prefix: str,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     if frame.empty:
         return pd.DataFrame(columns=TARGET_COLUMNS), frame.iloc[0:0].copy()
 
@@ -456,7 +455,7 @@ def transform_legacy_rows(
 def normalize_current_rows(
     frame: pd.DataFrame,
     mapper: WardMapper,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     if frame.empty:
         return pd.DataFrame(columns=TARGET_COLUMNS), frame.iloc[0:0].copy()
 
@@ -564,9 +563,9 @@ def process_archive_files(
     archive_day: str,
     start_file_name: str,
     archive_day_onward: bool = False,
-) -> Tuple[int, List[Path]]:
+) -> tuple[int, list[Path]]:
     inserted = 0
-    reports: List[Path] = []
+    reports: list[Path] = []
 
     files = list_archive_tomtom_files(
         service=service,
@@ -611,7 +610,7 @@ def process_archive_files(
     return inserted, reports
 
 
-def verify_row_counts(client, database: str, table: str, start_dt: datetime, end_dt: datetime) -> List[Tuple]:
+def verify_row_counts(client, database: str, table: str, start_dt: datetime, end_dt: datetime) -> list[tuple]:
     result = client.query(
         f"""
         SELECT toDate(ingest_time) AS ingest_date, count()
@@ -633,7 +632,7 @@ def replay_delta(
     mapper: WardMapper,
     watermark: datetime,
     quarantine_dir: Path,
-) -> Tuple[int, Optional[Path]]:
+) -> tuple[int, Path | None]:
     backup_columns = query_columns(client, database, backup_table)
     delta = fetch_table_after(client, database, backup_table, backup_columns, watermark)
     if delta.empty:
@@ -741,7 +740,7 @@ def main() -> int:
 
     mapper = WardMapper(seed_path)
     client = get_ch_client()
-    quarantine_reports: List[Path] = []
+    quarantine_reports: list[Path] = []
     target_table_for_archive = args.rebuilt_table
 
     if not args.archive_only:

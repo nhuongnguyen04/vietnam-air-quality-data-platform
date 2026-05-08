@@ -14,21 +14,15 @@ from typing import Any
 
 try:
     from python_jobs.text_to_sql.semantic_loader import (
-        get_semantic_dir,
-        load_allowed_tables,
-        load_example_questions,
-        load_dbt_model_docs,
-        fetch_clickhouse_schema,
         build_table_prompt_context,
+        get_semantic_dir,
+        load_example_questions,
     )
 except ModuleNotFoundError:  # pragma: no cover - container import fallback
     from semantic_loader import (  # type: ignore
-        get_semantic_dir,
-        load_allowed_tables,
-        load_example_questions,
-        load_dbt_model_docs,
-        fetch_clickhouse_schema,
         build_table_prompt_context,
+        get_semantic_dir,
+        load_example_questions,
     )
 
 

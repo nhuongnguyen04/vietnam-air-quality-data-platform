@@ -1,18 +1,18 @@
-import os
-import json
-import logging
+import concurrent.futures
 import csv
 import io
+import logging
+import os
 import sys
-import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import local
-from typing import List, Dict, Any, Optional
+from typing import Any
 from uuid import uuid4
+
 import clickhouse_connect
-from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
 # Increase CSV field size limit for large JSON payloads
 csv.field_size_limit(sys.maxsize)
@@ -63,9 +63,9 @@ class SyncResult:
     success: bool
     filename: str
     rel_path: str
-    table: Optional[str] = None
-    error: Optional[str] = None
-    reason: Optional[str] = None
+    table: str | None = None
+    error: str | None = None
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -74,7 +74,7 @@ class SyncBatchMetadata:
     started_at: datetime
 
 
-def _base_type(ch_type: Optional[str]) -> str:
+def _base_type(ch_type: str | None) -> str:
     """Return the logical ClickHouse type name without wrappers/parameters."""
     if not ch_type:
         return ""
@@ -115,7 +115,7 @@ def _format_uint8_value(val: Any) -> str:
     return str(int(float(text)))
 
 
-def format_value(val: Any, ch_type: Optional[str] = None) -> str:
+def format_value(val: Any, ch_type: str | None = None) -> str:
     """Formats a value for a SQL INSERT statement."""
     if val is None or val == '':
         return 'NULL'
@@ -128,14 +128,14 @@ def format_value(val: Any, ch_type: Optional[str] = None) -> str:
 
     if isinstance(val, bool):
         return '1' if val else '0'
-    if isinstance(val, (int, float)):
+    if isinstance(val, int | float):
         return str(val)
     # Escape single quotes and wrap in quotes
     safe_val = str(val).replace("'", "''")
     return f"'{safe_val}'"
 
 
-def resolve_table_for_file(rel_path: str, filename: str) -> Optional[str]:
+def resolve_table_for_file(rel_path: str, filename: str) -> str | None:
     """Resolve the raw table for a Google Drive landing-zone file."""
     table = PATH_TO_TABLE.get(rel_path)
     if table:
@@ -148,7 +148,7 @@ def get_drive_service():
     if not hasattr(thread_local, "drive_service"):
         if not all([CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN]):
             raise ValueError("Missing OAuth credentials: GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, or GDRIVE_REFRESH_TOKEN")
-        
+
         creds = Credentials(
             None,
             refresh_token=REFRESH_TOKEN,
@@ -157,11 +157,11 @@ def get_drive_service():
             client_secret=CLIENT_SECRET,
             scopes=SCOPES
         )
-        
+
         # Refresh token if needed
         if not creds.valid:
             creds.refresh(Request())
-            
+
         from googleapiclient.discovery import build
         thread_local.drive_service = build('drive', 'v3', credentials=creds)
     return thread_local.drive_service
@@ -181,8 +181,9 @@ def find_folder(service, name, parent_id):
 
 def find_or_create_folder(service, name, parent_id):
     fid = find_folder(service, name, parent_id)
-    if fid: return fid
-    
+    if fid:
+        return fid
+
     meta = {'name': name, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_id]}
     folder = service.files().create(body=meta, fields='id').execute()
     return folder.get('id')
@@ -194,26 +195,26 @@ def get_archive_hierarchy(service, root_id):
     year_id = find_or_create_folder(service, str(now.year), archived_id)
     month_id = find_or_create_folder(service, f"{now.month:02d}", year_id)
     day_id = find_or_create_folder(service, f"{now.day:02d}", month_id)
-    
+
     # Pre-create source subfolders based on PATH_TO_TABLE and TABLE_MAPPING
     source_mapping = {}
     sources = set([k.split('/')[0] for k in PATH_TO_TABLE.keys()] + [k.split('_')[0] for k in TABLE_MAPPING.keys()])
     for source in sources:
         source_mapping[source] = find_or_create_folder(service, source, day_id)
-        
+
     return day_id, source_mapping
 
 def list_files_recursive(service, folder_id, current_rel_path=""):
     """Recursively list all files in a folder and its subfolders."""
     results = []
-    
+
     # List both files and folders
     query = f"'{folder_id}' in parents and trashed = false"
     response = service.files().list(
-        q=query, 
+        q=query,
         fields="files(id, name, mimeType)"
     ).execute()
-    
+
     items = response.get('files', [])
     for item in items:
         if item['mimeType'] == 'application/vnd.google-apps.folder':
@@ -224,22 +225,22 @@ def list_files_recursive(service, folder_id, current_rel_path=""):
             # It's a file
             item['rel_path'] = current_rel_path
             results.append(item)
-            
+
     return results
 
 def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMetadata) -> SyncResult:
     """Worker task to process a single file."""
     service = get_drive_service()
     ch_client = get_ch_client()
-    
+
     file_id = file_info['id']
     filename = file_info['name']
     rel_path = file_info.get('rel_path', '')
-    
+
     try:
         # 1. Determine Target Table
         table = resolve_table_for_file(rel_path, filename)
-            
+
         if not table:
             error = f"No table mapping for file at path: {rel_path}"
             logger.warning(error)
@@ -248,12 +249,12 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
         # 2. Download
         request = service.files().get_media(fileId=file_id)
         content = request.execute()
-        
+
         # 3. Parse and Insert
         f = io.StringIO(content.decode('utf-8'))
         reader = csv.DictReader(f)
         records = list(reader)
-        
+
         if records:
             # Get target table columns to filter out extra fields
             try:
@@ -265,7 +266,7 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
                 logger.debug(f"Valid columns for {table}: {set(col_types)}")
             except Exception as e:
                 logger.warning(f"Could not fetch columns for {table}: {e}. Falling back to original columns.")
-                col_types = {col: None for col in records[0].keys()}
+                col_types = dict.fromkeys(records[0].keys())
 
             for record in records:
                 record["raw_sync_run_id"] = sync_batch.run_id
@@ -277,21 +278,21 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
             # Filter columns to only include those that exist in the target table
             all_cols = list(records[0].keys())
             final_cols = [c for c in all_cols if c in col_types]
-            
+
             if not final_cols:
                 error = f"No valid columns found for table {table}"
                 logger.error(f"{error} in file {filename}")
                 return SyncResult(False, filename, rel_path, table, error, "NO_VALID_COLUMNS")
-                
+
             columns_str = ", ".join(final_cols)
-            
+
             values_list = []
             for record in records:
                 row_vals = [format_value(record.get(col), col_types.get(col)) for col in final_cols]
                 values_list.append(f"({', '.join(row_vals)})")
-            
+
             sql = f"INSERT INTO {table} ({columns_str}) VALUES {', '.join(values_list)}"
-            
+
             try:
                 ch_client.command(sql)
                 logger.info(f"Inserted {len(records)} rows from {filename} into {table}")
@@ -300,12 +301,12 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
                 # Log a snippet of the SQL for debugging (careful with sensitive data)
                 logger.debug(f"SQL Snippet: {sql[:200]}...")
                 raise
-        
+
         # 4. Archive
         # Source name is the first part of the relative path or filename
         source_name = rel_path.split('/')[0] if rel_path else filename.split('_')[0]
         target_folder_id = archive_source_mapping.get(source_name)
-        
+
         if not target_folder_id:
             # Fallback for unexpected sources
             error = f"Target archive folder not cached for source: {source_name}"
@@ -315,14 +316,14 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
         # Move file (re-parent)
         file_meta = service.files().get(fileId=file_id, fields='parents').execute()
         previous_parents = ",".join(file_meta.get('parents'))
-        
+
         service.files().update(
             fileId=file_id,
             addParents=target_folder_id,
             removeParents=previous_parents,
             fields='id, parents'
         ).execute()
-        
+
         return SyncResult(True, filename, rel_path, table)
     except Exception as e:
         logger.error(f"Error processing {filename}: {e}", exc_info=True)
@@ -332,7 +333,7 @@ def main():
     if not DRIVE_ROOT_ID:
         logger.error("GDRIVE_ROOT_FOLDER_ID not set")
         return
-    
+
     sync_started_at = datetime.now(timezone.utc)
     sync_run_id = os.environ.get("AIRFLOW_CTX_DAG_RUN_ID")
     if not sync_run_id:
@@ -347,11 +348,11 @@ def main():
         return
 
     archive_day_id, source_mapping = get_archive_hierarchy(service, DRIVE_ROOT_ID)
-    
+
     # 1. Discover all files recursively
     logger.info(f"Scanning for files in landing_zone (ID: {landing_zone_id})...")
     all_files = list_files_recursive(service, landing_zone_id)
-    
+
     if not all_files:
         logger.info("No files found in landing zone")
         print(f"SYNC_RUN_ID={sync_batch.run_id}")
@@ -362,17 +363,17 @@ def main():
         return
 
     logger.info(f"Found {len(all_files)} files. Starting parallel sync using {MAX_WORKERS} workers...")
-    
+
     # 2. Parallel Processing
     success_count = 0
-    failed_results: List[SyncResult] = []
+    failed_results: list[SyncResult] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
         futures = {
             executor.submit(process_file_task, f, source_mapping, sync_batch): f
             for f in all_files
         }
-        
+
         for future in concurrent.futures.as_completed(futures):
             f_info = futures[future]
             try:

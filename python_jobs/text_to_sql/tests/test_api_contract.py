@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import HTTPException
 import pytest
+from fastapi import HTTPException
 
 from python_jobs.text_to_sql.app import AskRequest, ExecuteRequest, create_app
 

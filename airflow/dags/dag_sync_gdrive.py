@@ -7,12 +7,13 @@ ClickHouse raw tables, and triggers `dag_transform` only when new files were
 successfully loaded.
 """
 
-from datetime import datetime, timedelta
-from airflow.sdk import dag, task, get_current_context
-from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.providers.standard.operators.python import BranchPythonOperator
 import os
 import subprocess
+from datetime import datetime, timedelta
+
+from airflow.providers.standard.operators.python import BranchPythonOperator
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sdk import dag, get_current_context, task
 
 # Default arguments
 default_args = {

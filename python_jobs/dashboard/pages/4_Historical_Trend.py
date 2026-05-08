@@ -1,22 +1,23 @@
 """Historical Trend page — daily/monthly AQI trends, province comparison, heatmap."""
 from __future__ import annotations
 
+# ruff: noqa: E402
 import sys
+
 sys.path.insert(0, "..")
 
 """
-Trang Xu hướng Lịch sử (Historical Trend) hiển thị sự biến đổi của chất lượng không khí 
-theo thời gian (giờ, ngày, tháng, năm). Giúp xác định các chu kỳ ô nhiễm và đánh giá 
+Trang Xu hướng Lịch sử (Historical Trend) hiển thị sự biến đổi của chất lượng không khí
+theo thời gian (giờ, ngày, tháng, năm). Giúp xác định các chu kỳ ô nhiễm và đánh giá
 hiệu quả của các biện pháp cải thiện môi trường.
 """
-import streamlit as st
 import pandas as pd
 import plotly.express as px
-
-from lib.clickhouse_client import query_df
+import streamlit as st
 from lib.aqi_utils import get_epa_continuous_scale, render_empty_chart
+from lib.clickhouse_client import query_df
+from lib.data_service import build_where_clause, get_pollutant_cols
 from lib.filters import render_sidebar_filters
-from lib.data_service import build_where_clause, get_pollutant_col, get_source_table, get_pollutant_cols
 from lib.i18n import t
 
 # ── Translation Helper ────────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ def get_temporal_patterns(province: str | None = None):
     where_clause = ""
     if province:
         where_clause = f"WHERE province = '{province}'"
-    
+
     q = f"""
     SELECT
         hour_of_day,
@@ -122,18 +123,18 @@ def get_temporal_patterns(province: str | None = None):
     df = query_df(q)
     if not df.empty:
         day_map = {
-            1: t("day_mon", lang) if lang=="en" else "Thứ 2", 
-            2: t("day_tue", lang) if lang=="en" else "Thứ 3", 
-            3: t("day_wed", lang) if lang=="en" else "Thứ 4", 
-            4: t("day_thu", lang) if lang=="en" else "Thứ 5", 
-            5: t("day_fri", lang) if lang=="en" else "Thứ 6", 
-            6: t("day_sat", lang) if lang=="en" else "Thứ 7", 
+            1: t("day_mon", lang) if lang=="en" else "Thứ 2",
+            2: t("day_tue", lang) if lang=="en" else "Thứ 3",
+            3: t("day_wed", lang) if lang=="en" else "Thứ 4",
+            4: t("day_thu", lang) if lang=="en" else "Thứ 5",
+            5: t("day_fri", lang) if lang=="en" else "Thứ 6",
+            6: t("day_sat", lang) if lang=="en" else "Thứ 7",
             7: t("day_sun", lang) if lang=="en" else "Chủ nhật"
         }
         # Actually using keys from i18n is better
         day_names = [t(f"day_{d}", lang) for d in ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]]
         day_map = {i+1: day_names[i] for i in range(7)}
-        
+
         df["day_name"] = df["day_of_week"].map(day_map)
         df["day_name"] = pd.Categorical(df["day_name"], categories=day_names, ordered=True)
     return df
@@ -179,7 +180,7 @@ try:
                    "avg_val": t("chart_label_avg", lang), "max_val": t("chart_label_max", lang)},
             color_discrete_map={"avg_val": "#00A8E8", "max_val": "#FF0000"},
         )
-        fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=40))
+        fig.update_layout(height=300, margin={"l": 0, "r": 0, "t": 10, "b": 40})
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.plotly_chart(render_empty_chart("Không có dữ liệu xu hướng quốc gia."), use_container_width=True)
@@ -189,7 +190,7 @@ try:
     st.subheader(f"{t('weather_dispersal_analysis', lang)} (AQI)")
     with st.spinner(t("loading", lang) if lang=="en" else "Đang tải..."):
         df_temporal = get_temporal_patterns(scope_val if spatial_grain in ["Tỉnh", "Phường"] else None)
-    
+
     if not df_temporal.empty:
         fig_temp = px.density_heatmap(
             df_temporal,
@@ -200,7 +201,7 @@ try:
             range_color=[0, 300],
             labels={"hour_of_day": t("chart_label_hour", lang), "day_name": t("chart_label_status", lang), "avg_aqi": "AQI US"}
         )
-        fig_temp.update_layout(height=350, margin=dict(l=0, r=0, t=10, b=30))
+        fig_temp.update_layout(height=350, margin={"l": 0, "r": 0, "t": 10, "b": 30})
         st.plotly_chart(fig_temp, use_container_width=True)
     else:
         st.caption("Chưa có dữ liệu temporal patterns cho vùng này.")
@@ -219,10 +220,10 @@ try:
                        "avg_val": t("chart_label_avg", lang), "max_val": t("chart_label_max", lang)},
                 color_discrete_map={"avg_val": "#00A8E8", "max_val": "#FF0000"},
             )
-            fig.update_layout(height=280, margin=dict(l=0, r=0, t=10, b=40))
+            fig.update_layout(height=280, margin={"l": 0, "r": 0, "t": 10, "b": 40})
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.plotly_chart(render_empty_chart(f"Không có dữ liệu."), use_container_width=True)
+            st.plotly_chart(render_empty_chart("Không có dữ liệu."), use_container_width=True)
 
     # ── monthly trend ─────────────────────────────────────────────────────────
     st.markdown("---")
@@ -238,7 +239,7 @@ try:
             color="avg_val",
             color_continuous_scale=get_epa_continuous_scale() if pollutant == "aqi" else "Viridis",
         )
-        fig.update_layout(height=280, showlegend=False, margin=dict(l=0, r=0, t=10, b=40))
+        fig.update_layout(height=280, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 40})
         fig.update_traces(textposition="outside")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -254,10 +255,10 @@ try:
             .index.tolist()
         )
         filtered = heatmap_data[heatmap_data["province"].isin(all_provs)]
-        
+
         # Calculate dynamic height: 20px per province + margins, min 380px
         chart_height = max(380, len(all_provs) * 22)
-        
+
         fig = px.density_heatmap(
             filtered,
             x="date_str",
@@ -267,7 +268,7 @@ try:
             labels={"date_str": t("chart_label_date", lang), "province": t("province", lang), "display_val": val_label},
             category_orders={"province": all_provs} # Keep sorted order
         )
-        fig.update_layout(height=chart_height, margin=dict(l=0, r=0, t=10, b=30))
+        fig.update_layout(height=chart_height, margin={"l": 0, "r": 0, "t": 10, "b": 30})
         st.plotly_chart(fig, use_container_width=True)
 
 except Exception as e:

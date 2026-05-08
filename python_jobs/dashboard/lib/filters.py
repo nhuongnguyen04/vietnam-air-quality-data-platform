@@ -1,8 +1,10 @@
-import streamlit as st
-import pandas as pd
 from datetime import datetime, timedelta
+
+import streamlit as st
+
 from .data_service import get_hierarchy_metadata
 from .i18n import t
+
 
 def init_filter_state():
     """Initialize session state for filters if not already present."""
@@ -38,7 +40,7 @@ def render_sidebar_filters():
     # 1. Spatial Grain
     spatial_options = ["Toàn quốc", "Vùng", "Khu vực", "Tỉnh", "Phường"]
     spatial_idx = spatial_options.index(st.session_state.f_spatial_grain) if st.session_state.f_spatial_grain in spatial_options else 0
-    
+
     st.session_state.f_spatial_grain = st.sidebar.selectbox(
         t("filter_spatial_grain", lang),
         spatial_options,
@@ -48,7 +50,7 @@ def render_sidebar_filters():
     # 2. Scope (Province/Region selection)
     hierarchy_df = get_hierarchy_metadata()
     scope_disabled = st.session_state.f_spatial_grain == "Toàn quốc"
-    
+
     scope_choices = {
         "Vùng":    ("Chọn miền", sorted(hierarchy_df['region_3'].unique())),
         "Khu vực": ("Chọn khu vực", sorted(hierarchy_df['region_8'].unique())),
@@ -57,7 +59,7 @@ def render_sidebar_filters():
     }.get(st.session_state.f_spatial_grain, ("Chọn", []))
 
     scope_label, scope_options = scope_choices
-    
+
     # Handle current value validity
     current_scope = st.session_state.f_scope_val
     if current_scope not in scope_options:
@@ -88,7 +90,7 @@ def render_sidebar_filters():
     }
     poll_keys = list(pollutant_map.keys())
     poll_idx = poll_keys.index(st.session_state.f_pollutant) if st.session_state.f_pollutant in poll_keys else 0
-    
+
     st.session_state.f_pollutant = st.sidebar.selectbox(
         "Chất ô nhiễm quan tâm" if lang == "vi" else "Target Pollutant",
         poll_keys,
@@ -110,17 +112,17 @@ def render_sidebar_filters():
         365: "1 năm gần nhất",
         0: "Tùy chọn khoảng ngày"
     }
-    
+
     preset_keys = list(TIME_OPTIONS.keys())
     preset_idx = preset_keys.index(st.session_state.f_time_preset) if st.session_state.f_time_preset in preset_keys else 1
-    
+
     selected_preset = st.sidebar.selectbox(
         "Khoảng thời gian",
         preset_keys,
         format_func=lambda x: TIME_OPTIONS[x],
         index=preset_idx
     )
-    
+
     if selected_preset != 0:
         # Update date range based on preset
         end_date = datetime.now()

@@ -1,27 +1,27 @@
 """Single integration boundary for Vanna-backed SQL generation without execution."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import threading
 import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 try:
     from python_jobs.text_to_sql.catalog_builder import build_vanna_catalog_bundle
     from python_jobs.text_to_sql.eval_runner import (
         EvalValidationError,
-        find_matching_eval_case,
         evaluate_sql_against_case,
+        find_matching_eval_case,
     )
     from python_jobs.text_to_sql.sql_validator import SqlValidationError, validate_sql
 except ModuleNotFoundError:  # pragma: no cover - container import fallback
     from catalog_builder import build_vanna_catalog_bundle  # type: ignore
-    from eval_runner import EvalValidationError, find_matching_eval_case, evaluate_sql_against_case  # type: ignore
+    from eval_runner import EvalValidationError, evaluate_sql_against_case, find_matching_eval_case  # type: ignore
     from sql_validator import SqlValidationError, validate_sql  # type: ignore
 
 
@@ -513,12 +513,12 @@ class VannaRuntime:
         _ = {"lang": lang, "standard": standard, "session_id": session_id}
         client = self._get_vanna_client()
         manifest = self._get_training_manifest()
-        
+
         # Monkey-patch Vanna retrieval to avoid hitting Groq's 6000 TPM limit
         # The new dbt-yaml driven context is highly detailed; top 10 exceeds the limit.
         original_get_ddl = client.get_related_ddl
         original_get_docs = client.get_related_documentation
-        
+
         try:
             client.get_related_ddl = lambda q, **k: original_get_ddl(q, **k)[:3]
             client.get_related_documentation = lambda q, **k: original_get_docs(q, **k)[:3]

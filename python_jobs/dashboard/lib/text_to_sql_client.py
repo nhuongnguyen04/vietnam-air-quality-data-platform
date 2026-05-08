@@ -60,10 +60,10 @@ class TextToSqlClient:
                 return json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
             raise TextToSqlClientError(self._format_http_error(exc)) from exc
-        except (TimeoutError, socket.timeout) as exc:
+        except TimeoutError as exc:
             raise TextToSqlClientError(self._format_timeout_error()) from exc
         except error.URLError as exc:
-            if isinstance(exc.reason, (TimeoutError, socket.timeout)):
+            if isinstance(exc.reason, TimeoutError | socket.timeout):
                 raise TextToSqlClientError(self._format_timeout_error()) from exc
             raise TextToSqlClientError(
                 f"Service unavailable at {self.base_url}: {exc.reason}. "

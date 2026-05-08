@@ -1,16 +1,13 @@
 """Validate generated SQL against the mart-only Ask Data contract."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 import re
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
-import yaml
 
 try:
     from python_jobs.text_to_sql.semantic_loader import (
@@ -223,9 +220,9 @@ def validate_sql(sql: str, semantic_dir: str | None = None) -> ValidationResult:
         _ensure_allowed_statement(statement)
         referenced_tables = _extract_referenced_tables(statement)
         formatted_sql = statement.sql(dialect="clickhouse", pretty=True)
-    except ParseError:
+    except ParseError as exc:
         if not re.match(r"^\s*(select|with)\b", normalized_sql, flags=re.IGNORECASE):
-            raise SqlValidationError("Only SELECT or WITH ... SELECT queries are allowed")
+            raise SqlValidationError("Only SELECT or WITH ... SELECT queries are allowed") from exc
         referenced_tables = _fallback_referenced_tables(normalized_sql)
         statement = None
         formatted_sql = normalized_sql

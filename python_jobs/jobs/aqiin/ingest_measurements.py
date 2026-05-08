@@ -8,22 +8,16 @@ Tốc độ: ~540 trạm trong < 2 phút.
 
 import argparse
 import logging
-import sys
 import os
-import uuid
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from common import get_data_writer, JobLogger, log_job_stats
-from jobs.aqiin.scraper_core import (
-    scrape_in_batches,
-    LocationData,
-    PollutantReading
-)
+from common import JobLogger, get_data_writer
+from jobs.aqiin.scraper_core import LocationData, scrape_in_batches
 
 # ─── Config ────────────────────────────────────────────────────────────
 BATCH_SIZE = 20
@@ -33,14 +27,14 @@ LOCATIONS_FILE = Path(__file__).parent / "vietnam_locations.txt"
 
 # ─── ClickHouse Writer ───────────────────────────────────────────────────────
 
-def write_to_clickhouse(results: List[LocationData], batch_id: str):
+def write_to_clickhouse(results: list[LocationData], batch_id: str):
     """Write results to ClickHouse raw_aqiin_* tables.
 
     D-AQI-01: schema updated to include unit + quality_flag (Phase 6).
     """
     writer = get_data_writer()
     measurement_records = []
-    for sid, loc in results:
+    for _sid, loc in results:
         if not loc.success:
             continue
 
@@ -115,7 +109,7 @@ def create_progress_callback(logger: logging.Logger):
         logger.info(f"[{finished}/{total}] {status} {sid}: AQI={result.aqi}")
     return callback
 
-def load_locations(limit: int = None) -> List[str]:
+def load_locations(limit: int = None) -> list[str]:
     if not LOCATIONS_FILE.exists():
         raise FileNotFoundError(f"Locations file not found: {LOCATIONS_FILE}")
     with open(LOCATIONS_FILE) as f:
@@ -126,27 +120,27 @@ async def run(mode: str, limit: int, min_success_ratio: float):
     batch_id = f"aqiin_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     paths = load_locations(limit=limit)
     logger = logging.getLogger("ingest_aqiin")
-    
+
     results = scrape_in_batches(
-        paths, 
-        batch_size=BATCH_SIZE, 
+        paths,
+        batch_size=BATCH_SIZE,
         batch_delay=BATCH_DELAY,
         progress_callback=create_progress_callback(logger)
     )
-    
+
     n_m = write_to_clickhouse(results, batch_id)
-    
+
     # GHA Notice for API monitoring
     successful = sum(1 for sid, r in results if r.success)
     failed = len(results) - successful
     success_ratio = successful / len(results) if results else 0
     token_expired = any(r.error and "Token expired" in str(r.error) for sid, r in results)
-    
+
     if os.environ.get('GITHUB_ACTIONS') == 'true':
         status_msg = "✅ Success" if failed == 0 else f"⚠️ {failed} failed"
         if token_expired:
             status_msg = "❌ TOKEN EXPIRED"
-            
+
         print(f"::notice::AQI.in API Ingestion: {status_msg} ({successful}/{len(results)} stations), {n_m} records added")
 
     if success_ratio < min_success_ratio:
@@ -155,7 +149,7 @@ async def run(mode: str, limit: int, min_success_ratio: float):
             f"{successful}/{len(results)} ({success_ratio:.2%}) < {min_success_ratio:.2%}. "
             "Failing run to prevent partial CSV upload from being treated as complete."
         )
-    
+
     return {
         "successful": successful,
         "failed": failed,

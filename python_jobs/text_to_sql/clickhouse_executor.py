@@ -1,10 +1,10 @@
 """Read-only ClickHouse execution for preview-approved SQL."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 import re
 import time
+from dataclasses import dataclass
 
 import clickhouse_connect
 

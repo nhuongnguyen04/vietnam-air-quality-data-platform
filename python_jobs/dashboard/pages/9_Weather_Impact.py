@@ -1,19 +1,18 @@
 """
-Trang Ảnh hưởng Thời tiết (Weather Impact) phân tích sự tác động của các yếu tố khí tượng 
-(nhiệt độ, độ ẩm, tốc độ gió) lên nồng độ chất ô nhiễm. Giúp hiểu rõ cơ chế phát tán 
+Trang Ảnh hưởng Thời tiết (Weather Impact) phân tích sự tác động của các yếu tố khí tượng
+(nhiệt độ, độ ẩm, tốc độ gió) lên nồng độ chất ô nhiễm. Giúp hiểu rõ cơ chế phát tán
 hoặc tích tụ bụi mịn trong các điều kiện thời tiết khác nhau.
 """
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from lib.clickhouse_client import query_df
-from lib.style import render_metric_card, get_plotly_layout
+import streamlit as st
 from lib.aqi_utils import render_empty_chart
-from lib.i18n import t
-from lib.filters import render_sidebar_filters
+from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause
+from lib.filters import render_sidebar_filters
+from lib.i18n import t
+from lib.style import get_plotly_layout, render_metric_card
 
 # ── Translation Helper ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
@@ -42,7 +41,7 @@ if pollutant not in ["pm25", "pm10"]:
 @st.cache_data(ttl=300)
 def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp"):
     where_clause = build_where_clause(grain, scope, dates)
-    
+
     q = f"""
     WITH stats_cte AS (
         SELECT
@@ -64,7 +63,7 @@ def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, 
 def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp"):
     where_clause = build_where_clause(grain, scope, dates)
     y_col = "ward_code" if grain == "Phường" else "province"
-    
+
     q = f"""
     WITH rank_cte AS (
         SELECT
@@ -90,7 +89,7 @@ def get_weather_hourly_trend(grain: str, scope: str | None = None, dates=None, c
     where_clause = build_where_clause(grain, scope, dates)
     # Map pollutant to column name for hourly trend
     target_col = col if col in ["pm25", "pm10", "aqi_vn", "aqi_us"] else "pm25"
-            
+
     q = f"""
     SELECT
         toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh') as datetime_hour,
@@ -116,7 +115,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
 
     # ── Row 1: KPI Cards ──────────────────────────────────────────────────────
     c1, c2, c3 = st.columns(3)
-    
+
     with c1:
         render_metric_card(t("weather_influence", lang), f"{influence_pct:.1f}%", icon="cloud")
     with c2:
@@ -129,7 +128,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
     # ── Row 2: Weather Influence Analysis ─────────────────────────────────────
     st.subheader(t("weather_question", lang))
     col_gauge, col_text = st.columns([1, 1])
-    
+
     with col_gauge:
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number",
@@ -146,7 +145,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
                 ],
             }
         ))
-        fig_gauge.update_layout(height=250, margin=dict(t=50, b=20))
+        fig_gauge.update_layout(height=250, margin={"t": 50, "b": 20})
         st.plotly_chart(fig_gauge, use_container_width=True)
 
     with col_text:
@@ -159,25 +158,25 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
         else:
             msg = f"Độ nhạy cảm tại {location_name} thấp. Ô nhiễm chủ yếu do nguồn phát thải tại chỗ." if lang == "vi" else f"Weather sensitivity in {location_name} is low. Pollution is mainly from local emission sources."
             st.info(msg)
-        
+
         st.caption("Phương pháp tính: So sánh nồng độ bụi khi lặng gió (<1m/s) và khi có gió (>2m/s) tại khu vực này.")
 
     st.markdown("---")
 
     # ── Row 3: Vulnerability Ranking (SQL Aggregated) ─────────────────────────
     st.subheader(t("weather_sensitivity_ranking", lang))
-    
+
     df_rank = get_weather_ranking_data(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col)
 
     if not df_rank.empty:
         fig_rank = px.bar(
-            df_rank, 
-            x="risk_index", 
-            y="label_col", 
+            df_rank,
+            x="risk_index",
+            y="label_col",
             color="influence_pct",
             orientation='h',
             labels={
-                "risk_index": t("chart_label_type", lang) if lang=="en" else "Chỉ số rủi ro tích tụ", 
+                "risk_index": t("chart_label_type", lang) if lang=="en" else "Chỉ số rủi ro tích tụ",
                 "influence_pct": t("weather_influence", lang),
                 "label_col": t("chart_label_area", lang)
             },
@@ -197,12 +196,12 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
             df_hourly, x="avg_wind", y="avg_val", color="avg_hum",
             trendline="lowess",
             labels={
-                "avg_wind": t("weather_wind_speed", lang), 
-                "avg_val": f"{target_poll.upper()}", 
+                "avg_wind": t("weather_wind_speed", lang),
+                "avg_val": f"{target_poll.upper()}",
                 "avg_hum": t("chart_label_area", lang) if lang=="en" else "Độ ẩm (%)"
             }
         )
-        fig_scatter.update_traces(marker=dict(size=10))
+        fig_scatter.update_traces(marker={"size": 10})
         fig_scatter.update_layout(get_plotly_layout(height=450))
         st.plotly_chart(fig_scatter, use_container_width=True)
 

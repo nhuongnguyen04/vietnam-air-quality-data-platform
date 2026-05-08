@@ -9,8 +9,8 @@ import yaml
 
 os.environ.setdefault("TEXT_TO_SQL_PREVIEW_SECRET", "test-preview-secret")
 
-from python_jobs.text_to_sql.app import create_app
 from python_jobs.text_to_sql import semantic_loader
+from python_jobs.text_to_sql.app import create_app
 from python_jobs.text_to_sql.clickhouse_executor import QueryExecutionResult
 from python_jobs.text_to_sql.vanna_runtime import GeneratedSql
 
