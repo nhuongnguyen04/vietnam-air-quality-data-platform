@@ -5,6 +5,30 @@
 dialect = clickhouse
 templater = dbt
 indentation = 4
+# SQLFluff's ClickHouse parser does not fully support every dialect extension
+# used by the dbt project, e.g. `LIMIT 1 BY ...`.
+ignore = parsing
+exclude_rules =
+    AL01,
+    AL03,
+    AL06,
+    AL09,
+    AM03,
+    AM05,
+    AM06,
+    CP02,
+    CP01,
+    CP03,
+    CV03,
+    LT01,
+    LT02,
+    LT03,
+    LT05,
+    LT14,
+    RF02,
+    RF04,
+    ST05,
+    ST06
 
 [sqlfluff:rules]
 capitalisation_policy = consistent
