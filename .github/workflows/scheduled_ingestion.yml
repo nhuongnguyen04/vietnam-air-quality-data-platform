@@ -77,3 +77,31 @@ jobs:
 
       - name: Upload to Google Drive
         run: python scripts/gdrive_uploader.py
+
+      - name: Notify Telegram on failure
+        if: ${{ failure() }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_SYS_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_SYS_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram credentials are missing; cannot send failure notification."
+            exit 1
+          fi
+
+          SHORT_SHA="${GITHUB_SHA::7}"
+          MESSAGE="$(printf '%s\n' \
+            "GitHub Actions failed" \
+            "" \
+            "Workflow: ${GITHUB_WORKFLOW}" \
+            "Repository: ${GITHUB_REPOSITORY}" \
+            "Branch: ${GITHUB_REF_NAME}" \
+            "Commit: ${SHORT_SHA}" \
+            "Actor: ${GITHUB_ACTOR}" \
+            "Run: ${RUN_URL}")"
+
+          curl --fail --silent --show-error --request POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"

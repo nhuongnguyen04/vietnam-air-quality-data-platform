@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import os
+import sys
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -119,20 +120,21 @@ def upload_file(service, local_path):
 def main():
     if not DRIVE_ROOT_ID:
         logger.error("GDRIVE_ROOT_FOLDER_ID not set")
-        return
+        return 1
 
     try:
         service = get_drive_service()
     except Exception as e:
         logger.error(f"Authentication failed: {e}")
-        return
+        return 1
 
     path = Path(LOCAL_LANDING_ZONE)
     if not path.exists():
-        logger.warning(f"Local landing zone {LOCAL_LANDING_ZONE} does not exist")
-        return
+        logger.error(f"Local landing zone {LOCAL_LANDING_ZONE} does not exist")
+        return 1
 
     files_uploaded = 0
+    files_failed = 0
     for file_path in path.glob("*.csv"):
         try:
             upload_file(service, file_path)
@@ -140,9 +142,19 @@ def main():
             file_path.unlink()
             files_uploaded += 1
         except Exception as e:
+            files_failed += 1
             logger.error(f"Failed to upload {file_path.name}: {e}")
 
+    if files_failed:
+        logger.error(
+            "Ingestion upload job failed. Files uploaded: %s; files failed: %s",
+            files_uploaded,
+            files_failed,
+        )
+        return 1
+
     logger.info(f"Ingestion upload job finished. Total files uploaded: {files_uploaded}")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
