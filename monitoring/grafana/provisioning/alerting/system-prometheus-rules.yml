@@ -3,7 +3,7 @@ apiVersion: 1
 groups:
   - name: system-prometheus-alerts
     folder: System Alerts
-    interval: 1m
+    interval: 30s
     rules:
       - uid: sys-clickhouse-down-prom
         title: "ClickHouse Unreachable"
@@ -38,7 +38,7 @@ groups:
                 - evaluator: { params: [1], type: lt }
         noDataState: OK
         execErrState: Alerting
-        for: 2m
+        for: 0m
         annotations:
           summary: "ClickHouse Unreachable"
           value: "{{ $values.B.Value | printf \"%.0f\" }}"
@@ -81,7 +81,7 @@ groups:
                 - evaluator: { params: [3], type: gt }
         noDataState: OK
         execErrState: Alerting
-        for: 1m
+        for: 0m
         annotations:
           summary: "Container Restart Loop"
           value: "{{ $values.B.Value | printf \"%.0f\" }}"
@@ -167,7 +167,7 @@ groups:
                 - evaluator: { params: [20], type: lt }
         noDataState: OK
         execErrState: Alerting
-        for: 5m
+        for: 0m
         annotations:
           summary: "Disk Space Warning on {{ $labels.mountpoint }}"
           value: "{{ $values.B.Value | printf \"%.2f GB free\" }}"
@@ -210,7 +210,7 @@ groups:
                 - evaluator: { params: [5], type: lt }
         noDataState: OK
         execErrState: Alerting
-        for: 1m
+        for: 0m
         annotations:
           summary: "CRITICAL: Disk Space on {{ $labels.mountpoint }}"
           value: "{{ $values.B.Value | printf \"%.2f GB free\" }}"
@@ -252,7 +252,7 @@ groups:
                 - evaluator: { params: [90], type: gt }
         noDataState: OK
         execErrState: Alerting
-        for: 5m
+        for: 0m
         annotations:
           summary: "Host Memory >90% Used"
           value: "{{ $values.B.Value | printf \"%.1f%%\" }}"
@@ -262,7 +262,7 @@ groups:
           channel: system
 
       - uid: sys-dag-failures-prom
-        title: "Airflow DAG Failures in Last 30m"
+        title: "Airflow DAG Failure in Last 30m"
         condition: C
         data:
           - refId: A
@@ -273,9 +273,10 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: sum(airflow_dag_run_count{state="failed"})
+              expr: airflow_dag_run_count{state="failed"}
               instant: true
               intervalMs: 1000
+              legendFormat: "{{dag_id}}"
               maxDataPoints: 300
               range: false
               refId: A
@@ -294,11 +295,11 @@ groups:
                 - evaluator: { params: [0], type: gt }
         noDataState: OK
         execErrState: Alerting
-        for: 5m
+        for: 0m
         annotations:
-          summary: "Airflow DAG Failures in Last 30m"
+          summary: "Airflow DAG Failure: {{ $labels.dag_id }}"
           value: "{{ $values.B.Value | printf \"%.0f\" }}"
-          description: "Check Airflow UI at http://localhost:8090 for failed DAGs."
+          description: "DAG {{ $labels.dag_id }} has failed run(s) in the last 30m. Check Airflow UI at http://localhost:8090."
         labels:
           severity: critical
           channel: system
@@ -315,7 +316,7 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: time() - airflow_dag_run_count_seconds_ago{state="success"}
+              expr: airflow_dag_run_count_seconds_ago{state="success"}
               instant: true
               intervalMs: 1000
               maxDataPoints: 300
@@ -336,7 +337,7 @@ groups:
                 - evaluator: { params: [7200], type: gt }
         noDataState: OK
         execErrState: Alerting
-        for: 10m
+        for: 0m
         annotations:
           summary: "No Successful DAG Run in >2 Hours"
           value: "{{ $values.B.Value | printf \"%.0f seconds\" }}"

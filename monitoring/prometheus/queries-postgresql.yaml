@@ -4,13 +4,17 @@
 airflow_dag_run:
   query: |
     SELECT
+      dag_id,
       COALESCE(state, 'unknown') AS state,
       COUNT(*)::float AS count
     FROM dag_run
     WHERE end_date >= NOW() - INTERVAL '30 minutes'
       AND state IS NOT NULL
-    GROUP BY state
+    GROUP BY dag_id, state
   metrics:
+    - dag_id:
+        usage: "LABEL"
+        description: "Airflow DAG id"
     - state:
         usage: "LABEL"
         description: "Airflow DAG run state"

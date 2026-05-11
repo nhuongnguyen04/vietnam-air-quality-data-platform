@@ -197,7 +197,7 @@ groups:
 
   - name: system-data-freshness
     folder: System Alerts
-    interval: 5m
+    interval: 30s
     rules:
 
       # ─────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ groups:
                 - evaluator: { params: [3], type: gt }
         noDataState: OK
         execErrState: OK
-        for: 10m
+        for: 0m
         annotations:
           summary: "No new data ingested in >3 hours"
           value: "{{ $values.B.Value | printf \"%.1f\" }}h"
@@ -272,7 +272,7 @@ groups:
                 - evaluator: { params: [3], type: gt }
         noDataState: OK
         execErrState: OK
-        for: 10m
+        for: 0m
         annotations:
           summary: "Latest observation is older than 3 hours"
           value: "{{ $values.B }}"
@@ -309,7 +309,7 @@ groups:
                 - evaluator: { params: [70], type: lt }
         noDataState: OK
         execErrState: OK
-        for: 15m
+        for: 0m
         annotations:
           summary: "Reliable ward/source coverage dropped below 70%"
           value: "{{ $values.B }}"
@@ -346,7 +346,7 @@ groups:
                 - evaluator: { params: [500], type: gt }
         noDataState: OK
         execErrState: OK
-        for: 15m
+        for: 0m
         annotations:
           summary: "More than 500 ward/source records are stale or offline"
           value: "{{ $values.B }}"
