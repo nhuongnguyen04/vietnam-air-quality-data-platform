@@ -9,6 +9,7 @@ It can also be triggered manually for ad hoc rebuilds.
 import json
 import os
 import subprocess
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -26,6 +27,52 @@ default_args = {
 DBT_PROFILES_DIR = os.environ.get('DBT_PROFILES_DIR', '/opt/dbt/dbt_tranform')
 DBT_PROJECT_DIR = os.environ.get('DBT_PROJECT_DIR', '/opt/dbt/dbt_tranform')
 DBT_TARGET = os.environ.get('DBT_TARGET', 'production')
+
+
+def _load_json_document(filepath: str) -> tuple[dict, bool]:
+    """Load a JSON object, recovering dbt artifacts with trailing data."""
+    with open(filepath, encoding='utf-8') as handle:
+        content = handle.read()
+
+    try:
+        return json.loads(content), False
+    except json.JSONDecodeError as exc:
+        start = len(content) - len(content.lstrip())
+        try:
+            data, end = json.JSONDecoder().raw_decode(content, start)
+        except json.JSONDecodeError as recovery_exc:
+            raise exc from recovery_exc
+
+        if not content[end:].strip():
+            raise exc from None
+
+        print(
+            f"{filepath} contains extra data after the first JSON document; "
+            "rewriting a clean artifact"
+        )
+        return data, True
+
+
+def _write_json_atomic(filepath: str, data: dict) -> None:
+    """Write a JSON artifact atomically to avoid leaving partial files."""
+    directory = os.path.dirname(filepath)
+    temp_path = ''
+    try:
+        with tempfile.NamedTemporaryFile(
+            'w',
+            encoding='utf-8',
+            dir=directory,
+            prefix=f".{os.path.basename(filepath)}.",
+            suffix='.tmp',
+            delete=False,
+        ) as handle:
+            temp_path = handle.name
+            json.dump(data, handle)
+            handle.write('\n')
+        os.replace(temp_path, filepath)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 
 def _require_env(name: str) -> str:
@@ -254,30 +301,27 @@ def dag_transform():
     @task
     def patch_dbt_artifacts():
         """Ensure generated artifacts include the ClickHouse database name."""
-        import json
-
         target_dir = os.path.join(DBT_PROJECT_DIR, 'target')
         db_name = os.environ.get('CLICKHOUSE_DB', 'air_quality')
 
         def patch_json(filepath: str, item_key: str | None):
             if not os.path.exists(filepath):
                 return
-            with open(filepath, encoding='utf-8') as handle:
-                data = json.load(handle)
-            changed = False
+            data, needs_rewrite = _load_json_document(filepath)
+            database_changed = False
             for group in ['nodes', 'sources']:
                 for node in data.get(group, {}).values():
                     if item_key is None:
                         if node.get('database') == '':
                             node['database'] = db_name
-                            changed = True
+                            database_changed = True
                     else:
                         if node.get(item_key, {}).get('database') == '':
                             node[item_key]['database'] = db_name
-                            changed = True
-            if changed:
-                with open(filepath, 'w', encoding='utf-8') as handle:
-                    json.dump(data, handle)
+                            database_changed = True
+            if needs_rewrite or database_changed:
+                _write_json_atomic(filepath, data)
+            if database_changed:
                 print(f"Patched {filepath} database to {db_name}")
 
         patch_json(os.path.join(target_dir, 'manifest.json'), None)
