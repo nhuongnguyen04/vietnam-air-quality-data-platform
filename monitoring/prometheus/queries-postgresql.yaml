@@ -1,27 +1,58 @@
-queries:
-  # airflow_dag_run_count: DAG run counts by state in last 1 hour
-  - metric_name: airflow_dag_run_count
-    query: |
-      SELECT
-        state,
-        COUNT(*) AS count,
-        EXTRACT(EPOCH FROM (NOW() - MAX(end_date))) AS seconds_ago
-      FROM dag_run
-      WHERE end_date >= NOW() - INTERVAL '1 hour'
-      GROUP BY state
-    labels:
-      source: airflow
+# postgres_exporter extended query format.
+# Metric names are built as: <query_name>_<value_column>.
 
-  # airflow_task_duration_seconds: average task duration by dag and state
-  - metric_name: airflow_task_duration_seconds
-    query: |
-      SELECT
-        dag_id,
-        state,
-        AVG(duration) AS avg_duration
-      FROM task_instance
-      WHERE end_date >= NOW() - INTERVAL '1 hour'
-        AND duration IS NOT NULL
-      GROUP BY dag_id, state
-    labels:
-      source: airflow
+airflow_dag_run:
+  query: |
+    SELECT
+      COALESCE(state, 'unknown') AS state,
+      COUNT(*)::float AS count
+    FROM dag_run
+    WHERE end_date >= NOW() - INTERVAL '30 minutes'
+      AND state IS NOT NULL
+    GROUP BY state
+  metrics:
+    - state:
+        usage: "LABEL"
+        description: "Airflow DAG run state"
+    - count:
+        usage: "GAUGE"
+        description: "DAG run count by state in the last 30 minutes"
+
+airflow_dag_run_count:
+  query: |
+    SELECT
+      COALESCE(state, 'unknown') AS state,
+      EXTRACT(EPOCH FROM (NOW() - MAX(end_date)))::float AS seconds_ago
+    FROM dag_run
+    WHERE end_date IS NOT NULL
+      AND state IS NOT NULL
+    GROUP BY state
+  metrics:
+    - state:
+        usage: "LABEL"
+        description: "Airflow DAG run state"
+    - seconds_ago:
+        usage: "GAUGE"
+        description: "Seconds since latest DAG run end_date by state"
+
+airflow_task_duration:
+  query: |
+    SELECT
+      dag_id,
+      COALESCE(state, 'unknown') AS state,
+      AVG(duration)::float AS seconds
+    FROM task_instance
+    WHERE end_date >= NOW() - INTERVAL '1 hour'
+      AND duration IS NOT NULL
+      AND state IS NOT NULL
+    GROUP BY dag_id, state
+  metrics:
+    - dag_id:
+        usage: "LABEL"
+        description: "Airflow DAG id"
+    - state:
+        usage: "LABEL"
+        description: "Airflow task instance state"
+    - seconds:
+        usage: "GAUGE"
+        description: "Average task duration in seconds over the last hour"

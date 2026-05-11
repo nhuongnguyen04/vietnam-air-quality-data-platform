@@ -6,8 +6,8 @@
 # CRITICAL: chatid MUST be a quoted string.
 # Grafana env-var substitution resolves ${VAR} before YAML parsing.
 # Without quotes, numeric chat IDs become YAML integers → type error.
-# Correct: '${TELEGRAM_AQ_CHAT_ID}'  (single quotes force string type)
-# Wrong:   ${TELEGRAM_AQ_CHAT_ID}    (resolves to integer → API error)
+# Correct: "-1003977230036"  (quoted literal string)
+# Wrong:   ${TELEGRAM_AQ_CHAT_ID}    (Grafana resolves numeric IDs as JSON numbers → API error)
 
 apiVersion: 1
 

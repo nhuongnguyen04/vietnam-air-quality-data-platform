@@ -273,7 +273,7 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: sum(increase(airflow_dag_run_count{state="failed"}[30m]))
+              expr: sum(airflow_dag_run_count{state="failed"})
               instant: true
               intervalMs: 1000
               maxDataPoints: 300

@@ -79,7 +79,7 @@ groups:
 
       # ── Airflow pipeline health ──────────────────────────────────
       - alert: sys-dag-failures
-        expr: sum(increase(airflow_dag_run_count{state="failed"}[30m])) > 0
+        expr: sum(airflow_dag_run_count{state="failed"}) > 0
         for: 5m
         labels:
           severity: critical
