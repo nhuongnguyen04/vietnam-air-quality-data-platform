@@ -22,7 +22,7 @@ ENGINE = ReplacingMergeTree(updated_at)
 ORDER BY source
 SETTINGS index_granularity = 8192;
 
--- 3. OpenWeather Air Pollution (62 Vietnam Provinces)
+-- 3. OpenWeather Air Pollution (Vietnam ward-level ingestion points)
 -- Current observations
 CREATE TABLE IF NOT EXISTS raw_openweather_measurements
 (
@@ -36,8 +36,9 @@ CREATE TABLE IF NOT EXISTS raw_openweather_measurements
     ingest_batch_id    String,
     ingest_date        Date MATERIALIZED toDate(ingest_time),
 
-    station_id         String,                    -- openweather:{city}:{lat}:{lon}
-    city_name          String,
+    ward_code          String,
+    ward_name          String,
+    province_name      String,
     latitude           Float64,
     longitude          Float64,
 
@@ -51,7 +52,7 @@ CREATE TABLE IF NOT EXISTS raw_openweather_measurements
 )
 ENGINE = ReplacingMergeTree(ingest_time)
 PARTITION BY toYYYYMM(ingest_date)
-ORDER BY (station_id, timestamp_utc, parameter)
+ORDER BY (ward_code, timestamp_utc, parameter)
 SETTINGS index_granularity = 8192;
 
 -- 4. AQI.in Measurements (Vietnam Monitoring Stations)
@@ -116,7 +117,7 @@ FROM (
     -- Unified source selection
     SELECT station_name AS station_id, timestamp_utc, source, parameter, value FROM raw_aqiin_measurements
     UNION ALL
-    SELECT station_id, timestamp_utc, source, parameter, value FROM raw_openweather_measurements
+    SELECT ward_code AS station_id, timestamp_utc, source, parameter, value FROM raw_openweather_measurements
 )
 WHERE timestamp_utc IS NOT NULL AND value IS NOT NULL
 GROUP BY datetime_hour, station_id, source, pollutant;

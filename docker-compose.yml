@@ -94,6 +94,8 @@ services:
     - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
     - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
     - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+    - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+    - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -176,6 +178,8 @@ services:
     - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
     - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
     - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+    - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+    - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -253,6 +257,8 @@ services:
     - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
     - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
     - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+    - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+    - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -330,6 +336,8 @@ services:
     - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
     - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
     - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+    - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+    - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -854,6 +862,8 @@ services:
     - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
     - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
     - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+    - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+    - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
     - PYTHONPATH=/opt/airflow/plugins
     - STREAMLIT_DASHBOARD_DIR=/opt/openmetadata/dashboard
     volumes:
