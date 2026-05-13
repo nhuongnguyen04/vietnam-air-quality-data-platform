@@ -155,7 +155,7 @@ if not map_df.empty:
     map_lat, map_lon = map_df.latitude.mean(), map_df.longitude.mean()
     zoom_level = 10 if spatial_grain in ["Tỉnh", "Phường"] else 5
 
-    fig_map = px.scatter_mapbox(
+    fig_map = px.scatter_map(
         map_df, lat="latitude", lon="longitude", color="display_val",
         hover_name=label_col, color_continuous_scale=color_scale,
         range_color=range_val, zoom=zoom_level, center={"lat": map_lat, "lon": map_lon},
