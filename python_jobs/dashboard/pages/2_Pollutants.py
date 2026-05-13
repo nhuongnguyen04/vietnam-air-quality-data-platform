@@ -115,7 +115,7 @@ if not trend.empty:
                 trace.line.width = 1.5
                 trace.opacity = 0.6
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 st.markdown("---")
 
@@ -150,7 +150,7 @@ with c1:
             labels={'source_label': t('chart_label_type', lang), 'cnt': t('chart_label_count', lang)}
         )
         fig_pie.update_layout(margin={"l": 20, "r": 20, "t": 20, "b": 20}, height=350)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width='stretch')
     else:
         st.caption(t("no_data", lang) if lang=="en" else "Chưa có dữ liệu phân tích nguồn.")
 
@@ -179,6 +179,6 @@ with c2:
                          labels={"province": t("province", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
                          barmode="stack")
         fig_comp.update_layout(get_plotly_layout(height=350), barnorm="percent")
-        st.plotly_chart(fig_comp, use_container_width=True)
+        st.plotly_chart(fig_comp, width='stretch')
 
 st.info("Phân tích nguồn dựa trên tỷ lệ PM2.5/PM10. Tỷ lệ > 0.6 gợi ý hoạt động đốt cháy/giao thông, < 0.4 gợi ý bụi/xây dựng.")

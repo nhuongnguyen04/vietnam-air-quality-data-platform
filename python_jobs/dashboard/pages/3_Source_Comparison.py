@@ -128,9 +128,9 @@ try:
             custom_data=["source"],
         )
         fig.update_layout(height=320, margin={"l": 0, "r": 0, "t": 10, "b": 40})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
-        st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu so sánh nguồn."), use_container_width=True)
+        st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu so sánh nguồn."), width='stretch')
 
     # ── box plot + stats table (col2) ──────────────────────────────────────────
     col_left, col_right = st.columns(2)
@@ -149,9 +149,9 @@ try:
                 custom_data=["source"],
             )
             fig.update_layout(height=300, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
-            st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu phân bố."), use_container_width=True)
+            st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu phân bố."), width='stretch')
 
     with col_right:
         st.subheader(t("chart_aqi_stats_by_source", lang))
@@ -172,7 +172,7 @@ try:
                     "Nguồn", "Trung bình AQI", "AQI tối đa", "AQI tối thiểu",
                     "Ngày", "Ngày tốt (AQI≤50)", "% Tốt",
                 ]].set_index("Nguồn"),
-                use_container_width=True,
+                width='stretch',
             )
         else:
             st.info(t("no_data", lang) if lang=="en" else "Chưa có thống kê nguồn trong khoảng thời gian đã chọn.")
@@ -207,10 +207,10 @@ try:
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
         fig.update_layout(height=260, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
         fig.update_traces(textposition="outside")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption(t("ops_dashboard_note", lang))
     else:
-        st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu độ tươi."), use_container_width=True)
+        st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu độ tươi."), width='stretch')
 
 except Exception as e:
     st.error(f"Truy vấn thất bại: {e}")

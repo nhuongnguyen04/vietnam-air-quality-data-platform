@@ -176,10 +176,10 @@ try:
             labels={"date": t("chart_label_date", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
         )
         fig.update_layout(height=280, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 40})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         fig = render_empty_chart("Không có dữ liệu tuân thủ. Mức AQI đang ở ngưỡng an toàn.")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption("dm_aqi_compliance_standards chưa có dữ liệu trong khoảng thời gian này.")
 
     # ── WHO/TCVN breach bars ───────────────────────────────────────────────────
@@ -215,10 +215,10 @@ try:
                 labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
             )
             fig.update_layout(height=300, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             fig = render_empty_chart("Không có dữ liệu vi phạm tiêu chuẩn.")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             st.caption("Không có vi phạm WHO/TCVN trong khoảng thời gian đã chọn.")
 
     with col_right:
@@ -248,11 +248,11 @@ try:
             )
             fig.update_layout(height=300, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
             fig.update_traces(textposition="outside")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             st.caption(t("ops_dashboard_note", lang))
         else:
             fig = render_empty_chart("Không có dữ liệu sức khỏe hệ thống.")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             st.caption("dm_platform_source_health chưa có dữ liệu.")
 
     # ── high-risk heatmap ─────────────────────────────────────────────────────
@@ -287,10 +287,10 @@ try:
             },
         )
         fig.update_layout(height=360, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         fig = render_empty_chart("Không có giờ rủi ro cao. Chất lượng không khí đang tốt.")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption("dm_aqi_health_impact_summary chưa có dữ liệu trong khoảng thời gian này.")
 
 except Exception as e:

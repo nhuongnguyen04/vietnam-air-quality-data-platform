@@ -79,7 +79,7 @@ with st.container():
             st.button(
                 example_question,
                 key=f"ask_data_example_{example_question}",
-                use_container_width=True,
+                width='stretch',
                 on_click=_set_example_question,
                 args=(example_question,),
             )
@@ -88,7 +88,7 @@ with st.container():
         t("ask_data_preview_button", lang),
         disabled=_preview_button_disabled(),
         type="primary",
-        use_container_width=True,
+        width='stretch',
     ):
         try:
             preview = client.preview(
@@ -127,7 +127,7 @@ if preview:
         t("ask_data_execute_button", lang),
         key="ask_data_execute_action",
         disabled=execute_disabled,
-        use_container_width=True,
+        width='stretch',
     ):
         try:
             result = client.execute(
@@ -160,7 +160,7 @@ if result:
     if rows:
         st.dataframe(
             pd.DataFrame(rows, columns=columns),
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
         )
     else:

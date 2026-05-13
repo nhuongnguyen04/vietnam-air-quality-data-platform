@@ -164,9 +164,9 @@ if not map_df.empty:
     )
     map_style = "carto-darkmatter" if theme == "dark" else "carto-positron"
     fig_map.update_layout(mapbox_style=map_style, height=600, margin={"r":0,"t":0,"l":0,"b":0})
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.plotly_chart(fig_map, width='stretch')
 else:
-    st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu cho vùng này."), use_container_width=True)
+    st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu cho vùng này."), width='stretch')
 
 # ── Row 3: Charts ─────────────────────────────────────────────────────────────
 c1, c2 = st.columns(2)
@@ -181,7 +181,7 @@ with c1:
             fig_pie = px.pie(df_dist, values='count', names='aqi_category',
                             color='aqi_category', color_discrete_map=color_map)
             fig_pie.update_layout(get_plotly_layout(height=400))
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width='stretch')
     else:
         dist_title = f"{t('chart_label_dist', lang)} {val_label}" if lang=="en" else f"Phân bố {val_label}"
         st.subheader(dist_title)
@@ -189,7 +189,7 @@ with c1:
             fig_hist = px.histogram(map_df, x="display_val", marginal="box",
                                    labels={"display_val": val_label, "count": t("chart_label_count", lang)})
             fig_hist.update_layout(get_plotly_layout(height=400))
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_hist, width='stretch')
 
 with c2:
     st.subheader(f"{t('chart_top_polluted', lang)} ({val_label})")
@@ -201,4 +201,4 @@ with c2:
                         range_color=range_val,
                         labels={"display_val": val_label, "province": t("province", lang), "ward_name": t("location", lang)})
         fig_bar.update_layout(get_plotly_layout(height=400))
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar, width='stretch')

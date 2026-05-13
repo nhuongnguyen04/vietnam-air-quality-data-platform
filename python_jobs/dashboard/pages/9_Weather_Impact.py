@@ -146,7 +146,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
             }
         ))
         fig_gauge.update_layout(height=250, margin={"t": 50, "b": 20})
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        st.plotly_chart(fig_gauge, width='stretch')
 
     with col_text:
         st.write("")
@@ -185,7 +185,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
             color_continuous_midpoint=0
         )
         fig_rank.update_layout(get_plotly_layout(height=500))
-        st.plotly_chart(fig_rank, use_container_width=True)
+        st.plotly_chart(fig_rank, width='stretch')
 
     st.markdown("---")
 
@@ -203,7 +203,7 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
         )
         fig_scatter.update_traces(marker={"size": 10})
         fig_scatter.update_layout(get_plotly_layout(height=450))
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, width='stretch')
 
 else:
-    st.plotly_chart(render_empty_chart("Không có dữ liệu thời tiết cho lựa chọn này."), use_container_width=True)
+    st.plotly_chart(render_empty_chart("Không có dữ liệu thời tiết cho lựa chọn này."), width='stretch')

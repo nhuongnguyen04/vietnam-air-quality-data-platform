@@ -93,6 +93,6 @@ if not df.empty:
         yaxis={'categoryorder':'total ascending', 'dtick': 1},
         margin={"l": 150}
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 else:
-    st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu rủi ro cho khu vực này."), use_container_width=True)
+    st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu rủi ro cho khu vực này."), width='stretch')

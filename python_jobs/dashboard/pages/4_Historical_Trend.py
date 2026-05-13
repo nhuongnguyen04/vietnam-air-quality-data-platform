@@ -181,9 +181,9 @@ try:
             color_discrete_map={"avg_val": "#00A8E8", "max_val": "#FF0000"},
         )
         fig.update_layout(height=300, margin={"l": 0, "r": 0, "t": 10, "b": 40})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
-        st.plotly_chart(render_empty_chart("Không có dữ liệu xu hướng quốc gia."), use_container_width=True)
+        st.plotly_chart(render_empty_chart("Không có dữ liệu xu hướng quốc gia."), width='stretch')
 
     # ── Temporal Patterns Heatmap ──────────────────────────────────────────
     st.markdown("---")
@@ -202,7 +202,7 @@ try:
             labels={"hour_of_day": t("chart_label_hour", lang), "day_name": t("chart_label_status", lang), "avg_aqi": "AQI US"}
         )
         fig_temp.update_layout(height=350, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-        st.plotly_chart(fig_temp, use_container_width=True)
+        st.plotly_chart(fig_temp, width='stretch')
     else:
         st.caption("Chưa có dữ liệu temporal patterns cho vùng này.")
 
@@ -221,9 +221,9 @@ try:
                 color_discrete_map={"avg_val": "#00A8E8", "max_val": "#FF0000"},
             )
             fig.update_layout(height=280, margin={"l": 0, "r": 0, "t": 10, "b": 40})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
-            st.plotly_chart(render_empty_chart("Không có dữ liệu."), use_container_width=True)
+            st.plotly_chart(render_empty_chart("Không có dữ liệu."), width='stretch')
 
     # ── monthly trend ─────────────────────────────────────────────────────────
     st.markdown("---")
@@ -241,7 +241,7 @@ try:
         )
         fig.update_layout(height=280, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 40})
         fig.update_traces(textposition="outside")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     # ── heatmap ───────────────────────────────────────────────────────────────
     st.markdown("---")
@@ -269,7 +269,7 @@ try:
             category_orders={"province": all_provs} # Keep sorted order
         )
         fig.update_layout(height=chart_height, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 except Exception as e:
     st.error(f"Truy vấn thất bại: {e}")

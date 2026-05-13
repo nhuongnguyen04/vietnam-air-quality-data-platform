@@ -135,7 +135,7 @@ def render_traffic_hotspot_ranking(df_rank: pd.DataFrame, grain: str, scope: str
     st.subheader(t("traffic_hotspot_ranking", lang))
 
     if df_rank.empty:
-        st.plotly_chart(render_empty_chart("Không có dữ liệu xếp hạng phường cho lựa chọn này."), use_container_width=True)
+        st.plotly_chart(render_empty_chart("Không có dữ liệu xếp hạng phường cho lựa chọn này."), width='stretch')
         return
 
     is_ward_ranking = grain in ["Tỉnh", "Phường"] and bool(scope)
@@ -174,7 +174,7 @@ def render_traffic_hotspot_ranking(df_rank: pd.DataFrame, grain: str, scope: str
         title=ranking_title
     )
     fig_rank.update_layout(get_plotly_layout(height=500))
-    st.plotly_chart(fig_rank, use_container_width=True)
+    st.plotly_chart(fig_rank, width='stretch')
 
 
 df_hourly = get_traffic_correlation_hourly(date_range, spatial_grain, scope_val, col=target_poll)
@@ -238,10 +238,10 @@ if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_pm25):
     fig.update_layout(get_plotly_layout(height=450), margin={"l": 60, "r": 60, "t": 20, "b": 80}, hovermode="x unified")
     fig.update_yaxes(title_text=target_poll.upper(), secondary_y=False)
     fig.update_yaxes(title_text="Chỉ số tắc nghẽn giao thông", secondary_y=True)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     render_traffic_hotspot_ranking(df_rank, spatial_grain, scope_val, target_poll)
 
 else:
-    st.plotly_chart(render_empty_chart("Không có dữ liệu KPI/xu hướng cho lựa chọn này."), use_container_width=True)
+    st.plotly_chart(render_empty_chart("Không có dữ liệu KPI/xu hướng cho lựa chọn này."), width='stretch')
     render_traffic_hotspot_ranking(df_rank, spatial_grain, scope_val, target_poll)

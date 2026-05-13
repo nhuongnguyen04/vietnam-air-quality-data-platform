@@ -114,7 +114,7 @@ if not summary.empty and int(summary.loc[0, "source_ward_count"]) > 0:
                     t("attention_needed", lang),
                 ]
             ],
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
         )
 else:
@@ -122,5 +122,5 @@ else:
         render_empty_chart(
             t("no_data", lang) if lang == "en" else "Không có dữ liệu sức khỏe hệ thống."
         ),
-        use_container_width=True,
+        width='stretch',
     )
