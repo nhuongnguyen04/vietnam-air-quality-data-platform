@@ -1,0 +1,4 @@
+# dbt transformation dependencies.
+dbt-core==1.10.13
+dbt-clickhouse==1.10.0
+clickhouse-connect>=0.10.0

@@ -28,27 +28,27 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | Python | 3.10 (via Airflow base image) | All ingestion jobs, DAGs, dbt execution |
 | SQL | ClickHouse dialect | dbt transformation models |
 ## Python Frameworks & Libraries
-### Core Dependencies (`requirements.txt`)
+### Component Dependencies (`requirements/`)
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `apache-airflow` | 3.1.7 | Orchestration & scheduling |
+| `apache-airflow` | 3.2.1 | Orchestration & scheduling |
 | `apache-airflow-providers-http` | (bundled with Airflow 3.x) | HTTP operator for API calls |
 | `apache-airflow-providers-postgres` | (bundled with Airflow 3.x) | PostgreSQL Airflow backend |
 | `apache-airflow-providers-sqlite` | (bundled with Airflow 3.x) | SQLite support |
 | `dbt-core` | 1.10.13 | Data transformation framework |
-| `dbt-clickhouse` | 1.9.5 | ClickHouse adapter for dbt |
+| `dbt-clickhouse` | 1.10.0 | ClickHouse adapter for dbt |
 | `sqlfluff` | 3.5.0 | SQL linting |
 | `sqlfluff-templater-dbt` | 3.5.0 | dbt-aware SQL linting |
-| `clickhouse-connect` | 0.9.2 | ClickHouse Python client |
+| `clickhouse-connect` | >=0.10.0 | ClickHouse Python client |
 | `psycopg2-binary` | 2.9.11 | PostgreSQL adapter (Airflow metadata DB) |
-| `requests` | (pinned via Airflow deps) | HTTP client for API ingestion |
+| `requests` | unpinned | HTTP client for API ingestion |
 | `python-json-logger` | 2.0.7 | JSON-structured logging for Python jobs |
 | `pydantic` | (latest) | Data validation & config modeling |
-| `streamlit` | 1.56.0 | Analytics dashboard (Phase 3.2) |
-| `plotly` | 5.18.0 | Charts and visualizations |
+| `streamlit` | >=1.28.0 | Analytics dashboard (Phase 3.2) |
+| `plotly` | >=5.18.0 | Charts and visualizations |
 ### Airflow Dockerfile (`airflow/Dockerfile`)
-- **Base image**: `apache/airflow:3.1.7`
-- Installs all packages from `requirements.txt`
+- **Base image**: `apache/airflow:3.2.1`
+- Installs packages from `requirements/airflow.txt`
 - Explicitly adds `apache-airflow-providers-http`, `apache-airflow-providers-sqlite`, `apache-airflow-providers-postgres` at build time
 - Copies `dbt/dbt_tranform` into `/opt/dbt/dbt_tranform`
 ### Python Jobs (`python_jobs/`)
@@ -83,7 +83,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - `raw_openweather_measurements` — ReplacingMergeTree, append-only
 - `raw_aqicn_*` / `raw_sensorscm_*` — archived (Phase 6: D-AQI-02)
 ### Message Queue / Scheduling
-- **Apache Airflow 3.1.7** — orchestration and scheduling
+- **Apache Airflow 3.2.1** — orchestration and scheduling
 - **Docker Compose** — all services containerized; no separate message queue needed (Airflow handles scheduling internally via PostgreSQL)
 ### dbt
 | Component | Value |
@@ -103,10 +103,10 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | Tool | Role |
 |------|------|
 | Docker Compose (`docker-compose.yml`) | Defines all services; version 3.8 |
-| `airflow/Dockerfile` | Builds custom Airflow image from `apache/airflow:3.1.7` |
+| `airflow/Dockerfile` | Builds custom Airflow image from `apache/airflow:3.2.1` |
 | `airflow/config/entrypoint.sh` | Custom entrypoint: runs `airflow db migrate/init`, creates log directories, handles Airflow 3.x command mapping (`webserver` → `api-server`) |
 | `airflow/config/setup_connections.py` | Python script to create Airflow connections programmatically |
-| `python_jobs/dashboard/Dockerfile` | Streamlit dashboard image — `python:3.11-slim`, installs from `python_jobs/dashboard/requirements.txt` |
+| `python_jobs/dashboard/Dockerfile` | Streamlit dashboard image — `python:3.11-slim`, installs from `requirements/dashboard.txt` |
 | `openmetadata/ingestion-configs/` | OM Ingestion workflow YAML configs (ClickHouse, dbt) |
 | `openmetadata/data/` | OM server persistent data |
 | `openmetadata/elasticsearch-data/` | OM Elasticsearch search index |
@@ -142,7 +142,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 
 ## 1. Python Style
 ### Tooling & Configuration
-- `requirements.txt` at the repo root is the single source of truth for Python dependencies.
+- Component-specific dependency files live under `requirements/`; the root `requirements.txt` is only an aggregate local/CI wrapper.
 - No per-DAG or per-module type-checking config files exist.
 ### Code Style Rules
 - **PEP 8** compliance is expected for all Python code.
@@ -167,7 +167,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 - **Project name**: `dbt_tranform`
 - **Project file**: `dbt/dbt_tranform/dbt_project.yml`
 - **Profiles file**: `dbt/dbt_tranform/profiles.yml`
-- **dbt version**: `dbt-core==1.10.13`, `dbt-clickhouse==1.9.5`
+- **dbt version**: `dbt-core==1.10.13`, `dbt-clickhouse==1.10.0`
 - **SQL linter**: `sqlfluff==3.5.0` with `sqlfluff-templater-dbt==3.5.0`
 ### dbt Model Naming Prefixes
 | Layer | Prefix | Materialization | Description |
@@ -195,7 +195,7 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 ### Documentation
 ## 4. Airflow DAG Conventions
 ### Framework & Version
-- **Airflow version**: `apache-airflow==3.1.7`
+- **Airflow version**: `apache-airflow==3.2.1`
 - **API**: Airflow 3 TaskFlow API (`@dag`, `@task` decorators from `airflow.decorators`)
 - **Executor**: `LocalExecutor`
 - **DAG files**: `airflow/dags/<dag_name>.py`
@@ -237,10 +237,10 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | dashboard | `curl --fail http://localhost:8501/_stcore/health` | 30s | 10s | 5 |
 ### Logging
 ### Airflow Dockerfile (`airflow/Dockerfile`)
-- **Base image**: `apache/airflow:3.1.7`
+- **Base image**: `apache/airflow:3.2.1`
 - **User**: Defaults to `airflow` user (non-root).
 - **System deps**: `curl` installed via `apt-get`.
-- **Python deps**: Installed from `requirements.txt` via `pip install --no-cache-dir -r requirements.txt`.
+- **Python deps**: Installed from `requirements/airflow.txt` via `pip install --no-cache-dir -r /opt/requirements/airflow.txt`.
 - **Additional providers**: `apache-airflow-providers-http`, `apache-airflow-providers-sqlite`, `apache-airflow-providers-postgres`.
 - **dbt project**: Copied to `/opt/dbt/dbt_tranform` with `chown airflow:airflow`.
 - **Entrypoint**: `airflow/config/entrypoint.sh` (handles `db migrate`, creates log directories).

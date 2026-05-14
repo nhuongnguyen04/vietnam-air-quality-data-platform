@@ -1,0 +1,9 @@
+# Airflow image runtime dependencies.
+-r dbt.txt
+-r google-drive.txt
+-r ingestion.txt
+
+apache-airflow-providers-http
+apache-airflow-providers-sqlite
+apache-airflow-providers-postgres
+psycopg2-binary==2.9.11

@@ -1,0 +1,7 @@
+# Streamlit dashboard runtime dependencies.
+streamlit>=1.28.0
+clickhouse-connect>=0.10.0
+psycopg2-binary==2.9.11
+statsmodels>=0.14.0
+plotly>=5.18.0
+pandas>=2.0.0

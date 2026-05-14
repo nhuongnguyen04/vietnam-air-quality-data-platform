@@ -1,0 +1,4 @@
+# Local development and Python test dependencies.
+ruff==0.11.0
+pytest
+python-dotenv

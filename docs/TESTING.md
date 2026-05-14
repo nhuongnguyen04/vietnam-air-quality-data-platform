@@ -7,16 +7,20 @@ This repository has three distinct test surfaces: the default Python pytest suit
 
 ### Python pytest suites
 
-- `pytest` is the primary test runner for repository Python code. It is declared in `requirements.txt` without a pinned version.
+- `pytest` is the primary test runner for repository Python code. It is declared in `requirements/dev.txt` without a pinned version.
 - Root pytest configuration lives in `pytest.ini`.
 - Default discovery is limited to `tests/python` via `testpaths = tests/python`.
 - The configured markers are `unit`, `integration`, `live`, and `requires_clickhouse`.
 - By default, pytest excludes live tests with `addopts = -q --tb=short --strict-markers -m "not live"`.
 
-Install the root dependencies before running Python tests:
+Install the aggregate dependencies before running every Python test surface, or install the narrower component set for the suite you are running:
 
 ```bash
 pip install -r requirements.txt
+```
+
+```bash
+pip install -r requirements/ingestion.txt -r requirements/google-drive.txt -r requirements/dev.txt
 ```
 
 ### dbt tests
@@ -148,11 +152,10 @@ Tests run in `.github/workflows/ci.yml` under the `CI` workflow.
 
 - Trigger: `push` to `main`, `develop`, `feature/**`, and `fix/**`
 - Trigger: `pull_request` targeting `main`
-- Job `python-unit`: installs `requirements.txt` and runs `pytest tests/python -m "not integration and not live"` with `INGEST_MODE=csv`
-- Job `python-integration`: installs `requirements.txt` and runs `pytest tests/python -m integration` with `INGEST_MODE=csv`
-- Job `compile`: installs `dbt-core==1.10.13` and `dbt-clickhouse==1.10.0`, runs `dbt deps`, then `dbt compile --target dev`
-- Job `validate`: starts a ClickHouse service, creates the `air_quality` database, then runs `dbt seed --target dev` and `dbt run --select +dm_air_quality_overview_daily +dm_aqi_current_status +dm_traffic_hourly_trend --target dev`
-- Job `test`: starts ClickHouse again, runs `dbt seed --target dev`, `dbt run --target dev`, and `dbt test --target dev`
-- Job `text-to-sql-tests`: installs `requirements.txt`, sets `TEXT_TO_SQL_PREVIEW_SECRET`, and runs `pytest python_jobs/text_to_sql/tests`
+- Job `python-unit`: installs `requirements/ingestion.txt`, `requirements/google-drive.txt`, and `requirements/dev.txt`, then runs `pytest tests/python -m "not integration and not live"` with `INGEST_MODE=csv`
+- Job `airflow-dag-contracts`: installs `requirements/dev.txt` and runs `pytest tests/python/airflow -m integration`
+- Job `dbt-static`: installs `requirements/dbt.txt` and `requirements/sql-lint.txt`, runs `dbt deps`, `dbt parse`, `dbt compile`, and `sqlfluff lint`
+- Job `dbt-build-clickhouse`: starts ClickHouse, installs `requirements/dbt.txt`, runs `dbt deps`, initializes schema, then runs `dbt seed` and `dbt build`
+- Job `text-to-sql-safety`: installs `requirements/text-to-sql.txt` and `requirements/dev.txt`, sets `TEXT_TO_SQL_PREVIEW_SECRET`, and runs `pytest python_jobs/text_to_sql/tests`
 
 The CI workflow now invokes `pytest python_jobs/text_to_sql/tests`; keep `TEXT_TO_SQL_PREVIEW_SECRET` set when running that suite locally.

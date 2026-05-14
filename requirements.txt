@@ -1,40 +1,8 @@
-dbt-core==1.10.13
-dbt-clickhouse==1.10.0
-sqlfluff==3.5.0
-sqlfluff-templater-dbt==3.5.0
-
-# Linting
-ruff==0.11.0
-
-# Database connectors for sync scripts
-clickhouse-connect>=0.10.0
-psycopg2-binary==2.9.11
-
-# Airflow dependencies
-apache-airflow-providers-http
-apache-airflow-providers-sqlite
-apache-airflow-providers-postgres
-requests
-
-# Python jobs dependencies
-python-json-logger==2.0.7
-pydantic
-httpx[http2]
-beautifulsoup4==4.14.3
-lxml
-pyyaml>=6.0.0
-
-# Text-to-SQL local development
-fastapi>=0.136.0
-uvicorn>=0.38.0
-sqlglot>=30.6.0
-vanna[openai,chromadb]>=2.0.2
-
-# Testing
-pytest
-python-dotenv
-
-# Google Drive Integration
-google-api-python-client>=2.155.0
-google-auth-httplib2>=0.2.0
-google-auth-oauthlib>=1.2.1
+# Aggregate local/CI dependencies.
+#
+# Component-specific dependency sets live under requirements/. Install those
+# directly for narrower environments.
+-r requirements/airflow.txt
+-r requirements/sql-lint.txt
+-r requirements/text-to-sql.txt
+-r requirements/dev.txt

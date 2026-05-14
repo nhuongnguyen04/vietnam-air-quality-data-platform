@@ -3,7 +3,7 @@
 
 ## Local Setup
 
-This repository is developed as a Docker Compose platform with Python-based ingestion code, an Airflow image, a dbt project, and optional dashboard/text-to-SQL services. For full-stack work, you need Docker Compose. For local Python, align with CI on `Python 3.10`; the dashboard and text-to-SQL containers use `python:3.11-slim`, and the Airflow image is built from `apache/airflow:3.1.7`.
+This repository is developed as a Docker Compose platform with Python-based ingestion code, an Airflow image, a dbt project, and optional dashboard/text-to-SQL services. For full-stack work, you need Docker Compose. For local Python, align with CI on `Python 3.10`; the dashboard and text-to-SQL containers use `python:3.11-slim`, and the Airflow image is built from `apache/airflow:3.2.1`.
 
 1. Clone the repository and enter the project directory.
 
@@ -12,7 +12,7 @@ git clone https://github.com/nhuongnguyen04/vietnam-air-quality-data-platform.gi
 cd vietnam-air-quality-data-platform
 ```
 
-2. Create a virtual environment and install the main development dependencies.
+2. Create a virtual environment and install the dependencies for the component you are working on.
 
 ```bash
 python3.10 -m venv .venv
@@ -20,9 +20,11 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you want to run the dashboard or text-to-SQL service directly outside Docker, install their service-specific requirements as well:
+`requirements.txt` remains a local aggregate for broad development and CI compatibility. For narrower installs, use the component files under `requirements/` or the service wrappers:
 
 ```bash
+pip install -r requirements/ingestion.txt
+pip install -r requirements/dbt.txt
 pip install -r python_jobs/dashboard/requirements.txt
 pip install -r python_jobs/text_to_sql/requirements.txt
 ```
@@ -54,8 +56,14 @@ This project does not define a root `package.json` or `Makefile`. The commands b
 
 | Command | Description |
 | --- | --- |
-| `pip install -r requirements.txt` | Install the main local toolchain: dbt, Airflow providers, ingestion dependencies, linting tools, and pytest. |
-| `pip install -r requirements-ingest.txt` | Install the lighter ingestion-only dependency set used by `.github/workflows/scheduled_ingestion.yml`. |
+| `pip install -r requirements.txt` | Install the aggregate local/CI dependency set. |
+| `pip install -r requirements/airflow.txt` | Install Airflow image runtime dependencies, including dbt, ingestion, and Google Drive sync support. |
+| `pip install -r requirements/dbt.txt` | Install dbt and the ClickHouse adapter. |
+| `pip install -r requirements/sql-lint.txt` | Install SQLFluff and the dbt templater. |
+| `pip install -r requirements/ingestion.txt` | Install Python ingestion job dependencies. |
+| `pip install -r requirements/google-drive.txt` | Install Google Drive upload/sync dependencies. |
+| `pip install -r requirements/dev.txt` | Install local lint/test tooling. |
+| `pip install -r requirements-ingest.txt` | Install the ingestion plus Google Drive set used by `.github/workflows/scheduled_ingestion.yml`. |
 | `pip install -r python_jobs/dashboard/requirements.txt` | Install the direct-run dependencies for the Streamlit dashboard. |
 | `pip install -r python_jobs/text_to_sql/requirements.txt` | Install the direct-run dependencies for the FastAPI text-to-SQL service. |
 | `docker compose up -d` | Start the full local platform defined in `docker-compose.yml`. |
@@ -69,7 +77,7 @@ This project does not define a root `package.json` or `Makefile`. The commands b
 | `cd dbt/dbt_tranform && dbt run --target dev` | Run the full dbt project against the dev target. |
 | `cd dbt/dbt_tranform && dbt test --target dev` | Run dbt tests against the dev target. |
 | `pytest tests/python -m "not integration and not live"` | Run the fast Python test subset used by the `python-unit` CI job. |
-| `pytest tests/python -m integration` | Run the integration subset used by the `python-integration` CI job. |
+| `pytest tests/python/airflow -m integration` | Run the Airflow DAG contract subset used by the `airflow-dag-contracts` CI job. |
 | `pytest python_jobs/text_to_sql/tests` | Run the text-to-SQL service tests that live outside the root `tests/python` suite. |
 | `ruff check python_jobs/ airflow/dags/ --config .ruff.toml` | Run the Python linter on the ingestion code and DAGs. |
 | `sqlfluff lint dbt/dbt_tranform/ --format github-annotation` | Lint ClickHouse/dbt SQL using the checked-in dbt templater configuration. |
@@ -102,6 +110,6 @@ No pull request template is checked in, so the review contract is defined mainly
 
 - Open pull requests against `main` if you need GitHub Actions PR validation.
 - Run the checks that match your change surface before opening the PR: `ruff` for Python, `sqlfluff` plus `dbt compile/run/test` for warehouse changes, and `pytest` for shared Python code.
-- Expect the CI workflow in `.github/workflows/ci.yml` to execute `lint`, then `python-unit`, then both `python-integration` and `text-to-sql-tests`, followed by `compile`, `validate`, and `test`.
-- The `validate` and `test` jobs spin up a temporary ClickHouse service and exercise dbt `seed`, `run`, and `test`, so dbt changes should be reviewed with local ClickHouse compatibility in mind.
-- Because the `lint` job is blocking, Python and dbt style regressions should be fixed before the PR is considered ready.
+- Expect the CI workflow in `.github/workflows/ci.yml` to execute `python-lint`, `python-unit`, `airflow-dag-contracts`, `text-to-sql-safety`, `dbt-static`, and `dbt-build-clickhouse`.
+- The `dbt-build-clickhouse` job spins up a temporary ClickHouse service and exercises dbt `seed` and `build`, so dbt changes should be reviewed with local ClickHouse compatibility in mind.
+- Because `python-lint` and `dbt-static` are blocking, Python and dbt style regressions should be fixed before the PR is considered ready.

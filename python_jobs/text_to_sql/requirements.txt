@@ -1,9 +1,1 @@
-fastapi>=0.136.0
-uvicorn>=0.38.0
-sqlglot>=30.6.0
-clickhouse-connect>=0.10.0
-pydantic>=2.9.0
-pyyaml>=6.0.0
-httpx[http2]>=0.27.0
-openai>=1.0.0
-vanna[openai,chromadb]>=2.0.2
+-r ../../requirements/text-to-sql.txt

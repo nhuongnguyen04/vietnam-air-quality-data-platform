@@ -6,9 +6,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Build context is repo root (.) — copy requirements + code from python_jobs/dashboard
-COPY python_jobs/dashboard/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Build context is repo root (.).
+COPY requirements /tmp/requirements
+RUN pip install --no-cache-dir -r /tmp/requirements/dashboard.txt
 
 COPY python_jobs/dashboard/ ./
 

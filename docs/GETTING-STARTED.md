@@ -46,13 +46,15 @@ AIRFLOW_WEBSERVER_SECRET_KEY=change-me-in-prod-use-long-random-string
 docker compose build
 ```
 
-If you also want local non-container tooling for `pytest` or dbt commands, create a virtual environment and install the checked-in Python requirements:
+If you also want local non-container tooling for `pytest` or dbt commands, create a virtual environment and install the aggregate Python requirements:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+For narrower installs, use the component files under `requirements/`, for example `requirements/dbt.txt`, `requirements/ingestion.txt`, or `requirements/text-to-sql.txt`.
 
 ## First Run
 

@@ -44,33 +44,28 @@ Trigger conditions:
 The CI workflow runs these stages:
 
 1. **Lint**
-   - `pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 sqlfluff==3.5.0 sqlfluff-templater-dbt==3.5.0 ruff==0.11.0`
-   - `cd dbt/dbt_tranform && dbt deps`
+   - `pip install -r requirements/dev.txt`
    - `ruff check python_jobs/ airflow/dags/ --config .ruff.toml`
-   - `sqlfluff lint dbt/dbt_tranform/ --format github-annotation`
 2. **Python Unit**
-   - `pip install -r requirements.txt`
-   - `pytest tests/python -m "not integration and not live"`
-3. **Python Integration**
-   - `pip install -r requirements.txt`
-   - `pytest tests/python -m integration`
-4. **Compile**
-   - `pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0`
+   - `pip install -r requirements/ingestion.txt -r requirements/google-drive.txt -r requirements/dev.txt`
+   - `pytest tests/python -m "not integration and not live and not requires_clickhouse"`
+3. **Airflow DAG Contracts**
+   - `pip install -r requirements/dev.txt`
+   - `pytest tests/python/airflow -m integration`
+4. **Text-to-SQL Quality Gate**
+   - `pip install -r requirements/text-to-sql.txt -r requirements/dev.txt`
+   - `pytest python_jobs/text_to_sql/tests -m "not integration and not live"`
+5. **dbt Static**
+   - `pip install -r requirements/dbt.txt -r requirements/sql-lint.txt`
    - `cd dbt/dbt_tranform && dbt deps`
+   - `cd dbt/dbt_tranform && dbt parse --target dev`
    - `cd dbt/dbt_tranform && dbt compile --target dev`
-5. **Validate**
+   - `sqlfluff lint dbt/dbt_tranform/ --format github-annotation`
+6. **dbt Build on ClickHouse**
    - Starts a ClickHouse `25.12` service container
    - Creates the `air_quality` database
    - Runs `dbt seed --target dev`
-   - Runs `dbt run --select +dm_air_quality_overview_daily +dm_aqi_current_status +dm_traffic_hourly_trend --target dev`
-6. **Text-to-SQL Quality Gate**
-   - `pip install -r requirements.txt`
-   - `pytest python_jobs/text_to_sql/tests -m "not integration"`
-   - Covers the eval runner, persistent-store config, API contract, and Vanna runtime safety checks
-7. **Test**
-   - Starts a fresh ClickHouse `25.12` service container
-   - Runs `dbt seed --target dev`
-   - Runs `dbt run --target dev`
+   - Runs `dbt build --target dev`
    - Runs `dbt test --target dev`
 
 ### Deployment Step
@@ -90,7 +85,7 @@ This workflow is designed to be triggered externally by Google Apps Script and a
 
 1. Checks out the repository
 2. Sets up Python `3.11`
-3. Installs `requirements-ingest.txt`
+3. Installs `requirements-ingest.txt`, which includes `requirements/ingestion.txt` and `requirements/google-drive.txt`
 4. Creates `landing_zone/`
 5. Runs AQI.in, OpenWeather, and time-dependent TomTom ingestion scripts in parallel with `INGEST_MODE=csv`
 6. Uploads generated CSV files to Google Drive with `scripts/gdrive_uploader.py`

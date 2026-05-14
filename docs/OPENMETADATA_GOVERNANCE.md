@@ -133,7 +133,7 @@ curl http://localhost:9200/_cluster/health
 
 ## OM Airflow Connector
 
-Project Airflow (`apache/airflow:3.1.7`, port 8090) kết nối với OM qua OM Airflow Connector.
+Project Airflow (`apache/airflow:3.2.1`, port 8090) kết nối với OM qua OM Airflow Connector.
 
 **Connection:** `http://airflow-webserver:8080/api/v1/` (internal network)
 **Auth:** Basic Auth — `admin` / `admin` (project Airflow credentials)

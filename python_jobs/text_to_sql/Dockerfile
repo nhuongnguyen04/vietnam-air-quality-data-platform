@@ -5,8 +5,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY python_jobs/text_to_sql/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements /tmp/requirements
+RUN pip install --no-cache-dir -r /tmp/requirements/text-to-sql.txt
 
 COPY python_jobs/text_to_sql/ ./
 

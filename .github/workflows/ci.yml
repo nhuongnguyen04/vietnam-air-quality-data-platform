@@ -40,7 +40,7 @@ jobs:
           cache: pip
 
       - name: Install lint dependencies
-        run: python -m pip install --upgrade pip ruff==0.11.0
+        run: python -m pip install --upgrade pip && pip install -r requirements/dev.txt
 
       - name: Ruff
         run: ruff check python_jobs/ airflow/dags/ scripts/ --config .ruff.toml
@@ -64,7 +64,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && pip install -r requirements/ingestion.txt -r requirements/google-drive.txt -r requirements/dev.txt
 
       - name: Unit tests
         run: pytest tests/python -m "not integration and not live and not requires_clickhouse"
@@ -85,7 +85,7 @@ jobs:
           cache: pip
 
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip pytest
+        run: python -m pip install --upgrade pip && pip install -r requirements/dev.txt
 
       - name: DAG structure tests
         run: pytest tests/python/airflow -m integration
@@ -110,7 +110,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && pip install -r requirements/text-to-sql.txt -r requirements/dev.txt
 
       - name: Safety and contract tests
         run: pytest python_jobs/text_to_sql/tests -m "not integration and not live"
@@ -147,7 +147,7 @@ jobs:
       - name: Install dbt and SQL lint dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 clickhouse-connect sqlfluff==3.5.0 sqlfluff-templater-dbt==3.5.0
+          pip install -r requirements/dbt.txt -r requirements/sql-lint.txt
 
       - name: dbt deps
         working-directory: ${{ env.DBT_PROJECT_PATH }}
@@ -211,7 +211,7 @@ jobs:
       - name: Install dbt dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install dbt-core==1.10.13 dbt-clickhouse==1.10.0 clickhouse-connect
+          pip install -r requirements/dbt.txt
 
       - name: dbt deps
         working-directory: ${{ env.DBT_PROJECT_PATH }}
