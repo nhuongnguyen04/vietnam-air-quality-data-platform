@@ -49,14 +49,14 @@ def get_aqi_color_name(aqi: float) -> str:
     return names.get(category, "gray")
 
 
-# === EPA AQI Breakpoints (Phase 07) ===
-EPA_BREAKPOINTS = [
-    (0, 50, "Good", "#00E400"),
-    (51, 100, "Moderate", "#FFFF00"),
-    (101, 150, "Unhealthy for Sensitive Groups", "#FF7E00"),
-    (151, 200, "Unhealthy", "#FF0000"),
-    (201, 300, "Very Unhealthy", "#8F3F97"),
-    (301, 500, "Hazardous", "#7E0023"),
+# === AQI Breakpoints ===
+AQI_BREAKPOINTS = [
+    (0, 50, "Good"),
+    (51, 100, "Moderate"),
+    (101, 150, "Unhealthy for Sensitive Groups"),
+    (151, 200, "Unhealthy"),
+    (201, 300, "Very Unhealthy"),
+    (301, 500, "Hazardous"),
 ]
 
 # EPA color map cho Plotly color_discrete_map (dùng category name làm key)
@@ -69,6 +69,18 @@ EPA_COLORS = {
     "Hazardous": "#7E0023",
 }
 
+VN_AQI_COLORS = {
+    "Good": "#00E400",
+    "Moderate": "#FFFF00",
+    "Unhealthy for Sensitive Groups": "#FF7E00",
+    "Unhealthy": "#FF0000",
+    "Very Unhealthy": "#8F3F97",
+    "Hazardous": "#7E0023",
+}
+
+VN_AQI_COLORBAR_TICKVALS = [25, 75, 125, 175, 250, 400]
+VN_AQI_COLORBAR_TICKTEXT = ["0-50", "51-100", "101-150", "151-200", "201-300", "301-500"]
+
 # EPA sequential scale cho color_continuous_scale (dùng cho numeric AQI)
 EPA_SEQUENTIAL_SCALE = [
     [0.0, "#00E400"],      # Good
@@ -78,6 +90,58 @@ EPA_SEQUENTIAL_SCALE = [
     [0.67, "#8F3F97"],     # Very Unhealthy
     [1.0, "#7E0023"],      # Hazardous
 ]
+
+
+def _build_step_scale(colors, max_value: int = 500):
+    """Build a Plotly colorscale with hard AQI category boundaries."""
+    scale = []
+    for index, (lo, hi, category) in enumerate(AQI_BREAKPOINTS):
+        color = colors[category]
+        start = max(lo - 1, 0) / max_value if index else 0.0
+        end = min(hi, max_value) / max_value
+        scale.append([start, color])
+        scale.append([end, color])
+    return scale
+
+
+def get_vn_aqi_step_scale():
+    """Return fixed VN_AQI color bands for Plotly numeric AQI charts."""
+    return _build_step_scale(VN_AQI_COLORS)
+
+
+def get_aqi_color_scale(standard: str = "TCVN"):
+    """Return the appropriate AQI color scale for the selected standard."""
+    if standard == "TCVN":
+        return get_vn_aqi_step_scale()
+    return get_epa_continuous_scale()
+
+
+def get_aqi_color_range(standard: str = "TCVN"):
+    """Return fixed AQI numeric range for color axes."""
+    if standard == "TCVN":
+        return [0, 500]
+    return [0, 300]
+
+
+def get_aqi_discrete_colors(standard: str = "TCVN"):
+    """Return category colors keyed by canonical AQI category labels."""
+    if standard == "TCVN":
+        return VN_AQI_COLORS
+    return EPA_COLORS
+
+
+def get_aqi_colorbar_config(standard: str = "TCVN", title: str = "AQI"):
+    """Return a Plotly colorbar config aligned to the selected AQI standard."""
+    config = {"title": {"text": title}}
+    if standard == "TCVN":
+        config.update(
+            {
+                "tickmode": "array",
+                "tickvals": VN_AQI_COLORBAR_TICKVALS,
+                "ticktext": VN_AQI_COLORBAR_TICKTEXT,
+            }
+        )
+    return config
 
 
 def get_epa_continuous_scale():
@@ -110,10 +174,10 @@ def get_epa_color_for_value(aqi: float) -> str:
     """
     if aqi is None:
         return "#808080"
-    for lo, hi, _, color in EPA_BREAKPOINTS:
+    for lo, hi, category in AQI_BREAKPOINTS:
         if lo <= aqi <= hi:
-            return color
-    return "#7E0023"  # Hazardous fallback
+            return EPA_COLORS[category]
+    return EPA_COLORS["Hazardous"]
 
 
 def apply_epa_template(fig, height: int = 400):

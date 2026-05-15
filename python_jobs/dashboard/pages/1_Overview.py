@@ -5,7 +5,13 @@ và bản đồ phân bố không gian theo Tỉnh/Thành phố hoặc Phường
 """
 import plotly.express as px
 import streamlit as st
-from lib.aqi_utils import EPA_COLORS, get_epa_continuous_scale, render_empty_chart
+from lib.aqi_utils import (
+    get_aqi_color_range,
+    get_aqi_color_scale,
+    get_aqi_colorbar_config,
+    get_aqi_discrete_colors,
+    render_empty_chart,
+)
 from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause, get_pollutant_cols, get_source_table
 from lib.filters import render_sidebar_filters
@@ -55,6 +61,9 @@ def get_national_summary(table, col, scope, dates):
         topK(1)(main_pollutant)[1] as dominant_pollutant
     FROM air_quality.{table}
     WHERE {where_clause}
+      AND {col} IS NOT NULL
+      AND province IS NOT NULL
+      AND province != ''
     """
     return query_df(q)
 
@@ -76,6 +85,11 @@ def get_chart_data(table, col, grain, scope, dates):
             topK(1)(main_pollutant)[1] as main_pollutant
         FROM air_quality.{table}
         WHERE {where_clause}
+          AND {col} IS NOT NULL
+          AND province IS NOT NULL
+          AND province != ''
+          AND ward_name IS NOT NULL
+          AND ward_name != ''
         GROUP BY ward_code, ward_name, province, latitude, longitude
         """
     else:
@@ -89,6 +103,9 @@ def get_chart_data(table, col, grain, scope, dates):
             topK(1)(main_pollutant)[1] as main_pollutant
         FROM air_quality.{table}
         WHERE {where_clause}
+          AND {col} IS NOT NULL
+          AND province IS NOT NULL
+          AND province != ''
         GROUP BY province
         """
     return query_df(q)
@@ -110,7 +127,10 @@ def get_aqi_distribution(table, col, scope, dates):
         END as aqi_category_key,
         count(*) as count
     FROM air_quality.{table}
-    WHERE {where_clause} AND {col} IS NOT NULL
+    WHERE {where_clause}
+      AND {col} IS NOT NULL
+      AND province IS NOT NULL
+      AND province != ''
     GROUP BY aqi_category_key
     """
     df = query_df(q)
@@ -144,8 +164,8 @@ label_col = "ward_name" if spatial_grain in ["Tỉnh", "Phường"] else "provin
 
 # Dynamic range and scale for map
 if pollutant == "aqi":
-    color_scale = get_epa_continuous_scale()
-    range_val = [0, 300]
+    color_scale = get_aqi_color_scale(standard)
+    range_val = get_aqi_color_range(standard)
 else:
     # Concentration scale (could be improved with custom scales per pollutant)
     color_scale = "Viridis" if theme == "light" else "Plasma"
@@ -164,6 +184,8 @@ if not map_df.empty:
     )
     map_style = "carto-darkmatter" if theme == "dark" else "carto-positron"
     fig_map.update_layout(mapbox_style=map_style, height=600, margin={"r":0,"t":0,"l":0,"b":0})
+    if pollutant == "aqi":
+        fig_map.update_layout(coloraxis_colorbar=get_aqi_colorbar_config(standard, val_label))
     st.plotly_chart(fig_map, width='stretch')
 else:
     st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu cho vùng này."), width='stretch')
@@ -175,9 +197,15 @@ with c1:
         st.subheader(t("chart_aqi_dist", lang))
         df_dist = get_aqi_distribution(table_name, display_col, scope_val, date_range)
         if not df_dist.empty:
-            # Create color map with translated keys if necessary,
-            # but EPA_COLORS uses English keys. We should map translated labels to colors.
-            color_map = {t(k, lang): v for k, v in EPA_COLORS.items()}
+            aqi_colors = get_aqi_discrete_colors(standard)
+            color_map = {
+                t("aqi_good", lang): aqi_colors["Good"],
+                t("aqi_moderate", lang): aqi_colors["Moderate"],
+                t("aqi_unhealthy_sg", lang): aqi_colors["Unhealthy for Sensitive Groups"],
+                t("aqi_unhealthy", lang): aqi_colors["Unhealthy"],
+                t("aqi_very_unhealthy", lang): aqi_colors["Very Unhealthy"],
+                t("aqi_hazardous", lang): aqi_colors["Hazardous"],
+            }
             fig_pie = px.pie(df_dist, values='count', names='aqi_category',
                             color='aqi_category', color_discrete_map=color_map)
             fig_pie.update_layout(get_plotly_layout(height=400))
@@ -201,4 +229,6 @@ with c2:
                         range_color=range_val,
                         labels={"display_val": val_label, "province": t("province", lang), "ward_name": t("location", lang)})
         fig_bar.update_layout(get_plotly_layout(height=400))
+        if pollutant == "aqi":
+            fig_bar.update_layout(coloraxis_colorbar=get_aqi_colorbar_config(standard, val_label))
         st.plotly_chart(fig_bar, width='stretch')

@@ -76,15 +76,29 @@ if not df.empty:
     st.subheader(t("risk_ranking_title", lang))
 
     # Sort ascending for horizontal bar (longest bar at bottom/end)
-    df_plot = df.sort_values("total_exposure_index_m", ascending=True)
+    risk_category_labels = {
+        "CRITICAL": t("risk_critical", lang),
+        "HIGH RISK": t("risk_high", lang),
+        "MODERATE": t("risk_moderate", lang),
+        "LOW": t("risk_low", lang),
+    }
+    df_plot = df.sort_values("total_exposure_index_m", ascending=True).copy()
+    df_plot["risk_category_label"] = (
+        df_plot["risk_category"].map(risk_category_labels).fillna(df_plot["risk_category"])
+    )
 
-    fig = px.bar(df_plot, x="total_exposure_index_m", y="province", color="risk_category",
+    fig = px.bar(df_plot, x="total_exposure_index_m", y="province", color="risk_category_label",
                 orientation='h',
+                labels={
+                    "total_exposure_index_m": t("exposure_index", lang),
+                    "province": t("province", lang),
+                    "risk_category_label": t("risk_level", lang),
+                },
                 color_discrete_map={
-                    "CRITICAL": "#ff4b4b",
-                    "HIGH RISK": "#ffa500",
-                    "MODERATE": "#09ab3b",
-                    "LOW": "#3b82f6"
+                    t("risk_critical", lang): "#ff4b4b",
+                    t("risk_high", lang): "#ffa500",
+                    t("risk_moderate", lang): "#09ab3b",
+                    t("risk_low", lang): "#3b82f6"
                 })
 
     chart_height = max(400, len(df_plot) * 25)

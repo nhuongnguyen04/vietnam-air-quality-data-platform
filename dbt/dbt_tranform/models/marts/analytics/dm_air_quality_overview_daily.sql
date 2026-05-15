@@ -23,6 +23,12 @@ admin_units as (
         longitude,
         population
     from {{ ref('dim_administrative_units') }}
+    where ward_code is not null
+      and ward_code != ''
+      and province is not null
+      and province != ''
+      and ward_name is not null
+      and ward_name != ''
 ),
 
 final as (
@@ -54,7 +60,9 @@ final as (
         
         w.last_ingested_at as last_ingested_at
     from ward_daily w
-    left join admin_units a on w.ward_code = a.ward_code
+    inner join admin_units a on w.ward_code = a.ward_code
+    where w.ward_code is not null
+      and w.ward_code != ''
 )
 
 select * from final

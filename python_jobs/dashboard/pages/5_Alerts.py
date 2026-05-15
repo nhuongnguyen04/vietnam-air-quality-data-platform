@@ -1,4 +1,4 @@
-"""Alerts page — compliance timeline, WHO/TCVN breaches, high-risk heatmap, platform health."""
+"""Alerts page — compliance timeline, WHO/TCVN breaches, and high-risk exposure heatmap."""
 from __future__ import annotations
 
 # ruff: noqa: E402
@@ -12,6 +12,7 @@ Hệ thống cung cấp lịch sử các đợt cảnh báo và chi tiết về 
 """
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
@@ -31,7 +32,35 @@ COMPLIANCE_COLORS = {
     "Unhealthy (TCVN Breach)": "#FF0000",
 }
 
+EN_MONTH_ABBR = {
+    1: "Jan",
+    2: "Feb",
+    3: "Mar",
+    4: "Apr",
+    5: "May",
+    6: "Jun",
+    7: "Jul",
+    8: "Aug",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dec",
+}
+
+
 # ── helpers ─────────────────────────────────────────────────────────────────────
+
+def format_date_label(value, lang: str) -> str:
+    date_value = pd.to_datetime(value)
+    if pd.isna(date_value):
+        return str(value)
+
+    if lang == "vi":
+        return f"{date_value.day} Thg {date_value.month}<br>{date_value.year}"
+
+    month = EN_MONTH_ABBR[date_value.month]
+    return f"{month} {date_value.day}<br>{date_value.year}"
+
 
 @st.cache_data(ttl=3600)
 def get_provinces():
@@ -88,31 +117,25 @@ def get_high_risk_heatmap(days: int, province: str | None):
     else:
         where_clause = ""
     q = f"""
+    WITH province_hours AS (
+        SELECT
+            province,
+            date,
+            datetime_hour,
+            max(avg_aqi_us) AS hourly_aqi_us
+        FROM air_quality.fct_air_quality_province_level_hourly
+        WHERE date >= today() - INTERVAL {days} DAY
+          AND province IS NOT NULL AND province != ''
+          {where_clause}
+        GROUP BY province, date, datetime_hour
+    )
     SELECT
         province,
-        toString(date)               AS date_str,
-        high_risk_hours
-    FROM air_quality.dm_aqi_health_impact_summary
-    WHERE date >= today() - INTERVAL {days} DAY
-      AND province IS NOT NULL AND province != ''
-      {where_clause}
+        date,
+        least(24, countIf(hourly_aqi_us > 150)) AS high_risk_hours
+    FROM province_hours
+    GROUP BY province, date
     ORDER BY province, date
-    """
-    return query_df(q)
-
-
-@st.cache_data(ttl=60)
-def get_platform_health():
-    q = """
-    SELECT
-        source,
-        reliable_pct,
-        latest_lag_hours,
-        stale_count,
-        offline_count,
-        attention_count
-    FROM air_quality.dm_platform_source_health
-    ORDER BY source
     """
     return query_df(q)
 
@@ -156,6 +179,13 @@ try:
             "Unhealthy (TCVN Breach)": t("compliance_tcvn", lang)
         }
         timeline["status_label"] = timeline["compliance_status"].map(comp_map).fillna(timeline["compliance_status"])
+        timeline["date_label"] = timeline["date"].apply(lambda value: format_date_label(value, lang))
+        date_order = (
+            timeline[["date", "date_label"]]
+            .drop_duplicates()
+            .sort_values("date")["date_label"]
+            .tolist()
+        )
 
         # Color map with localized labels
         localized_colors = {t(k, lang) if k in ["Good/Safe", "Warning (WHO Breach)", "Unhealthy (TCVN Breach)"] else k: v for k, v in COMPLIANCE_COLORS.items()}
@@ -168,12 +198,13 @@ try:
 
         fig = px.bar(
             timeline,
-            x="date",
+            x="date_label",
             y="cnt",
             color="status_label",
             color_discrete_map=color_map,
+            category_orders={"date_label": date_order},
             barmode="stack",
-            labels={"date": t("chart_label_date", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
+            labels={"date_label": t("chart_label_date", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
         )
         fig.update_layout(height=280, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 40})
         st.plotly_chart(fig, width='stretch')
@@ -183,83 +214,57 @@ try:
         st.caption("dm_aqi_compliance_standards chưa có dữ liệu trong khoảng thời gian này.")
 
     # ── WHO/TCVN breach bars ───────────────────────────────────────────────────
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.subheader(t("chart_breach_comparison", lang))
-        breach = get_breach_by_province(days)
-        if not breach.empty:
-            # Melt to long form for grouped bar
-            breach_melted = pd.melt(
-                breach,
-                id_vars=["province"],
-                value_vars=["who_breach_days", "tcvn_breach_days"],
-                var_name="standard_key",
-                value_name="days_val",
-            )
-            standard_map = {
-                "who_breach_days": "WHO (PM2.5>15µg)",
-                "tcvn_breach_days": "TCVN (PM2.5>50µg)",
-            }
-            breach_melted["standard"] = breach_melted["standard_key"].map(standard_map)
-            fig = px.bar(
-                breach_melted,
-                x="province",
-                y="days_val",
-                color="standard",
-                barmode="group",
-                color_discrete_map={
-                    "WHO (PM2.5>15µg)": "#FF7E00",
-                    "TCVN (PM2.5>50µg)": "#FF0000",
-                },
-                labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
-            )
-            fig.update_layout(height=300, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-            st.plotly_chart(fig, width='stretch')
-        else:
-            fig = render_empty_chart("Không có dữ liệu vi phạm tiêu chuẩn.")
-            st.plotly_chart(fig, width='stretch')
-            st.caption("Không có vi phạm WHO/TCVN trong khoảng thời gian đã chọn.")
-
-    with col_right:
-        st.subheader(t("chart_data_freshness", lang))
-        health = get_platform_health()
-        if not health.empty:
-            health["source_label"] = health["source"].str.upper()
-            health["attention_label"] = health["attention_count"].astype(int).astype(str)
-            fig = px.bar(
-                health,
-                x="source_label",
-                y="attention_count",
-                color="source_label",
-                text="attention_label",
-                labels={
-                    "source_label": t("chart_label_source", lang),
-                    "attention_count": t("attention_needed", lang),
-                },
-                hover_data={
-                    "source_label": False,
-                    "attention_label": False,
-                    "reliable_pct": ":.1f",
-                    "latest_lag_hours": ":.1f",
-                    "stale_count": True,
-                    "offline_count": True,
-                },
-            )
-            fig.update_layout(height=300, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-            fig.update_traces(textposition="outside")
-            st.plotly_chart(fig, width='stretch')
-            st.caption(t("ops_dashboard_note", lang))
-        else:
-            fig = render_empty_chart("Không có dữ liệu sức khỏe hệ thống.")
-            st.plotly_chart(fig, width='stretch')
-            st.caption("dm_platform_source_health chưa có dữ liệu.")
+    st.subheader(t("chart_breach_comparison", lang))
+    breach = get_breach_by_province(days)
+    if not breach.empty:
+        # Melt to long form for grouped bar
+        breach_melted = pd.melt(
+            breach,
+            id_vars=["province"],
+            value_vars=["who_breach_days", "tcvn_breach_days"],
+            var_name="standard_key",
+            value_name="days_val",
+        )
+        standard_map = {
+            "who_breach_days": "WHO (PM2.5>15µg)",
+            "tcvn_breach_days": "TCVN (PM2.5>50µg)",
+        }
+        breach_melted["standard"] = breach_melted["standard_key"].map(standard_map)
+        fig = px.bar(
+            breach_melted,
+            x="province",
+            y="days_val",
+            color="standard",
+            barmode="group",
+            color_discrete_map={
+                "WHO (PM2.5>15µg)": "#FF7E00",
+                "TCVN (PM2.5>50µg)": "#FF0000",
+            },
+            labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
+        )
+        fig.update_layout(height=320, showlegend=True, margin={"l": 0, "r": 0, "t": 10, "b": 30})
+        st.plotly_chart(fig, width='stretch')
+    else:
+        fig = render_empty_chart("Không có dữ liệu vi phạm tiêu chuẩn.")
+        st.plotly_chart(fig, width='stretch')
+        st.caption("Không có vi phạm WHO/TCVN trong khoảng thời gian đã chọn.")
 
     # ── high-risk heatmap ─────────────────────────────────────────────────────
     st.subheader(t("chart_high_risk_hours", lang))
     risk = get_high_risk_heatmap(days, province_arg)
     if not risk.empty:
-        # Limit to top provinces by total high-risk hours
+        risk["date"] = pd.to_datetime(risk["date"])
+        risk["date_label"] = risk["date"].apply(lambda value: format_date_label(value, lang))
+        risk["high_risk_hours"] = pd.to_numeric(risk["high_risk_hours"], errors="coerce").clip(0, 24)
+
+        date_order = (
+            risk[["date", "date_label"]]
+            .drop_duplicates()
+            .sort_values("date")["date_label"]
+            .tolist()
+        )
+
+        # Limit to top provinces by high-risk duration after province/day aggregation.
         top_provs = (
             risk.groupby("province")["high_risk_hours"]
             .sum()
@@ -267,31 +272,52 @@ try:
             .index.tolist()
         )
         filtered = risk[risk["province"].isin(top_provs)]
-        fig = px.density_heatmap(
-            filtered,
-            x="date_str",
-            y="province",
-            z="high_risk_hours",
-            color_continuous_scale=[
-                [0.0, "#00E400"],
-                [0.25, "#FFFF00"],
-                [0.5, "#FF7E00"],
-                [0.75, "#FF0000"],
-                [1.0, "#7E0023"],
-            ],
-            range_color=[0, 24],
-            labels={
-                "date_str": t("chart_label_date", lang),
-                "province": t("province", lang),
-                "high_risk_hours": t("chart_label_hour", lang),
-            },
+        heatmap = (
+            filtered.pivot(index="province", columns="date_label", values="high_risk_hours")
+            .reindex(index=top_provs, columns=date_order)
         )
-        fig.update_layout(height=360, margin={"l": 0, "r": 0, "t": 10, "b": 30})
+
+        hovertemplate = (
+            f"{t('province', lang)}: %{{y}}<br>"
+            f"{t('chart_label_date', lang)}: %{{x}}<br>"
+            f"{t('chart_label_hour', lang)}: %{{z:.0f}}<extra></extra>"
+        )
+        fig = go.Figure(
+            data=go.Heatmap(
+                x=heatmap.columns.tolist(),
+                y=heatmap.index.tolist(),
+                z=heatmap.to_numpy(),
+                zmin=0,
+                zmax=24,
+                colorscale=[
+                    [0.0, "#00E400"],
+                    [0.25, "#FFFF00"],
+                    [0.5, "#FF7E00"],
+                    [0.75, "#FF0000"],
+                    [1.0, "#7E0023"],
+                ],
+                colorbar={
+                    "title": {"text": t("chart_label_hour", lang), "side": "top"},
+                    "thickness": 16,
+                    "len": 0.72,
+                    "x": 1.01,
+                    "xanchor": "left",
+                },
+                hovertemplate=hovertemplate,
+            )
+        )
+        fig.update_layout(
+            height=360,
+            margin={"l": 0, "r": 90, "t": 10, "b": 45},
+            xaxis_title=t("chart_label_date", lang),
+            yaxis_title=t("province", lang),
+            yaxis={"autorange": "reversed"},
+        )
         st.plotly_chart(fig, width='stretch')
     else:
         fig = render_empty_chart("Không có giờ rủi ro cao. Chất lượng không khí đang tốt.")
         st.plotly_chart(fig, width='stretch')
-        st.caption("dm_aqi_health_impact_summary chưa có dữ liệu trong khoảng thời gian này.")
+        st.caption("fct_air_quality_province_level_hourly chưa có dữ liệu trong khoảng thời gian này.")
 
 except Exception as e:
     st.error(f"Truy vấn thất bại: {e}")

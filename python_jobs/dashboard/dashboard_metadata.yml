@@ -40,8 +40,7 @@ dashboard:
       source_tables: 
         - "dm_aqi_current_status"
         - "dm_aqi_compliance_standards"
-        - "dm_aqi_health_impact_summary"
-        - "dm_platform_source_health"
+        - "fct_air_quality_province_level_hourly"
     - filename: "6_Traffic_Impact.py"
       name: "Traffic_Impact"
       display_name: "Ảnh hưởng Giao thông"

@@ -103,8 +103,18 @@ if not trend.empty:
     # Highlight selected pollutant if applicable
     highlight_poll = pollutant.upper() if pollutant != "aqi" else None
 
-    fig = px.line(plot_df, x="date", y=display_pollutants)
+    fig = px.line(
+        plot_df,
+        x="date",
+        y=display_pollutants,
+        labels={
+            "date": t("chart_label_date", lang),
+            "value": t("chart_label_aqi", lang),
+            "variable": t("chart_label_variable", lang),
+        },
+    )
     fig.update_layout(get_plotly_layout(height=400), hovermode="x unified")
+    fig.update_xaxes(tickformat="%d/%m/%Y", hoverformat="%d/%m/%Y")
 
     # If a specific pollutant is selected, make its line thicker
     if highlight_poll:
@@ -149,7 +159,18 @@ with c1:
             color_discrete_map=color_map,
             labels={'source_label': t('chart_label_type', lang), 'cnt': t('chart_label_count', lang)}
         )
-        fig_pie.update_layout(margin={"l": 20, "r": 20, "t": 20, "b": 20}, height=350)
+        fig_pie.update_layout(
+            height=390,
+            margin={"l": 20, "r": 20, "t": 20, "b": 70},
+            legend={
+                "orientation": "h",
+                "yanchor": "top",
+                "y": -0.08,
+                "xanchor": "center",
+                "x": 0.5,
+                "title_text": None,
+            },
+        )
         st.plotly_chart(fig_pie, width='stretch')
     else:
         st.caption(t("no_data", lang) if lang=="en" else "Chưa có dữ liệu phân tích nguồn.")
@@ -172,13 +193,24 @@ with c2:
             t('compliance_tcvn', lang): "#ff4b4b"
         }
         cat_orders = [t('compliance_good', lang), t('compliance_who', lang), t('compliance_tcvn', lang)]
+        province_order = compliance["province"].drop_duplicates().tolist()
 
         fig_comp = px.bar(compliance, x="province", y="cnt", color="status_label",
                          color_discrete_map=color_map,
-                         category_orders={"status_label": cat_orders},
+                         category_orders={"province": province_order, "status_label": cat_orders},
                          labels={"province": t("province", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
                          barmode="stack")
-        fig_comp.update_layout(get_plotly_layout(height=350), barnorm="percent")
+        fig_comp.update_layout(
+            get_plotly_layout(height=390),
+            barnorm="percent",
+            margin={"l": 50, "r": 60, "t": 50, "b": 95},
+        )
+        fig_comp.update_xaxes(
+            tickangle=-90,
+            automargin=True,
+            range=[-0.5, len(province_order) - 0.1],
+        )
+        fig_comp.update_yaxes(range=[0, 100], ticksuffix="%")
         st.plotly_chart(fig_comp, width='stretch')
 
 st.info("Phân tích nguồn dựa trên tỷ lệ PM2.5/PM10. Tỷ lệ > 0.6 gợi ý hoạt động đốt cháy/giao thông, < 0.4 gợi ý bụi/xây dựng.")

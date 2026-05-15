@@ -38,9 +38,9 @@ pages = {
     ],
     t("nav_health", lang): [
         st.Page("pages/7_Health_Risk.py", title=t("nav_health", lang), icon=":material/health_and_safety:"),
+        st.Page("pages/5_Alerts.py", title=t("nav_alerts", lang), icon=":material/notification_important:"),
     ],
     t("nav_status", lang): [
-        st.Page("pages/5_Alerts.py", title=t("nav_alerts", lang), icon=":material/notification_important:"),
         st.Page("pages/3_Source_Comparison.py", title=t("nav_comparison", lang), icon=":material/compare:"),
         st.Page("pages/8_Status.py", title=t("nav_status", lang), icon=":material/settings_suggest:"),
     ]

@@ -809,10 +809,16 @@ models:
           - NonSensitive
       - name: province
         description: Province name.
+        tests:
+          - not_null
       - name: ward_code
         description: Ward identifier.
+        tests:
+          - not_null
       - name: ward_name
         description: Ward name.
+        tests:
+          - not_null
       - name: region_3
         description: 3-region classification.
       - name: region_8
@@ -911,10 +917,16 @@ models:
           - NonSensitive
       - name: province
         description: Province name.
+        tests:
+          - not_null
       - name: ward_code
         description: Ward identifier.
+        tests:
+          - not_null
       - name: ward_name
         description: Ward name.
+        tests:
+          - not_null
       - name: region_3
         description: Vietnam 3-region classification.
       - name: region_8
@@ -1009,8 +1021,12 @@ models:
           - NonSensitive
       - name: province
         description: Province name.
+        tests:
+          - not_null
       - name: ward_code
         description: Ward identifier.
+        tests:
+          - not_null
       - name: avg_aqi_vn
         description: Monthly average Vietnam AQI.
         meta:

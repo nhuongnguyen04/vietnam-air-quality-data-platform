@@ -1,18 +1,38 @@
 from datetime import datetime, timedelta
 
+import pandas as pd
 import streamlit as st
 
+from .clickhouse_client import query_df
 from .data_service import get_hierarchy_metadata
 from .i18n import t
 
 
+@st.cache_data(ttl=300)
+def get_latest_available_date():
+    """Return the latest date available in the dashboard mart."""
+    try:
+        df = query_df("""
+        SELECT max(date) AS latest_date
+        FROM air_quality.dm_air_quality_overview_daily
+        """)
+    except Exception:
+        return datetime.now().date()
+
+    if df.empty or pd.isna(df.iloc[0].latest_date):
+        return datetime.now().date()
+
+    return pd.Timestamp(df.iloc[0].latest_date).date()
+
+
 def init_filter_state():
     """Initialize session state for filters if not already present."""
+    latest_date = get_latest_available_date()
     defaults = {
         "f_spatial_grain": "Toàn quốc",
         "f_scope_val": None,
         "f_time_preset": 30, # 30 days
-        "f_date_range": [datetime.now() - timedelta(days=30), datetime.now()],
+        "f_date_range": [latest_date - timedelta(days=30), latest_date],
         "f_pollutant": "aqi",
         "f_standard": st.session_state.get("standard", "TCVN"),
         "lang": st.session_state.get("lang", "vi")
@@ -106,10 +126,10 @@ def render_sidebar_filters():
 
     # 5. Time Filter (Quick Select + Custom Range)
     TIME_OPTIONS = {
-        7: "7 ngày gần nhất",
-        30: "30 ngày gần nhất",
-        90: "3 tháng gần nhất",
-        365: "1 năm gần nhất",
+        7: "7 ngày dữ liệu gần nhất",
+        30: "30 ngày dữ liệu gần nhất",
+        90: "3 tháng dữ liệu gần nhất",
+        365: "1 năm dữ liệu gần nhất",
         0: "Tùy chọn khoảng ngày"
     }
 
@@ -123,10 +143,18 @@ def render_sidebar_filters():
         index=preset_idx
     )
 
+    latest_date = get_latest_available_date()
+    today = datetime.now().date()
+    latest_label = latest_date.strftime("%d/%m/%Y")
+    if latest_date < today:
+        st.sidebar.warning(f"Dữ liệu mới nhất hiện có: {latest_label}")
+    else:
+        st.sidebar.caption(f"Dữ liệu mới nhất: {latest_label}")
+
     if selected_preset != 0:
-        # Update date range based on preset
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=selected_preset)
+        # Update date range based on the freshest mart date, not wall-clock time.
+        end_date = latest_date
+        start_date = end_date - timedelta(days=max(selected_preset - 1, 0))
         st.session_state.f_date_range = [start_date, end_date]
         st.session_state.f_time_preset = selected_preset
     else:
@@ -135,7 +163,7 @@ def render_sidebar_filters():
         st.session_state.f_date_range = st.sidebar.date_input(
             "Chọn khoảng ngày",
             value=st.session_state.f_date_range,
-            max_value=datetime.now()
+            max_value=latest_date
         )
 
     return {
