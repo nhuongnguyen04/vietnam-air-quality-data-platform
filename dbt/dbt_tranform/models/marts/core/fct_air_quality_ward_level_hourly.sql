@@ -1,7 +1,8 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree',
-    unique_key='(province, ward_code, datetime_hour)',
+    incremental_strategy='delete_insert',
+    engine='ReplacingMergeTree(raw_loaded_at)',
+    unique_key=['province', 'ward_code', 'datetime_hour'],
     order_by='(province, assumeNotNull(ward_code), datetime_hour)',
     partition_by='toYYYYMM(date)',
     query_settings={
@@ -9,7 +10,7 @@
         'max_block_size': 4096,
         'max_bytes_before_external_sort': 67108864,
         'max_bytes_before_external_group_by': 67108864,
-        'optimize_aggregation_in_order': 1
+        'max_memory_usage': 4294967296
     }
 ) }}
 

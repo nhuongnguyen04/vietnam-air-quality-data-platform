@@ -278,7 +278,7 @@ def dag_transform():
     def dbt_test():
         """Run dbt tests as the blocking validation branch."""
         result = run_dbt_command(
-            ['dbt', 'test', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET],
+            ['dbt', 'test', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--threads', '1'],
             timeout=1800,
         )
         print_dbt_result(result, "dbt test failed", "dbt test completed")

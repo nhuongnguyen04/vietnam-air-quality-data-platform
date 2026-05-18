@@ -1,6 +1,8 @@
 {{ config(
     materialized='incremental',
-    engine='MergeTree',
+    incremental_strategy='delete_insert',
+    engine='ReplacingMergeTree(ingest_time)',
+    unique_key=['province', 'ward_code', 'date'],
     order_by='(province, date)',
     partition_by='toYYYYMM(date)',
     query_settings={

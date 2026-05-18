@@ -1,9 +1,18 @@
 -- depends_on: {{ ref('fct_aqi_weather_traffic_unified') }}
 {{ config(
     materialized='incremental',
-    engine='MergeTree',
+    incremental_strategy='delete_insert',
+    engine='ReplacingMergeTree(dbt_updated_at)',
+    unique_key=['province', 'ward_code', 'date'],
     order_by='(province, date)',
-    partition_by='toYYYYMM(date)'
+    partition_by='toYYYYMM(date)',
+    query_settings={
+        'max_threads': 1,
+        'max_block_size': 4096,
+        'max_bytes_before_external_sort': 67108864,
+        'max_bytes_before_external_group_by': 67108864,
+        'optimize_aggregation_in_order': 1
+    }
 ) }}
 
 WITH source_data AS (

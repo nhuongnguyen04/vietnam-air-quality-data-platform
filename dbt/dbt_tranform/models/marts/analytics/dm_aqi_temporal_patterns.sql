@@ -1,8 +1,14 @@
 {{ config(
-    materialized='incremental',
-    engine='SummingMergeTree',
-    unique_key='(province, hour_of_day, day_of_week)',
-    order_by='(province, hour_of_day, day_of_week)'
+    materialized='table',
+    engine='MergeTree',
+    order_by='(province, hour_of_day, day_of_week)',
+    query_settings={
+        'max_threads': 1,
+        'max_block_size': 4096,
+        'max_bytes_before_external_sort': 67108864,
+        'max_bytes_before_external_group_by': 67108864,
+        'optimize_aggregation_in_order': 1
+    }
 ) }}
 
 with hourly_data as (

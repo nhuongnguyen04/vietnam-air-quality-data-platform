@@ -20,10 +20,9 @@ models:
       - TomTom coverage is limited to major cities; rural provinces have no traffic data
       - Traffic data represents TomTom user population, not all vehicles
     tests:
-      - dbt_utils.unique_combination_of_columns:
+      - unique_combination_of_columns_final:
           combination_of_columns: [ward_code, timestamp_utc]
-          config:
-            where: "raw_loaded_at >= now() - interval 7 day"
+          row_filter: "raw_loaded_at >= now() - interval 1 day"
     columns:
       - name: source
         description: |

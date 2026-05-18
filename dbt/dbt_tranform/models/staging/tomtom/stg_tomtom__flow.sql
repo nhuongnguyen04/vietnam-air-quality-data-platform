@@ -1,8 +1,8 @@
 {{ config(
     materialized='incremental',
-    incremental_strategy='delete_insert',
+    incremental_strategy='append',
     engine='ReplacingMergeTree(raw_loaded_at)',
-    unique_key=['ward_code', 'timestamp_utc', 'parameter'],
+    unique_key='(ward_code, timestamp_utc, parameter)',
     order_by='(ward_code, timestamp_utc, parameter)',
     partition_by='toYYYYMM(timestamp_utc)',
     query_settings={

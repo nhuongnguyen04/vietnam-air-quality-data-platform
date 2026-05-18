@@ -1,6 +1,7 @@
 {{ config(
     materialized='incremental',
     engine='ReplacingMergeTree(raw_loaded_at)',
+    incremental_strategy='append',
     unique_key='(station_name, timestamp_utc, parameter)',
     order_by='(timestamp_utc, station_name, parameter)',
     partition_by='toYYYYMM(timestamp_utc)',
@@ -9,7 +10,7 @@
         'max_block_size': 4096,
         'max_bytes_before_external_sort': 67108864,
         'max_bytes_before_external_group_by': 67108864,
-        'optimize_aggregation_in_order': 1
+        'max_memory_usage': 4294967296
     }
 ) }}
 
@@ -35,21 +36,16 @@ latest_rows as (
         station_name,
         timestamp_utc,
         parameter,
-        value as raw_value,
-        unit as raw_unit,
-        aqi_reported,
-        quality_flag,
-        ingest_time as latest_ingest_time,
-        raw_loaded_at as latest_raw_loaded_at,
-        raw_sync_run_id as latest_raw_sync_run_id,
-        raw_sync_started_at as latest_raw_sync_started_at
+        argMax(value, raw_loaded_at) as raw_value,
+        argMax(unit, raw_loaded_at) as raw_unit,
+        argMax(aqi_reported, raw_loaded_at) as aqi_reported,
+        argMax(quality_flag, raw_loaded_at) as quality_flag,
+        argMax(ingest_time, raw_loaded_at) as latest_ingest_time,
+        max(raw_loaded_at) as latest_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
     from incremental_source
-    order by
-        station_name,
-        timestamp_utc,
-        parameter,
-        raw_loaded_at desc
-    limit 1 by
+    group by
         station_name,
         timestamp_utc,
         parameter

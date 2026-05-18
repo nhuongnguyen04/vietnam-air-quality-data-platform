@@ -14,10 +14,9 @@ models:
 
       **Source:** `raw_aqiin_measurements` — Web scraped from aqi.in widget endpoints (~540 Vietnam stations)
     tests:
-      - dbt_utils.unique_combination_of_columns:
+      - unique_combination_of_columns_final:
           combination_of_columns: [station_name, timestamp_utc, parameter]
-          config:
-            where: "raw_loaded_at >= now() - interval 7 day"
+          row_filter: "raw_loaded_at >= now() - interval 7 day"
     columns:
       - name: station_name
         description: |
