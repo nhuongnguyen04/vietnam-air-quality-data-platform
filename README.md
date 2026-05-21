@@ -37,29 +37,32 @@ All services run via Docker Compose on the `air-quality-network` network.
 
 ## Hardware Requirements
 
-- **Minimum:** 16GB RAM, 4 CPU cores
-- **Recommended:** 16GB RAM, 8 CPU cores
+- **Minimum:** 16GB RAM (Host), 4 CPU cores
+- **Recommended:** 16GB+ RAM, 8 CPU cores
 - Docker Desktop (Mac/Windows) or Docker Engine on Linux
-- At least 20GB free disk space (ClickHouse data + logs)
+- At least 30GB free disk space (ClickHouse data + logs + temporary spill files)
 
-### Resource Allocation
+### Resource Allocation (Optimized for 16GB RAM Host)
 
-| Service | Memory | CPUs |
-|---------|--------|------|
-| ClickHouse | 3GB | 2 |
-| PostgreSQL | 1GB | 1 |
-| Airflow Scheduler | 512MB | 1 |
-| Airflow Dag-Processor | 512MB | 1 |
-| Airflow Triggerer | 512MB | 1 |
-| Airflow Webserver | 512MB | 1 |
-| Streamlit Dashboard | 512MB | 0.5 |
-| Grafana | 512MB | 0.5 |
-| Prometheus | 512MB | 0.25 |
-| PostgreSQL Exporter | 256MB | 0.25 |
-| Node Exporter | 128MB | 0.25 |
-| Docker Stats Exporter | 128MB | 0.25 |
-| **Total** | **~7.4GB** | **~7** |
-
+| Service | Memory Limit | CPUs Limit | Purpose / Role |
+|---------|--------------|------------|----------------|
+| ClickHouse | 9 GB | 4.0 | Core Analytical Database (System per-query limit: 6GB) |
+| Airflow Scheduler | 1.5 GB | 1.0 | Workflow scheduler & task orchestrator |
+| Airflow Dag-Processor | 1.0 GB | 0.5 | DAG file parsing and analysis |
+| Airflow Webserver | 1.0 GB | 0.5 | Orchestrator UI & API Web Server |
+| Airflow Triggerer | 512 MB | 0.5 | Async deferred task worker |
+| Elasticsearch | 1.5 GB | 1.0 | Search index & Catalog backend for OpenMetadata |
+| OpenMetadata Server | 1.5 GB | 1.0 | Centralized Metadata Platform Server |
+| OM Ingestion | 1.2 GB | 1.0 | Metadata collection & sync workflows |
+| PostgreSQL | 768 MB | 0.5 | Database metadata backend for Airflow & OM |
+| Text-to-SQL API | 512 MB | 0.25 | Natural Language query processing service |
+| Streamlit Dashboard | 384 MB | 0.25 | Interactive Data Visualization Frontend |
+| Grafana | 384 MB | 0.25 | Operational dashboard & alerting system |
+| Prometheus | 384 MB | 0.25 | Operational system metric collection database |
+| PostgreSQL Exporter | 128 MB | 0.25 | Database exporter for Prometheus metrics |
+| Node Exporter | 96 MB | 0.25 | Host OS exporter for Prometheus metrics |
+| Docker Stats Exporter | 96 MB | 0.25 | Docker runtime exporter for Prometheus |
+| **Total Allocation** | **~20.3 GB** | **~12.0** | **Containers share Host memory dynamically (Peak RAM usage ~6.6GB)** |
 
 ---
 

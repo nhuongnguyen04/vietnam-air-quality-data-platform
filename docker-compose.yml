@@ -13,7 +13,7 @@ services:
         soft: 262144
         hard: 262144
     mem_limit: 9g
-    cpus: '2'
+    cpus: '4'
     volumes:
     - ./clickhouse-data:/var/lib/clickhouse
     - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql
