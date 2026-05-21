@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     engine='ReplacingMergeTree',
     unique_key='(province, datetime_hour)',
     order_by='(province, datetime_hour)',
@@ -27,6 +28,11 @@ with ward_hourly as (
         no2_aqi,
         so2_aqi,
         o3_aqi,
+        -- Rename aliases to avoid ClickHouse 25.x analyzer matching these
+        -- column names to the upstream aggregate expressions (countIf -> nested agg)
+        toUInt64(aqiin_observation_count)       as ward_aqiin_cnt,
+        toUInt64(openweather_observation_count) as ward_openweather_cnt,
+        confidence_score,
         last_ingested_at,
         raw_loaded_at,
         raw_sync_run_id,
@@ -42,11 +48,11 @@ province_hourly as (
         province,
         region_3,
         region_8,
-        
+
         -- Provincial average
         avg(avg_aqi_us) as avg_aqi_us,
         avg(avg_aqi_vn) as avg_aqi_vn,
-        
+
         -- Concentrations
         avg(pm25_avg) as pm25_avg,
         avg(pm10_avg) as pm10_avg,
@@ -62,12 +68,22 @@ province_hourly as (
         avg(no2_aqi)  as no2_aqi,
         avg(so2_aqi)  as so2_aqi,
         avg(o3_aqi)   as o3_aqi,
-        
-        max(last_ingested_at) as last_ingested_at,
-        max(raw_loaded_at) as max_raw_loaded_at,
-        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
-        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
-        
+
+        count()                          as total_ward_count,
+        countIf(ward_aqiin_cnt > 0)       as aqiin_ward_count,
+        countIf(ward_openweather_cnt > 0) as openweather_ward_count,
+        sum(ward_aqiin_cnt)               as aqiin_observation_count,
+        sum(ward_openweather_cnt)         as openweather_observation_count,
+        greatest(
+            0.35,
+            least(1.0, 0.35 + 0.65 * countIf(ward_aqiin_cnt > 0) / nullIf(count(), 0))
+        ) as confidence_score,
+
+        max(last_ingested_at)                       as last_ingested_at,
+        max(raw_loaded_at)                          as max_raw_loaded_at,
+        argMax(raw_sync_run_id, raw_loaded_at)      as latest_raw_sync_run_id,
+        argMax(raw_sync_started_at, raw_loaded_at)  as latest_raw_sync_started_at
+
     from ward_hourly
     group by
         datetime_hour,
@@ -98,6 +114,18 @@ final as (
         no2_aqi,
         so2_aqi,
         o3_aqi,
+        total_ward_count,
+        aqiin_ward_count,
+        openweather_ward_count,
+        aqiin_observation_count,
+        openweather_observation_count,
+        if(
+            aqiin_ward_count > 0 and openweather_ward_count > aqiin_ward_count,
+            'mixed',
+            if(aqiin_ward_count > 0, 'observed', 'modeled')
+        ) as source_mix,
+        confidence_score,
+        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
         last_ingested_at,
         max_raw_loaded_at as raw_loaded_at,
         latest_raw_sync_run_id as raw_sync_run_id,

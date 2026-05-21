@@ -31,13 +31,13 @@ _explanation = (
     "- **AQI.in**: Tổng hợp từ **trạm quan trắc vật lý** (ground monitors) — phản ánh ô nhiễm tại điểm đo cụ thể, thường đặt gần đường giao thông hoặc khu công nghiệp.\n"
     "- **OpenWeather**: Dữ liệu từ mô hình **SILAM** (Finnish Meteorological Institute) — ước tính trung bình cho khu vực rộng (~25km grid).\n"
     "- Chênh lệch 2-3× là **bình thường** khi so sánh measured vs modeled data.\n"
-    "- **Khuyến nghị**: Sử dụng OpenWeather cho xu hướng vùng, AQI.in cho rủi ro tại điểm cụ thể."
+    "- Dashboard chính ưu tiên ranking có **độ tin cậy vừa/cao**; OpenWeather vẫn được giữ như **ước tính mô hình** cho vùng thiếu trạm."
 ) if lang == "vi" else (
     "**Why do AQI values differ between sources?**\n"
     "- **AQI.in**: Aggregated from **physical ground monitors** — reflects pollution at specific measurement points, often near roads or industrial zones.\n"
     "- **OpenWeather**: Uses the **SILAM** atmospheric model (Finnish Meteorological Institute) — estimates averages across ~25km grid cells.\n"
     "- A 2-3× difference is **normal** when comparing measured vs modeled data.\n"
-    "- **Recommendation**: Use OpenWeather for regional trends, AQI.in for point-specific risk."
+    "- Main dashboard rankings prioritize **medium/high confidence** rows; OpenWeather remains a **modeled estimate** for areas without monitors."
 )
 st.info(_explanation)
 

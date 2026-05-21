@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(last_ingested_at)',
     unique_key=['province', 'ward_code', 'date'],
@@ -57,6 +58,11 @@ final as (
         w.no2_avg as no2_avg,
         w.so2_avg as so2_avg,
         w.o3_avg as o3_avg,
+        w.aqiin_observation_count as aqiin_observation_count,
+        w.openweather_observation_count as openweather_observation_count,
+        w.source_mix as source_mix,
+        w.confidence_score as confidence_score,
+        w.confidence_level as confidence_level,
         
         w.last_ingested_at as last_ingested_at
     from ward_daily w

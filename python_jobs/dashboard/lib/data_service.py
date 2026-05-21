@@ -89,6 +89,39 @@ def get_pollutant_cols(pollutant: str, standard: str = "VN_AQI") -> tuple[str, s
     return avg_col, max_col
 
 
+SOURCE_MIX_LABELS = {
+    "observed": {"vi": "Quan trắc", "en": "Observed"},
+    "mixed": {"vi": "Kết hợp", "en": "Mixed"},
+    "modeled": {"vi": "Mô hình", "en": "Modeled"},
+}
+
+CONFIDENCE_LABELS = {
+    "high": {"vi": "Tin cậy cao", "en": "High confidence"},
+    "medium": {"vi": "Tin cậy vừa", "en": "Medium confidence"},
+    "low": {"vi": "Ước tính mô hình", "en": "Modeled estimate"},
+}
+
+CONFIDENCE_COLORS = {
+    "high": "#16a34a",
+    "medium": "#f59e0b",
+    "low": "#ef4444",
+}
+
+
+def localize_source_mix(source_mix: str | None, lang: str = "vi") -> str:
+    """Return a localized source-mix label for dashboard display."""
+    if not source_mix:
+        return "N/A"
+    return SOURCE_MIX_LABELS.get(source_mix, {}).get(lang, source_mix)
+
+
+def localize_confidence_level(confidence_level: str | None, lang: str = "vi") -> str:
+    """Return a localized confidence label for dashboard display."""
+    if not confidence_level:
+        return "N/A"
+    return CONFIDENCE_LABELS.get(confidence_level, {}).get(lang, confidence_level)
+
+
 def build_where_clause(
     spatial_scope: str,
     spatial_value: str,
@@ -145,4 +178,3 @@ def build_where_clause(
                 clauses.append(f"{date_col} = '{formatted[0]}'")
 
     return " AND ".join(clauses) if clauses else "1=1"
-

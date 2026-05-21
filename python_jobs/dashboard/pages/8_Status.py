@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
+from lib.data_service import localize_confidence_level, localize_source_mix
 from lib.i18n import t
 from lib.style import render_metric_card
 
@@ -50,10 +51,27 @@ def get_platform_status_data():
     FROM air_quality.dm_platform_source_health
     ORDER BY source
     """
-    return query_df(summary_q), query_df(source_q)
+    confidence_q = """
+    WITH latest_date AS (
+        SELECT max(date) AS date
+        FROM air_quality.dm_air_quality_overview_daily
+    )
+    SELECT
+        source_mix,
+        confidence_level,
+        count() AS ward_count,
+        round(avg(confidence_score), 2) AS confidence_score,
+        sum(aqiin_observation_count) AS aqiin_observations,
+        sum(openweather_observation_count) AS openweather_observations
+    FROM air_quality.dm_air_quality_overview_daily
+    WHERE date = (SELECT date FROM latest_date)
+    GROUP BY source_mix, confidence_level
+    ORDER BY confidence_score DESC
+    """
+    return query_df(summary_q), query_df(source_q), query_df(confidence_q)
 
 
-summary, source_summary = get_platform_status_data()
+summary, source_summary, confidence_summary = get_platform_status_data()
 
 if not summary.empty and int(summary.loc[0, "source_ward_count"]) > 0:
     summary_row = summary.iloc[0]
@@ -88,6 +106,38 @@ if not summary.empty and int(summary.loc[0, "source_ward_count"]) > 0:
         st.success(t("data_trust_ok", lang))
 
     st.caption(t("ops_dashboard_note", lang))
+    st.markdown("---")
+
+    st.subheader("Độ tin cậy AQI" if lang == "vi" else "AQI Confidence")
+    if not confidence_summary.empty:
+        confidence_summary = confidence_summary.copy()
+        confidence_summary["Nguồn"] = confidence_summary["source_mix"].apply(
+            lambda x: localize_source_mix(x, lang)
+        )
+        confidence_summary["Mức tin cậy"] = confidence_summary["confidence_level"].apply(
+            lambda x: localize_confidence_level(x, lang)
+        )
+        st.dataframe(
+            confidence_summary[
+                [
+                    "Nguồn",
+                    "Mức tin cậy",
+                    "ward_count",
+                    "confidence_score",
+                    "aqiin_observations",
+                    "openweather_observations",
+                ]
+            ].rename(
+                columns={
+                    "ward_count": "Số ward" if lang == "vi" else "Wards",
+                    "confidence_score": "Điểm tin cậy" if lang == "vi" else "Confidence",
+                    "aqiin_observations": "Quan trắc AQI.in" if lang == "vi" else "AQI.in observations",
+                    "openweather_observations": "Ước tính OpenWeather" if lang == "vi" else "OpenWeather estimates",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
     st.markdown("---")
 
     st.subheader(t("source_reliability_monitoring", lang))

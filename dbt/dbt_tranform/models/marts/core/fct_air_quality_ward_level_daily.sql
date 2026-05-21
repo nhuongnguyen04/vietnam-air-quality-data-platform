@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     engine='ReplacingMergeTree',
     unique_key='(province, ward_code, date)',
     order_by='(province, date, assumeNotNull(ward_code))',
@@ -42,6 +43,10 @@ daily_agg as (
         avg(no2_aqi)  as _no2_aqi,
         avg(so2_aqi)  as _so2_aqi,
         avg(o3_aqi)   as _o3_aqi,
+
+        sum(aqiin_observation_count) as aqiin_observation_count,
+        sum(openweather_observation_count) as openweather_observation_count,
+        avg(confidence_score) as confidence_score,
         
         max(last_ingested_at) as last_ingested_at,
         max(raw_loaded_at) as max_raw_loaded_at,
@@ -73,6 +78,15 @@ final as (
         _no2_aqi as no2_aqi,
         _so2_aqi as so2_aqi,
         _o3_aqi as o3_aqi,
+        aqiin_observation_count,
+        openweather_observation_count,
+        if(
+            aqiin_observation_count > 0 and openweather_observation_count > 0,
+            'mixed',
+            if(aqiin_observation_count > 0, 'observed', 'modeled')
+        ) as source_mix,
+        confidence_score,
+        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
         -- Use macro for daily dominant pollutant
         {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant,
         max_raw_loaded_at as raw_loaded_at,

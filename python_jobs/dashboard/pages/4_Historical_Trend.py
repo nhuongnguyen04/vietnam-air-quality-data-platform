@@ -21,7 +21,7 @@ from lib.aqi_utils import (
     render_empty_chart,
 )
 from lib.clickhouse_client import query_df
-from lib.data_service import build_where_clause, get_pollutant_cols
+from lib.data_service import build_where_clause, get_pollutant_cols, localize_confidence_level
 from lib.filters import render_sidebar_filters
 from lib.i18n import t
 from lib.style import get_plotly_layout
@@ -53,12 +53,21 @@ def get_national_daily_trend(col, dates, tunit="day"):
     q = f"""
     SELECT
         date,
-        round(avg({col}), 1)  AS avg_val,
-        round(max({col}), 0)  AS max_val
-    FROM air_quality.dm_air_quality_overview_daily
-    WHERE {where_clause}
-    GROUP BY date
-    ORDER BY date
+        avg_val,
+        max_val,
+        confidence_score,
+        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) AS confidence_level
+    FROM (
+        SELECT
+            date,
+            round(avg({col}), 1)  AS avg_val,
+            round(max({col}), 0)  AS max_val,
+            round(avg(confidence_score), 2) AS confidence_score
+        FROM air_quality.dm_air_quality_overview_daily
+        WHERE {where_clause}
+        GROUP BY date
+        ORDER BY date
+    )
     """
     return query_df(q)
 
@@ -69,12 +78,21 @@ def get_province_daily_trend(col, province: str, dates, tunit="day"):
     q = f"""
     SELECT
         date,
-        round(avg({col}), 1)  AS avg_val,
-        round(max({col}), 0)  AS max_val
-    FROM air_quality.dm_air_quality_overview_daily
-    WHERE {where_clause}
-    GROUP BY date
-    ORDER BY date
+        avg_val,
+        max_val,
+        confidence_score,
+        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) AS confidence_level
+    FROM (
+        SELECT
+            date,
+            round(avg({col}), 1)  AS avg_val,
+            round(max({col}), 0)  AS max_val,
+            round(avg(confidence_score), 2) AS confidence_score
+        FROM air_quality.dm_air_quality_overview_daily
+        WHERE {where_clause}
+        GROUP BY date
+        ORDER BY date
+    )
     """
     return query_df(q)
 
@@ -100,12 +118,21 @@ def get_monthly_trend(col, dates):
     q = f"""
     SELECT
         date,
-        round(avg({col}), 1)  AS avg_val,
-        round(max({col}), 0)  AS max_val
-    FROM air_quality.dm_air_quality_overview_monthly
-    WHERE {where_clause}
-    GROUP BY date
-    ORDER BY date
+        avg_val,
+        max_val,
+        confidence_score,
+        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) AS confidence_level
+    FROM (
+        SELECT
+            date,
+            round(avg({col}), 1)  AS avg_val,
+            round(max({col}), 0)  AS max_val,
+            round(avg(confidence_score), 2) AS confidence_score
+        FROM air_quality.dm_air_quality_overview_monthly
+        WHERE {where_clause}
+        GROUP BY date
+        ORDER BY date
+    )
     """
     return query_df(q)
 
@@ -117,7 +144,8 @@ def get_heatmap_data(col, scope_grain, scope_val, dates, tunit="day"):
     SELECT
         province,
         toString(date)           AS date_str,
-        round(avg({col}), 1) AS display_val
+        round(avg({col}), 1) AS display_val,
+        round(avg(confidence_score), 2) AS confidence_score
     FROM air_quality.dm_air_quality_overview_daily
     WHERE province IS NOT NULL AND province != ''
       AND {where_clause}
@@ -137,6 +165,7 @@ def get_temporal_patterns(col: str, province: str | None = None):
         hour_of_day,
         day_of_week,
         avg({col}) as avg_aqi
+        , avg(confidence_score) as confidence_score
     FROM air_quality.dm_aqi_temporal_patterns
     {where_clause}
     GROUP BY hour_of_day, day_of_week
@@ -160,6 +189,7 @@ def get_overall_stats(col, dates, tunit="day"):
         round(avg({col}), 1)      AS overall_avg,
         round(min({col}), 1)      AS overall_min,
         round(max({col}), 0)      AS overall_max
+        , round(avg(confidence_score), 2) AS confidence_score
     FROM air_quality.dm_air_quality_overview_daily
     WHERE {where_clause}
     """
@@ -306,6 +336,12 @@ try:
         col2.metric(f"{t('chart_label_avg', lang)} {val_label}", f"{row.overall_avg:.0f}" if pd.notna(row.overall_avg) else "N/A")
         col3.metric(f"{t('chart_label_min', lang)} {val_label}", f"{row.overall_min:.0f}" if pd.notna(row.overall_min) else "N/A")
         col4.metric(f"{t('chart_label_max', lang)} {val_label}", f"{row.overall_max:.0f}" if pd.notna(row.overall_max) else "N/A")
+        level = "high" if row.confidence_score >= 0.8 else "medium" if row.confidence_score >= 0.5 else "low"
+        st.caption(
+            f"Độ tin cậy trung bình: {localize_confidence_level(level, lang)} ({row.confidence_score:.2f})"
+            if lang == "vi"
+            else f"Average confidence: {localize_confidence_level(level, lang)} ({row.confidence_score:.2f})"
+        )
 
     # ── national daily trend ───────────────────────────────────────────────────
     st.subheader(f"{t('nav_overview', lang)} ({val_label})")

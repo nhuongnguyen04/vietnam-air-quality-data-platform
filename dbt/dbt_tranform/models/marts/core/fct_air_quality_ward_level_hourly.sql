@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(raw_loaded_at)',
     unique_key=['province', 'ward_code', 'datetime_hour'],
@@ -80,6 +81,9 @@ consolidated as (
         sum(no2_aqi  * source_weight) / nullIf(sum(source_weight), 0) as no2_aqi,
         sum(so2_aqi  * source_weight) / nullIf(sum(source_weight), 0) as so2_aqi,
         sum(o3_aqi   * source_weight) / nullIf(sum(source_weight), 0) as o3_aqi,
+
+        countIf(source = 'aqiin') as aqiin_observation_count,
+        countIf(source = 'openweather') as openweather_observation_count,
         
         max(ingest_time) as last_ingested_at,
         max(raw_loaded_at) as max_raw_loaded_at,
@@ -115,6 +119,23 @@ final as (
         c.no2_aqi,
         c.so2_aqi,
         c.o3_aqi,
+        c.aqiin_observation_count,
+        c.openweather_observation_count,
+        if(
+            c.aqiin_observation_count > 0 and c.openweather_observation_count > 0,
+            'mixed',
+            if(c.aqiin_observation_count > 0, 'observed', 'modeled')
+        ) as source_mix,
+        if(
+            c.aqiin_observation_count > 0 and c.openweather_observation_count > 0,
+            0.95,
+            if(c.aqiin_observation_count > 0, 1.0, 0.35)
+        ) as confidence_score,
+        if(
+            c.aqiin_observation_count > 0,
+            'high',
+            'low'
+        ) as confidence_level,
         c.last_ingested_at,
         c.max_raw_loaded_at as raw_loaded_at,
         c.latest_raw_sync_run_id as raw_sync_run_id,

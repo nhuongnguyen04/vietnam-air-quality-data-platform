@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(ingest_time)',
     unique_key=['province', 'date'],
@@ -24,6 +25,8 @@ with daily_data as (
         avg_aqi_vn,
         pm25_avg,
         pm10_avg,
+        confidence_score,
+        source_mix,
         last_ingested_at as ingest_time,
         raw_loaded_at,
         raw_sync_run_id,
@@ -40,6 +43,8 @@ compliance as (
         region_8,
         pm25_avg,
         pm10_avg,
+        confidence_score,
+        source_mix,
         
         -- WHO Standards (Daily Limits: PM2.5=15 µg/m³, PM10=45 µg/m³)
         -- Ref: WHO Global Air Quality Guidelines 2021

@@ -1,6 +1,7 @@
 -- depends_on: {{ ref('fct_aqi_weather_traffic_unified') }}
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(dbt_updated_at)',
     unique_key=['province', 'ward_code', 'date'],
@@ -27,6 +28,9 @@ WITH source_data AS (
         temperature as temp,
         humidity,
         wind_speed,
+        source_mix,
+        confidence_score,
+        confidence_level,
         raw_loaded_at,
         raw_sync_run_id,
         raw_sync_started_at
@@ -48,6 +52,9 @@ daily_stats AS (
         avg(wind_speed) as avg_wind_speed,
         sum(pm25) as sum_pm25,
         sum(pm10) as sum_pm10,
+        avg(confidence_score) as confidence_score,
+        topK(1)(confidence_level)[1] as confidence_level,
+        topK(1)(source_mix)[1] as source_mix,
         count(*) as total_hours
     FROM source_data
     GROUP BY date, province, ward_code
@@ -108,6 +115,9 @@ final_metrics AS (
         ) as weather_influence_pct,
 
         m.stagnant_air_probability,
+        d.confidence_score,
+        d.confidence_level,
+        d.source_mix
         
     FROM daily_stats d
     LEFT JOIN weather_modes m 
@@ -139,6 +149,9 @@ SELECT
     wind_dispersal_risk_index,
     weather_influence_pct,
     stagnant_air_probability,
+    confidence_score,
+    confidence_level,
+    source_mix,
     now() as dbt_updated_at
 FROM final_metrics
 WHERE province != '' AND ward_code != ''

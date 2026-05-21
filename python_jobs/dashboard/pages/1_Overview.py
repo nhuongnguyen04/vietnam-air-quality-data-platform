@@ -15,7 +15,13 @@ from lib.aqi_utils import (
     render_empty_chart,
 )
 from lib.clickhouse_client import query_df
-from lib.data_service import build_where_clause, get_pollutant_cols, get_source_table
+from lib.data_service import (
+    build_where_clause,
+    get_pollutant_cols,
+    get_source_table,
+    localize_confidence_level,
+    localize_source_mix,
+)
 from lib.filters import render_sidebar_filters
 from lib.i18n import t
 from lib.style import get_plotly_layout, render_metric_card
@@ -44,14 +50,30 @@ def get_current_aqi_status():
     q = """
     SELECT
         province,
-        MAX(current_aqi_vn) AS current_aqi,
-        argMax(main_pollutant, latest_hour) AS main_pollutant,
-        MAX(latest_hour) AS as_of_hour
-    FROM air_quality.dm_aqi_current_status
-    WHERE latest_hour >= NOW() - INTERVAL 3 HOUR
-      AND province != ''
-      AND current_aqi_vn IS NOT NULL
-    GROUP BY province
+        current_aqi,
+        main_pollutant,
+        confidence_score,
+        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) AS confidence_level,
+        source_mix,
+        aqiin_observation_count,
+        openweather_observation_count,
+        as_of_hour
+    FROM (
+        SELECT
+            province,
+            MAX(current_aqi_vn) AS current_aqi,
+            argMax(main_pollutant, latest_hour) AS main_pollutant,
+            avg(confidence_score) AS confidence_score,
+            topK(1)(source_mix)[1] AS source_mix,
+            sum(aqiin_observation_count) AS aqiin_observation_count,
+            sum(openweather_observation_count) AS openweather_observation_count,
+            MAX(latest_hour) AS as_of_hour
+        FROM air_quality.dm_aqi_current_status
+        WHERE latest_hour >= NOW() - INTERVAL 3 HOUR
+          AND province != ''
+          AND current_aqi_vn IS NOT NULL
+        GROUP BY province
+    )
     ORDER BY current_aqi DESC
     """
     return query_df(q)
@@ -87,8 +109,15 @@ if not current_df.empty:
         display_current["Cập nhật lúc"] = display_current["as_of_hour"].apply(
             lambda x: x.strftime("%H:%M %d/%m") if hasattr(x, "strftime") else str(x)
         )
+        display_current["Nguồn"] = display_current["source_mix"].apply(lambda x: localize_source_mix(x, lang))
+        display_current["Độ tin cậy"] = display_current["confidence_level"].apply(
+            lambda x: localize_confidence_level(x, lang)
+        )
         st.dataframe(
-            display_current[["province", "AQI hiện tại", "Mức độ", "main_pollutant", "Cập nhật lúc"]]
+            display_current[[
+                "province", "AQI hiện tại", "Mức độ", "main_pollutant",
+                "Nguồn", "Độ tin cậy", "Cập nhật lúc"
+            ]]
             .rename(columns={"province": "Tỉnh/thành", "main_pollutant": "Ô nhiễm chính"}),
             hide_index=True,
             use_container_width=True,
@@ -149,43 +178,83 @@ def get_chart_data(table, col, grain, scope, dates, tunit):
         # Ward-level: show individual ward dots on the map
         # Note: aliases use lat/lon (not latitude/longitude) to avoid ClickHouse
         # ILLEGAL_AGGREGATION error when WHERE clause references same column name.
+        # confidence_level uses a subquery so avg(confidence_score) is already a
+        # plain scalar in the outer SELECT — avoids ClickHouse ILLEGAL_AGGREGATION.
         q = f"""
         SELECT
             ward_code,
             ward_name,
             province,
-            any(latitude)  AS lat,
-            any(longitude) AS lon,
-            avg({col}) as display_val,
-            topK(1)(main_pollutant)[1] as main_pollutant
-        FROM air_quality.{table}
-        WHERE {where_clause}
-          AND {col} IS NOT NULL
-          AND province IS NOT NULL
-          AND province != ''
-          AND ward_name IS NOT NULL
-          AND ward_name != ''
-          AND latitude  != 0
-          AND longitude != 0
-        GROUP BY ward_code, ward_name, province
+            lat,
+            lon,
+            display_val,
+            main_pollutant,
+            confidence_score,
+            if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
+            source_mix,
+            aqiin_observation_count,
+            openweather_observation_count
+        FROM (
+            SELECT
+                ward_code,
+                ward_name,
+                province,
+                any(latitude)  AS lat,
+                any(longitude) AS lon,
+                avg({col}) as display_val,
+                topK(1)(main_pollutant)[1] as main_pollutant,
+                avg(confidence_score) as confidence_score,
+                topK(1)(source_mix)[1] as source_mix,
+                sum(aqiin_observation_count) as aqiin_observation_count,
+                sum(openweather_observation_count) as openweather_observation_count
+            FROM air_quality.{table}
+            WHERE {where_clause}
+              AND {col} IS NOT NULL
+              AND province IS NOT NULL
+              AND province != ''
+              AND ward_name IS NOT NULL
+              AND ward_name != ''
+              AND latitude  != 0
+              AND longitude != 0
+            GROUP BY ward_code, ward_name, province
+        )
         """
     else:
         # National / Region: aggregate to province centroids
+        # confidence_level uses a subquery so avg(confidence_score) is already a
+        # plain scalar in the outer SELECT — avoids ClickHouse ILLEGAL_AGGREGATION.
         q = f"""
         SELECT
             province,
-            avg(latitude)  AS lat,
-            avg(longitude) AS lon,
-            avg({col}) as display_val,
-            topK(1)(main_pollutant)[1] as main_pollutant
-        FROM air_quality.{table}
-        WHERE {where_clause}
-          AND {col} IS NOT NULL
-          AND province IS NOT NULL
-          AND province != ''
-          AND latitude  != 0
-          AND longitude != 0
-        GROUP BY province
+            lat,
+            lon,
+            display_val,
+            main_pollutant,
+            confidence_score,
+            if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
+            source_mix,
+            aqiin_observation_count,
+            openweather_observation_count
+        FROM (
+            SELECT
+                province,
+                avg(latitude)  AS lat,
+                avg(longitude) AS lon,
+                avg({col}) as display_val,
+                topK(1)(main_pollutant)[1] as main_pollutant,
+                avg(confidence_score) as confidence_score,
+                topK(1)(source_mix)[1] as source_mix,
+                sum(aqiin_observation_count) as aqiin_observation_count,
+                sum(openweather_observation_count) as openweather_observation_count
+            FROM air_quality.{table}
+            WHERE {where_clause}
+              AND {col} IS NOT NULL
+              AND province IS NOT NULL
+              AND province != ''
+              AND latitude  != 0
+              AND longitude != 0
+            GROUP BY province
+        )
         """
     df = query_df(q)
     # Restore expected column names for downstream map rendering
@@ -286,9 +355,22 @@ if not map_df.empty:
         lat="latitude", lon="longitude",
         color="display_val",
         hover_name=label_col,
-        hover_data={"province": True, "display_val": ":.1f", "latitude": False, "longitude": False}
+        hover_data={
+            "province": True,
+            "display_val": ":.1f",
+            "confidence_score": ":.2f",
+            "source_mix": True,
+            "latitude": False,
+            "longitude": False,
+        }
         if spatial_grain in ["Tỉnh", "Phường"] else
-        {"display_val": ":.1f", "latitude": False, "longitude": False},
+        {
+            "display_val": ":.1f",
+            "confidence_score": ":.2f",
+            "source_mix": True,
+            "latitude": False,
+            "longitude": False,
+        },
         color_continuous_scale=color_scale,
         range_color=range_val,
         zoom=zoom_level,
@@ -355,7 +437,29 @@ with c1:
 with c2:
     st.subheader(f"{t('chart_top_polluted', lang)} ({val_label})")
     if not map_df.empty:
-        df_top = map_df.sort_values("display_val", ascending=False).head(10)
+        rank_df = map_df
+        if pollutant == "aqi" and "confidence_score" in rank_df.columns:
+            high_conf = rank_df[rank_df["confidence_score"] >= 0.38]
+            if len(high_conf) >= 5:
+                rank_df = high_conf
+                st.caption(
+                    "Ranking ưu tiên tỉnh có đóng góp quan trắc AQI.in đáng kể; vùng thuần mô hình được tách khỏi top mặc định."
+                    if lang == "vi"
+                    else "Ranking prioritizes provinces with meaningful AQI.in monitor contribution; model-only areas are separated from the default top list."
+                )
+            else:
+                st.caption(
+                    "Không đủ điểm tin cậy vừa trở lên; chart đang hiển thị cả ước tính mô hình."
+                    if lang == "vi"
+                    else "Not enough medium-or-better confidence records; chart includes modeled estimates."
+                )
+        df_top = rank_df.sort_values("display_val", ascending=False).head(10)
+        if "confidence_level" in df_top.columns:
+            df_top = df_top.copy()
+            df_top["confidence_label"] = df_top["confidence_level"].apply(
+                lambda x: localize_confidence_level(x, lang)
+            )
+            df_top["source_label"] = df_top["source_mix"].apply(lambda x: localize_source_mix(x, lang))
         df_top = df_top.sort_values("display_val", ascending=True)
         fig_bar = px.bar(
             df_top,
@@ -369,6 +473,13 @@ with c2:
                 "display_val": val_label,
                 "province":    t("province", lang),
                 "ward_name":   t("location", lang),
+                "confidence_label": "Độ tin cậy" if lang == "vi" else "Confidence",
+                "source_label": "Nguồn" if lang == "vi" else "Source",
+            },
+            hover_data={
+                "confidence_label": True,
+                "source_label": True,
+                "confidence_score": ":.2f" if "confidence_score" in df_top.columns else False,
             },
         )
         fig_bar.update_layout(get_plotly_layout(height=400))

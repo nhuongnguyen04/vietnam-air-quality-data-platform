@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     engine='ReplacingMergeTree',
     unique_key='(province, datetime_hour)',
     order_by='(province, date, datetime_hour)',
@@ -47,6 +48,9 @@ aqi_by_province_hour as (
         pm25_avg as pm25,
         pm10_avg as pm10,
         co_avg as co,
+        source_mix,
+        confidence_score,
+        confidence_level,
         last_ingested_at
     from {{ ref('fct_air_quality_province_level_hourly') }}
     where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
@@ -63,6 +67,9 @@ joined as (
         a.pm25,
         a.pm10,
         a.co,
+        a.source_mix,
+        a.confidence_score,
+        a.confidence_level,
         t.avg_congestion,
         t.avg_congestion as congestion_index,
         t.traffic_sample_count,

@@ -22,6 +22,8 @@ with hourly_data as (
         avg_aqi_vn,
         pm25_avg,
         pm10_avg,
+        confidence_score,
+        source_mix,
         last_ingested_at,
         raw_loaded_at,
         raw_sync_run_id,
@@ -41,6 +43,8 @@ aggregates as (
         avg(avg_aqi_vn) as avg_aqi_vn,
         avg(pm25_avg) as avg_pm25,
         avg(pm10_avg) as avg_pm10,
+        avg(confidence_score) as confidence_score,
+        topK(1)(source_mix)[1] as dominant_source_mix,
         count(*) as reading_count,
         max(last_ingested_at) as ingest_time
     from hourly_data
@@ -57,6 +61,8 @@ select
     avg_aqi_vn,
     avg_pm25,
     avg_pm10,
+    confidence_score,
+    dominant_source_mix,
     reading_count,
     ingest_time
 from aggregates

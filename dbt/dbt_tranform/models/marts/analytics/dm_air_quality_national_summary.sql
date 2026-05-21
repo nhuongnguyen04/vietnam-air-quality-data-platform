@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     engine='ReplacingMergeTree',
     unique_key='(time_grain, timestamp)',
     order_by='(time_grain, timestamp)'
@@ -12,6 +13,8 @@ with hourly_source as (
         avg_aqi_us as h_aqi_us,
         avg_aqi_vn as h_aqi_vn,
         main_pollutant as h_pollutant,
+        confidence_score,
+        source_mix,
         province,
         last_ingested_at
     from {{ ref('fct_air_quality_province_level_hourly') }}
@@ -30,6 +33,8 @@ hourly_agg as (
         0 as active_wards,
         argMax(h_pollutant, h_aqi_us) as dominant_pollutant_us,
         argMax(h_pollutant, h_aqi_vn) as dominant_pollutant_vn,
+        avg(confidence_score) as confidence_score,
+        topK(1)(source_mix)[1] as dominant_source_mix,
         max(last_ingested_at) as last_ingested_at
     from hourly_source
     group by 1, 2
@@ -44,6 +49,8 @@ daily_source as (
         avg_aqi_vn as d_aqi_vn,
         max_aqi_vn as d_max_aqi_vn,
         main_pollutant as d_pollutant,
+        confidence_score,
+        source_mix,
         province,
         last_ingested_at
     from {{ ref('fct_air_quality_province_level_daily') }}
@@ -62,6 +69,8 @@ daily_agg as (
         0 as active_wards,
         argMax(d_pollutant, d_aqi_us) as dominant_pollutant_us,
         argMax(d_pollutant, d_aqi_vn) as dominant_pollutant_vn,
+        avg(confidence_score) as confidence_score,
+        topK(1)(source_mix)[1] as dominant_source_mix,
         max(last_ingested_at) as last_ingested_at
     from daily_source
     group by 1, 2

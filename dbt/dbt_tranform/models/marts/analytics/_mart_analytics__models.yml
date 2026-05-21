@@ -891,6 +891,22 @@ models:
           openmetadata:
             glossary:
               - AirQuality.Ozone
+      - name: source_mix
+        description: Source composition category for the dashboard AQI row.
+        tests:
+          - accepted_values:
+              values: ['observed', 'mixed', 'modeled']
+      - name: confidence_score
+        description: AQI trust score from 0 to 1 based on ground-station coverage.
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1
+      - name: confidence_level
+        description: Coarse trust bucket derived from confidence_score.
+        tests:
+          - accepted_values:
+              values: ['high', 'medium', 'low']
       - name: last_ingested_at
         description: Latest upstream ingest timestamp.
         tags:
@@ -1048,6 +1064,34 @@ models:
           - air-quality-team
         tags:
           - Certification.Gold
+  - name: dm_air_quality_observed_daily
+    description: "High-confidence daily dashboard view restricted to observed or mixed-source AQI rows."
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: source_mix
+        description: Source composition category.
+      - name: confidence_score
+        description: AQI trust score from 0 to 1 based on ground-station coverage.
+
+  - name: dm_air_quality_modeled_daily
+    description: "Daily dashboard view for modeled or low-confidence AQI rows, primarily OpenWeather-derived estimates."
+    columns:
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: source_mix
+        description: Source composition category.
+      - name: confidence_score
+        description: AQI trust score from 0 to 1 based on ground-station coverage.
+
   - name: dm_traffic_hourly_trend
     description: "Province-hour traffic and pollution mart for dashboard correlation views."
     columns:

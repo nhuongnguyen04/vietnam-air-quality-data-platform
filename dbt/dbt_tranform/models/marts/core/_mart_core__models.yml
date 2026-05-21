@@ -294,6 +294,26 @@ models:
               - AirQuality.AQI
       - name: main_pollutant
         description: Pollutant contributing the largest AQI component at this hour.
+      - name: aqiin_observation_count
+        description: Number of AQI.in source records contributing to this ward-hour.
+      - name: openweather_observation_count
+        description: Number of OpenWeather source records contributing to this ward-hour.
+      - name: source_mix
+        description: Source composition category for this AQI record.
+        tests:
+          - accepted_values:
+              values: ['observed', 'mixed', 'modeled']
+      - name: confidence_score
+        description: AQI trust score from 0 to 1 based on ground-station coverage.
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1
+      - name: confidence_level
+        description: Coarse trust bucket derived from confidence_score.
+        tests:
+          - accepted_values:
+              values: ['high', 'medium', 'low']
       - name: last_ingested_at
         description: Latest upstream ingest timestamp for the ward-hour record.
 

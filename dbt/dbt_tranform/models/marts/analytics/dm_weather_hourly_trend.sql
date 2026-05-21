@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     engine='ReplacingMergeTree',
     unique_key='(province, ward_code, datetime_hour)',
     order_by='(province, date, assumeNotNull(ward_code))',
@@ -21,7 +22,10 @@ with unified as (
         wind_direction,
         temperature,
         weather_influence_pct,
-        stagnant_air_probability
+        stagnant_air_probability,
+        source_mix,
+        confidence_score,
+        confidence_level
     from {{ ref('fct_aqi_weather_traffic_unified') }}
     where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 )

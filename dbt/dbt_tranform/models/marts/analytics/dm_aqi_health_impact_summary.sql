@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(ingest_time)',
     unique_key=['province', 'ward_code', 'date'],
@@ -23,6 +24,9 @@ with hourly_summary as (
         region_8,
         avg_aqi_us as final_aqi_us,
         main_pollutant as pollutant_key,
+        source_mix,
+        confidence_score,
+        confidence_level,
         last_ingested_at as ingest_time,
         raw_loaded_at,
         raw_sync_run_id,
@@ -49,6 +53,9 @@ impact_joined as (
         h.region_8,
         h.final_aqi_us,
         h.pollutant_key,
+        h.source_mix,
+        h.confidence_score,
+        h.confidence_level,
         h.ingest_time,
         b.health_effects,
         case
@@ -78,6 +85,9 @@ daily_impact_stats as (
         CAST(countIf(aqi_category in ('Unhealthy', 'Very Unhealthy', 'Hazardous')) AS Float32) / count(*) as high_risk_exposure_pct,
         -- Take the most common health advice for the day
         argMax(health_effects, final_aqi_us) as primary_health_advice,
+        avg(confidence_score) as confidence_score,
+        topK(1)(confidence_level)[1] as confidence_level,
+        topK(1)(source_mix)[1] as source_mix,
         max(ingest_time) as ingest_time
     from impact_joined
     group by date, province, ward_code
@@ -93,5 +103,8 @@ select
     high_risk_hours,
     high_risk_exposure_pct,
     primary_health_advice,
+    confidence_score,
+    confidence_level,
+    source_mix,
     ingest_time
 from daily_impact_stats

@@ -7,7 +7,7 @@ import plotly.express as px
 import streamlit as st
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
-from lib.data_service import get_hierarchy_metadata
+from lib.data_service import get_hierarchy_metadata, localize_confidence_level, localize_source_mix
 from lib.i18n import t
 from lib.style import get_plotly_layout, render_metric_card
 
@@ -46,6 +46,9 @@ def get_health_risks(spatial_grain, scope_val):
         province,
         population,
         time_weighted_pm25,
+        confidence_score,
+        confidence_level,
+        source_mix,
         total_exposure_index_m,
         risk_category,
         exposure_risk_category,
@@ -97,6 +100,10 @@ if not df.empty:
     df_pm25["risk_label"] = (
         df_pm25["risk_category"].map(risk_category_labels).fillna(df_pm25["risk_category"])
     )
+    df_pm25["confidence_label"] = df_pm25["confidence_level"].apply(
+        lambda x: localize_confidence_level(x, lang)
+    )
+    df_pm25["source_label"] = df_pm25["source_mix"].apply(lambda x: localize_source_mix(x, lang))
 
     fig1 = px.bar(df_pm25, x="time_weighted_pm25", y="province", color="risk_label",
                 orientation='h',
@@ -104,6 +111,11 @@ if not df.empty:
                     "time_weighted_pm25": "PM2.5 (µg/m³, 30d avg)",
                     "province": t("province", lang),
                     "risk_label": t("risk_level", lang),
+                },
+                hover_data={
+                    "confidence_label": True,
+                    "source_label": True,
+                    "confidence_score": ":.2f",
                 },
                 color_discrete_map={
                     t("risk_critical", lang): "#ff4b4b",
@@ -128,7 +140,8 @@ if not df.empty:
 
     _caption_pm25 = (
         "Xếp hạng theo **nồng độ PM2.5 trung bình 30 ngày**. "
-        "Ngưỡng: WHO 2021 (15 µg/m³), QCVN 05:2023 (25 µg/m³/năm)."
+        "Ngưỡng: WHO 2021 (15 µg/m³), QCVN 05:2023 (25 µg/m³/năm). "
+        "Hover từng tỉnh để xem độ tin cậy nguồn."
     ) if lang == "vi" else (
         "Ranked by **30-day average PM2.5 concentration**. "
         "Thresholds: WHO 2021 (15 µg/m³), QCVN 05:2023 (25 µg/m³ annual)."
@@ -144,6 +157,10 @@ if not df.empty:
     df_exp["exp_risk_label"] = (
         df_exp["exposure_risk_category"].map(risk_category_labels).fillna(df_exp["exposure_risk_category"])
     )
+    df_exp["confidence_label"] = df_exp["confidence_level"].apply(
+        lambda x: localize_confidence_level(x, lang)
+    )
+    df_exp["source_label"] = df_exp["source_mix"].apply(lambda x: localize_source_mix(x, lang))
 
     fig2 = px.bar(df_exp, x="total_exposure_index_m", y="province", color="exp_risk_label",
                 orientation='h',
@@ -151,6 +168,11 @@ if not df.empty:
                     "total_exposure_index_m": t("exposure_index", lang),
                     "province": t("province", lang),
                     "exp_risk_label": t("risk_level", lang),
+                },
+                hover_data={
+                    "confidence_label": True,
+                    "source_label": True,
+                    "confidence_score": ":.2f",
                 },
                 color_discrete_map={
                     t("risk_critical", lang): "#ff4b4b",
@@ -178,4 +200,3 @@ if not df.empty:
     st.caption(_caption_exp)
 else:
     st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu rủi ro cho khu vực này."), width='stretch')
-

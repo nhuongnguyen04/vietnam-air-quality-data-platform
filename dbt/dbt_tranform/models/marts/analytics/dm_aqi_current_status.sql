@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(ingest_time)',
     unique_key=['province', 'ward_code'],
@@ -38,6 +39,11 @@ latest_hourly as (
         argMax(h.pm25_avg, h.datetime_hour) as pm25,
         argMax(h.pm10_avg, h.datetime_hour) as pm10,
         argMax(h.main_pollutant, h.datetime_hour) as main_pollutant,
+        argMax(h.aqiin_observation_count, h.datetime_hour) as aqiin_observation_count,
+        argMax(h.openweather_observation_count, h.datetime_hour) as openweather_observation_count,
+        argMax(h.source_mix, h.datetime_hour) as source_mix,
+        argMax(h.confidence_score, h.datetime_hour) as confidence_score,
+        argMax(h.confidence_level, h.datetime_hour) as confidence_level,
 
         'consolidated' as data_source,
         argMax(h.last_ingested_at, h.datetime_hour) as ingest_time
@@ -61,6 +67,11 @@ latest_records as (
         h.pm25,
         h.pm10,
         h.main_pollutant,
+        h.aqiin_observation_count,
+        h.openweather_observation_count,
+        h.source_mix,
+        h.confidence_score,
+        h.confidence_level,
         h.data_source,
         h.ingest_time
     from latest_hourly h
@@ -76,6 +87,11 @@ latest_records as (
         h.pm25,
         h.pm10,
         h.main_pollutant,
+        h.aqiin_observation_count,
+        h.openweather_observation_count,
+        h.source_mix,
+        h.confidence_score,
+        h.confidence_level,
         h.data_source,
         h.ingest_time
 )

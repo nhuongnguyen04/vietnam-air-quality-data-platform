@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(dbt_updated_at)',
     unique_key=['province', 'date'],
@@ -27,6 +28,9 @@ WITH source_data AS (
         traffic_ward_count,
         positive_traffic_ward_count,
         traffic_coverage_ratio,
+        source_mix,
+        confidence_score,
+        confidence_level,
         last_traffic_ingested_at,
         last_ingested_at
     FROM {{ ref('dm_traffic_hourly_trend') }}
@@ -56,6 +60,9 @@ daily_stats AS (
         sum(pm25) as sum_pm25,
         sum(pm10) as sum_pm10,
         count(*) as total_hours,
+        avg(confidence_score) as confidence_score,
+        topK(1)(confidence_level)[1] as confidence_level,
+        topK(1)(source_mix)[1] as source_mix,
         avg(traffic_ward_count) as avg_traffic_ward_count,
         avg(positive_traffic_ward_count) as avg_positive_traffic_ward_count,
         avg(traffic_coverage_ratio) as avg_traffic_coverage_ratio
@@ -109,6 +116,9 @@ final_metrics AS (
         d.avg_traffic_ward_count,
         d.avg_positive_traffic_ward_count,
         d.avg_traffic_coverage_ratio,
+        d.confidence_score,
+        d.confidence_level,
+        d.source_mix,
         c.low_congestion_threshold,
         c.high_congestion_threshold,
         c.pm25_low_congestion_avg,
