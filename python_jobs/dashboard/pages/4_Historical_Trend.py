@@ -34,10 +34,11 @@ st.title(f"📈 {t('nav_trends', lang)}")
 # ── Sidebar Filters (Synchronized) ────────────────────────────────────────────
 filters = render_sidebar_filters()
 spatial_grain = filters["spatial_grain"]
-scope_val = filters["scope_val"]
-date_range = filters["date_range"]
-pollutant = filters["pollutant"]
-standard = filters["standard"]
+time_unit     = filters["time_unit"]
+scope_val     = filters["scope_val"]
+date_range    = filters["date_range"]
+pollutant     = filters["pollutant"]
+standard      = filters["standard"]
 
 # Helper to format metric labels
 val_label = "AQI" if pollutant == "aqi" else pollutant.upper()
@@ -47,8 +48,8 @@ display_col, max_col = get_pollutant_cols(pollutant, standard)
 # ── helpers ─────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
-def get_national_daily_trend(col, dates):
-    where_clause = build_where_clause(None, None, dates)
+def get_national_daily_trend(col, dates, tunit="day"):
+    where_clause = build_where_clause(None, None, dates, time_unit=tunit)
     q = f"""
     SELECT
         date,
@@ -63,8 +64,8 @@ def get_national_daily_trend(col, dates):
 
 
 @st.cache_data(ttl=300)
-def get_province_daily_trend(col, province: str, dates):
-    where_clause = build_where_clause("Tỉnh", province, dates)
+def get_province_daily_trend(col, province: str, dates, tunit="day"):
+    where_clause = build_where_clause("Tỉnh", province, dates, time_unit=tunit)
     q = f"""
     SELECT
         date,
@@ -110,8 +111,8 @@ def get_monthly_trend(col, dates):
 
 
 @st.cache_data(ttl=300)
-def get_heatmap_data(col, scope_grain, scope_val, dates):
-    where_clause = build_where_clause(scope_grain, scope_val, dates)
+def get_heatmap_data(col, scope_grain, scope_val, dates, tunit="day"):
+    where_clause = build_where_clause(scope_grain, scope_val, dates, time_unit=tunit)
     q = f"""
     SELECT
         province,
@@ -151,8 +152,8 @@ def get_temporal_patterns(col: str, province: str | None = None):
     return df
 
 @st.cache_data(ttl=300)
-def get_overall_stats(col, dates):
-    where_clause = build_where_clause(None, None, dates)
+def get_overall_stats(col, dates, tunit="day"):
+    where_clause = build_where_clause(None, None, dates, time_unit=tunit)
     q = f"""
     SELECT
         count(distinct date)            AS total_days,
@@ -297,7 +298,7 @@ def render_province_day_heatmap(df: pd.DataFrame, provinces: list[str], height: 
 try:
     # ── KPI stats row ─────────────────────────────────────────────────────────
     with st.spinner("Đang tải thống kê..."):
-        stats = get_overall_stats(display_col, date_range)
+        stats = get_overall_stats(display_col, date_range, time_unit)
     if not stats.empty:
         row = stats.iloc[0]
         col1, col2, col3, col4 = st.columns(4)
@@ -308,7 +309,7 @@ try:
 
     # ── national daily trend ───────────────────────────────────────────────────
     st.subheader(f"{t('nav_overview', lang)} ({val_label})")
-    national = get_national_daily_trend(display_col, date_range)
+    national = get_national_daily_trend(display_col, date_range, time_unit)
     if not national.empty:
         fig = render_daily_trend_chart(national, height=300)
         st.plotly_chart(fig, width='stretch')
@@ -359,7 +360,7 @@ try:
     if spatial_grain in ["Tỉnh", "Phường"] and scope_val:
         st.markdown("---")
         st.subheader(f"{t('nav_trends', lang)}: {scope_val} ({val_label})")
-        prov_trend = get_province_daily_trend(display_col, scope_val, date_range)
+        prov_trend = get_province_daily_trend(display_col, scope_val, date_range, time_unit)
         if not prov_trend.empty:
             fig = render_daily_trend_chart(prov_trend, height=280)
             st.plotly_chart(fig, width='stretch')
@@ -378,7 +379,7 @@ try:
     # ── heatmap ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader(f"{t('chart_heatmap', lang)} {val_label} - {t('province', lang)} × {t('chart_label_date', lang)}")
-    heatmap_data = get_heatmap_data(display_col, spatial_grain, scope_val, date_range)
+    heatmap_data = get_heatmap_data(display_col, spatial_grain, scope_val, date_range, time_unit)
     if not heatmap_data.empty:
         all_provs = (
             heatmap_data.groupby("province")["display_val"]

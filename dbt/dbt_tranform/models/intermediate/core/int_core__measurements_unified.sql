@@ -128,29 +128,63 @@ with_regions as (
     from filtered f
 ),
 
-calibration_factors as (
+global_calibration as (
     select
-        source,
-        parameter,
-        any(calibration_factor) as calibration_factor
+        source as gc_source,
+        parameter as gc_parameter,
+        any(calibration_factor) as gc_calibration_factor
     from {{ ref('source_calibration') }}
+    where location_scope = 'ALL'
     group by
         source,
         parameter
 ),
 
+local_calibration as (
+    select
+        source as lc_source,
+        parameter as lc_parameter,
+        location_scope as lc_province,
+        any(calibration_factor) as lc_calibration_factor
+    from {{ ref('source_calibration') }}
+    where location_scope != 'ALL'
+    group by
+        source,
+        parameter,
+        location_scope
+),
+
 calibrated as (
     select
-        r.*,
+        r.source,
+        r.ward_code,
+        r.province,
+        r.latitude,
+        r.longitude,
+        r.timestamp_utc,
+        r.parameter,
+        r.value,
+        r.aqi_reported,
+        r.quality_flag,
+        r.ingest_time,
+        r.raw_loaded_at,
+        r.raw_sync_run_id,
+        r.raw_sync_started_at,
+        r.region_3,
+        r.region_8,
         case 
             when r.source = 'aqiin' then 5 
             else 1 
         end as source_weight,
-        r.value * coalesce(c.calibration_factor, 1.0) as calibrated_value
+        r.value * coalesce(lc.lc_calibration_factor, gc.gc_calibration_factor, 1.0) as calibrated_value
     from with_regions r
-    left join calibration_factors c
-        on r.source = c.source
-        and r.parameter = c.parameter
+    left join global_calibration gc
+        on r.source = gc.gc_source
+        and r.parameter = gc.gc_parameter
+    left join local_calibration lc
+        on r.source = lc.lc_source
+        and r.parameter = lc.lc_parameter
+        and r.province = lc.lc_province
 ),
 
 prepared as (

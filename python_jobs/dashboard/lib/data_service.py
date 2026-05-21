@@ -7,17 +7,30 @@ from .clickhouse_client import query_df
 
 # Mapping of spatio-temporal grains to dbt ANALYTICS models (dm_*)
 SOURCE_MATRIX = {
-    # Provincial level dashboards use province summary or overview
+    # Toàn quốc
     ("Toàn quốc", "Giờ"): "dm_air_quality_overview_hourly",
     ("Toàn quốc", "Ngày"): "dm_air_quality_overview_daily",
     ("Toàn quốc", "Tháng"): "dm_air_quality_overview_monthly",
 
+    # Vùng
+    ("Vùng", "Giờ"): "dm_air_quality_overview_hourly",
+    ("Vùng", "Ngày"): "dm_air_quality_overview_daily",
+    ("Vùng", "Tháng"): "dm_air_quality_overview_monthly",
+
+    # Khu vực
+    ("Khu vực", "Giờ"): "dm_air_quality_overview_hourly",
+    ("Khu vực", "Ngày"): "dm_air_quality_overview_daily",
+    ("Khu vực", "Tháng"): "dm_air_quality_overview_monthly",
+
+    # Tỉnh
     ("Tỉnh", "Giờ"): "dm_air_quality_overview_hourly",
     ("Tỉnh", "Ngày"): "dm_air_quality_overview_daily",
+    ("Tỉnh", "Tháng"): "dm_air_quality_overview_monthly",
 
-    # Ward level dashboards
+    # Phường
     ("Phường", "Giờ"): "dm_air_quality_overview_hourly",
     ("Phường", "Ngày"): "dm_air_quality_overview_daily",
+    ("Phường", "Tháng"): "dm_air_quality_overview_monthly",
 }
 
 def get_source_table(spatial_grain: str, time_grain: str) -> str:
@@ -42,11 +55,11 @@ def get_ward_list(province: str):
     q = f"SELECT DISTINCT ward_code, ward_name FROM air_quality.dim_administrative_units WHERE province = '{province}' ORDER BY ward_name"
     return query_df(q)
 
-def get_pollutant_col(pollutant: str, standard: str = "TCVN") -> str:
+def get_pollutant_col(pollutant: str, standard: str = "VN_AQI") -> str:
     """Map pollutant filter to database column name."""
     if pollutant == "aqi":
-        # Handle "WHO 2021" or other non-TCVN labels from app.py
-        return "avg_aqi_vn" if standard == "TCVN" else "avg_aqi_us"
+        # Handle "WHO 2021" or other non-VN_AQI labels from app.py
+        return "avg_aqi_vn" if standard == "VN_AQI" else "avg_aqi_us"
 
     # For now, return the _avg concentrations.
     # In future, we might want _aqi versions for each pollutant.
@@ -60,7 +73,7 @@ def get_pollutant_col(pollutant: str, standard: str = "TCVN") -> str:
     }
     return mapping.get(pollutant, "avg_aqi_vn")
 
-def get_pollutant_cols(pollutant: str, standard: str = "TCVN") -> tuple[str, str]:
+def get_pollutant_cols(pollutant: str, standard: str = "VN_AQI") -> tuple[str, str]:
     """Map pollutant filter to (avg_col, max_col) names.
     Safely handles the fact that dm_* tables only store max columns for AQI.
     """
@@ -76,8 +89,22 @@ def get_pollutant_cols(pollutant: str, standard: str = "TCVN") -> tuple[str, str
     return avg_col, max_col
 
 
-def build_where_clause(spatial_scope: str, spatial_value: str, date_range=None, date_col="date"):
-    """Construct dynamic WHERE clause based on hierarchical filters."""
+def build_where_clause(
+    spatial_scope: str,
+    spatial_value: str,
+    date_range=None,
+    date_col: str = "date",
+    time_unit: str = "day",
+):
+    """Construct dynamic WHERE clause based on hierarchical filters.
+
+    Args:
+        spatial_scope: "Vùng", "Khu vực", "Tỉnh", "Phường", or None
+        spatial_value: the selected scope value
+        date_range: list/tuple of 2 date/datetime objects
+        date_col: override the date column name (ignored when time_unit="hour")
+        time_unit: "hour" uses datetime_hour + toDateTime(); "day" uses date column
+    """
     clauses = []
 
     if spatial_scope == "Vùng" and spatial_value:
@@ -88,18 +115,34 @@ def build_where_clause(spatial_scope: str, spatial_value: str, date_range=None, 
         clauses.append(f"province = '{spatial_value}'")
 
     if date_range:
-        # Ensure dates are strings in YYYY-MM-DD format for ClickHouse
-        formatted_dates = []
-        for d in date_range:
-            if hasattr(d, "strftime"):
-                formatted_dates.append(d.strftime("%Y-%m-%d"))
-            else:
-                formatted_dates.append(str(d))
-
-        if len(formatted_dates) == 2:
-            start_date, end_date = formatted_dates
-            clauses.append(f"{date_col} BETWEEN '{start_date}' AND '{end_date}'")
-        elif len(formatted_dates) == 1:
-            clauses.append(f"{date_col} = '{formatted_dates[0]}'")
+        if time_unit == "hour":
+            # Use datetime_hour column with toDateTime() for precise hourly filtering
+            formatted = []
+            for d in date_range:
+                if hasattr(d, "strftime"):
+                    formatted.append(d.strftime("%Y-%m-%d %H:%M:%S"))
+                else:
+                    formatted.append(str(d))
+            if len(formatted) == 2:
+                clauses.append(
+                    f"datetime_hour BETWEEN toDateTime('{formatted[0]}') "
+                    f"AND toDateTime('{formatted[1]}')"
+                )
+            elif len(formatted) == 1:
+                clauses.append(f"datetime_hour = toDateTime('{formatted[0]}')")
+        else:
+            # Day-level filtering — use whichever date_col is appropriate
+            formatted = []
+            for d in date_range:
+                if hasattr(d, "strftime"):
+                    formatted.append(d.strftime("%Y-%m-%d"))
+                else:
+                    formatted.append(str(d)[:10])  # truncate to YYYY-MM-DD
+            if len(formatted) == 2:
+                start_date, end_date = formatted
+                clauses.append(f"{date_col} BETWEEN '{start_date}' AND '{end_date}'")
+            elif len(formatted) == 1:
+                clauses.append(f"{date_col} = '{formatted[0]}'")
 
     return " AND ".join(clauses) if clauses else "1=1"
+

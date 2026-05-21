@@ -14,7 +14,7 @@ st.set_page_config(
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
 if "standard" not in st.session_state:
-    st.session_state.standard = "TCVN"
+    st.session_state.standard = "VN_AQI"
 if "lang" not in st.session_state:
     st.session_state.lang = "vi"
 
@@ -54,10 +54,18 @@ with st.sidebar:
     st.subheader(t("standard_guidelines", lang))
     st.select_slider(
         label=t("standard_guidelines", lang),
-        options=["TCVN", "WHO 2021"],
+        options=["VN_AQI", "WHO 2021"],
         key="standard",
         label_visibility="collapsed"
     )
+    _std_help = (
+        "**VN_AQI**: Chỉ số AQI Việt Nam (QĐ 1459/QĐ-TCMT). "
+        "**WHO 2021**: Hướng dẫn Chất lượng Không khí Toàn cầu."
+    ) if lang == "vi" else (
+        "**VN_AQI**: Vietnam AQI (Decision 1459/QD-TCMT). "
+        "**WHO 2021**: Global Air Quality Guidelines."
+    )
+    st.caption(_std_help)
     st.divider()
 
 # ── Run Navigation ────────────────────────────────────────────────────────────

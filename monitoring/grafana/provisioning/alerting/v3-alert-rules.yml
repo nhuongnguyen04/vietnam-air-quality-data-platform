@@ -38,6 +38,7 @@ groups:
                   MAX(current_aqi_vn) AS aqi
                 FROM air_quality.dm_aqi_current_status
                 WHERE latest_hour >= NOW() - INTERVAL 2 HOUR
+                  AND province != ''
                 GROUP BY province, time
               format: timeseries
           - refId: B
@@ -82,6 +83,7 @@ groups:
                   MAX(current_aqi_vn) AS aqi
                 FROM air_quality.dm_aqi_current_status
                 WHERE latest_hour >= NOW() - INTERVAL 2 HOUR
+                  AND province != ''
                 GROUP BY province, time
               format: timeseries
           - refId: B
@@ -126,6 +128,7 @@ groups:
                   MAX(pm25) AS pm25_val
                 FROM air_quality.dm_aqi_current_status
                 WHERE latest_hour >= NOW() - INTERVAL 3 HOUR
+                  AND province != ''
                 GROUP BY province, time
               format: timeseries
           - refId: B
@@ -170,6 +173,7 @@ groups:
                   MAX(pm10) AS pm10_val
                 FROM air_quality.dm_aqi_current_status
                 WHERE latest_hour >= NOW() - INTERVAL 3 HOUR
+                  AND province != ''
                 GROUP BY province, time
               format: timeseries
           - refId: B

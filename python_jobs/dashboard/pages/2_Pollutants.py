@@ -17,17 +17,18 @@ lang = st.session_state.get("lang", "vi")
 # ── Sidebar Filters (Synchronized) ────────────────────────────────────────────
 filters = render_sidebar_filters()
 spatial_grain = filters["spatial_grain"]
-time_grain = filters["time_grain"]
-scope_val = filters["scope_val"]
-date_range = filters["date_range"]
-pollutant = filters["pollutant"]
-standard = filters["standard"]
+time_grain    = filters["time_grain"]
+time_unit     = filters["time_unit"]
+scope_val     = filters["scope_val"]
+date_range    = filters["date_range"]
+pollutant     = filters["pollutant"]
+standard      = filters["standard"]
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
-def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates):
-    where_clause = build_where_clause(grain, scope_val, dates)
+def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates, tunit: str = "day"):
+    where_clause = build_where_clause(grain, scope_val, dates, time_unit=tunit)
 
     # Use fct_air_quality_summary_daily if table is _daily for individual pollutant AQIs
     if table.endswith("_daily"):
@@ -52,8 +53,8 @@ def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates):
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_source_fingerprint(grain: str, scope_val: str | None, dates):
-    where_clause = build_where_clause(grain, scope_val, dates)
+def get_source_fingerprint(grain: str, scope_val: str | None, dates, tunit: str = "day"):
+    where_clause = build_where_clause(grain, scope_val, dates, time_unit=tunit)
 
     q = f"""
     SELECT
@@ -66,8 +67,8 @@ def get_source_fingerprint(grain: str, scope_val: str | None, dates):
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_compliance_status(grain: str, scope_val: str | None, dates):
-    where_clause = build_where_clause(grain, scope_val, dates)
+def get_compliance_status(grain: str, scope_val: str | None, dates, tunit: str = "day"):
+    where_clause = build_where_clause(grain, scope_val, dates, time_unit=tunit)
 
     q = f"""
     SELECT
@@ -89,7 +90,7 @@ table_name = get_source_table(spatial_grain, time_grain)
 
 # ── Row 1: Trends ─────────────────────────────────────────────────────────────
 st.subheader(f"{t('nav_pollutants', lang)} (AQI VN)")
-trend = get_pollutant_trend(table_name, spatial_grain, scope_val, date_range)
+trend = get_pollutant_trend(table_name, spatial_grain, scope_val, date_range, time_unit)
 
 if not trend.empty:
     col_map = {
@@ -133,7 +134,7 @@ st.markdown("---")
 c1, c2 = st.columns([1, 1.5])
 with c1:
     st.subheader(t("source_attribution", lang))
-    df_source = get_source_fingerprint(spatial_grain, scope_val, date_range)
+    df_source = get_source_fingerprint(spatial_grain, scope_val, date_range, time_unit)
     if not df_source.empty:
         # Map source strings to localized versions
         source_map = {
@@ -177,7 +178,7 @@ with c1:
 
 with c2:
     st.subheader(t("compliance_status_title", lang))
-    compliance = get_compliance_status(spatial_grain, scope_val, date_range)
+    compliance = get_compliance_status(spatial_grain, scope_val, date_range, time_unit)
     if not compliance.empty:
         # Map compliance status to localized versions
         comp_map = {

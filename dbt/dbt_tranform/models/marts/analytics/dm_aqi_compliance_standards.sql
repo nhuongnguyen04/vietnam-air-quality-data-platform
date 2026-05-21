@@ -41,11 +41,16 @@ compliance as (
         pm25_avg,
         pm10_avg,
         
-        -- WHO Standards (Daily Limits: PM2.5=15, PM10=45)
+        -- WHO Standards (Daily Limits: PM2.5=15 µg/m³, PM10=45 µg/m³)
+        -- Ref: WHO Global Air Quality Guidelines 2021
+        -- Note: WHO annual guideline is 5 µg/m³ (not checked here — daily only)
         if(pm25_avg > 15, 1, 0) as who_pm25_breach,
         if(pm10_avg > 45, 1, 0) as who_pm10_breach,
         
-        -- Vietnam National Standards (TCVN 05:2023 - Daily Limits: PM2.5=50, PM10=100)
+        -- Vietnam National Standards (QCVN 05:2023/BTNMT - Daily Limits)
+        -- PM2.5 daily: 50 µg/Nm³ | PM10 daily: 100 µg/Nm³
+        -- Note: From 01/01/2026, annual PM2.5 limit tightened to 45 µg/Nm³
+        --        (but this model checks daily thresholds only)
         if(pm25_avg > 50, 1, 0) as tcvn_pm25_breach,
         if(pm10_avg > 100, 1, 0) as tcvn_pm10_breach,
         

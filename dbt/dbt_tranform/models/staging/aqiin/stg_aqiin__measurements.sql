@@ -8,9 +8,9 @@
     query_settings={
         'max_threads': 1,
         'max_block_size': 4096,
-        'max_bytes_before_external_sort': 67108864,
-        'max_bytes_before_external_group_by': 67108864,
-        'max_memory_usage': 4294967296
+        'max_bytes_before_external_sort': 1073741824,
+        'max_bytes_before_external_group_by': 1073741824,
+        'max_memory_usage': 6442450944
     }
 ) }}
 

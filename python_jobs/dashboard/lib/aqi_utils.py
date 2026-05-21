@@ -109,31 +109,31 @@ def get_vn_aqi_step_scale():
     return _build_step_scale(VN_AQI_COLORS)
 
 
-def get_aqi_color_scale(standard: str = "TCVN"):
+def get_aqi_color_scale(standard: str = "VN_AQI"):
     """Return the appropriate AQI color scale for the selected standard."""
-    if standard == "TCVN":
+    if standard == "VN_AQI":
         return get_vn_aqi_step_scale()
     return get_epa_continuous_scale()
 
 
-def get_aqi_color_range(standard: str = "TCVN"):
+def get_aqi_color_range(standard: str = "VN_AQI"):
     """Return fixed AQI numeric range for color axes."""
-    if standard == "TCVN":
+    if standard == "VN_AQI":
         return [0, 500]
     return [0, 300]
 
 
-def get_aqi_discrete_colors(standard: str = "TCVN"):
+def get_aqi_discrete_colors(standard: str = "VN_AQI"):
     """Return category colors keyed by canonical AQI category labels."""
-    if standard == "TCVN":
+    if standard == "VN_AQI":
         return VN_AQI_COLORS
     return EPA_COLORS
 
 
-def get_aqi_colorbar_config(standard: str = "TCVN", title: str = "AQI"):
+def get_aqi_colorbar_config(standard: str = "VN_AQI", title: str = "AQI"):
     """Return a Plotly colorbar config aligned to the selected AQI standard."""
     config = {"title": {"text": title}}
-    if standard == "TCVN":
+    if standard == "VN_AQI":
         config.update(
             {
                 "tickmode": "array",

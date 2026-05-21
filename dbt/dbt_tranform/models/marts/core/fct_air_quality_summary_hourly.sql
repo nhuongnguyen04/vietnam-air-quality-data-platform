@@ -7,8 +7,8 @@
     partition_by='toYYYYMM(datetime_hour)',
     query_settings={
         'max_threads': 1,
-        'max_bytes_before_external_sort': 67108864,
-        'max_bytes_before_external_group_by': 67108864
+        'max_bytes_before_external_sort': 1073741824,
+        'max_bytes_before_external_group_by': 1073741824
     }
 ) }}
 

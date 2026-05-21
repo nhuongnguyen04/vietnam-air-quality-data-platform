@@ -94,7 +94,7 @@ with st.container():
             preview = client.preview(
                 question=st.session_state.question,
                 lang=lang,
-                standard=st.session_state.get("standard", "TCVN"),
+                standard=st.session_state.get("standard", "VN_AQI"),
                 session_id=st.session_state.text_to_sql_session_id,
             )
             st.session_state.preview = preview

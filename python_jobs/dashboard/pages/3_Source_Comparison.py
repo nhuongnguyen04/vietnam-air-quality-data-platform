@@ -25,6 +25,22 @@ lang = st.session_state.get("lang", "vi")
 st.title(t("source_comparison_title", lang))
 st.caption(t("source_comparison_caption", lang))
 
+# ── Methodology explanation (measured vs modeled) ─────────────────────────────
+_explanation = (
+    "**Tại sao AQI khác nhau giữa 2 nguồn?**\n"
+    "- **AQI.in**: Tổng hợp từ **trạm quan trắc vật lý** (ground monitors) — phản ánh ô nhiễm tại điểm đo cụ thể, thường đặt gần đường giao thông hoặc khu công nghiệp.\n"
+    "- **OpenWeather**: Dữ liệu từ mô hình **SILAM** (Finnish Meteorological Institute) — ước tính trung bình cho khu vực rộng (~25km grid).\n"
+    "- Chênh lệch 2-3× là **bình thường** khi so sánh measured vs modeled data.\n"
+    "- **Khuyến nghị**: Sử dụng OpenWeather cho xu hướng vùng, AQI.in cho rủi ro tại điểm cụ thể."
+) if lang == "vi" else (
+    "**Why do AQI values differ between sources?**\n"
+    "- **AQI.in**: Aggregated from **physical ground monitors** — reflects pollution at specific measurement points, often near roads or industrial zones.\n"
+    "- **OpenWeather**: Uses the **SILAM** atmospheric model (Finnish Meteorological Institute) — estimates averages across ~25km grid cells.\n"
+    "- A 2-3× difference is **normal** when comparing measured vs modeled data.\n"
+    "- **Recommendation**: Use OpenWeather for regional trends, AQI.in for point-specific risk."
+)
+st.info(_explanation)
+
 # ── Sidebar Filters (Synchronized) ────────────────────────────────────────────
 filters = render_sidebar_filters()
 spatial_grain = filters["spatial_grain"]
