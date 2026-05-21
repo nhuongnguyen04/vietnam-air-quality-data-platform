@@ -30,11 +30,22 @@ standard      = filters["standard"]
 def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates, tunit: str = "day"):
     where_clause = build_where_clause(grain, scope_val, dates, time_unit=tunit)
 
-    # Use fct_air_quality_summary_daily if table is _daily for individual pollutant AQIs
-    if table.endswith("_daily"):
-        pass
-    elif table.endswith("_hourly"):
-        pass
+    if table.endswith("_hourly"):
+        q = f"""
+        SELECT
+            datetime_hour AS date,
+            round(avg(pm25_aqi), 1) AS pm25_aqi,
+            round(avg(pm10_aqi), 1) AS pm10_aqi,
+            round(avg(co_aqi), 1)   AS co_aqi,
+            round(avg(no2_aqi), 1)  AS no2_aqi,
+            round(avg(so2_aqi), 1)  AS so2_aqi,
+            round(avg(o3_aqi), 1)   AS o3_aqi
+        FROM air_quality.fct_air_quality_summary_hourly
+        WHERE {where_clause}
+        GROUP BY datetime_hour
+        ORDER BY datetime_hour
+        """
+        return query_df(q)
 
     q = f"""
     SELECT

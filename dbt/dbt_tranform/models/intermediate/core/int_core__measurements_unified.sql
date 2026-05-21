@@ -176,7 +176,13 @@ calibrated as (
             when r.source = 'aqiin' then 5 
             else 1 
         end as source_weight,
-        r.value * coalesce(lc.lc_calibration_factor, gc.gc_calibration_factor, 1.0) as calibrated_value
+        r.value * (
+            case
+                when lc.lc_source != '' then lc.lc_calibration_factor
+                when gc.gc_source != '' then gc.gc_calibration_factor
+                else 0.8
+            end
+        ) as calibrated_value
     from with_regions r
     left join global_calibration gc
         on r.source = gc.gc_source
