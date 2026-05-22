@@ -4,253 +4,253 @@ station_name,latitude,longitude,province,source,ward
 "Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành
 "Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
 "Bac Ninh Binh Dinh, Bac Ninh, Bac Ninh, Vietnam",20.42843246459961,106.1776351928711,Ninh Bình,tomtom_fix,Xã Nhân Hà
-"Bac Ninh Chau Khe, Hanoi, Ha Noi, Vietnam",21.214853286743164,105.93156433105469,TP.Hà Nội,tomtom_geocoding,Xã Phù Lỗ
+"Bac Ninh Chau Khe, Hanoi, Ha Noi, Vietnam",21.214853286743164,105.93156433105467,TP.Hà Nội,tomtom_geocoding,Xã Phù Lỗ
 "Bac Ninh KCN Tien Son, Bac Ninh, Bac Ninh, Vietnam",21.132301330566406,105.99640655517578,TP.Hà Nội,tomtom_fix,Xã Thư Lâm
 "Bac Ninh Kcn Qua, Bac Ninh, Bac Ninh, Vietnam",12.62073040008545,109.11697387695312,Khánh Hòa,tomtom_fix,Xã Hòa Trí
-"Bac Ninh Monitoring Center Suoi Hoa Ward Bac Ninh City, Bac Ninh, Bac Ninh, Vietnam",21.189428329467773,106.07684326171875,TP.Hà Nội,tomtom_fix,Xã Thư Lâm
+"Bac Ninh Monitoring Center Suoi Hoa Ward Bac Ninh City, Bac Ninh, Bac Ninh, Vietnam",21.189428329467773,106.07684326171876,TP.Hà Nội,tomtom_fix,Xã Thư Lâm
 "Bac Ninh Peoples Committee Of Yen Phong, Bac Ninh, Bac Ninh, Vietnam",21.187593460083008,105.96450805664062,TP.Hà Nội,tomtom_fix,Xã Phù Lỗ
 "Bac Ninh Phong Coc, Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
 "Bac Ninh Phu Lang, Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
-"Bac Ninh Phu Xa Van Mon, Bac Ninh, Bac Ninh, Vietnam",21.170520782470703,105.93175506591797,TP.Hà Nội,tomtom_fix,Xã Phù Lỗ
+"Bac Ninh Phu Xa Van Mon, Bac Ninh, Bac Ninh, Vietnam",21.170520782470703,105.93175506591795,TP.Hà Nội,tomtom_fix,Xã Phù Lỗ
 "Bac Ninh Thuan Thanh Inter Area, Bac Ninh, Bac Ninh, Vietnam",21.063514709472656,106.08988189697266,Bắc Ninh,tomtom_fix,Phường Phù Chẩn
-"Bac Ninh Tieu Hoc Dai Bai, Bac Ninh, Bac Ninh, Vietnam",21.03772735595703,106.14680480957031,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
+"Bac Ninh Tieu Hoc Dai Bai, Bac Ninh, Bac Ninh, Vietnam",21.03772735595703,106.14680480957033,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
 "Bac Ninh UBND xa Xuan Lam, Hanoi, Ha Noi, Vietnam",21.07156753540039,105.79717254638672,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
 "Bac Ninh Ubnd Aai Aang, Bac Ninh, Bac Ninh, Vietnam",21.367172241210938,106.26187133789062,Bắc Ninh,tomtom_fix,Xã Lạng Giang
 "Bac Ninh Ubnd Que Vu, Bac Ninh, Bac Ninh, Vietnam",21.189218521118164,106.08056640625,Bắc Ninh,tomtom_fix,Xã Tam Giang
 "Bac Ninh gan KCN Yen Phong, Hanoi, Ha Noi, Vietnam",21.12773895263672,105.88954162597656,TP.Hà Nội,aqicn_fuzzy,Xã Thư Lâm
 "Bac Ninh, Bac Ninh, Vietnam",21.035398483276367,106.10257720947266,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
-"Bac Ninhubnd Xa Cao DuC Gia Binh, Hai Duong, HaI Duong, Vietnam",21.087261199951172,106.27825164794922,Bắc Ninh,tomtom_fix,Phường Mão Điền
+"Bac Ninhubnd Xa Cao DuC Gia Binh, Hai Duong, HaI Duong, Vietnam",21.08726119995117,106.27825164794922,Bắc Ninh,tomtom_fix,Phường Mão Điền
 "Bach ang, Thanh pho Uong Bi, Quang Ninh, Vietnam",21.03499412536621,106.75786590576172,TP.Hải Phòng,tomtom_fix,Phường Thiên Hương
 "Ban Dao Linh Dam, Hanoi, Ha Noi, Vietnam",20.971378326416016,105.82798767089844,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Binh Dinh, Vietnam",21.035398483276367,106.10257720947266,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
 "Binh Duong, Vietnam",11.07101821899414,106.69368743896484,TP.Hồ Chí Minh,tomtom_fix,Phường Vĩnh Tân
-"Bo Xuyen, Thanh pho Thai Binh, Thai Binh, Vietnam",20.453535079956055,106.34053039550781,Ninh Bình,tomtom_fix,Xã Nhân Hà
+"Bo Xuyen, Thanh pho Thai Binh, Thai Binh, Vietnam",20.45353507995605,106.3405303955078,Ninh Bình,tomtom_fix,Xã Nhân Hà
 "Cam Pha, Quang Ninh Province, Vietnam",21.009483337402344,107.27304077148438,Quảng Ninh,tomtom_fix,Đặc khu Vân Đồn
 "Cam Pha, Quang Ninh, Vietnam",21.009483337402344,107.27304077148438,Quảng Ninh,tomtom_fix,Đặc khu Vân Đồn
-"Cam Trung, Cam Pha, Quang Ninh Province, Vietnam",21.011554718017578,107.29277801513672,Quảng Ninh,tomtom_fix,Đặc khu Vân Đồn
-"Can Tho Ninh Kieu KTTV Tram cam bien, Can Tho, Can Tho, Vietnam",10.04520034790039,105.74690246582031,TP.Cần Thơ,original,Phường Long Tuyền
-"Can Tho, Can Tho, Vietnam",10.04520034790039,105.74690246582031,TP.Cần Thơ,original,Phường Long Tuyền
-"Can Tho, Vietnam",9.742391586303711,105.75899505615234,TP.Cần Thơ,tomtom_fix,Xã Đông Phước
-"Cao BaNgtraM Khi Ttqt, Cao Bang, Cao BaNg, Vietnam",22.665700912475586,106.26799774169922,Cao Bằng,original,Phường Tân Giang
-"Cao Bang Phuong De Tham, Cao Bang, Cao Bang, Vietnam",22.665700912475586,106.26799774169922,Cao Bằng,original,Phường Tân Giang
-"Cao Bang, Cao BaNg, Vietnam",22.665700912475586,106.26799774169922,Cao Bằng,original,Phường Tân Giang
-"Cham Mat, Dan Chu, Hoa Binh Province, Vietnam",20.65250015258789,105.33760070800781,Phú Thọ,original,Xã Mường Động
+"Cam Trung, Cam Pha, Quang Ninh Province, Vietnam",21.011554718017575,107.29277801513672,Quảng Ninh,tomtom_fix,Đặc khu Vân Đồn
+"Can Tho Ninh Kieu KTTV Tram cam bien, Can Tho, Can Tho, Vietnam",10.04520034790039,105.74690246582033,TP.Cần Thơ,original,Phường Long Tuyền
+"Can Tho, Can Tho, Vietnam",10.04520034790039,105.74690246582033,TP.Cần Thơ,original,Phường Long Tuyền
+"Can Tho, Vietnam",9.742391586303713,105.75899505615234,TP.Cần Thơ,tomtom_fix,Xã Đông Phước
+"Cao BaNgtraM Khi Ttqt, Cao Bang, Cao BaNg, Vietnam",22.665700912475582,106.26799774169922,Cao Bằng,original,Phường Tân Giang
+"Cao Bang Phuong De Tham, Cao Bang, Cao Bang, Vietnam",22.665700912475582,106.26799774169922,Cao Bằng,original,Phường Tân Giang
+"Cao Bang, Cao BaNg, Vietnam",22.665700912475582,106.26799774169922,Cao Bằng,original,Phường Tân Giang
+"Cham Mat, Dan Chu, Hoa Binh Province, Vietnam",20.65250015258789,105.3376007080078,Phú Thọ,original,Xã Mường Động
 "Chuong My, Hanoi, Vietnam",20.92171859741211,105.70475006103516,TP.Hà Nội,tomtom_geocoding,Xã Quảng Bị
 "Da Nang Western Hoa Thuan, Da Nang, Da Nang, Vietnam",16.049959182739258,108.21046447753906,TP.Đà Nẵng,tomtom_geocoding,Phường Hòa Cường
 "Da Nang, Da Nang, Vietnam",15.62997055053711,107.96780395507812,TP.Đà Nẵng,tomtom_geocoding,Xã Quế Phước
-"Dam Trau phuong Bach Dang, Hanoi, Ha Noi, Vietnam",21.015832901000977,105.86273193359375,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
-"Dan Chu, Hoa Binh Province, Vietnam",20.65250015258789,105.33760070800781,Phú Thọ,original,Xã Mường Động
-"Dong Hoi, Quang Binh Province, Vietnam",17.61079978942871,106.42500305175781,Quảng Trị,original,Xã Hoàn Lão
+"Dam Trau phuong Bach Dang, Hanoi, Ha Noi, Vietnam",21.015832901000977,105.86273193359376,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
+"Dan Chu, Hoa Binh Province, Vietnam",20.65250015258789,105.3376007080078,Phú Thọ,original,Xã Mường Động
+"Dong Hoi, Quang Binh Province, Vietnam",17.61079978942871,106.4250030517578,Quảng Trị,original,Xã Hoàn Lão
 "Duong Ngo Quang Tham, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.661526679992676,106.69955444335938,TP.Hồ Chí Minh,tomtom_geocoding,Xã Bình Hưng
 "Gia Lai Phu Dong, Pleiku, Gia Lai, Vietnam",13.807900428771973,108.1093978881836,Gia Lai,original,Xã Kon Chiêng
 "Gia Lai Thong Nhat Ward Pleiku, Pleiku, Gia Lai, Vietnam",13.807900428771973,108.1093978881836,Gia Lai,original,Xã Kon Chiêng
-"Gia Lai UBND thi xa An Khe, Quy Nhon, Binh Dinh, Vietnam",13.782999992370605,109.2239990234375,Gia Lai,original,Xã Đăk Song
-"Ha Long, Ha Long, Quang Ninh, Vietnam",20.94165802001953,107.12364959716797,Quảng Ninh,tomtom_fix,TP Hạ Long
-"Ha Long, Quang Ninh, Vietnam",20.94165802001953,107.12364959716797,Quảng Ninh,tomtom_fix,TP Hạ Long
+"Gia Lai UBND thi xa An Khe, Quy Nhon, Binh Dinh, Vietnam",13.782999992370604,109.2239990234375,Gia Lai,original,Xã Đăk Song
+"Ha Long, Ha Long, Quang Ninh, Vietnam",20.94165802001953,107.12364959716795,Quảng Ninh,tomtom_fix,TP Hạ Long
+"Ha Long, Quang Ninh, Vietnam",20.94165802001953,107.12364959716795,Quảng Ninh,tomtom_fix,TP Hạ Long
 "Ha Nam Province, Vietnam",20.58192253112793,105.95122528076172,Ninh Bình,tomtom_fix,Phường Hà Nam
-"Ha Noi Cung thieu nhi Ha Noi Hoan Kiem, Hanoi, Ha Noi, Vietnam",21.028278350830078,105.8538818359375,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Ha Noi Cung thieu nhi Ha Noi Hoan Kiem, Hanoi, Ha Noi, Vietnam",21.02827835083008,105.8538818359375,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Ha Noi Hong Ha, Hanoi, Ha Noi, Vietnam",21.056453704833984,105.84270477294922,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"Ha Noi Lang Thuong, Hanoi, Ha Noi, Vietnam",21.020614624023438,105.8017578125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
-"Ha Noi Mam non Van Ha Dong Anh, Hanoi, Ha Noi, Vietnam",21.191862106323242,105.86829376220703,TP.Hà Nội,tomtom_geocoding,Xã Thư Lâm
-"Ha Noi Man non Tu Lien quan Tay Ho, Hanoi, Ha Noi, Vietnam",21.069448471069336,105.81085205078125,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
+"Ha Noi Lang Thuong, Hanoi, Ha Noi, Vietnam",21.02061462402344,105.8017578125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Ha Noi Mam non Van Ha Dong Anh, Hanoi, Ha Noi, Vietnam",21.19186210632324,105.86829376220705,TP.Hà Nội,tomtom_geocoding,Xã Thư Lâm
+"Ha Noi Man non Tu Lien quan Tay Ho, Hanoi, Ha Noi, Vietnam",21.069448471069336,105.81085205078124,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
 "Ha Noi Nha van hoa thon Xa Cau ung Hoa, Hanoi, Ha Noi, Vietnam",20.733970642089844,105.77132415771484,TP.Hà Nội,tomtom_geocoding,Xã Tam Hưng
 "Ha Noi Quang truong Dong Kinh Nghaa Thuc, Hanoi, Ha Noi, Vietnam",21.03191566467285,105.85135650634766,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"Ha Noi TT giao luu van hoa pho co Hoan Kiem, Hanoi, Ha Noi, Vietnam",21.009891510009766,105.83892059326172,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
-"Ha Noi Truong THCS Van Yen Ha dong, Hanoi, Ha Noi, Vietnam",21.006189346313477,105.8057861328125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Ha Noi TT giao luu van hoa pho co Hoan Kiem, Hanoi, Ha Noi, Vietnam",21.00989151000977,105.83892059326172,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Ha Noi Truong THCS Van Yen Ha dong, Hanoi, Ha Noi, Vietnam",21.00618934631348,105.8057861328125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Ha Noi UBND TT Lien Quan Thach That, Son Tay, Ha Noi, Vietnam",21.056293487548828,105.57390594482422,TP.Hà Nội,tomtom_geocoding,Xã Ô Diên
-"Ha Noi UBND TT Soc Son, Bac Ninh, Bac Ninh, Vietnam",21.086824417114258,105.9429931640625,TP.Hà Nội,tomtom_fix,Xã Phù Đổng
-"Ha Noi UBND Xa An Khanh Hoai Duc, Hanoi, Ha Noi, Vietnam",21.006038665771484,105.71795654296875,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
-"Ha Noi UBND xa Thanh Xuan Soc Son, Vinh Yen, Vinh Phuc, Vietnam",21.36090087890625,105.59729766845703,Phú Thọ,original,Xã Tam Dương
-"Ha Noi UNBD TT Van Dinh ung Hoa, Phu Ly, Ha Nam, Vietnam",20.735729217529297,105.77264404296875,TP.Hà Nội,tomtom_fix,Xã Tam Hưng
-"Hai Ba Trung, Thanh pho Phu Ly, Ha Nam, Vietnam",13.770967483520508,109.22716522216797,Gia Lai,tomtom_fix,Xã Đăk Song
-"Hai Chau I, Da Nang, Da Nang, Vietnam",16.07837677001953,108.21185302734375,TP.Đà Nẵng,tomtom_geocoding,Phường Hòa Cường
-"Hai Duong Co Dung Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.939308166503906,106.34585571289062,TP.Hải Phòng,tomtom_fix,Phường Lê Thanh Nghị
-"Hai Duong Gan nhiet Dien Pha Lai Chi Linh, Hai Duong, Hai Duong, Vietnam",10.779516220092773,106.65766143798828,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
-"Hai Duong Hoi Doanh Nghiep Kinh Mon, Hai Duong, Hai Duong, Vietnam",10.238917350769043,106.37684631347656,Đồng Tháp,tomtom_fix,Xã Kim Sơn
-"Hai Duong TT Ke Sat Binh Giang, Hai Duong, Hai Duong, Vietnam",20.90024185180664,106.14334106445312,Hưng Yên,tomtom_fix,Xã Nghĩa Trụ
-"Hai Duong TT Lai Cach Cam Giang, Hai Duong, Hai Duong, Vietnam",10.007019996643066,105.07906341552734,An Giang,tomtom_fix,Xã Thạnh Lộc
+"Ha Noi UBND TT Soc Son, Bac Ninh, Bac Ninh, Vietnam",21.086824417114254,105.9429931640625,TP.Hà Nội,tomtom_fix,Xã Phù Đổng
+"Ha Noi UBND Xa An Khanh Hoai Duc, Hanoi, Ha Noi, Vietnam",21.006038665771484,105.71795654296876,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
+"Ha Noi UBND xa Thanh Xuan Soc Son, Vinh Yen, Vinh Phuc, Vietnam",21.36090087890625,105.59729766845705,Phú Thọ,original,Xã Tam Dương
+"Ha Noi UNBD TT Van Dinh ung Hoa, Phu Ly, Ha Nam, Vietnam",20.735729217529297,105.77264404296876,Ninh Bình,tomtom_fix,Xã Tam Hưng
+"Hai Ba Trung, Thanh pho Phu Ly, Ha Nam, Vietnam",13.770967483520508,109.22716522216795,Ninh Bình,tomtom_fix,Xã Đăk Song
+"Hai Chau I, Da Nang, Da Nang, Vietnam",16.07837677001953,108.21185302734376,TP.Đà Nẵng,tomtom_geocoding,Phường Hòa Cường
+"Hai Duong Co Dung Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.939308166503903,106.34585571289062,TP.Hải Phòng,tomtom_fix,Phường Lê Thanh Nghị
+"Hai Duong Gan nhiet Dien Pha Lai Chi Linh, Hai Duong, Hai Duong, Vietnam",10.779516220092772,106.65766143798828,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
+"Hai Duong Hoi Doanh Nghiep Kinh Mon, Hai Duong, Hai Duong, Vietnam",10.238917350769045,106.37684631347656,TP.Hải Phòng,tomtom_fix,Xã Kim Sơn
+"Hai Duong TT Ke Sat Binh Giang, Hai Duong, Hai Duong, Vietnam",20.90024185180664,106.14334106445312,TP.Hải Phòng,tomtom_fix,Xã Nghĩa Trụ
+"Hai Duong TT Lai Cach Cam Giang, Hai Duong, Hai Duong, Vietnam",10.007019996643066,105.07906341552734,TP.Hải Phòng,tomtom_fix,Xã Thạnh Lộc
 "Hai Duong TT Minh Tan Kinh Mon, Haiphong, Hai Phong, Vietnam",21.03865623474121,106.58026885986328,TP.Hải Phòng,tomtom_fix,Phường An Phong
-"Hai Duong TT Phu Thai Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.96295738220215,106.50818634033203,TP.Hải Phòng,tomtom_fix,Phường An Phong
-"Hai Duong Tram Tan Binh TP Hai Duong, Hai Duong, Hai Duong, Vietnam",10.803596496582031,106.47761535644531,TP.Hồ Chí Minh,tomtom_fix,Xã Bình Lợi
+"Hai Duong TT Phu Thai Kim Thanh, Hai Duong, Hai Duong, Vietnam",20.96295738220215,106.50818634033205,TP.Hải Phòng,tomtom_fix,Phường An Phong
+"Hai Duong Tram Tan Binh TP Hai Duong, Hai Duong, Hai Duong, Vietnam",10.803596496582031,106.47761535644533,TP.Hồ Chí Minh,tomtom_fix,Xã Bình Lợi
 "Hai Duong Tram Y te Duy Tan Kinh Mon, Hai Duong, Hai Duong, Vietnam",21.00196075439453,106.54232788085938,TP.Hải Phòng,tomtom_fix,Phường An Phong
-"Hai Duong UBND TP Chi Linh, Hai Duong, Hai Duong, Vietnam",21.273441314697266,107.28679656982422,Quảng Ninh,tomtom_fix,X
-"Hai Duong, Hai Duong, Vietnam",20.939308166503906,106.34585571289062,TP.Hải Phòng,tomtom_fix,Phường Lê Thanh Nghị
-"Hai Phong Phu Lien, Haiphong, Hai Phong, Vietnam",20.797348022460938,106.62590026855469,TP.Hải Phòng,tomtom_fix,Phường Phù Liễn
-"Haiphong, HaI Phong, Vietnam",20.875173568725586,106.47447967529297,TP.Hải Phòng,tomtom_fix,Xã Hà Tây
-"Haiphong, Hai Phong, Vietnam",20.875173568725586,106.47447967529297,TP.Hải Phòng,tomtom_fix,Xã Hà Tây
-"Ham Yen District, Tuyen Quang Province, Vietnam",21.822999954223633,105.21489715576172,Tuyên Quang,original,Phường Minh Xuân
-"Hanoi 36A Pham Van Dong, Hanoi, Ha Noi, Vietnam",21.051013946533203,105.78202819824219,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"Hanoi Environmental Protection Department, Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671875,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
-"Hanoi Ho Thanh Cong Management Building, Hanoi, Ha Noi, Vietnam",10.827287673950195,106.76179504394531,TP.Hồ Chí Minh,tomtom_geocoding,Phường Long Thạnh Mỹ
-"Hanoi Hoan Kiem District Police Headquarters, Hanoi, Ha Noi, Vietnam",21.028278350830078,105.8538818359375,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Hai Duong UBND TP Chi Linh, Hai Duong, Hai Duong, Vietnam",21.273441314697266,107.28679656982422,TP.Hải Phòng,tomtom_fix,X
+"Hai Duong, Hai Duong, Vietnam",20.939308166503903,106.34585571289062,TP.Hải Phòng,tomtom_fix,Phường Lê Thanh Nghị
+"Hai Phong Phu Lien, Haiphong, Hai Phong, Vietnam",20.797348022460938,106.62590026855467,TP.Hải Phòng,tomtom_fix,Phường Phù Liễn
+"Haiphong, HaI Phong, Vietnam",20.875173568725582,106.47447967529295,TP.Hải Phòng,tomtom_fix,Xã Hà Tây
+"Haiphong, Hai Phong, Vietnam",20.875173568725582,106.47447967529295,TP.Hải Phòng,tomtom_fix,Xã Hà Tây
+"Ham Yen District, Tuyen Quang Province, Vietnam",21.822999954223636,105.21489715576172,Tuyên Quang,original,Phường Minh Xuân
+"Hanoi 36A Pham Van Dong, Hanoi, Ha Noi, Vietnam",21.051013946533203,105.7820281982422,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
+"Hanoi Environmental Protection Department, Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671876,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
+"Hanoi Ho Thanh Cong Management Building, Hanoi, Ha Noi, Vietnam",10.827287673950195,106.76179504394533,TP.Hồ Chí Minh,tomtom_geocoding,Phường Long Thạnh Mỹ
+"Hanoi Hoan Kiem District Police Headquarters, Hanoi, Ha Noi, Vietnam",21.02827835083008,105.8538818359375,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Hanoi Kim Lien Kindergarten, Hanoi, Ha Noi, Vietnam",21.005859375,105.83524322509766,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Hanoi Police Headquarters P. Hang Ma, Hanoi, Ha Noi, Vietnam",21.036630630493164,105.84781646728516,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"Hanoi US Embassy, Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671875,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
+"Hanoi US Embassy, Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671876,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
 "Hanoi Ubnd P Hoang Van Thu Hoang Mai, Hanoi, Ha Noi, Vietnam",20.987510681152344,105.8601303100586,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
-"Hanoi Ubnd Tay Mo, Hanoi, Ha Noi, Vietnam",21.004934310913086,105.74839782714844,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
-"Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671875,TP.Hà Nội,tomtom_fix,Xã An Khánh
-"Hanoi, Hanoi, Vietnam",20.99910545349121,105.69989013671875,TP.Hà Nội,tomtom_fix,Xã An Khánh
-"Hanoi, Vietnam",21.049100875854492,105.88310241699219,TP.Hà Nội,aqicn_fuzzy,Phường Việt Hưng
+"Hanoi Ubnd Tay Mo, Hanoi, Ha Noi, Vietnam",21.00493431091309,105.74839782714844,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
+"Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671876,TP.Hà Nội,tomtom_fix,Xã An Khánh
+"Hanoi, Hanoi, Vietnam",20.99910545349121,105.69989013671876,TP.Hà Nội,tomtom_fix,Xã An Khánh
+"Hanoi, Vietnam",21.04910087585449,105.8831024169922,TP.Hà Nội,aqicn_fuzzy,Phường Việt Hưng
 "Hem 108 Tran Van Quang, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.779364585876465,106.6465072631836,TP.Hồ Chí Minh,tomtom_geocoding,Phường Hòa Hưng
-"Hien Nam, Thanh pho Hung Yen, Hung Yen, Vietnam",20.646400451660156,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
-"Hiep Thanh, Thanh pho Thu Dau Mot, Binh Duong, Vietnam",11.069000244140625,106.65399932861328,TP.Hồ Chí Minh,original,Phường Vĩnh Tân
+"Hien Nam, Thanh pho Hung Yen, Hung Yen, Vietnam",20.64640045166016,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
+"Hiep Thanh, Thanh pho Thu Dau Mot, Binh Duong, Vietnam",11.069000244140623,106.65399932861328,TP.Hồ Chí Minh,original,Phường Vĩnh Tân
 "Ho Chi Minh City US Consulate, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.776527404785156,106.70108032226562,TP.Hồ Chí Minh,tomtom_geocoding,Phường Hòa Hưng
 "Ho Chi Minh City, Ho Chi Minh, Vietnam",10.776527404785156,106.70108032226562,TP.Hồ Chí Minh,tomtom_geocoding,Phường Hòa Hưng
-"Hoa Binh Province, Vietnam",20.65250015258789,105.33760070800781,Phú Thọ,original,Xã Mường Động
-"Hoan Kiem District, Ha Noi, Vietnam",21.028278350830078,105.8538818359375,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Hoa Binh Province, Vietnam",20.65250015258789,105.3376007080078,Phú Thọ,original,Xã Mường Động
+"Hoan Kiem District, Ha Noi, Vietnam",21.02827835083008,105.8538818359375,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Hue, Thua Thien Hue, Vietnam",16.46780014038086,107.5905990600586,Huế,original,Xã Phú Hồ
-"Hung Yen Nha van hoa xa Tan Quang h.Van Lam, Hanoi, Ha Noi, Vietnam",20.855514526367188,105.87340545654297,Hưng Yên,tomtom_geocoding,Xã Mễ Sở
-"Hung Yen So TNMT 437 Nguyen Van Linh, Hung Yen, Hung Yen, Vietnam",20.66168212890625,106.05876159667969,Hưng Yên,aqicn_fuzzy,Phường Phố Hiến
-"Hung Yen, Hung Yen, Vietnam",20.646400451660156,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
-"Hung Yen, Vietnam",20.646400451660156,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
-"Huu Lung District, Lang Son Province, Vietnam",21.50556182861328,106.34510040283203,Bắc Ninh,tomtom_fix,Xã Lạng Giang
-"KDT Tay ho Tay Bac Tu Liem, Hanoi, Ha Noi, Vietnam",21.069448471069336,105.81085205078125,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
+"Hung Yen Nha van hoa xa Tan Quang h.Van Lam, Hanoi, Ha Noi, Vietnam",20.855514526367188,105.87340545654295,Hưng Yên,tomtom_geocoding,Xã Mễ Sở
+"Hung Yen So TNMT 437 Nguyen Van Linh, Hung Yen, Hung Yen, Vietnam",20.66168212890625,106.05876159667967,Hưng Yên,aqicn_fuzzy,Phường Phố Hiến
+"Hung Yen, Hung Yen, Vietnam",20.64640045166016,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
+"Hung Yen, Vietnam",20.64640045166016,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
+"Huu Lung District, Lang Son Province, Vietnam",21.50556182861328,106.34510040283205,Bắc Ninh,tomtom_fix,Xã Lạng Giang
+"KDT Tay ho Tay Bac Tu Liem, Hanoi, Ha Noi, Vietnam",21.069448471069336,105.81085205078124,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
 "Khom 1, Thi xa Binh Minh, Vinh Long, Vietnam",10.08329963684082,105.9666976928711,Vĩnh Long,original,Phường Đông Thành
 "Khom 3, Thanh pho Vinh Long, Vinh Long, Vietnam",10.08329963684082,105.9666976928711,Vĩnh Long,original,Phường Đông Thành
 "Khom 9, Thanh pho Tra Vinh, Tra Vinh, Vietnam",9.947500228881836,106.3375015258789,Vĩnh Long,original,Xã Thành Thới
-"Khu Tu Thong, Hai Duong, Hai Duong, Vietnam",12.306336402893066,109.18854522705078,Khánh Hòa,tomtom_fix,TP Nha Trang
-"Lam Dong, Vietnam",11.673026084899902,107.97003173828125,Lâm Đồng,tomtom_fix,Xã Đinh Trang Thượng
+"Khu Tu Thong, Hai Duong, Hai Duong, Vietnam",12.306336402893066,109.18854522705078,TP.Hải Phòng,tomtom_fix,TP Nha Trang
+"Lam Dong, Vietnam",11.673026084899902,107.97003173828124,Lâm Đồng,tomtom_fix,Xã Đinh Trang Thượng
 "Lang Son Dong Tan Huu Lung, Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
-"Lang Son Province, Vietnam",21.838970184326172,106.62147521972656,Lạng Sơn,tomtom_fix,Xã Yên Phúc
+"Lang Son Province, Vietnam",21.83897018432617,106.62147521972656,Lạng Sơn,tomtom_fix,Xã Yên Phúc
 "Lang Son phuong Chi Lang TP Lang Son, Lang Son, Lang Son, Vietnam",21.597631454467773,106.52235412597656,Bắc Ninh,tomtom_fix,Xã Sơn Hải
-"Lang Son xa Hong Phong Cao Loc, Lang Son, Lang Son, Vietnam",22.089139938354492,106.39326477050781,Lạng Sơn,tomtom_fix,Xã Thiện Hòa
-"Lang Son, Lang Son, Vietnam",14.358780860900879,108.57014465332031,Gia Lai,tomtom_fix,Xã Sơn Lang
-"Lang Son, Vietnam",21.838970184326172,106.62147521972656,Lạng Sơn,tomtom_fix,Xã Yên Phúc
-"Lao Cai Tram gan KCN Tang Loong 2, Lao Cai, Lao Cai, Vietnam",22.4862003326416,103.95050048828125,Lào Cai,original,Phường Sa Pa
-"Lao Cai, Lao Cai, Vietnam",22.4862003326416,103.95050048828125,Lào Cai,original,Phường Sa Pa
-"Lao Cai, Vietnam",22.47611427307129,103.97344970703125,Lào Cai,tomtom_fix,Xã Bản Lầu
+"Lang Son xa Hong Phong Cao Loc, Lang Son, Lang Son, Vietnam",22.08913993835449,106.3932647705078,Lạng Sơn,tomtom_fix,Xã Thiện Hòa
+"Lang Son, Lang Son, Vietnam",14.35878086090088,108.57014465332033,Gia Lai,tomtom_fix,Xã Sơn Lang
+"Lang Son, Vietnam",21.83897018432617,106.62147521972656,Lạng Sơn,tomtom_fix,Xã Yên Phúc
+"Lao Cai Tram gan KCN Tang Loong 2, Lao Cai, Lao Cai, Vietnam",22.4862003326416,103.95050048828124,Lào Cai,original,Phường Sa Pa
+"Lao Cai, Lao Cai, Vietnam",22.4862003326416,103.95050048828124,Lào Cai,original,Phường Sa Pa
+"Lao Cai, Vietnam",22.47611427307129,103.97344970703124,Lào Cai,tomtom_fix,Xã Bản Lầu
 "Lao Caikcn Taloong1, Lao Cai, Lao Cai, Vietnam",22.3221378326416,104.12142181396484,Lào Cai,aqicn_fuzzy,Xã Cốc Lầu
 "Long An TT van hoa huyen Ben Luc, Tan An, Long An, Vietnam",10.645084381103516,106.4859619140625,Tây Ninh,aqicn_fuzzy,Xã Bến Lức
-"Long An TT van hoa huyen Can Giuoc, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.383955001831055,106.90938568115234,TP.Hồ Chí Minh,tomtom_geocoding,Phường Phước Thắng
+"Long An TT van hoa huyen Can Giuoc, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.383955001831056,106.90938568115234,TP.Hồ Chí Minh,tomtom_geocoding,Phường Phước Thắng
 "Long An xa Duc Lap Ha, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.994516372680664,106.485595703125,TP.Hồ Chí Minh,tomtom_geocoding,Xã Tân An Hội
-"Long An, Vietnam",10.545510292053223,106.38387298583984,Tây Ninh,tomtom_fix,Xã Bến Lức
-"Long Bien District, Ha Noi, Vietnam",21.022769927978516,105.8889389038086,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
-"Long Bien, Ha Noi, Vietnam",21.022769927978516,105.8889389038086,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
-"Luu Hoang, Phu Ly, Ha Nam, Vietnam",20.860111236572266,106.67390441894531,TP.Hải Phòng,tomtom_fix,Phường Thiên Hương
-"Mam non Khuong Trung Thanh Xuan, Hanoi, Ha Noi, Vietnam",20.99172592163086,105.80743408203125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
-"Minh Khai Ward, Phu Ly, Ha Nam Province, Vietnam",21.063886642456055,105.7435531616211,TP.Hà Nội,tomtom_fix,Xã Ô Diên
+"Long An, Vietnam",10.545510292053224,106.38387298583984,Tây Ninh,tomtom_fix,Xã Bến Lức
+"Long Bien District, Ha Noi, Vietnam",21.02276992797852,105.8889389038086,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
+"Long Bien, Ha Noi, Vietnam",21.02276992797852,105.8889389038086,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
+"Luu Hoang, Phu Ly, Ha Nam, Vietnam",20.860111236572266,106.67390441894533,Ninh Bình,tomtom_fix,Phường Thiên Hương
+"Mam non Khuong Trung Thanh Xuan, Hanoi, Ha Noi, Vietnam",20.99172592163086,105.80743408203124,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Minh Khai Ward, Phu Ly, Ha Nam Province, Vietnam",21.06388664245605,105.7435531616211,Ninh Bình,tomtom_fix,Xã Ô Diên
 "Mo Che, Thanh pho Song Cong, Thai Nguyen, Vietnam",10.769625663757324,106.7030258178711,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
-"Nam Tu Liem, Ha Noi, Vietnam",21.022098541259766,105.77316284179688,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
-"Nghe An Truong Thi, Vinh, Nghe An, Vietnam",19.248300552368164,104.92040252685547,Nghệ An,original,Xã Nga My
-"Nghe An, Vietnam",19.236818313598633,104.9457778930664,Nghệ An,tomtom_fix,Xã Nga My
-"Nghi Son, Thanh Hoa Province, Vietnam",19.804000854492188,105.43920135498047,Thanh Hóa,original,Xã Sao Vàng
-"Ngo May, Quy Nhon, Binh Dinh, Vietnam",13.782999992370605,109.2239990234375,Gia Lai,original,Xã Đăk Song
-"Ngo Quyen District, Hai Phong, Vietnam",20.865856170654297,106.70459747314453,TP.Hải Phòng,tomtom_fix,Phường Thiên Hương
-"Ngoc Lam, Long Bien, Ha Noi, Vietnam",21.049911499023438,105.88116455078125,TP.Hà Nội,tomtom_geocoding,Phường Việt Hưng
-"Nguyen Nghiem, Thanh pho Quang Ngai, Quang Ngai, Vietnam",15.120499610900879,108.72429656982422,Quảng Ngãi,original,Phường Nghĩa Lộ
+"Nam Tu Liem, Ha Noi, Vietnam",21.02209854125977,105.77316284179688,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Nghe An Truong Thi, Vinh, Nghe An, Vietnam",19.248300552368164,104.92040252685548,Nghệ An,original,Xã Nga My
+"Nghe An, Vietnam",19.236818313598636,104.9457778930664,Nghệ An,tomtom_fix,Xã Nga My
+"Nghi Son, Thanh Hoa Province, Vietnam",19.804000854492188,105.43920135498048,Thanh Hóa,original,Xã Sao Vàng
+"Ngo May, Quy Nhon, Binh Dinh, Vietnam",13.782999992370604,109.2239990234375,Gia Lai,original,Xã Đăk Song
+"Ngo Quyen District, Hai Phong, Vietnam",20.865856170654297,106.70459747314452,TP.Hải Phòng,tomtom_fix,Phường Thiên Hương
+"Ngoc Lam, Long Bien, Ha Noi, Vietnam",21.04991149902344,105.88116455078124,TP.Hà Nội,tomtom_geocoding,Phường Việt Hưng
+"Nguyen Nghiem, Thanh pho Quang Ngai, Quang Ngai, Vietnam",15.12049961090088,108.72429656982422,Quảng Ngãi,original,Phường Nghĩa Lộ
 "Nha Trang, Khanh Hoa, Vietnam",12.24679946899414,109.18833923339844,Khánh Hòa,tomtom_fix,TP Nha Trang
 "Nha Trang, Nha Trang, Khanh Hoa, Vietnam",12.25879955291748,109.0521011352539,Khánh Hòa,original,TP Nha Trang
-"Nha van hoa thon Sap Mai, Hanoi, Ha Noi, Vietnam",20.731393814086914,105.76667022705078,TP.Hà Nội,tomtom_geocoding,Xã Tam Hưng
-"Nhan My, Nam Tu Liem, Ha Noi, Vietnam",21.024574279785156,105.77392578125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Nha van hoa thon Sap Mai, Hanoi, Ha Noi, Vietnam",20.731393814086918,105.76667022705078,TP.Hà Nội,tomtom_geocoding,Xã Tam Hưng
+"Nhan My, Nam Tu Liem, Ha Noi, Vietnam",21.02457427978516,105.77392578125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Ninh An, Thi xa Ninh Hoa, Khanh Hoa, Vietnam",12.25879955291748,109.0521011352539,Khánh Hòa,original,TP Nha Trang
 "Ninh Binh Cuc Phuong, Ninh Binh, Ninh Binh, Vietnam",20.25,105.9749984741211,Ninh Bình,original,Xã Yên Mạc
 "Ninh Binh, Ninh Binh, Vietnam",20.25,105.9749984741211,Ninh Bình,original,Xã Yên Mạc
 "Ninh Binh, Vietnam",21.035398483276367,106.10257720947266,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
-"Ninh Thuan, Vietnam",11.34965705871582,108.87952423095703,Khánh Hòa,tomtom_fix,Xã Phước Hà
-"North Tu Liem District, Ha Noi, Vietnam",21.022098541259766,105.77316284179688,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
-"Pho Nguyen Duy Trinh, Hanoi, Ha Noi, Vietnam",20.963748931884766,105.83126068115234,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Ninh Thuan, Vietnam",11.34965705871582,108.87952423095705,Khánh Hòa,tomtom_fix,Xã Phước Hà
+"North Tu Liem District, Ha Noi, Vietnam",21.02209854125977,105.77316284179688,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Pho Nguyen Duy Trinh, Hanoi, Ha Noi, Vietnam",20.96374893188477,105.83126068115234,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Phu Ha, Thanh pho Phan Rang - Thap Cham, Ninh Thuan, Vietnam",11.69219970703125,108.9000015258789,Khánh Hòa,original,Xã Ninh Sơn
-"Phu Ly, Ha Nam Province, Vietnam",20.961917877197266,105.7651596069336,TP.Hà Nội,tomtom_fix,Phường Khương Đình
-"Phu Ly, Ha Nam, Vietnam",20.961917877197266,105.7651596069336,TP.Hà Nội,tomtom_fix,Phường Khương Đình
+"Phu Ly, Ha Nam Province, Vietnam",20.961917877197266,105.7651596069336,Ninh Bình,tomtom_fix,Phường Khương Đình
+"Phu Ly, Ha Nam, Vietnam",20.961917877197266,105.7651596069336,Ninh Bình,tomtom_fix,Phường Khương Đình
 "Phu Tho, Vietnam",10.767465591430664,106.65433502197266,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
 "Phu Xuan, Thai Binh, Thai Binh Province, Vietnam",16.474607467651367,107.57701110839844,Huế,tomtom_fix,Xã Phú Hồ
 "Phuoc Hiep, Thanh pho Ba Ria, Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành
 "Phuong 2, Thanh pho Tan An, Long An, Vietnam",10.69260025024414,106.14080047607422,Tây Ninh,original,Xã Nhơn Hòa Lập
 "Phuong 6, Thanh pho a Lat, Lam Dong, Vietnam",11.57550048828125,108.1426010131836,Lâm Đồng,original,Xã Gia Hiệp
 "Phuong Cau Dat, Ngo Quyen District, Hai Phong, Vietnam",20.86136245727539,106.7051773071289,TP.Hải Phòng,tomtom_fix,Phường Hải An
-"Phuong Cua Nam, Hoan Kiem District, Ha Noi, Vietnam",21.033510208129883,105.84614562988281,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"Phuong Dong Hai, Dong Hoi, Quang Binh Province, Vietnam",17.61079978942871,106.42500305175781,Quảng Trị,original,Xã Hoàn Lão
-"Phuong Ngoc Lam, Long Bien District, Ha Noi, Vietnam",21.049911499023438,105.88116455078125,TP.Hà Nội,tomtom_geocoding,Phường Việt Hưng
+"Phuong Cua Nam, Hoan Kiem District, Ha Noi, Vietnam",21.033510208129883,105.8461456298828,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
+"Phuong Dong Hai, Dong Hoi, Quang Binh Province, Vietnam",17.61079978942871,106.4250030517578,Quảng Trị,original,Xã Hoàn Lão
+"Phuong Ngoc Lam, Long Bien District, Ha Noi, Vietnam",21.04991149902344,105.88116455078124,TP.Hà Nội,tomtom_geocoding,Phường Việt Hưng
 "Phuong Phuong Liet, Thanh Xuan District, Ha Noi, Vietnam",20.988922119140625,105.80022430419922,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Phuong Thanh Xuan Trung, Thanh Xuan District, Ha Noi, Vietnam",20.996658325195312,105.80955505371094,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
-"Phuong Tinh Hai, Nghi Son, Thanh Hoa Province, Vietnam",19.804000854492188,105.43920135498047,Thanh Hóa,original,Xã Sao Vàng
+"Phuong Tinh Hai, Nghi Son, Thanh Hoa Province, Vietnam",19.804000854492188,105.43920135498048,Thanh Hóa,original,Xã Sao Vàng
 "Phuong Trung Van, South Tu Liem District, Ha Noi, Vietnam",21.01500701904297,105.83756256103516,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Pleiku, Gia Lai, Vietnam",13.807900428771973,108.1093978881836,Gia Lai,original,Xã Kon Chiêng
 "Quan Trieu, Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",21.608003616333008,105.81735229492188,Thái Nguyên,tomtom_fix,Vùng lân cận
-"Quang Binh Province, Vietnam",17.61079978942871,106.42500305175781,Quảng Trị,original,Xã Hoàn Lão
-"Quang Nam, Vietnam",21.039037704467773,107.02845764160156,Quảng Ninh,aqicn_fuzzy,TP Hạ Long
-"Quang Ngai, Vietnam",15.120499610900879,108.72429656982422,Quảng Ngãi,original,Phường Nghĩa Lộ
+"Quang Binh Province, Vietnam",17.61079978942871,106.4250030517578,Quảng Trị,original,Xã Hoàn Lão
+"Quang Nam, Vietnam",21.039037704467773,107.02845764160156,TP.Đà Nẵng,aqicn_fuzzy,TP Hạ Long
+"Quang Ngai, Vietnam",15.12049961090088,108.72429656982422,Quảng Ngãi,original,Phường Nghĩa Lộ
 "Quang Ninh Gan KCN Cai Lan, Ha Long, Quang Ninh, Vietnam",20.97140121459961,106.99797821044922,Quảng Ninh,tomtom_fix,TP Hạ Long
-"Quang Ninh K11 Minh Thanh, Ha Long, Quang Ninh, Vietnam",20.95229721069336,107.10331726074219,Quảng Ninh,tomtom_fix,TP Hạ Long
-"Quang Ninh Nam Cau Trang, Ha Long, Quang Ninh, Vietnam",20.944746017456055,107.10738372802734,Quảng Ninh,tomtom_fix,TP Hạ Long
+"Quang Ninh K11 Minh Thanh, Ha Long, Quang Ninh, Vietnam",20.95229721069336,107.1033172607422,Quảng Ninh,tomtom_fix,TP Hạ Long
+"Quang Ninh Nam Cau Trang, Ha Long, Quang Ninh, Vietnam",20.94474601745605,107.10738372802734,Quảng Ninh,tomtom_fix,TP Hạ Long
 "Quang Ninh Nam, Haiphong, HaI Phong, Vietnam",20.943134307861328,106.3343734741211,TP.Hải Phòng,tomtom_fix,Phường Lê Thanh Nghị
-"Quang Ninh Nhue Ho Dong Trieu, Hai Duong, Hai Duong, Vietnam",17.403432846069336,106.60577392578125,Quảng Trị,tomtom_fix,Xã Trường Sơn
+"Quang Ninh Nhue Ho Dong Trieu, Hai Duong, Hai Duong, Vietnam",17.403432846069336,106.60577392578124,Quảng Trị,tomtom_fix,Xã Trường Sơn
 "Quang Ninh People Committee Of Uong Bi City, Haiphong, HaI Phong, Vietnam",20.95321273803711,107.10205078125,Quảng Ninh,tomtom_fix,TP Hạ Long
 "Quang Ninh Peoples Committee Of Mao Khe Ward, Haiphong, HaI Phong, Vietnam",20.95321273803711,107.10205078125,Quảng Ninh,tomtom_fix,TP Hạ Long
 "Quang Ninh Province, Vietnam",17.40380859375,106.6400146484375,Quảng Trị,tomtom_fix,Xã Trường Sơn
 "Quang Ninh Trung tam van hoa the thao Cam Pha, Cam Pha, Quang Ninh, Vietnam",21.00933265686035,107.2735595703125,Quảng Ninh,aqicn_fuzzy,Đặc khu Vân Đồn
-"Quang Ninh Yen My, Ha Long, Quang Ninh, Vietnam",20.929025650024414,106.85851287841797,TP.Hải Phòng,tomtom_fix,Đặc khu Cát Hải
+"Quang Ninh Yen My, Ha Long, Quang Ninh, Vietnam",20.92902565002441,106.85851287841795,TP.Hải Phòng,tomtom_fix,Đặc khu Cát Hải
 "Quang Tri, Quang Tri, Vietnam",16.73859977722168,107.09110260009766,Quảng Trị,original,Xã Ái Tử
 "Quang Tri, Vietnam",16.705646514892578,107.16338348388672,Quảng Trị,tomtom_fix,Xã Ái Tử
 "Quy Nhon, Binh Dinh, Vietnam",21.035398483276367,106.10257720947266,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
-"Research Center for Environmental Monitoring and Modeling, Hanoi, Ha Noi, Vietnam",21.028499603271484,105.85420227050781,TP.Hà Nội,centroid_fallback,Phường Lĩnh Nam
+"Research Center for Environmental Monitoring and Modeling, Hanoi, Ha Noi, Vietnam",21.028499603271484,105.8542022705078,TP.Hà Nội,centroid_fallback,Phường Lĩnh Nam
 "Soc Son District, Ha Noi, Vietnam",21.2576961517334,105.84915924072266,TP.Hà Nội,tomtom_geocoding,Xã Phúc Thịnh
 "Son La P To Hieu KTTV Tram cam bien, Son La, Son La, Vietnam",21.325000762939453,103.91799926757812,Sơn La,original,Xã Chiềng Mung
 "Son La, Son La, Vietnam",21.325000762939453,103.91799926757812,Sơn La,original,Xã Chiềng Mung
 "Son La, Vietnam",21.325000762939453,103.91799926757812,Sơn La,original,Xã Chiềng Mung
-"Son Tay, Ha Noi, Vietnam",21.140785217285156,105.50724029541016,Phú Thọ,tomtom_geocoding,Xã Vĩnh Hưng
-"South Tu Liem District, Ha Noi, Vietnam",21.022098541259766,105.77316284179688,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Son Tay, Ha Noi, Vietnam",21.14078521728516,105.50724029541016,Phú Thọ,tomtom_geocoding,Xã Vĩnh Hưng
+"South Tu Liem District, Ha Noi, Vietnam",21.02209854125977,105.77316284179688,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Tan An, Long An, Vietnam",10.69260025024414,106.14080047607422,Tây Ninh,original,Xã Nhơn Hòa Lập
 "Tan Thanh, Huu Lung District, Lang Son Province, Vietnam",21.514589309692383,106.4319076538086,Bắc Ninh,tomtom_fix,Xã Sơn Hải
-"Tan Yen, Ham Yen District, Tuyen Quang Province, Vietnam",21.822999954223633,105.21489715576172,Tuyên Quang,original,Phường Minh Xuân
+"Tan Yen, Ham Yen District, Tuyen Quang Province, Vietnam",21.822999954223636,105.21489715576172,Tuyên Quang,original,Phường Minh Xuân
 "Tay Ninh Phuong 3 TP Tay Ninh, Tay Ninh, Tay Ninh, Vietnam",11.366700172424316,106.13330078125,Tây Ninh,original,Xã Thạnh Bình
-"Tay Ninh Thi xa Trang Bang, Thu Dau Mot, Binh Duong, Vietnam",11.069000244140625,106.65399932861328,TP.Hồ Chí Minh,original,Phường Phú An
-"Tay Ninh, Tay Ninh, Vietnam",11.327714920043945,106.10414123535156,Tây Ninh,aqicn_fuzzy,Xã Ninh Điền
+"Tay Ninh Thi xa Trang Bang, Thu Dau Mot, Binh Duong, Vietnam",11.069000244140623,106.65399932861328,TP.Hồ Chí Minh,original,Phường Phú An
+"Tay Ninh, Tay Ninh, Vietnam",11.327714920043944,106.10414123535156,Tây Ninh,aqicn_fuzzy,Xã Ninh Điền
 "Tay Ninh, Vietnam",11.366700172424316,106.13330078125,Tây Ninh,original,Xã Thạnh Bình
-"Thai Binh Province, Vietnam",20.472890853881836,106.31214904785156,Ninh Bình,tomtom_fix,Xã Nhân Hà
-"Thai Binh, Thai Binh Province, Vietnam",20.472890853881836,106.31214904785156,Ninh Bình,tomtom_fix,Xã Nhân Hà
-"Thai Binh, Vietnam",20.472890853881836,106.31214904785156,Ninh Bình,tomtom_fix,Xã Nhân Hà
+"Thai Binh Province, Vietnam",20.47289085388184,106.31214904785156,Ninh Bình,tomtom_fix,Xã Nhân Hà
+"Thai Binh, Thai Binh Province, Vietnam",20.47289085388184,106.31214904785156,Ninh Bình,tomtom_fix,Xã Nhân Hà
+"Thai Binh, Vietnam",20.47289085388184,106.31214904785156,Ninh Bình,tomtom_fix,Xã Nhân Hà
 "Thai Nguyen Hung Vuong Street Thai Nguyen City, Thai Nguyen, Thai Nguyen, Vietnam",10.359243392944336,107.07903289794922,TP.Hồ Chí Minh,tomtom_fix,Phường Phước Thắng
 "Thai Nguyen, Thai Nguyen, Vietnam",22.022293090820312,105.82535552978516,Thái Nguyên,tomtom_fix,Xã Thanh Mai
-"Thanh Hoa Province, Vietnam",19.804000854492188,105.43920135498047,Thanh Hóa,original,Xã Sao Vàng
+"Thanh Hoa Province, Vietnam",19.804000854492188,105.43920135498048,Thanh Hóa,original,Xã Sao Vàng
 "Thanh Xuan District, Ha Noi, Vietnam",20.994041442871094,105.8008804321289,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Thanh pho Ba Ria, Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành
-"Thanh pho Hung Yen, Hung Yen, Vietnam",20.646400451660156,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
+"Thanh pho Hung Yen, Hung Yen, Vietnam",20.64640045166016,106.05380249023438,Hưng Yên,original,Phường Phố Hiến
 "Thanh pho Phan Rang - Thap Cham, Ninh Thuan, Vietnam",11.69219970703125,108.9000015258789,Khánh Hòa,original,Xã Ninh Sơn
-"Thanh pho Phu Ly, Ha Nam, Vietnam",13.770967483520508,109.22716522216797,Gia Lai,tomtom_fix,Xã Đăk Song
-"Thanh pho Quang Ngai, Quang Ngai, Vietnam",15.120499610900879,108.72429656982422,Quảng Ngãi,original,Phường Nghĩa Lộ
+"Thanh pho Phu Ly, Ha Nam, Vietnam",13.770967483520508,109.22716522216795,Ninh Bình,tomtom_fix,Xã Đăk Song
+"Thanh pho Quang Ngai, Quang Ngai, Vietnam",15.12049961090088,108.72429656982422,Quảng Ngãi,original,Phường Nghĩa Lộ
 "Thanh pho Song Cong, Thai Nguyen, Vietnam",10.769625663757324,106.7030258178711,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
 "Thanh pho Tam Ky, Quang Nam, Vietnam",15.577400207519531,108.4740982055664,TP.Đà Nẵng,original,Xã Thăng Trường
 "Thanh pho Tan An, Long An, Vietnam",10.69260025024414,106.14080047607422,Tây Ninh,original,Xã Nhơn Hòa Lập
 "Thanh pho Thai Binh, Thai Binh, Vietnam",10.769479751586914,106.70430755615234,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
 "Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",10.769479751586914,106.70430755615234,TP.Hồ Chí Minh,tomtom_fix,Phường Hòa Hưng
-"Thanh pho Thu Dau Mot, Binh Duong, Vietnam",11.069000244140625,106.65399932861328,TP.Hồ Chí Minh,original,Phường Phú An
+"Thanh pho Thu Dau Mot, Binh Duong, Vietnam",11.069000244140623,106.65399932861328,TP.Hồ Chí Minh,original,Phường Phú An
 "Thanh pho Tra Vinh, Tra Vinh, Vietnam",9.947500228881836,106.3375015258789,Vĩnh Long,original,Xã Thành Thới
 "Thanh pho Uong Bi, Quang Ninh, Vietnam",21.03499412536621,106.75786590576172,TP.Hải Phòng,tomtom_fix,Phường Thiên Hương
 "Thanh pho Vinh Long, Vinh Long, Vietnam",10.08329963684082,105.9666976928711,Vĩnh Long,original,Phường Đông Thành
 "Thanh pho a Lat, Lam Dong, Vietnam",11.57550048828125,108.1426010131836,Lâm Đồng,original,Xã Gia Hiệp
 "Thi xa Binh Minh, Vinh Long, Vietnam",10.08329963684082,105.9666976928711,Vĩnh Long,original,Phường Đông Thành
 "Thi xa Ninh Hoa, Khanh Hoa, Vietnam",12.25879955291748,109.0521011352539,Khánh Hòa,original,TP Nha Trang
-"Thu Dau Mot, Binh Duong, Vietnam",11.069000244140625,106.65399932861328,TP.Hồ Chí Minh,original,Phường Phú An
+"Thu Dau Mot, Binh Duong, Vietnam",11.069000244140623,106.65399932861328,TP.Hồ Chí Minh,original,Phường Phú An
 "Thua Thien Hue 83 Hung Vuong, Hue, Thua Thien Hue, Vietnam",16.46780014038086,107.5905990600586,Huế,original,Xã Phú Hồ
 "Thua Thien Hue, Vietnam",16.46780014038086,107.5905990600586,Huế,original,Xã Phú Hồ
-"Tp Ho Chi Minh Duong Nguyen Van Tao, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.669108390808105,106.72429656982422,Đồng Nai,tomtom_geocoding,Xã Đại Phước
+"Tp Ho Chi Minh Duong Nguyen Van Tao, Ho Chi Minh City, Ho Chi Minh, Vietnam",10.669108390808104,106.72429656982422,Đồng Nai,tomtom_geocoding,Xã Đại Phước
 "Tra Da, Pleiku, Gia Lai, Vietnam",13.807900428771973,108.1093978881836,Gia Lai,original,Xã Kon Chiêng
 "Tra Vinh xa Dan Thanh, Tra Vinh, Tra Vinh, Vietnam",9.947500228881836,106.3375015258789,Vĩnh Long,original,Xã Thành Thới
 "Tra Vinh xa Dong Hai, Tra Vinh, Tra Vinh, Vietnam",9.947500228881836,106.3375015258789,Vĩnh Long,original,Xã Thành Thới
 "Tra Vinh, Tra Vinh, Vietnam",9.936279296875,106.34111785888672,Vĩnh Long,tomtom_fix,Xã Thành Thới
 "Tram y te xa Sai Son Quoc Oai, Hanoi, Ha Noi, Vietnam",21.02404022216797,105.64610290527344,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
-"Tru so cong an xa Tu Hiep Thanh Tri, Hanoi, Ha Noi, Vietnam",20.946819305419922,105.85263061523438,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
+"Tru so cong an xa Tu Hiep Thanh Tri, Hanoi, Ha Noi, Vietnam",20.94681930541992,105.85263061523438,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Trung Thanh, Thanh pho Thai Nguyen, Thai Nguyen, Vietnam",12.253999710083008,109.1923599243164,Khánh Hòa,tomtom_fix,TP Nha Trang
-"Tuyen Quang Province, Vietnam",21.822999954223633,105.21489715576172,Tuyên Quang,original,Phường Minh Xuân
+"Tuyen Quang Province, Vietnam",21.822999954223636,105.21489715576172,Tuyên Quang,original,Phường Minh Xuân
 "UBND P Cau Dien Nam Tu Liem, Hanoi, Ha Noi, Vietnam",21.03598403930664,105.7614974975586,TP.Hà Nội,tomtom_geocoding,Xã Ô Diên
-"UBND Phuong Dien Bien Ba Dinh, Hanoi, Ha Noi, Vietnam",21.03223991394043,105.83910369873047,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"UBND TT Chuc Son Chuong, Hanoi, Ha Noi, Vietnam",20.795501708984375,105.67591094970703,TP.Hà Nội,tomtom_geocoding,Xã Quảng Bị
-"UBND TT Kim Bai Thanh Oai, Hanoi, Ha Noi, Vietnam",20.858022689819336,105.76557922363281,TP.Hà Nội,aqicn_fuzzy,Xã Tam Hưng
+"UBND Phuong Dien Bien Ba Dinh, Hanoi, Ha Noi, Vietnam",21.03223991394043,105.83910369873048,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
+"UBND TT Chuc Son Chuong, Hanoi, Ha Noi, Vietnam",20.79550170898437,105.67591094970705,TP.Hà Nội,tomtom_geocoding,Xã Quảng Bị
+"UBND TT Kim Bai Thanh Oai, Hanoi, Ha Noi, Vietnam",20.858022689819336,105.7655792236328,TP.Hà Nội,aqicn_fuzzy,Xã Tam Hưng
 "Ubnd P Minh Khai, Hanoi, Ha Noi, Vietnam",21.00440216064453,105.8692855834961,TP.Hà Nội,tomtom_geocoding,Phường Lĩnh Nam
-"United Nations International School Of Hanoi, Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671875,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
-"Viet Tri, Phu Tho, Vietnam",21.373699188232422,105.22250366210938,Phú Thọ,original,Xã Thanh Sơn
-"Viet Tri, Viet Tri, Phu Tho, Vietnam",21.373699188232422,105.22250366210938,Phú Thọ,original,Xã Thanh Sơn
+"United Nations International School Of Hanoi, Hanoi, Ha Noi, Vietnam",20.99910545349121,105.69989013671876,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
+"Viet Tri, Phu Tho, Vietnam",21.373699188232425,105.22250366210938,Phú Thọ,original,Xã Thanh Sơn
+"Viet Tri, Viet Tri, Phu Tho, Vietnam",21.373699188232425,105.22250366210938,Phú Thọ,original,Xã Thanh Sơn
 "Vietnam 3 PurpleAir, Quang Tri, Quang Tri, Vietnam",16.73859977722168,107.09110260009766,Quảng Trị,original,Xã Ái Tử
-"Vinh Long, Vietnam",9.993799209594727,106.29348754882812,Vĩnh Long,tomtom_fix,Xã Thành Thới
+"Vinh Long, Vietnam",9.993799209594728,106.29348754882812,Vĩnh Long,tomtom_fix,Xã Thành Thới
 "Vinh Luong, Nha Trang, Khanh Hoa, Vietnam",12.25879955291748,109.0521011352539,Khánh Hòa,original,TP Nha Trang
-"Vinh Phuc, Vietnam",21.36090087890625,105.59729766845703,Phú Thọ,original,Xã Tam Dương
-"Vinh Yen, Vinh Phuc, Vietnam",21.36090087890625,105.59729766845703,Phú Thọ,original,Xã Tam Dương
-"Vinh, Nghe An, Vietnam",18.665306091308594,105.69046020507812,Nghệ An,tomtom_fix,Phường Vinh Lộc
-"Vinh, Vinh, Nghe An, Vietnam",19.248300552368164,104.92040252685547,Nghệ An,original,Xã Nga My
+"Vinh Phuc, Vietnam",21.36090087890625,105.59729766845705,Phú Thọ,original,Xã Tam Dương
+"Vinh Yen, Vinh Phuc, Vietnam",21.36090087890625,105.59729766845705,Phú Thọ,original,Xã Tam Dương
+"Vinh, Nghe An, Vietnam",18.665306091308597,105.69046020507812,Nghệ An,tomtom_fix,Phường Vinh Lộc
+"Vinh, Vinh, Nghe An, Vietnam",19.248300552368164,104.92040252685548,Nghệ An,original,Xã Nga My
 "Vung Tau, Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành
-"Xa Trung Gia, Soc Son District, Ha Noi, Vietnam",21.324241638183594,105.82756805419922,Phú Thọ,tomtom_geocoding,Xã Bình Tuyền
+"Xa Trung Gia, Soc Son District, Ha Noi, Vietnam",21.324241638183597,105.82756805419922,TP.Hà Nội,tomtom_geocoding,Xã Bình Tuyền
 "Xuan Mai Town Committee, Chuong My, Hanoi, Vietnam",20.91307830810547,105.73343658447266,TP.Hà Nội,tomtom_geocoding,Xã Quảng Bị
 "Xuan Tao Ward, North Tu Liem District, Ha Noi, Vietnam",21.031618118286133,105.76729583740234,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
-"ong a, Quy Nhon, Binh Dinh, Vietnam",13.782999992370605,109.2239990234375,Gia Lai,original,Xã Đăk Song
+"ong a, Quy Nhon, Binh Dinh, Vietnam",13.782999992370604,109.2239990234375,Gia Lai,original,Xã Đăk Song
 "phuong 7, Vung Tau, Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành
