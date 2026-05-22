@@ -57,16 +57,22 @@ normalized as (
         station_name,
         timestamp_utc,
         parameter,
-        -- Standardize units to µg/m³ at 25°C, 1 atm
         case
             when raw_unit = 'ppb' then
                 case
                     when parameter = 'o3' then raw_value * 1.96
                     when parameter = 'no2' then raw_value * 1.88
                     when parameter = 'so2' then raw_value * 2.62
+                    when parameter = 'co' then raw_value * 1.145
                     else raw_value
                 end
-            when raw_unit = 'ppm' and parameter = 'co' then raw_value * 1145
+            when raw_unit = 'ppm' and parameter = 'co' then
+                -- Historical raw data was labeled 'ppm' but numeric values are actually 'ppb' (e.g., ~300)
+                -- We use 1.145 if raw_value >= 10 (which covers all historical ppb values), otherwise 1145 for true ppm
+                case
+                    when raw_value >= 10 then raw_value * 1.145
+                    else raw_value * 1145
+                end
             else raw_value
         end as value,
         aqi_reported,

@@ -155,8 +155,163 @@ else:
 
 # ── Data Fetching ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def get_national_summary(table, col, m_col, scope, dates, tunit, source_name="blended"):
+def get_national_summary(table, col, m_col, grain, scope, dates, tunit, source_name="blended"):
     """KPI summary — follows the active filter (time_unit aware)."""
+    if source_name == "aqiin":
+        # Raw / Staging level query for un-aggregated stations summary
+        is_aqi = "aqi" in col
+        if is_aqi:
+            pollutant_name = "aqi"
+            standard_name = "VN_AQI" if "vn" in col else "US_AQI"
+        else:
+            pollutant_name = col.split("_")[0]  # e.g., "pm25" from "pm25_avg"
+            standard_name = "VN_AQI"
+
+        # Construct date filter
+        if dates and len(dates) == 2:
+            start_val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
+            end_val = dates[1].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[1], "hour") else f"{dates[1]} 23:59:59"
+            date_filter = f"timestamp_utc BETWEEN toDateTime('{start_val}') AND toDateTime('{end_val}')"
+        elif dates and len(dates) == 1:
+            val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
+            date_filter = f"timestamp_utc >= toDateTime('{val}')"
+        else:
+            date_filter = "1=1"
+
+        # Construct spatial filter
+        spatial_filters = []
+        if grain == "Vùng" and scope:
+            spatial_filters.append(f"d.region_3 = '{scope}'")
+        elif grain == "Khu vực" and scope:
+            spatial_filters.append(f"d.region_8 = '{scope}'")
+        elif grain in ["Tỉnh", "Phường"] and scope:
+            spatial_filters.append(f"s.province = '{scope}'")
+            
+        spatial_filter_str = " AND ".join(spatial_filters) if spatial_filters else "1=1"
+
+        if pollutant_name == "aqi":
+            if standard_name == "VN_AQI":
+                # Compute VN AQI on the fly using standard formulas from calculate_aqi_vn macro
+                aqi_vn_expr = """
+                CASE
+                    WHEN LOWER(parameter) = 'pm25' THEN
+                        CASE
+                            WHEN value <= 25 THEN ((50.0 - 0.0) / (25.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 50 THEN ((100.0 - 51.0) / (50.0 - 26.0)) * (value - 26.0) + 51.0
+                            WHEN value <= 80 THEN ((150.0 - 101.0) / (80.0 - 51.0)) * (value - 51.0) + 101.0
+                            WHEN value <= 150 THEN ((200.0 - 151.0) / (150.0 - 81.0)) * (value - 81.0) + 151.0
+                            WHEN value <= 250 THEN ((300.0 - 201.0) / (250.0 - 151.0)) * (value - 151.0) + 201.0
+                            WHEN value <= 350 THEN ((400.0 - 301.0) / (350.0 - 251.0)) * (value - 251.0) + 301.0
+                            WHEN value <= 500 THEN ((500.0 - 401.0) / (500.0 - 351.0)) * (value - 351.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'pm10' THEN
+                        CASE
+                            WHEN value <= 50 THEN ((50.0 - 0.0) / (50.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 150 THEN ((100.0 - 51.0) / (150.0 - 51.0)) * (value - 51.0) + 51.0
+                            WHEN value <= 250 THEN ((150.0 - 101.0) / (250.0 - 151.0)) * (value - 151.0) + 101.0
+                            WHEN value <= 350 THEN ((200.0 - 151.0) / (350.0 - 251.0)) * (value - 251.0) + 151.0
+                            WHEN value <= 420 THEN ((300.0 - 201.0) / (420.0 - 351.0)) * (value - 351.0) + 201.0
+                            WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 421.0)) * (value - 421.0) + 301.0
+                            WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'o3' THEN
+                        CASE
+                            WHEN value <= 160 THEN ((50.0 - 0.0) / (160.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 200 THEN ((100.0 - 51.0) / (200.0 - 161.0)) * (value - 161.0) + 51.0
+                            WHEN value <= 240 THEN ((150.0 - 101.0) / (240.0 - 201.0)) * (value - 201.0) + 101.0
+                            WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 241.0)) * (value - 241.0) + 151.0
+                            WHEN value <= 400 THEN ((300.0 - 201.0) / (400.0 - 281.0)) * (value - 281.0) + 201.0
+                            WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 401.0)) * (value - 401.0) + 301.0
+                            WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'so2' THEN
+                        CASE
+                            WHEN value <= 125 THEN ((50.0 - 0.0) / (125.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 350 THEN ((100.0 - 51.0) / (350.0 - 126.0)) * (value - 126.0) + 51.0
+                            WHEN value <= 550 THEN ((150.0 - 101.0) / (550.0 - 351.0)) * (value - 351.0) + 101.0
+                            WHEN value <= 800 THEN ((200.0 - 151.0) / (800.0 - 551.0)) * (value - 551.0) + 151.0
+                            WHEN value <= 1600 THEN ((300.0 - 201.0) / (1600.0 - 801.0)) * (value - 801.0) + 201.0
+                            WHEN value <= 2100 THEN ((400.0 - 301.0) / (2100.0 - 1601.0)) * (value - 1601.0) + 301.0
+                            WHEN value <= 2630 THEN ((500.0 - 401.0) / (2630.0 - 2101.0)) * (value - 2101.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'no2' THEN
+                        CASE
+                            WHEN value <= 40 THEN ((50.0 - 0.0) / (40.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 80 THEN ((100.0 - 51.0) / (80.0 - 41.0)) * (value - 41.0) + 51.0
+                            WHEN value <= 180 THEN ((150.0 - 101.0) / (180.0 - 81.0)) * (value - 81.0) + 101.0
+                            WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 181.0)) * (value - 181.0) + 151.0
+                            WHEN value <= 565 THEN ((300.0 - 201.0) / (565.0 - 281.0)) * (value - 281.0) + 201.0
+                            WHEN value <= 750 THEN ((400.0 - 301.0) / (750.0 - 566.0)) * (value - 566.0) + 301.0
+                            WHEN value <= 940 THEN ((500.0 - 401.0) / (940.0 - 751.0)) * (value - 751.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'co' THEN
+                        CASE
+                            WHEN value <= 10000 THEN ((50.0 - 0.0) / (10000.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 30000 THEN ((100.0 - 51.0) / (30000.0 - 10001.0)) * (value - 10001.0) + 51.0
+                            WHEN value <= 45000 THEN ((150.0 - 101.0) / (45000.0 - 30001.0)) * (value - 30001.0) + 101.0
+                            WHEN value <= 60000 THEN ((200.0 - 151.0) / (60000.0 - 45001.0)) * (value - 45001.0) + 151.0
+                            WHEN value <= 90000 THEN ((300.0 - 201.0) / (90000.0 - 60001.0)) * (value - 60001.0) + 201.0
+                            WHEN value <= 120000 THEN ((400.0 - 301.0) / (120000.0 - 90001.0)) * (value - 90001.0) + 301.0
+                            WHEN value <= 150000 THEN ((500.0 - 401.0) / (150000.0 - 120001.0)) * (value - 120001.0) + 401.0
+                            ELSE NULL
+                        END
+                    ELSE NULL
+                END
+                """
+                overall_aqi_expr = f"max({aqi_vn_expr})"
+                main_poll_expr = f"argMax(parameter, {aqi_vn_expr})"
+            else:
+                # US AQI
+                overall_aqi_expr = "any(aqi_reported)"
+                main_poll_expr = "argMax(parameter, value)"
+
+            q = f"""
+            SELECT
+                avg(t.overall_aqi) AS avg_val,
+                max(t.overall_aqi) AS max_val,
+                count(distinct s.province) AS province_count,
+                topK(1)(t.main_pollutant)[1] AS dominant_pollutant
+            FROM (
+                SELECT
+                    station_name,
+                    timestamp_utc,
+                    {overall_aqi_expr} AS overall_aqi,
+                    {main_poll_expr} AS main_pollutant
+                FROM air_quality.stg_aqiin__measurements
+                WHERE parameter IN ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
+                  AND {date_filter}
+                GROUP BY station_name, timestamp_utc
+            ) t
+            JOIN air_quality.stg_core__stations s ON t.station_name = s.station_name
+            LEFT JOIN air_quality.dim_administrative_units d ON s.ward_code = d.ward_code
+            WHERE {spatial_filter_str}
+              AND s.latitude != 0
+              AND s.longitude != 0
+            """
+        else:
+            # Specific pollutant summary
+            q = f"""
+            SELECT
+                avg(m.value) AS avg_val,
+                max(m.value) AS max_val,
+                count(distinct s.province) AS province_count,
+                '{pollutant_name}' AS dominant_pollutant
+            FROM air_quality.stg_aqiin__measurements m
+            JOIN air_quality.stg_core__stations s ON m.station_name = s.station_name
+            LEFT JOIN air_quality.dim_administrative_units d ON m.ward_code = d.ward_code
+            WHERE m.parameter = '{pollutant_name}'
+              AND {date_filter}
+              AND {spatial_filter_str}
+              AND s.latitude != 0
+              AND s.longitude != 0
+            """
+        return query_df(q)
+
     source_mix = get_source_mix(source_name)
     where_clause = build_where_clause(None, scope, dates, time_unit=tunit, source_mix=source_mix)
     q = f"""
@@ -177,91 +332,263 @@ def get_national_summary(table, col, m_col, scope, dates, tunit, source_name="bl
 @st.cache_data(ttl=300)
 def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"):
     """Map & bar chart data — ward-level for Tỉnh/Phường, province-level otherwise."""
-    source_mix = get_source_mix(source_name)
-    where_clause = build_where_clause(grain, scope, dates, time_unit=tunit, source_mix=source_mix)
+    if source_name == "aqiin":
+        # Raw / Staging level query for un-aggregated stations
+        is_aqi = "aqi" in col
+        if is_aqi:
+            pollutant_name = "aqi"
+            standard_name = "VN_AQI" if "vn" in col else "US_AQI"
+        else:
+            pollutant_name = col.split("_")[0]  # e.g., "pm25" from "pm25_avg"
+            standard_name = "VN_AQI"
 
-    if grain in ["Tỉnh", "Phường"]:
-        # Ward-level: show individual ward dots on the map
-        # Note: aliases use lat/lon (not latitude/longitude) to avoid ClickHouse
-        # ILLEGAL_AGGREGATION error when WHERE clause references same column name.
-        # confidence_level uses a subquery so avg(confidence_score) is already a
-        # plain scalar in the outer SELECT — avoids ClickHouse ILLEGAL_AGGREGATION.
-        q = f"""
-        SELECT
-            ward_code,
-            ward_name,
-            province,
-            lat,
-            lon,
-            display_val,
-            main_pollutant,
-            confidence_score,
-            if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
-            source_mix_val as source_mix,
-            aqiin_observation_count,
-            openweather_observation_count
-        FROM (
+        # Construct date filter
+        if dates and len(dates) == 2:
+            start_val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
+            end_val = dates[1].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[1], "hour") else f"{dates[1]} 23:59:59"
+            date_filter = f"timestamp_utc BETWEEN toDateTime('{start_val}') AND toDateTime('{end_val}')"
+        elif dates and len(dates) == 1:
+            val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
+            date_filter = f"timestamp_utc >= toDateTime('{val}')"
+        else:
+            date_filter = "1=1"
+
+        # Construct spatial filter
+        spatial_filters = []
+        if grain == "Vùng" and scope:
+            spatial_filters.append(f"d.region_3 = '{scope}'")
+        elif grain == "Khu vực" and scope:
+            spatial_filters.append(f"d.region_8 = '{scope}'")
+        elif grain in ["Tỉnh", "Phường"] and scope:
+            spatial_filters.append(f"s.province = '{scope}'")
+            
+        spatial_filter_str = " AND ".join(spatial_filters) if spatial_filters else "1=1"
+
+        if pollutant_name == "aqi":
+            if standard_name == "VN_AQI":
+                # Compute VN AQI on the fly using standard formulas from calculate_aqi_vn macro
+                aqi_vn_expr = """
+                CASE
+                    WHEN LOWER(parameter) = 'pm25' THEN
+                        CASE
+                            WHEN value <= 25 THEN ((50.0 - 0.0) / (25.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 50 THEN ((100.0 - 51.0) / (50.0 - 26.0)) * (value - 26.0) + 51.0
+                            WHEN value <= 80 THEN ((150.0 - 101.0) / (80.0 - 51.0)) * (value - 51.0) + 101.0
+                            WHEN value <= 150 THEN ((200.0 - 151.0) / (150.0 - 81.0)) * (value - 81.0) + 151.0
+                            WHEN value <= 250 THEN ((300.0 - 201.0) / (250.0 - 151.0)) * (value - 151.0) + 201.0
+                            WHEN value <= 350 THEN ((400.0 - 301.0) / (350.0 - 251.0)) * (value - 251.0) + 301.0
+                            WHEN value <= 500 THEN ((500.0 - 401.0) / (500.0 - 351.0)) * (value - 351.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'pm10' THEN
+                        CASE
+                            WHEN value <= 50 THEN ((50.0 - 0.0) / (50.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 150 THEN ((100.0 - 51.0) / (150.0 - 51.0)) * (value - 51.0) + 51.0
+                            WHEN value <= 250 THEN ((150.0 - 101.0) / (250.0 - 151.0)) * (value - 151.0) + 101.0
+                            WHEN value <= 350 THEN ((200.0 - 151.0) / (350.0 - 251.0)) * (value - 251.0) + 151.0
+                            WHEN value <= 420 THEN ((300.0 - 201.0) / (420.0 - 351.0)) * (value - 351.0) + 201.0
+                            WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 421.0)) * (value - 421.0) + 301.0
+                            WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'o3' THEN
+                        CASE
+                            WHEN value <= 160 THEN ((50.0 - 0.0) / (160.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 200 THEN ((100.0 - 51.0) / (200.0 - 161.0)) * (value - 161.0) + 51.0
+                            WHEN value <= 240 THEN ((150.0 - 101.0) / (240.0 - 201.0)) * (value - 201.0) + 101.0
+                            WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 241.0)) * (value - 241.0) + 151.0
+                            WHEN value <= 400 THEN ((300.0 - 201.0) / (400.0 - 281.0)) * (value - 281.0) + 201.0
+                            WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 401.0)) * (value - 401.0) + 301.0
+                            WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'so2' THEN
+                        CASE
+                            WHEN value <= 125 THEN ((50.0 - 0.0) / (125.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 350 THEN ((100.0 - 51.0) / (350.0 - 126.0)) * (value - 126.0) + 51.0
+                            WHEN value <= 550 THEN ((150.0 - 101.0) / (550.0 - 351.0)) * (value - 351.0) + 101.0
+                            WHEN value <= 800 THEN ((200.0 - 151.0) / (800.0 - 551.0)) * (value - 551.0) + 151.0
+                            WHEN value <= 1600 THEN ((300.0 - 201.0) / (1600.0 - 801.0)) * (value - 801.0) + 201.0
+                            WHEN value <= 2100 THEN ((400.0 - 301.0) / (2100.0 - 1601.0)) * (value - 1601.0) + 301.0
+                            WHEN value <= 2630 THEN ((500.0 - 401.0) / (2630.0 - 2101.0)) * (value - 2101.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'no2' THEN
+                        CASE
+                            WHEN value <= 40 THEN ((50.0 - 0.0) / (40.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 80 THEN ((100.0 - 51.0) / (80.0 - 41.0)) * (value - 41.0) + 51.0
+                            WHEN value <= 180 THEN ((150.0 - 101.0) / (180.0 - 81.0)) * (value - 81.0) + 101.0
+                            WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 181.0)) * (value - 181.0) + 151.0
+                            WHEN value <= 565 THEN ((300.0 - 201.0) / (565.0 - 281.0)) * (value - 281.0) + 201.0
+                            WHEN value <= 750 THEN ((400.0 - 301.0) / (750.0 - 566.0)) * (value - 566.0) + 301.0
+                            WHEN value <= 940 THEN ((500.0 - 401.0) / (940.0 - 751.0)) * (value - 751.0) + 401.0
+                            ELSE NULL
+                        END
+                    WHEN LOWER(parameter) = 'co' THEN
+                        CASE
+                            WHEN value <= 10000 THEN ((50.0 - 0.0) / (10000.0 - 0.0)) * (value - 0.0) + 0.0
+                            WHEN value <= 30000 THEN ((100.0 - 51.0) / (30000.0 - 10001.0)) * (value - 10001.0) + 51.0
+                            WHEN value <= 45000 THEN ((150.0 - 101.0) / (45000.0 - 30001.0)) * (value - 30001.0) + 101.0
+                            WHEN value <= 60000 THEN ((200.0 - 151.0) / (60000.0 - 45001.0)) * (value - 45001.0) + 151.0
+                            WHEN value <= 90000 THEN ((300.0 - 201.0) / (90000.0 - 60001.0)) * (value - 60001.0) + 201.0
+                            WHEN value <= 120000 THEN ((400.0 - 301.0) / (120000.0 - 90001.0)) * (value - 90001.0) + 301.0
+                            WHEN value <= 150000 THEN ((500.0 - 401.0) / (150000.0 - 120001.0)) * (value - 120001.0) + 401.0
+                            ELSE NULL
+                        END
+                    ELSE NULL
+                END
+                """
+                overall_aqi_expr = f"max({aqi_vn_expr})"
+                main_poll_expr = f"argMax(parameter, {aqi_vn_expr})"
+            else:
+                # US AQI
+                overall_aqi_expr = "any(aqi_reported)"
+                main_poll_expr = "argMax(parameter, value)"
+
+            q = f"""
+            SELECT
+                s.ward_code AS ward_code,
+                s.station_name AS ward_name,
+                s.province AS province,
+                any(s.latitude) AS lat,
+                any(s.longitude) AS lon,
+                avg(t.overall_aqi) AS display_val,
+                topK(1)(t.main_pollutant)[1] AS main_pollutant,
+                1.0 AS confidence_score,
+                'high' AS confidence_level,
+                'observed' AS source_mix,
+                sum(t.obs_count) AS aqiin_observation_count,
+                0 AS openweather_observation_count
+            FROM (
+                SELECT
+                    station_name,
+                    timestamp_utc,
+                    {overall_aqi_expr} AS overall_aqi,
+                    {main_poll_expr} AS main_pollutant,
+                    count() AS obs_count
+                FROM air_quality.stg_aqiin__measurements
+                WHERE parameter IN ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
+                  AND {date_filter}
+                GROUP BY station_name, timestamp_utc
+            ) t
+            JOIN air_quality.stg_core__stations s ON t.station_name = s.station_name
+            LEFT JOIN air_quality.dim_administrative_units d ON s.ward_code = d.ward_code
+            WHERE {spatial_filter_str}
+              AND s.latitude != 0
+              AND s.longitude != 0
+            GROUP BY s.ward_code, s.station_name, s.province
+            """
+        else:
+            q = f"""
+            SELECT
+                s.ward_code AS ward_code,
+                s.station_name AS ward_name,
+                s.province AS province,
+                any(s.latitude) AS lat,
+                any(s.longitude) AS lon,
+                avg(m.value) AS display_val,
+                '{pollutant_name}' AS main_pollutant,
+                1.0 AS confidence_score,
+                'high' AS confidence_level,
+                'observed' AS source_mix,
+                count(distinct m.timestamp_utc) AS aqiin_observation_count,
+                0 AS openweather_observation_count
+            FROM air_quality.stg_aqiin__measurements m
+            JOIN air_quality.stg_core__stations s ON m.station_name = s.station_name
+            LEFT JOIN air_quality.dim_administrative_units d ON m.ward_code = d.ward_code
+            WHERE m.parameter = '{pollutant_name}'
+              AND {date_filter}
+              AND {spatial_filter_str}
+              AND s.latitude != 0
+              AND s.longitude != 0
+            GROUP BY s.ward_code, s.station_name, s.province
+            """
+    else:
+        source_mix = get_source_mix(source_name)
+        where_clause = build_where_clause(grain, scope, dates, time_unit=tunit, source_mix=source_mix)
+
+        if grain in ["Tỉnh", "Phường"]:
+            # Ward-level: show individual ward dots on the map
+            # Note: aliases use lat/lon (not latitude/longitude) to avoid ClickHouse
+            # ILLEGAL_AGGREGATION error when WHERE clause references same column name.
+            # confidence_level uses a subquery so avg(confidence_score) is already a
+            # plain scalar in the outer SELECT — avoids ClickHouse ILLEGAL_AGGREGATION.
+            q = f"""
             SELECT
                 ward_code,
                 ward_name,
                 province,
-                any(latitude)  AS lat,
-                any(longitude) AS lon,
-                avg({col}) as display_val,
-                topK(1)(main_pollutant)[1] as main_pollutant,
-                avg(confidence_score) as confidence_score,
-                topK(1)(source_mix)[1] as source_mix_val,
-                sum(aqiin_observation_count) as aqiin_observation_count,
-                sum(openweather_observation_count) as openweather_observation_count
-            FROM air_quality.{table}
-            WHERE {where_clause}
-              AND {col} IS NOT NULL
-              AND province IS NOT NULL
-              AND province != ''
-              AND ward_name IS NOT NULL
-              AND ward_name != ''
-              AND latitude  != 0
-              AND longitude != 0
-            GROUP BY ward_code, ward_name, province
-        )
-        """
-    else:
-        # National / Region: aggregate to province centroids
-        # confidence_level uses a subquery so avg(confidence_score) is already a
-        # plain scalar in the outer SELECT — avoids ClickHouse ILLEGAL_AGGREGATION.
-        q = f"""
-        SELECT
-            province,
-            lat,
-            lon,
-            display_val,
-            main_pollutant,
-            confidence_score,
-            if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
-            source_mix_val as source_mix,
-            aqiin_observation_count,
-            openweather_observation_count
-        FROM (
+                lat,
+                lon,
+                display_val,
+                main_pollutant,
+                confidence_score,
+                if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
+                source_mix_val as source_mix,
+                aqiin_observation_count,
+                openweather_observation_count
+            FROM (
+                SELECT
+                    ward_code,
+                    ward_name,
+                    province,
+                    any(latitude)  AS lat,
+                    any(longitude) AS lon,
+                    avg({col}) as display_val,
+                    topK(1)(main_pollutant)[1] as main_pollutant,
+                    avg(confidence_score) as confidence_score,
+                    topK(1)(source_mix)[1] as source_mix_val,
+                    sum(aqiin_observation_count) as aqiin_observation_count,
+                    sum(openweather_observation_count) as openweather_observation_count
+                FROM air_quality.{table}
+                WHERE {where_clause}
+                  AND {col} IS NOT NULL
+                  AND province IS NOT NULL
+                  AND province != ''
+                  AND ward_name IS NOT NULL
+                  AND ward_name != ''
+                  AND latitude  != 0
+                  AND longitude != 0
+                GROUP BY ward_code, ward_name, province
+            )
+            """
+        else:
+            # National / Region: aggregate to province centroids
+            # confidence_level uses a subquery so avg(confidence_score) is already a
+            # plain scalar in the outer SELECT — avoids ClickHouse ILLEGAL_AGGREGATION.
+            q = f"""
             SELECT
                 province,
-                avg(latitude)  AS lat,
-                avg(longitude) AS lon,
-                avg({col}) as display_val,
-                topK(1)(main_pollutant)[1] as main_pollutant,
-                avg(confidence_score) as confidence_score,
-                topK(1)(source_mix)[1] as source_mix_val,
-                sum(aqiin_observation_count) as aqiin_observation_count,
-                sum(openweather_observation_count) as openweather_observation_count
-            FROM air_quality.{table}
-            WHERE {where_clause}
-              AND {col} IS NOT NULL
-              AND province IS NOT NULL
-              AND province != ''
-              AND latitude  != 0
-              AND longitude != 0
-            GROUP BY province
-        )
-        """
+                lat,
+                lon,
+                display_val,
+                main_pollutant,
+                confidence_score,
+                if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
+                source_mix_val as source_mix,
+                aqiin_observation_count,
+                openweather_observation_count
+            FROM (
+                SELECT
+                    province,
+                    avg(latitude)  AS lat,
+                    avg(longitude) AS lon,
+                    avg({col}) as display_val,
+                    topK(1)(main_pollutant)[1] as main_pollutant,
+                    avg(confidence_score) as confidence_score,
+                    topK(1)(source_mix)[1] as source_mix_val,
+                    sum(aqiin_observation_count) as aqiin_observation_count,
+                    sum(openweather_observation_count) as openweather_observation_count
+                FROM air_quality.{table}
+                WHERE {where_clause}
+                  AND {col} IS NOT NULL
+                  AND province IS NOT NULL
+                  AND province != ''
+                  AND latitude  != 0
+                  AND longitude != 0
+                GROUP BY province
+            )
+            """
     df = query_df(q)
     # Restore expected column names for downstream map rendering
     if not df.empty and "lat" in df.columns:
@@ -271,8 +598,146 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
 
 
 @st.cache_data(ttl=300)
-def get_aqi_distribution(table, col, scope, dates, tunit, source_name="blended"):
+def get_aqi_distribution(table, col, grain, scope, dates, tunit, source_name="blended"):
     """AQI category distribution — follows the active filter."""
+    if source_name == "aqiin":
+        # Raw / Staging level query for un-aggregated stations
+        standard_name = "VN_AQI" if "vn" in col else "US_AQI"
+
+        # Construct date filter
+        if dates and len(dates) == 2:
+            start_val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
+            end_val = dates[1].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[1], "hour") else f"{dates[1]} 23:59:59"
+            date_filter = f"timestamp_utc BETWEEN toDateTime('{start_val}') AND toDateTime('{end_val}')"
+        elif dates and len(dates) == 1:
+            val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
+            date_filter = f"timestamp_utc >= toDateTime('{val}')"
+        else:
+            date_filter = "1=1"
+
+        # Construct spatial filter
+        spatial_filters = []
+        if grain == "Vùng" and scope:
+            spatial_filters.append(f"d.region_3 = '{scope}'")
+        elif grain == "Khu vực" and scope:
+            spatial_filters.append(f"d.region_8 = '{scope}'")
+        elif grain in ["Tỉnh", "Phường"] and scope:
+            spatial_filters.append(f"s.province = '{scope}'")
+            
+        spatial_filter_str = " AND ".join(spatial_filters) if spatial_filters else "1=1"
+
+        if standard_name == "VN_AQI":
+            # Compute VN AQI on the fly using standard formulas from calculate_aqi_vn macro
+            aqi_vn_expr = """
+            CASE
+                WHEN LOWER(parameter) = 'pm25' THEN
+                    CASE
+                        WHEN value <= 25 THEN ((50.0 - 0.0) / (25.0 - 0.0)) * (value - 0.0) + 0.0
+                        WHEN value <= 50 THEN ((100.0 - 51.0) / (50.0 - 26.0)) * (value - 26.0) + 51.0
+                        WHEN value <= 80 THEN ((150.0 - 101.0) / (80.0 - 51.0)) * (value - 51.0) + 101.0
+                        WHEN value <= 150 THEN ((200.0 - 151.0) / (150.0 - 81.0)) * (value - 81.0) + 151.0
+                        WHEN value <= 250 THEN ((300.0 - 201.0) / (250.0 - 151.0)) * (value - 151.0) + 201.0
+                        WHEN value <= 350 THEN ((400.0 - 301.0) / (350.0 - 251.0)) * (value - 251.0) + 301.0
+                        WHEN value <= 500 THEN ((500.0 - 401.0) / (500.0 - 351.0)) * (value - 351.0) + 401.0
+                        ELSE NULL
+                    END
+                WHEN LOWER(parameter) = 'pm10' THEN
+                    CASE
+                        WHEN value <= 50 THEN ((50.0 - 0.0) / (50.0 - 0.0)) * (value - 0.0) + 0.0
+                        WHEN value <= 150 THEN ((100.0 - 51.0) / (150.0 - 51.0)) * (value - 51.0) + 51.0
+                        WHEN value <= 250 THEN ((150.0 - 101.0) / (250.0 - 151.0)) * (value - 151.0) + 101.0
+                        WHEN value <= 350 THEN ((200.0 - 151.0) / (350.0 - 251.0)) * (value - 251.0) + 151.0
+                        WHEN value <= 420 THEN ((300.0 - 201.0) / (420.0 - 351.0)) * (value - 351.0) + 201.0
+                        WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 421.0)) * (value - 421.0) + 301.0
+                        WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+                        ELSE NULL
+                    END
+                WHEN LOWER(parameter) = 'o3' THEN
+                    CASE
+                        WHEN value <= 160 THEN ((50.0 - 0.0) / (160.0 - 0.0)) * (value - 0.0) + 0.0
+                        WHEN value <= 200 THEN ((100.0 - 51.0) / (200.0 - 161.0)) * (value - 161.0) + 51.0
+                        WHEN value <= 240 THEN ((150.0 - 101.0) / (240.0 - 201.0)) * (value - 201.0) + 101.0
+                        WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 241.0)) * (value - 241.0) + 151.0
+                        WHEN value <= 400 THEN ((300.0 - 201.0) / (400.0 - 281.0)) * (value - 281.0) + 201.0
+                        WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 401.0)) * (value - 401.0) + 301.0
+                        WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+                        ELSE NULL
+                    END
+                WHEN LOWER(parameter) = 'so2' THEN
+                    CASE
+                        WHEN value <= 125 THEN ((50.0 - 0.0) / (125.0 - 0.0)) * (value - 0.0) + 0.0
+                        WHEN value <= 350 THEN ((100.0 - 51.0) / (350.0 - 126.0)) * (value - 126.0) + 51.0
+                        WHEN value <= 550 THEN ((150.0 - 101.0) / (550.0 - 351.0)) * (value - 351.0) + 101.0
+                        WHEN value <= 800 THEN ((200.0 - 151.0) / (800.0 - 551.0)) * (value - 551.0) + 151.0
+                        WHEN value <= 1600 THEN ((300.0 - 201.0) / (1600.0 - 801.0)) * (value - 801.0) + 201.0
+                        WHEN value <= 2100 THEN ((400.0 - 301.0) / (2100.0 - 1601.0)) * (value - 1601.0) + 301.0
+                        WHEN value <= 2630 THEN ((500.0 - 401.0) / (2630.0 - 2101.0)) * (value - 2101.0) + 401.0
+                        ELSE NULL
+                    END
+                WHEN LOWER(parameter) = 'no2' THEN
+                    CASE
+                        WHEN value <= 40 THEN ((50.0 - 0.0) / (40.0 - 0.0)) * (value - 0.0) + 0.0
+                        WHEN value <= 80 THEN ((100.0 - 51.0) / (80.0 - 41.0)) * (value - 41.0) + 51.0
+                        WHEN value <= 180 THEN ((150.0 - 101.0) / (180.0 - 81.0)) * (value - 81.0) + 101.0
+                        WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 181.0)) * (value - 181.0) + 151.0
+                        WHEN value <= 565 THEN ((300.0 - 201.0) / (565.0 - 281.0)) * (value - 281.0) + 201.0
+                        WHEN value <= 750 THEN ((400.0 - 301.0) / (750.0 - 566.0)) * (value - 566.0) + 301.0
+                        WHEN value <= 940 THEN ((500.0 - 401.0) / (940.0 - 751.0)) * (value - 751.0) + 401.0
+                        ELSE NULL
+                    END
+                WHEN LOWER(parameter) = 'co' THEN
+                    CASE
+                        WHEN value <= 10000 THEN ((50.0 - 0.0) / (10000.0 - 0.0)) * (value - 0.0) + 0.0
+                        WHEN value <= 30000 THEN ((100.0 - 51.0) / (30000.0 - 10001.0)) * (value - 10001.0) + 51.0
+                        WHEN value <= 45000 THEN ((150.0 - 101.0) / (45000.0 - 30001.0)) * (value - 30001.0) + 101.0
+                        WHEN value <= 60000 THEN ((200.0 - 151.0) / (60000.0 - 45001.0)) * (value - 45001.0) + 151.0
+                        WHEN value <= 90000 THEN ((300.0 - 201.0) / (90000.0 - 60001.0)) * (value - 60001.0) + 201.0
+                        WHEN value <= 120000 THEN ((400.0 - 301.0) / (120000.0 - 90001.0)) * (value - 90001.0) + 301.0
+                        WHEN value <= 150000 THEN ((500.0 - 401.0) / (150000.0 - 120001.0)) * (value - 120001.0) + 401.0
+                        ELSE NULL
+                    END
+                ELSE NULL
+            END
+            """
+            overall_aqi_expr = f"max({aqi_vn_expr})"
+        else:
+            # US AQI
+            overall_aqi_expr = "any(aqi_reported)"
+
+        q = f"""
+        SELECT
+            CASE
+                WHEN overall_aqi <= 50  THEN 'aqi_good'
+                WHEN overall_aqi <= 100 THEN 'aqi_moderate'
+                WHEN overall_aqi <= 150 THEN 'aqi_unhealthy_sg'
+                WHEN overall_aqi <= 200 THEN 'aqi_unhealthy'
+                WHEN overall_aqi <= 300 THEN 'aqi_very_unhealthy'
+                ELSE 'aqi_hazardous'
+            END as aqi_category_key,
+            count(*) as count
+        FROM (
+            SELECT
+                station_name,
+                timestamp_utc,
+                {overall_aqi_expr} AS overall_aqi
+            FROM air_quality.stg_aqiin__measurements
+            WHERE parameter IN ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
+              AND {date_filter}
+            GROUP BY station_name, timestamp_utc
+        ) t
+        JOIN air_quality.stg_core__stations s ON t.station_name = s.station_name
+        LEFT JOIN air_quality.dim_administrative_units d ON s.ward_code = d.ward_code
+        WHERE {spatial_filter_str}
+          AND s.latitude != 0
+          AND s.longitude != 0
+          AND overall_aqi IS NOT NULL
+        GROUP BY aqi_category_key
+        """
+        df = query_df(q)
+        if not df.empty:
+            df["aqi_category"] = df["aqi_category_key"].apply(lambda x: t(x, lang))
+        return df
+
     source_mix = get_source_mix(source_name)
     where_clause = build_where_clause(None, scope, dates, time_unit=tunit, source_mix=source_mix)
     q = f"""
@@ -374,7 +839,7 @@ def render_source_dashboard(source_name: str):
     # ── KPI Cards ─────────────────────────────────────────────────────────────────
     metric_row = st.columns(4)
     m_col = display_col if table_name.endswith("_hourly") else max_col
-    summary = get_national_summary(table_name, display_col, m_col, scope_val, date_range, time_unit, source_name)
+    summary = get_national_summary(table_name, display_col, m_col, spatial_grain, scope_val, date_range, time_unit, source_name)
     if not summary.empty:
         row = summary.iloc[0]
         with metric_row[0]:
@@ -414,7 +879,7 @@ def render_source_dashboard(source_name: str):
     st.subheader(map_title)
 
     map_df = get_chart_data(table_name, display_col, spatial_grain, scope_val, date_range, time_unit, source_name)
-    label_col = "ward_name" if spatial_grain in ["Tỉnh", "Phường"] else "province"
+    label_col = "ward_name" if (spatial_grain in ["Tỉnh", "Phường"] or source_name == "aqiin") else "province"
 
     if pollutant == "aqi":
         color_scale = get_aqi_color_scale(standard)
@@ -426,7 +891,7 @@ def render_source_dashboard(source_name: str):
     if not map_df.empty:
         map_lat   = map_df.latitude.mean()
         map_lon   = map_df.longitude.mean()
-        zoom_level = 8 if spatial_grain in ["Tỉnh", "Phường"] else 5
+        zoom_level = 8 if (spatial_grain in ["Tỉnh", "Phường"] or (source_name == "aqiin" and scope_val)) else 5
 
         tooltip_data = {
             "province": True,
@@ -450,7 +915,7 @@ def render_source_dashboard(source_name: str):
             zoom=zoom_level,
             center={"lat": map_lat, "lon": map_lon},
             size="display_val",
-            size_max=25,
+            size_max=35,
             labels={
                 "display_val": val_label,
                 "province":    t("province", lang),
@@ -477,7 +942,7 @@ def render_source_dashboard(source_name: str):
     with c1:
         if pollutant == "aqi":
             st.subheader(t("chart_aqi_dist", lang))
-            df_dist = get_aqi_distribution(table_name, display_col, scope_val, date_range, time_unit, source_name)
+            df_dist = get_aqi_distribution(table_name, display_col, spatial_grain, scope_val, date_range, time_unit, source_name)
             if not df_dist.empty:
                 aqi_colors = get_aqi_discrete_colors(standard)
                 color_map = {

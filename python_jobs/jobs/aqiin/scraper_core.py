@@ -125,8 +125,8 @@ def parse_api_json(data: dict, slug: str) -> LocationData:
 
         for api_key, internal_name in mapping.items():
             if api_key in iaqi:
-                # API usually returns CO in ppm and others in µg/m³ or ppb
-                unit = 'ppm' if internal_name == 'co' else ('µg/m³' if 'pm' in internal_name else 'ppb')
+                # API returns CO in ppb just like other gases (so2, no2, o3)
+                unit = 'µg/m³' if 'pm' in internal_name else 'ppb'
                 pollutants.append(PollutantReading(
                     parameter=internal_name,
                     value=float(iaqi[api_key]),
