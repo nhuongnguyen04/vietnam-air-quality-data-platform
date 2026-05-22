@@ -123,7 +123,7 @@ def get_high_risk_heatmap(days: int, province: str | None):
             date,
             datetime_hour,
             max(avg_aqi_us) AS hourly_aqi_us
-        FROM air_quality.fct_air_quality_province_level_hourly
+        FROM air_quality.fct_aqiin__province_hourly
         WHERE date >= today() - INTERVAL {days} DAY
           AND province IS NOT NULL AND province != ''
           {where_clause}

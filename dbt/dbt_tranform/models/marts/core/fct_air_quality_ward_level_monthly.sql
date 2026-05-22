@@ -1,99 +1,83 @@
 {{ config(
-    materialized='incremental',
-    on_schema_change='sync_all_columns',
-    engine='ReplacingMergeTree',
-    unique_key='(province, ward_code, month)',
+    materialized='table',
+    engine='MergeTree()',
     order_by='(province, month, assumeNotNull(ward_code))',
-    partition_by='toYYYYMM(month)'
+    partition_by='toYYYYMM(month)',
+    tags=['pipeline_v2']
 ) }}
 
-with ward_daily as (
-    select * from {{ ref('fct_air_quality_ward_level_daily') }}
-    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
-),
+select
+    month,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    samples_count,
+    avg_aqi_us,
+    max_aqi_us,
+    min_aqi_us,
+    avg_aqi_vn,
+    max_aqi_vn,
+    min_aqi_vn,
+    pm25_avg,
+    pm10_avg,
+    co_avg,
+    no2_avg,
+    so2_avg,
+    o3_avg,
+    pm25_aqi,
+    pm10_aqi,
+    co_aqi,
+    no2_aqi,
+    so2_aqi,
+    o3_aqi,
+    observation_count as aqiin_observation_count,
+    toUInt64(0) as openweather_observation_count,
+    'observed' as source_mix,
+    1.0 as confidence_score,
+    'high' as confidence_level,
+    last_ingested_at,
+    raw_loaded_at,
+    raw_sync_run_id,
+    raw_sync_started_at,
+    main_pollutant
+from {{ ref('int_aqiin__ward_monthly') }}
 
-monthly_agg as (
-    select
-        toStartOfMonth(date) as month,
-        province,
-        ward_code,
-        any(region_3) as region_3,
-        any(region_8) as region_8,
-        
-        avg(avg_aqi_us) as _avg_aqi_us,
-        max(max_aqi_us) as _max_aqi_us,
-        min(min_aqi_us) as _min_aqi_us,
-        
-        avg(avg_aqi_vn) as _avg_aqi_vn,
-        max(max_aqi_vn) as _max_aqi_vn,
-        min(min_aqi_vn) as _min_aqi_vn,
-        
-        -- Concentrations
-        avg(pm25_avg) as _pm25_avg,
-        avg(pm10_avg) as _pm10_avg,
-        avg(co_avg)   as _co_avg,
-        avg(no2_avg)  as _no2_avg,
-        avg(so2_avg)  as _so2_avg,
-        avg(o3_avg)   as _o3_avg,
+union all
 
-        -- Monthly average sub-AQIs
-        avg(pm25_aqi) as _pm25_aqi,
-        avg(pm10_aqi) as _pm10_aqi,
-        avg(co_aqi)   as _co_aqi,
-        avg(no2_aqi)  as _no2_aqi,
-        avg(so2_aqi)  as _so2_aqi,
-        avg(o3_aqi)   as _o3_aqi,
-
-        sum(aqiin_observation_count) as aqiin_observation_count,
-        sum(openweather_observation_count) as openweather_observation_count,
-        avg(confidence_score) as confidence_score,
-        
-        count(*) as samples_count,
-        max(last_ingested_at) as last_ingested_at,
-        max(raw_loaded_at) as max_raw_loaded_at,
-        argMax(raw_sync_run_id, raw_loaded_at) as latest_raw_sync_run_id,
-        argMax(raw_sync_started_at, raw_loaded_at) as latest_raw_sync_started_at
-        
-    from ward_daily
-    group by month, province, ward_code
-),
-
-final as (
-    select
-        month, province, ward_code, region_3, region_8, samples_count, last_ingested_at,
-        _avg_aqi_us as avg_aqi_us,
-        _max_aqi_us as max_aqi_us,
-        _min_aqi_us as min_aqi_us,
-        _avg_aqi_vn as avg_aqi_vn,
-        _max_aqi_vn as max_aqi_vn,
-        _min_aqi_vn as min_aqi_vn,
-        _pm25_avg as pm25_avg,
-        _pm10_avg as pm10_avg,
-        _co_avg as co_avg,
-        _no2_avg as no2_avg,
-        _so2_avg as so2_avg,
-        _o3_avg as o3_avg,
-        _pm25_aqi as pm25_aqi,
-        _pm10_aqi as pm10_aqi,
-        _co_aqi as co_aqi,
-        _no2_aqi as no2_aqi,
-        _so2_aqi as so2_aqi,
-        _o3_aqi as o3_aqi,
-        aqiin_observation_count,
-        openweather_observation_count,
-        if(
-            aqiin_observation_count > 0 and openweather_observation_count > 0,
-            'mixed',
-            if(aqiin_observation_count > 0, 'observed', 'modeled')
-        ) as source_mix,
-        confidence_score,
-        if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
-        -- Monthly main pollutant
-        {{ get_main_pollutant('_pm25_aqi', '_pm10_aqi', '_co_aqi', '_no2_aqi', '_so2_aqi', '_o3_aqi') }} as main_pollutant,
-        max_raw_loaded_at as raw_loaded_at,
-        latest_raw_sync_run_id as raw_sync_run_id,
-        latest_raw_sync_started_at as raw_sync_started_at
-    from monthly_agg
-)
-
-select * from final
+select
+    month,
+    province,
+    ward_code,
+    region_3,
+    region_8,
+    samples_count,
+    avg_aqi_us,
+    max_aqi_us,
+    min_aqi_us,
+    avg_aqi_vn,
+    max_aqi_vn,
+    min_aqi_vn,
+    pm25_avg,
+    pm10_avg,
+    co_avg,
+    no2_avg,
+    so2_avg,
+    o3_avg,
+    pm25_aqi,
+    pm10_aqi,
+    co_aqi,
+    no2_aqi,
+    so2_aqi,
+    o3_aqi,
+    toUInt64(0) as aqiin_observation_count,
+    observation_count as openweather_observation_count,
+    'modeled' as source_mix,
+    0.5 as confidence_score,
+    'medium' as confidence_level,
+    last_ingested_at,
+    raw_loaded_at,
+    raw_sync_run_id,
+    raw_sync_started_at,
+    main_pollutant
+from {{ ref('int_ow__ward_monthly') }}

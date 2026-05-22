@@ -33,9 +33,31 @@ SOURCE_MATRIX = {
     ("Phường", "Tháng"): "dm_air_quality_overview_monthly",
 }
 
-def get_source_table(spatial_grain: str, time_grain: str) -> str:
-    """Return the analytical table name for the given selection."""
-    return SOURCE_MATRIX.get((spatial_grain, time_grain), "dm_air_quality_overview_daily")
+def get_source_mix(source: str) -> str:
+    """Map source dropdown value to the unified source_mix database value."""
+    if source == "openweather":
+        return "modeled"
+    return "observed"
+
+def get_source_table(spatial_grain: str, time_grain: str, source: str = "blended") -> str:
+    """Return the analytical table name for the given selection and source."""
+    if source == "aqiin":
+        mapping = {
+            "Giờ": "dm_air_quality_overview_hourly",
+            "Ngày": "dm_air_quality_overview_daily",
+            "Tháng": "dm_air_quality_overview_monthly"
+        }
+        return mapping.get(time_grain, "dm_air_quality_overview_daily")
+    elif source == "openweather":
+        mapping = {
+            "Giờ": "dm_air_quality_overview_hourly",
+            "Ngày": "dm_air_quality_overview_daily",
+            "Tháng": "dm_air_quality_overview_monthly"
+        }
+        return mapping.get(time_grain, "dm_air_quality_overview_daily")
+    else:
+        return SOURCE_MATRIX.get((spatial_grain, time_grain), "dm_air_quality_overview_daily")
+
 
 @st.cache_data(ttl=3600)
 def get_hierarchy_metadata():
@@ -128,6 +150,7 @@ def build_where_clause(
     date_range=None,
     date_col: str = "date",
     time_unit: str = "day",
+    source_mix: str = None,
 ):
     """Construct dynamic WHERE clause based on hierarchical filters.
 
@@ -137,8 +160,11 @@ def build_where_clause(
         date_range: list/tuple of 2 date/datetime objects
         date_col: override the date column name (ignored when time_unit="hour")
         time_unit: "hour" uses datetime_hour + toDateTime(); "day" uses date column
+        source_mix: optionally filter by source_mix ("observed" or "modeled")
     """
     clauses = []
+    if source_mix:
+        clauses.append(f"source_mix = '{source_mix}'")
 
     if spatial_scope == "Vùng" and spatial_value:
         clauses.append(f"region_3 = '{spatial_value}'")
@@ -178,3 +204,59 @@ def build_where_clause(
                 clauses.append(f"{date_col} = '{formatted[0]}'")
 
     return " AND ".join(clauses) if clauses else "1=1"
+
+
+@st.cache_data(ttl=600)
+def get_source_coverage(province: str = None) -> list:
+    """Fetch ground station coverage per province or nation-wide from dm_source_coverage."""
+    where_clause = f"WHERE province = '{province}'" if province else ""
+    q = f"""
+    SELECT 
+        province,
+        total_ward_count,
+        aqiin_ward_count,
+        ow_ward_count,
+        aqiin_coverage_pct,
+        aqiin_latest_hour,
+        ow_latest_hour
+    FROM air_quality.dm_source_coverage
+    {where_clause}
+    ORDER BY aqiin_coverage_pct DESC
+    """
+    return query_df(q)
+
+
+@st.cache_data(ttl=600)
+def get_source_correlation(province: str = None, start_date=None, end_date=None) -> list:
+    """Fetch correlation, bias and MAE metrics from dm_source_correlation_daily."""
+    clauses = []
+    if province:
+        clauses.append(f"province = '{province}'")
+    if start_date:
+        clauses.append(f"date >= '{start_date}'")
+    if end_date:
+        clauses.append(f"date <= '{end_date}'")
+    
+    where_clause = "WHERE " + " AND ".join(clauses) if clauses else ""
+    q = f"""
+    SELECT 
+        date,
+        province,
+        aqiin_aqi,
+        ow_aqi,
+        aqiin_pm25,
+        ow_pm25,
+        aqi_bias,
+        aqi_mae,
+        aqi_pct_diff,
+        category_agreement,
+        aqiin_wards,
+        ow_wards,
+        has_ground_data,
+        ground_coverage_pct
+    FROM air_quality.dm_source_correlation_daily
+    {where_clause}
+    ORDER BY date, province
+    """
+    return query_df(q)
+

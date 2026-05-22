@@ -1011,6 +1011,8 @@ models:
     columns:
       - name: datetime_hour
         description: UTC hour bucket.
+        tests:
+          - not_null
         tags:
           - NonSensitive
       - name: date
@@ -1019,8 +1021,12 @@ models:
           - NonSensitive
       - name: province
         description: Province name.
+        tests:
+          - not_null
       - name: ward_code
         description: Ward identifier.
+        tests:
+          - not_null
       - name: region_3
         description: Vietnam 3-region classification.
       - name: region_8
@@ -1031,16 +1037,32 @@ models:
         description: Longitude of the ward.
       - name: aqi_us
         description: Hourly US AQI (calibrated/unified).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 500
       - name: aqi_vn
         description: Hourly Vietnam AQI (calibrated/unified).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 500
       - name: pm25
         description: Hourly PM2.5 concentration (µg/m³).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1000
         meta:
           openmetadata:
             glossary:
               - AirQuality.PM25
       - name: pm10
         description: Hourly PM10 concentration (µg/m³).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1000
         meta:
           openmetadata:
             glossary:
@@ -1055,8 +1077,16 @@ models:
         description: Dominant pollutant driving the AQI for this hour/ward.
       - name: temperature
         description: Local temperature (°C).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -20
+              max_value: 60
       - name: humidity
         description: Local relative humidity (%).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 100
       - name: wind_speed
         description: Local wind speed (m/s).
       - name: wind_direction

@@ -211,18 +211,8 @@ def dag_transform():
         return True
 
     @task
-    def dbt_seed():
-        """Load seed data."""
-        result = run_dbt_command(
-            ['dbt', 'seed', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'seeds'],
-            timeout=600,
-        )
-        print_dbt_result(result, "dbt seed failed", "dbt seed completed")
-        return True
-
-    @task
-    def dbt_run_staging():
-        """Run staging models."""
+    def dbt_build():
+        """Run seed, compile, run, and test models in a single unified build step with full concurrency."""
         context = get_current_context()
         dag_run = context.get('dag_run')
         dag_conf = dag_run.conf if dag_run else {}
@@ -231,57 +221,11 @@ def dag_transform():
             dbt_vars['staging_sync_run_id'] = dag_conf['raw_sync_run_id']
 
         result = run_dbt_command(
-            ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'staging'],
-            timeout=1800,
+            ['dbt', 'build', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET],
+            timeout=3600,
             dbt_vars=dbt_vars or None,
         )
-        print_dbt_result(result, "dbt run staging failed", "dbt run staging completed")
-        return True
-
-    @task
-    def dbt_run_intermediate():
-        """Run intermediate models."""
-        context = get_current_context()
-        dag_run = context.get('dag_run')
-        dag_conf = dag_run.conf if dag_run else {}
-        dbt_vars = {}
-        if dag_conf and dag_conf.get('raw_sync_run_id'):
-            dbt_vars['staging_sync_run_id'] = dag_conf['raw_sync_run_id']
-
-        result = run_dbt_command(
-            ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'intermediate'],
-            timeout=1800,
-            dbt_vars=dbt_vars or None,
-        )
-        print_dbt_result(result, "dbt run intermediate failed", "dbt run intermediate completed")
-        return True
-
-    @task
-    def dbt_run_marts():
-        """Run mart models."""
-        context = get_current_context()
-        dag_run = context.get('dag_run')
-        dag_conf = dag_run.conf if dag_run else {}
-        dbt_vars = {}
-        if dag_conf and dag_conf.get('raw_sync_run_id'):
-            dbt_vars['staging_sync_run_id'] = dag_conf['raw_sync_run_id']
-
-        result = run_dbt_command(
-            ['dbt', 'run', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--select', 'marts'],
-            timeout=1800,
-            dbt_vars=dbt_vars or None,
-        )
-        print_dbt_result(result, "dbt run marts failed", "dbt run marts completed")
-        return True
-
-    @task
-    def dbt_test():
-        """Run dbt tests as the blocking validation branch."""
-        result = run_dbt_command(
-            ['dbt', 'test', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET, '--threads', '1'],
-            timeout=1800,
-        )
-        print_dbt_result(result, "dbt test failed", "dbt test completed")
+        print_dbt_result(result, "dbt build failed", "dbt build completed")
         return True
 
     @task
@@ -388,11 +332,7 @@ def dag_transform():
             'check_clickhouse_connection',
             'check_dbt_ready',
             'dbt_deps',
-            'dbt_seed',
-            'dbt_run_staging',
-            'dbt_run_intermediate',
-            'dbt_run_marts',
-            'dbt_test',
+            'dbt_build',
             'log_dbt_stats',
         ]
         failed_tasks = [
@@ -424,21 +364,16 @@ def dag_transform():
     check_clickhouse = check_clickhouse_connection()
     check_dbt = check_dbt_ready()
     deps = dbt_deps()
-    seed = dbt_seed()
-    staging = dbt_run_staging()
-    intermediate = dbt_run_intermediate()
-    marts = dbt_run_marts()
-    test = dbt_test()
+    build = dbt_build()
     docs = dbt_docs_generate()
     patch = patch_dbt_artifacts()
     stats = log_dbt_stats()
     update_control = update_transform_control()
     completion = log_completion()
 
-    check_clickhouse >> check_dbt >> deps >> seed >> staging >> intermediate >> marts
-    marts >> test
-    marts >> docs >> patch >> stats
-    [test, stats] >> update_control >> completion
+    check_clickhouse >> check_dbt >> deps >> build
+    build >> docs >> patch >> stats
+    [build, stats] >> update_control >> completion
 
 
 dag_transform = dag_transform()

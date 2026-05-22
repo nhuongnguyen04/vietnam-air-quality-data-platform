@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: dm_source_coverage
+    description: "Bảng phân tích độ phủ (coverage) trạm quan trắc mặt đất của từng tỉnh theo thời gian thực (7 ngày gần nhất)."
+    config:
+      tags: ['pipeline_v2']
+
+  - name: dm_source_correlation_daily
+    description: "Bảng phân tích tương quan giữa trạm đo mặt đất (Ground Monitors) và mô hình vệ tinh (SILAM) bao gồm: bias, MAE, % đồng thuận, và độ chênh lệch."
+    config:
+      tags: ['pipeline_v2']

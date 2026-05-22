@@ -55,6 +55,7 @@ def get_platform_status_data():
     WITH latest_date AS (
         SELECT max(date) AS date
         FROM air_quality.dm_air_quality_overview_daily
+        WHERE source_mix = 'observed'
     )
     SELECT
         source_mix,
@@ -65,6 +66,7 @@ def get_platform_status_data():
         sum(openweather_observation_count) AS openweather_observations
     FROM air_quality.dm_air_quality_overview_daily
     WHERE date = (SELECT date FROM latest_date)
+      AND source_mix = 'observed'
     GROUP BY source_mix, confidence_level
     ORDER BY confidence_score DESC
     """

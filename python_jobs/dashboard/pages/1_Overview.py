@@ -4,6 +4,7 @@ Bao gồm các chỉ số KPI chính (AQI trung bình, chất ô nhiễm chính,
 và bản đồ phân bố không gian theo Tỉnh/Thành phố hoặc Phường/Xã.
 Tất cả giá trị (KPI, bản đồ, biểu đồ) đều tuân theo bộ lọc sidebar.
 """
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 from lib.aqi_utils import (
@@ -19,8 +20,11 @@ from lib.data_service import (
     build_where_clause,
     get_pollutant_cols,
     get_source_table,
+    get_source_mix,
     localize_confidence_level,
     localize_source_mix,
+    get_source_coverage,
+    get_source_correlation,
 )
 from lib.filters import render_sidebar_filters
 from lib.i18n import t
@@ -151,9 +155,10 @@ else:
 
 # ── Data Fetching ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def get_national_summary(table, col, m_col, scope, dates, tunit):
+def get_national_summary(table, col, m_col, scope, dates, tunit, source_name="blended"):
     """KPI summary — follows the active filter (time_unit aware)."""
-    where_clause = build_where_clause(None, scope, dates, time_unit=tunit)
+    source_mix = get_source_mix(source_name)
+    where_clause = build_where_clause(None, scope, dates, time_unit=tunit, source_mix=source_mix)
     q = f"""
     SELECT
         avg({col}) as avg_val,
@@ -170,9 +175,10 @@ def get_national_summary(table, col, m_col, scope, dates, tunit):
 
 
 @st.cache_data(ttl=300)
-def get_chart_data(table, col, grain, scope, dates, tunit):
+def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"):
     """Map & bar chart data — ward-level for Tỉnh/Phường, province-level otherwise."""
-    where_clause = build_where_clause(grain, scope, dates, time_unit=tunit)
+    source_mix = get_source_mix(source_name)
+    where_clause = build_where_clause(grain, scope, dates, time_unit=tunit, source_mix=source_mix)
 
     if grain in ["Tỉnh", "Phường"]:
         # Ward-level: show individual ward dots on the map
@@ -191,7 +197,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit):
             main_pollutant,
             confidence_score,
             if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
-            source_mix,
+            source_mix_val as source_mix,
             aqiin_observation_count,
             openweather_observation_count
         FROM (
@@ -204,7 +210,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit):
                 avg({col}) as display_val,
                 topK(1)(main_pollutant)[1] as main_pollutant,
                 avg(confidence_score) as confidence_score,
-                topK(1)(source_mix)[1] as source_mix,
+                topK(1)(source_mix)[1] as source_mix_val,
                 sum(aqiin_observation_count) as aqiin_observation_count,
                 sum(openweather_observation_count) as openweather_observation_count
             FROM air_quality.{table}
@@ -232,7 +238,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit):
             main_pollutant,
             confidence_score,
             if(confidence_score >= 0.8, 'high', if(confidence_score >= 0.5, 'medium', 'low')) as confidence_level,
-            source_mix,
+            source_mix_val as source_mix,
             aqiin_observation_count,
             openweather_observation_count
         FROM (
@@ -243,7 +249,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit):
                 avg({col}) as display_val,
                 topK(1)(main_pollutant)[1] as main_pollutant,
                 avg(confidence_score) as confidence_score,
-                topK(1)(source_mix)[1] as source_mix,
+                topK(1)(source_mix)[1] as source_mix_val,
                 sum(aqiin_observation_count) as aqiin_observation_count,
                 sum(openweather_observation_count) as openweather_observation_count
             FROM air_quality.{table}
@@ -265,9 +271,10 @@ def get_chart_data(table, col, grain, scope, dates, tunit):
 
 
 @st.cache_data(ttl=300)
-def get_aqi_distribution(table, col, scope, dates, tunit):
+def get_aqi_distribution(table, col, scope, dates, tunit, source_name="blended"):
     """AQI category distribution — follows the active filter."""
-    where_clause = build_where_clause(None, scope, dates, time_unit=tunit)
+    source_mix = get_source_mix(source_name)
+    where_clause = build_where_clause(None, scope, dates, time_unit=tunit, source_mix=source_mix)
     q = f"""
     SELECT
         CASE
@@ -292,197 +299,418 @@ def get_aqi_distribution(table, col, scope, dates, tunit):
     return df
 
 
-# ── hourly table has no max_aqi column — fall back to avg for max card ────────
-m_col = display_col if table_name.endswith("_hourly") else max_col
+# ── Render Source Dashboard Helper ───────────────────────────────────────────
+def render_source_dashboard(source_name: str):
+    # Determine Source Table (based on spatial + time grain)
+    table_name = get_source_table(spatial_grain, time_grain, source_name)
+    # Column mapping for selected pollutant + standard
+    display_col, max_col = get_pollutant_cols(pollutant, standard)
+    # Label for axes / cards
+    val_label = "AQI" if pollutant == "aqi" else pollutant.upper()
 
-# ── KPI Cards ─────────────────────────────────────────────────────────────────
-summary = get_national_summary(table_name, display_col, m_col, scope_val, date_range, time_unit)
-if not summary.empty:
-    row = summary.iloc[0]
-    with metric_row[0]:
-        render_metric_card(f"{t('metric_national_avg', lang)} ({val_label})", f"{int(row.avg_val or 0)}", icon="insights")
-    with metric_row[1]:
-        render_metric_card(t("metric_dominant", lang), (row.dominant_pollutant or "N/A").upper(), icon="biotech")
-    with metric_row[2]:
-        render_metric_card(f"{t('metric_worst', lang)} ({val_label})", f"{int(row.max_val or 0)}", icon="error")
-    with metric_row[3]:
-        render_metric_card(t("metric_active", lang), f"{int(row.province_count or 0)}", icon="location")
-
-# ── Contextual Annotations ─────────────────────────────────────────────────
-# Seasonal context: May–September monsoon reduces PM2.5
-if date_range and len(date_range) == 2:
-    _months = set()
-    if hasattr(date_range[0], 'month'):
-        _months.add(date_range[0].month)
-    if hasattr(date_range[1], 'month'):
-        _months.add(date_range[1].month)
-    if _months & {5, 6, 7, 8, 9}:
-        _seasonal = (
-            "🌧 **Bối cảnh mùa vụ:** Tháng 5–9 là mùa mưa — PM2.5 giảm nhờ "
-            "rửa bụi (wash-out) và gió mùa Tây Nam tăng phát tán ô nhiễm."
-        ) if lang == "vi" else (
-            "🌧 **Seasonal context:** May–Sep is monsoon season — PM2.5 drops due to "
-            "rain wash-out and southwest monsoon enhancing pollutant dispersion."
+    # 1. Coverage Warning / Badge (if Ground)
+    if source_name == "aqiin":
+        prov_val = scope_val if spatial_grain in ["Tỉnh", "Phường"] else None
+        cov_df = get_source_coverage(prov_val)
+        if not cov_df.empty:
+            if prov_val:
+                row = cov_df.iloc[0]
+                cov_pct = row["aqiin_coverage_pct"]
+                total_w = row["total_ward_count"]
+                aqi_w = row["aqiin_ward_count"]
+                
+                if cov_pct < 50:
+                    st.warning(
+                        f"⚠️ **Chất lượng bao phủ thấp:** Chỉ có **{cov_pct:.1f}%** số phường/xã "
+                        f"({int(aqi_w)}/{int(total_w)}) tại **{prov_val}** có trạm quan trắc mặt đất hoạt động. "
+                        f"Dữ liệu bản đồ có thể có khoảng trống không gian lớn."
+                        if lang == "vi" else
+                        f"⚠️ **Low Spatial Coverage:** Only **{cov_pct:.1f}%** of wards "
+                        f"({int(aqi_w)}/{int(total_w)}) in **{prov_val}** have active ground monitors. "
+                        f"Map visualization may contain significant spatial gaps."
+                    )
+                else:
+                    st.success(
+                        f"✅ **Độ bao phủ mặt đất tốt:** **{cov_pct:.1f}%** số phường/xã "
+                        f"({int(aqi_w)}/{int(total_w)}) tại **{prov_val}** có trạm quan trắc hoạt động."
+                        if lang == "vi" else
+                        f"✅ **Good Ground Coverage:** **{cov_pct:.1f}%** of wards "
+                        f"({int(aqi_w)}/{int(total_w)}) in **{prov_val}** have active ground monitors."
+                    )
+            else:
+                total_aqiin_wards = cov_df["aqiin_ward_count"].sum()
+                total_wards = cov_df["total_ward_count"].sum()
+                cov_pct = (total_aqiin_wards * 100.0 / total_wards) if total_wards > 0 else 0
+                
+                if cov_pct < 30:
+                    st.warning(
+                        f"⚠️ **Bao phủ trạm mặt đất hạn chế:** Toàn quốc chỉ có **{cov_pct:.1f}%** số phường/xã "
+                        f"({int(total_aqiin_wards)}/{int(total_wards)}) có trạm quan trắc mặt đất hoạt động. "
+                        f"Khuyến nghị tham khảo thêm tab **🛰 Mô hình vệ tinh** để bổ sung vùng thiếu dữ liệu."
+                        if lang == "vi" else
+                        f"⚠️ **Limited Ground Monitor Coverage:** Only **{cov_pct:.1f}%** of wards "
+                        f"({int(total_aqiin_wards)}/{int(total_wards)}) nationwide have active ground monitors. "
+                        f"We recommend checking the **🛰 Satellite Model** tab for full spatial coverage."
+                    )
+                else:
+                    st.success(
+                        f"✅ **Tình trạng bao phủ mặt đất:** **{cov_pct:.1f}%** số phường/xã toàn quốc "
+                        f"({int(total_aqiin_wards)}/{int(total_wards)}) có trạm quan trắc hoạt động."
+                        if lang == "vi" else
+                        f"✅ **Ground Monitor Coverage:** **{cov_pct:.1f}%** of wards "
+                        f"({int(total_aqiin_wards)}/{int(total_wards)}) nationwide have active ground monitors."
+                    )
+    elif source_name == "openweather":
+        st.info(
+            "🛰️ **Mô hình Vệ tinh & SILAM:** Cung cấp độ bao phủ địa lý đầy đủ (100% xã/phường) dựa trên "
+            "dữ liệu lưới ô ~25km từ Viện Khí tượng Phần Lan (FMI). Lưu ý: do là mô hình kết hợp, "
+            "chỉ số AQI/nồng độ chất ô nhiễm thường có xu hướng thấp hơn (underestimate) thực tế đo tại mặt đất từ 1.5 đến 2.5 lần."
+            if lang == "vi" else
+            "🛰️ **Satellite & SILAM Model:** Provides complete geographic coverage (100% of wards) based on "
+            "~25km grid resolution from the Finnish Meteorological Institute (FMI). Note: due to the model blending nature, "
+            "AQI/concentrations typically tend to be underestimated by 1.5x to 2.5x compared to ground-truth monitors."
         )
-        st.caption(_seasonal)
 
-# ── Map ───────────────────────────────────────────────────────────────────────
-map_title = f"{t('map_title', lang)} — {spatial_grain} ({val_label})"
-if filter_label:
-    map_title += f"  ·  {filter_label}"
-st.subheader(map_title)
+    # ── KPI Cards ─────────────────────────────────────────────────────────────────
+    metric_row = st.columns(4)
+    m_col = display_col if table_name.endswith("_hourly") else max_col
+    summary = get_national_summary(table_name, display_col, m_col, scope_val, date_range, time_unit, source_name)
+    if not summary.empty:
+        row = summary.iloc[0]
+        with metric_row[0]:
+            render_metric_card(f"{t('metric_national_avg', lang)} ({val_label})", f"{int(row.avg_val or 0)}", icon="insights")
+        with metric_row[1]:
+            render_metric_card(t("metric_dominant", lang), (row.dominant_pollutant or "N/A").upper(), icon="biotech")
+        with metric_row[2]:
+            render_metric_card(f"{t('metric_worst', lang)} ({val_label})", f"{int(row.max_val or 0)}", icon="error")
+        with metric_row[3]:
+            render_metric_card(t("metric_active", lang), f"{int(row.province_count or 0)}", icon="location")
+    else:
+        for idx in range(4):
+            with metric_row[idx]:
+                render_metric_card(t("metric_national_avg", lang) if idx == 0 else "...", "N/A", icon="insights")
 
-map_df = get_chart_data(table_name, display_col, spatial_grain, scope_val, date_range, time_unit)
+    # ── Contextual Annotations ─────────────────────────────────────────────────
+    if date_range and len(date_range) == 2:
+        _months = set()
+        if hasattr(date_range[0], 'month'):
+            _months.add(date_range[0].month)
+        if hasattr(date_range[1], 'month'):
+            _months.add(date_range[1].month)
+        if _months & {5, 6, 7, 8, 9}:
+            _seasonal = (
+                "🌧 **Bối cảnh mùa vụ:** Tháng 5–9 là mùa mưa — PM2.5 giảm nhờ "
+                "rửa bụi (wash-out) và gió mùa Tây Nam tăng phát tán ô nhiễm."
+            ) if lang == "vi" else (
+                "🌧 **Seasonal context:** May–Sep is monsoon season — PM2.5 drops due to "
+                "rain wash-out and southwest monsoon enhancing pollutant dispersion."
+            )
+            st.caption(_seasonal)
 
-# Label column for hover
-label_col = "ward_name" if spatial_grain in ["Tỉnh", "Phường"] else "province"
+    # ── Map ───────────────────────────────────────────────────────────────────────
+    map_title = f"{t('map_title', lang)} — {spatial_grain} ({val_label})"
+    if filter_label:
+        map_title += f"  ·  {filter_label}"
+    st.subheader(map_title)
 
-# Color scale
-if pollutant == "aqi":
-    color_scale = get_aqi_color_scale(standard)
-    range_val   = get_aqi_color_range(standard)
-else:
-    color_scale = "Viridis" if theme == "light" else "Plasma"
-    range_val   = [0, map_df.display_val.max() * 1.1 if not map_df.empty else 100]
+    map_df = get_chart_data(table_name, display_col, spatial_grain, scope_val, date_range, time_unit, source_name)
+    label_col = "ward_name" if spatial_grain in ["Tỉnh", "Phường"] else "province"
 
-if not map_df.empty:
-    map_lat   = map_df.latitude.mean()
-    map_lon   = map_df.longitude.mean()
-    zoom_level = 8 if spatial_grain in ["Tỉnh", "Phường"] else 5
+    if pollutant == "aqi":
+        color_scale = get_aqi_color_scale(standard)
+        range_val   = get_aqi_color_range(standard)
+    else:
+        color_scale = "Viridis" if theme == "light" else "Plasma"
+        range_val   = [0, map_df.display_val.max() * 1.1 if not map_df.empty else 100]
 
-    fig_map = px.scatter_map(
-        map_df,
-        lat="latitude", lon="longitude",
-        color="display_val",
-        hover_name=label_col,
-        hover_data={
+    if not map_df.empty:
+        map_lat   = map_df.latitude.mean()
+        map_lon   = map_df.longitude.mean()
+        zoom_level = 8 if spatial_grain in ["Tỉnh", "Phường"] else 5
+
+        tooltip_data = {
             "province": True,
             "display_val": ":.1f",
-            "confidence_score": ":.2f",
-            "source_mix": True,
             "latitude": False,
             "longitude": False,
         }
-        if spatial_grain in ["Tỉnh", "Phường"] else
-        {
-            "display_val": ":.1f",
-            "confidence_score": ":.2f",
-            "source_mix": True,
-            "latitude": False,
-            "longitude": False,
-        },
-        color_continuous_scale=color_scale,
-        range_color=range_val,
-        zoom=zoom_level,
-        center={"lat": map_lat, "lon": map_lon},
-        size="display_val",
-        size_max=25,
-        labels={
-            "display_val": val_label,
-            "province":    t("province", lang),
-            "ward_name":   t("location", lang),
-        },
-    )
-    map_style = "carto-darkmatter" if theme == "dark" else "carto-positron"
-    fig_map.update_layout(
-        mapbox_style=map_style,
-        height=600,
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-    )
-    if pollutant == "aqi":
-        fig_map.update_layout(coloraxis_colorbar=get_aqi_colorbar_config(standard, val_label))
-    st.plotly_chart(fig_map, width="stretch")
-else:
-    st.plotly_chart(
-        render_empty_chart(t("no_data", lang) if lang == "en" else "Không có dữ liệu cho vùng này."),
-        width="stretch",
-    )
+        if "confidence_score" in map_df.columns:
+            tooltip_data["confidence_score"] = ":.2f"
+        if "source_mix" in map_df.columns:
+            tooltip_data["source_mix"] = True
 
-# ── Row 3: Charts ─────────────────────────────────────────────────────────────
-c1, c2 = st.columns(2)
-with c1:
-    if pollutant == "aqi":
-        st.subheader(t("chart_aqi_dist", lang))
-        df_dist = get_aqi_distribution(table_name, display_col, scope_val, date_range, time_unit)
-        if not df_dist.empty:
-            aqi_colors = get_aqi_discrete_colors(standard)
-            color_map = {
-                t("aqi_good", lang):           aqi_colors["Good"],
-                t("aqi_moderate", lang):        aqi_colors["Moderate"],
-                t("aqi_unhealthy_sg", lang):    aqi_colors["Unhealthy for Sensitive Groups"],
-                t("aqi_unhealthy", lang):       aqi_colors["Unhealthy"],
-                t("aqi_very_unhealthy", lang):  aqi_colors["Very Unhealthy"],
-                t("aqi_hazardous", lang):       aqi_colors["Hazardous"],
-            }
-            fig_pie = px.pie(
-                df_dist, values="count", names="aqi_category",
-                color="aqi_category", color_discrete_map=color_map,
-            )
-            fig_pie.update_layout(get_plotly_layout(height=400))
-            st.plotly_chart(fig_pie, width="stretch")
-    else:
-        dist_title = (
-            f"{t('chart_label_dist', lang)} {val_label}" if lang == "en"
-            else f"Phân bố {val_label}"
-        )
-        st.subheader(dist_title)
-        if not map_df.empty:
-            fig_hist = px.histogram(
-                map_df, x="display_val", marginal="box",
-                labels={"display_val": val_label, "count": t("chart_label_count", lang)},
-            )
-            fig_hist.update_layout(get_plotly_layout(height=400))
-            st.plotly_chart(fig_hist, width="stretch")
-
-with c2:
-    st.subheader(f"{t('chart_top_polluted', lang)} ({val_label})")
-    if not map_df.empty:
-        rank_df = map_df
-        if pollutant == "aqi" and "confidence_score" in rank_df.columns:
-            high_conf = rank_df[rank_df["confidence_score"] >= 0.38]
-            if len(high_conf) >= 5:
-                rank_df = high_conf
-                st.caption(
-                    "Ranking ưu tiên tỉnh có đóng góp quan trắc AQI.in đáng kể; vùng thuần mô hình được tách khỏi top mặc định."
-                    if lang == "vi"
-                    else "Ranking prioritizes provinces with meaningful AQI.in monitor contribution; model-only areas are separated from the default top list."
-                )
-            else:
-                st.caption(
-                    "Không đủ điểm tin cậy vừa trở lên; chart đang hiển thị cả ước tính mô hình."
-                    if lang == "vi"
-                    else "Not enough medium-or-better confidence records; chart includes modeled estimates."
-                )
-        df_top = rank_df.sort_values("display_val", ascending=False).head(10)
-        if "confidence_level" in df_top.columns:
-            df_top = df_top.copy()
-            df_top["confidence_label"] = df_top["confidence_level"].apply(
-                lambda x: localize_confidence_level(x, lang)
-            )
-            df_top["source_label"] = df_top["source_mix"].apply(lambda x: localize_source_mix(x, lang))
-        df_top = df_top.sort_values("display_val", ascending=True)
-        fig_bar = px.bar(
-            df_top,
-            y=label_col,
-            x="display_val",
-            orientation="h",
+        fig_map = px.scatter_map(
+            map_df,
+            lat="latitude", lon="longitude",
             color="display_val",
+            hover_name=label_col,
+            hover_data=tooltip_data,
             color_continuous_scale=color_scale,
             range_color=range_val,
+            zoom=zoom_level,
+            center={"lat": map_lat, "lon": map_lon},
+            size="display_val",
+            size_max=25,
             labels={
                 "display_val": val_label,
                 "province":    t("province", lang),
                 "ward_name":   t("location", lang),
-                "confidence_label": "Độ tin cậy" if lang == "vi" else "Confidence",
-                "source_label": "Nguồn" if lang == "vi" else "Source",
-            },
-            hover_data={
-                "confidence_label": True,
-                "source_label": True,
-                "confidence_score": ":.2f" if "confidence_score" in df_top.columns else False,
             },
         )
-        fig_bar.update_layout(get_plotly_layout(height=400))
+        map_style = "carto-darkmatter" if theme == "dark" else "carto-positron"
+        fig_map.update_layout(
+            mapbox_style=map_style,
+            height=600,
+            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        )
         if pollutant == "aqi":
-            fig_bar.update_layout(coloraxis_colorbar=get_aqi_colorbar_config(standard, val_label))
-        st.plotly_chart(fig_bar, width="stretch")
+            fig_map.update_layout(coloraxis_colorbar=get_aqi_colorbar_config(standard, val_label))
+        st.plotly_chart(fig_map, width="stretch")
+    else:
+        st.plotly_chart(
+            render_empty_chart(t("no_data", lang) if lang == "en" else "Không có dữ liệu cho vùng này."),
+            width="stretch",
+        )
+
+    # ── Row 3: Charts ─────────────────────────────────────────────────────────────
+    c1, c2 = st.columns(2)
+    with c1:
+        if pollutant == "aqi":
+            st.subheader(t("chart_aqi_dist", lang))
+            df_dist = get_aqi_distribution(table_name, display_col, scope_val, date_range, time_unit, source_name)
+            if not df_dist.empty:
+                aqi_colors = get_aqi_discrete_colors(standard)
+                color_map = {
+                    t("aqi_good", lang):           aqi_colors["Good"],
+                    t("aqi_moderate", lang):        aqi_colors["Moderate"],
+                    t("aqi_unhealthy_sg", lang):    aqi_colors["Unhealthy for Sensitive Groups"],
+                    t("aqi_unhealthy", lang):       aqi_colors["Unhealthy"],
+                    t("aqi_very_unhealthy", lang):  aqi_colors["Very Unhealthy"],
+                    t("aqi_hazardous", lang):       aqi_colors["Hazardous"],
+                }
+                fig_pie = px.pie(
+                    df_dist, values="count", names="aqi_category",
+                    color="aqi_category", color_discrete_map=color_map,
+                )
+                fig_pie.update_layout(get_plotly_layout(height=400))
+                st.plotly_chart(fig_pie, width="stretch")
+        else:
+            dist_title = (
+                f"{t('chart_label_dist', lang)} {val_label}" if lang == "en"
+                else f"Phân bố {val_label}"
+            )
+            st.subheader(dist_title)
+            if not map_df.empty:
+                fig_hist = px.histogram(
+                    map_df, x="display_val", marginal="box",
+                    labels={"display_val": val_label, "count": t("chart_label_count", lang)},
+                )
+                fig_hist.update_layout(get_plotly_layout(height=400))
+                st.plotly_chart(fig_hist, width="stretch")
+
+    with c2:
+        st.subheader(f"{t('chart_top_polluted', lang)} ({val_label})")
+        if not map_df.empty:
+            rank_df = map_df.copy()
+            if source_name == "aqiin" and "confidence_score" in rank_df.columns:
+                high_conf = rank_df[rank_df["confidence_score"] >= 0.38]
+                if len(high_conf) >= 5:
+                    rank_df = high_conf
+                    st.caption(
+                        "Ranking ưu tiên tỉnh có đóng góp quan trắc AQI.in đáng kể; vùng thuần mô hình được tách khỏi top mặc định."
+                        if lang == "vi"
+                        else "Ranking prioritizes provinces with meaningful AQI.in monitor contribution; model-only areas are separated from the default top list."
+                    )
+                else:
+                    st.caption(
+                        "Không đủ điểm tin cậy vừa trở lên; chart đang hiển thị cả ước tính mô hình."
+                        if lang == "vi"
+                        else "Not enough medium-or-better confidence records; chart includes modeled estimates."
+                    )
+            df_top = rank_df.sort_values("display_val", ascending=False).head(10)
+            if "confidence_level" in df_top.columns:
+                df_top["confidence_label"] = df_top["confidence_level"].apply(
+                    lambda x: localize_confidence_level(x, lang)
+                )
+            if "source_mix" in df_top.columns:
+                df_top["source_label"] = df_top["source_mix"].apply(lambda x: localize_source_mix(x, lang))
+            
+            df_top = df_top.sort_values("display_val", ascending=True)
+            
+            hover_options = {}
+            if "confidence_level" in df_top.columns:
+                hover_options["confidence_label"] = True
+            if "source_mix" in df_top.columns:
+                hover_options["source_label"] = True
+            if "confidence_score" in df_top.columns:
+                hover_options["confidence_score"] = ":.2f"
+
+            fig_bar = px.bar(
+                df_top,
+                y=label_col,
+                x="display_val",
+                orientation="h",
+                color="display_val",
+                color_continuous_scale=color_scale,
+                range_color=range_val,
+                labels={
+                    "display_val": val_label,
+                    "province":    t("province", lang),
+                    "ward_name":   t("location", lang),
+                    "confidence_label": "Độ tin cậy" if lang == "vi" else "Confidence",
+                    "source_label": "Nguồn" if lang == "vi" else "Source",
+                },
+                hover_data=hover_options,
+            )
+            fig_bar.update_layout(get_plotly_layout(height=400))
+            if pollutant == "aqi":
+                fig_bar.update_layout(coloraxis_colorbar=get_aqi_colorbar_config(standard, val_label))
+            st.plotly_chart(fig_bar, width="stretch")
+
+# ── 3-Tab Layout Implementation ──────────────────────────────────────────────
+tab_ground, tab_sat, tab_corr = st.tabs([
+    "📡 Quan trắc mặt đất" if lang == "vi" else "📡 Ground Monitors",
+    "🛰 Mô hình vệ tinh" if lang == "vi" else "🛰 Satellite Model",
+    "📊 Tương quan & Độ tin cậy" if lang == "vi" else "📊 Correlation & Reliability"
+])
+
+with tab_ground:
+    render_source_dashboard("aqiin")
+
+with tab_sat:
+    render_source_dashboard("openweather")
+
+with tab_corr:
+    st.subheader("📊 Tương quan & Độ tin cậy giữa các nguồn")
+    st.markdown(
+        "Phân tích so sánh dữ liệu thu thập trực tiếp từ các trạm quan trắc mặt đất (AQI.in) "
+        "và mô hình lưới vệ tinh SILAM (OpenWeather)."
+        if lang == "vi" else
+        "Comparative analysis of direct observations from ground monitors (AQI.in) "
+        "and SILAM satellite grid model (OpenWeather)."
+    )
+    
+    corr_df = get_source_correlation(
+        province=scope_val if spatial_grain in ["Tỉnh", "Phường"] else None,
+        start_date=date_range[0].strftime("%Y-%m-%d") if date_range and len(date_range) >= 1 else None,
+        end_date=date_range[1].strftime("%Y-%m-%d") if date_range and len(date_range) >= 2 else None,
+    )
+    
+    if corr_df.empty:
+        st.plotly_chart(
+            render_empty_chart("Không có dữ liệu tương quan cho phạm vi và thời gian này." if lang == "vi" else "No correlation data available."),
+            width="stretch"
+        )
+    else:
+        both_sources_df = corr_df[corr_df["aqiin_aqi"].notnull() & corr_df["ow_aqi"].notnull()]
+        
+        # Aggregated Metrics
+        both_sources_count = both_sources_df["province"].nunique()
+        total_provinces = corr_df["province"].nunique()
+        avg_bias = both_sources_df["aqi_bias"].mean()
+        avg_mae = both_sources_df["aqi_mae"].mean()
+        
+        agree_rows = both_sources_df[both_sources_df["category_agreement"].isin(["both_good", "both_unhealthy"])]
+        agree_pct = (len(agree_rows) * 100.0 / len(both_sources_df)) if len(both_sources_df) > 0 else 0
+        
+        # Reliability Score Card Row
+        c_corr1, c_corr2, c_corr3, c_corr4 = st.columns(4)
+        with c_corr1:
+            if scope_val and spatial_grain in ["Tỉnh", "Phường"]:
+                has_ground = "Có trạm hoạt động" if not both_sources_df.empty else "Không trạm mặt đất"
+                render_metric_card("Trạm mặt đất" if lang == "vi" else "Ground Monitors", has_ground, icon="sensors")
+            else:
+                render_metric_card("Tỉnh có cả 2 nguồn" if lang == "vi" else "Provinces w/ Both", f"{both_sources_count}/{total_provinces}", icon="layers")
+        with c_corr2:
+            bias_text = f"{avg_bias:+.1f} AQI" if not pd.isna(avg_bias) else "N/A"
+            render_metric_card("Độ lệch TB (Bias)" if lang == "vi" else "Avg Bias", bias_text, icon="compare_arrows")
+        with c_corr3:
+            mae_text = f"{avg_mae:.1f} AQI" if not pd.isna(avg_mae) else "N/A"
+            render_metric_card("Sai số tuyệt đối (MAE)" if lang == "vi" else "MAE", mae_text, icon="summarize")
+        with c_corr4:
+            agree_text = f"{agree_pct:.0f}%" if not pd.isna(agree_pct) and len(both_sources_df) > 0 else "N/A"
+            render_metric_card("Đồng thuận Category" if lang == "vi" else "Category Agreement", agree_text, icon="fact_check")
+            
+        # Charts Row 1: Timeline comparisons & Scatter Plot
+        col_chart1, col_chart2 = st.columns(2)
+        with col_chart1:
+            st.subheader("📈 Xu hướng thời gian theo Nguồn" if lang == "vi" else "📈 Temporal Trend by Source")
+            timeline_df = corr_df.groupby("date")[["aqiin_aqi", "ow_aqi"]].mean().reset_index()
+            
+            fig_timeline = px.line(
+                timeline_df, x="date", y=["aqiin_aqi", "ow_aqi"],
+                labels={
+                    "value": "AQI VN",
+                    "variable": "Nguồn" if lang == "vi" else "Source",
+                    "date": "Ngày" if lang == "vi" else "Date"
+                },
+                color_discrete_map={"aqiin_aqi": "#2563eb", "ow_aqi": "#f97316"}
+            )
+            fig_timeline.data[0].name = "📡 Mặt đất" if lang == "vi" else "📡 Ground Monitors"
+            fig_timeline.data[1].name = "🛰️ Vệ tinh" if lang == "vi" else "🛰️ SILAM Satellite"
+            fig_timeline.update_layout(get_plotly_layout(height=400), hovermode="x unified")
+            st.plotly_chart(fig_timeline, width="stretch")
+            
+        with col_chart2:
+            st.subheader("🎯 Tương quan PM2.5 (Mặt đất vs Vệ tinh)" if lang == "vi" else "🎯 PM2.5 Correlation (Ground vs Sat)")
+            if both_sources_df.empty:
+                st.plotly_chart(render_empty_chart("Không đủ dữ liệu song hành để vẽ đồ thị tương quan."), width="stretch")
+            else:
+                r_val = both_sources_df["aqiin_pm25"].corr(both_sources_df["ow_pm25"])
+                
+                fig_scatter = px.scatter(
+                    both_sources_df, x="aqiin_pm25", y="ow_pm25",
+                    hover_name="province", hover_data=["date", "aqiin_aqi", "ow_aqi"],
+                    labels={
+                        "aqiin_pm25": "Nồng độ PM2.5 Trạm mặt đất (µg/m³)" if lang == "vi" else "Ground PM2.5 (µg/m³)",
+                        "ow_pm25": "Nồng độ PM2.5 Vệ tinh (µg/m³)" if lang == "vi" else "SILAM PM2.5 (µg/m³)"
+                    },
+                    color="aqi_bias",
+                    color_continuous_scale="RdBu_r"
+                )
+                fig_scatter.update_layout(get_plotly_layout(height=400))
+                st.plotly_chart(fig_scatter, width="stretch")
+                if not pd.isna(r_val):
+                    st.markdown(f"📊 **Hệ số tương quan tuyến tính Pearson (r):** `{r_val:.2f}` (r gần 1 biểu hiện độ tương quan mạnh).")
+                    
+        # Charts Row 2: Bias by Province & Ground Spatial Coverage
+        col_chart3, col_chart4 = st.columns(2)
+        with col_chart3:
+            st.subheader("📍 Độ lệch AQI trung bình theo Tỉnh thành" if lang == "vi" else "📍 Avg Bias by Province/City")
+            if both_sources_df.empty:
+                st.plotly_chart(render_empty_chart("Không có dữ liệu trạm đo song hành."), width="stretch")
+            else:
+                bias_df = both_sources_df.groupby("province")["aqi_bias"].mean().reset_index()
+                bias_df = bias_df.sort_values("aqi_bias", ascending=False).head(15)
+                
+                fig_bias = px.bar(
+                    bias_df, x="aqi_bias", y="province", orientation="h",
+                    color="aqi_bias", color_continuous_scale="RdBu_r",
+                    labels={
+                        "aqi_bias": "Độ lệch AQI (Mặt đất - Vệ tinh)" if lang == "vi" else "AQI Bias (Ground - Sat)",
+                        "province": "Tỉnh thành" if lang == "vi" else "Province"
+                    }
+                )
+                fig_bias.update_layout(get_plotly_layout(height=400))
+                st.plotly_chart(fig_bias, width="stretch")
+                st.caption("Giá trị dương (+) nghĩa là trạm quan trắc mặt đất ghi nhận AQI cao hơn mô hình vệ tinh.")
+                
+        with col_chart4:
+            st.subheader("📶 Tỷ lệ bao phủ trạm mặt đất (%)" if lang == "vi" else "📶 Ground Station Coverage (%)")
+            cov_df = get_source_coverage()
+            if cov_df.empty:
+                st.plotly_chart(render_empty_chart("Không có dữ liệu bao phủ."), width="stretch")
+            else:
+                cov_df_plot = cov_df.sort_values("aqiin_coverage_pct", ascending=True).head(15)
+                
+                fig_cov = px.bar(
+                    cov_df_plot, x="aqiin_coverage_pct", y="province", orientation="h",
+                    color="aqiin_coverage_pct", color_continuous_scale="Blues",
+                    labels={
+                        "aqiin_coverage_pct": "% Phường/Xã có trạm quan trắc" if lang == "vi" else "Wards with Monitors %",
+                        "province": "Tỉnh thành" if lang == "vi" else "Province"
+                    }
+                )
+                fig_cov.update_layout(get_plotly_layout(height=400))
+                st.plotly_chart(fig_cov, width="stretch")
+                st.caption("Biểu đồ thể hiện mức độ bao phủ trạm mặt đất ở các tỉnh có tỷ lệ thấp nhất.")

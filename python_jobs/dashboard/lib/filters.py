@@ -47,6 +47,7 @@ def get_latest_available_date():
         df = query_df("""
         SELECT max(date) AS latest_date
         FROM air_quality.dm_air_quality_overview_daily
+        WHERE source_mix = 'observed'
         """)
     except Exception:
         return datetime.now().date()
@@ -64,6 +65,7 @@ def get_latest_available_datetime():
         df = query_df("""
         SELECT max(datetime_hour) AS latest_hour
         FROM air_quality.dm_air_quality_overview_hourly
+        WHERE source_mix = 'observed'
         """)
     except Exception:
         return datetime.now().replace(minute=0, second=0, microsecond=0)

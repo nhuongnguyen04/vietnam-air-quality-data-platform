@@ -1,15 +1,9 @@
 {{ config(
-    materialized='incremental',
-    on_schema_change='sync_all_columns',
-    engine='ReplacingMergeTree',
-    unique_key='(province, ward_code, date)',
-    order_by='(province, date, assumeNotNull(ward_code))',
-    partition_by='toYYYYMM(date)'
+    materialized='view'
 ) }}
 
 with ward_monthly as (
     select * from {{ ref('fct_air_quality_ward_level_monthly') }}
-    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
 admin_units as (

@@ -1,0 +1,139 @@
+version: 2
+
+exposures:
+  - name: streamlit_page_overview
+    label: "Streamlit: Overview (Tổng quan)"
+    type: dashboard
+    maturity: high
+    description: "Trang Tổng quan (Overview) cung cấp cái nhìn toàn diện về chất lượng không khí tại Việt Nam."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('fct_air_quality_ward_level_hourly')
+      - ref('fct_air_quality_summary_daily')
+
+  - name: streamlit_page_pollutants
+    label: "Streamlit: Pollutants (Chất ô nhiễm)"
+    type: dashboard
+    maturity: high
+    description: "Phân tích chi tiết nồng độ các chất ô nhiễm."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('fct_air_quality_summary_daily')
+      - ref('dm_pollutant_source_fingerprint')
+      - ref('dm_aqi_compliance_standards')
+
+  - name: streamlit_page_source_comparison
+    label: "Streamlit: Source Comparison (So sánh nguồn)"
+    type: dashboard
+    maturity: high
+    description: "So sánh dữ liệu chất lượng không khí giữa các nguồn."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('fct_air_quality_summary_daily')
+      - ref('dm_platform_source_health')
+
+  - name: streamlit_page_historical_trend
+    label: "Streamlit: Historical Trend (Xu hướng lịch sử)"
+    type: dashboard
+    maturity: high
+    description: "Phân tích xu hướng chất lượng không khí theo thời gian."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_air_quality_overview_daily')
+      - ref('dm_air_quality_overview_monthly')
+      - ref('dm_aqi_temporal_patterns')
+
+  - name: streamlit_page_alerts
+    label: "Streamlit: Alerts (Cảnh báo)"
+    type: dashboard
+    maturity: high
+    description: "Hệ thống cảnh báo ngưỡng chất lượng không khí xấu."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_aqi_current_status')
+      - ref('dm_aqi_compliance_standards')
+      - ref('fct_air_quality_province_level_hourly')
+
+  - name: streamlit_page_traffic_impact
+    label: "Streamlit: Traffic Impact (Ảnh hưởng Giao thông)"
+    type: dashboard
+    maturity: high
+    description: "Đánh giá tác động của mật độ giao thông đến chất lượng không khí."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_traffic_hourly_trend')
+      - ref('dm_traffic_pollution_correlation_daily')
+
+  - name: streamlit_page_health_risk
+    label: "Streamlit: Health Risk (Rủi ro Sức khỏe)"
+    type: dashboard
+    maturity: high
+    description: "Phân tích mức độ rủi ro sức khỏe cộng đồng."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_regional_health_risk_ranking')
+
+  - name: streamlit_page_status
+    label: "Streamlit: Status (Trạng thái Hệ thống)"
+    type: dashboard
+    maturity: high
+    description: "Trạng thái các trạm quan trắc và luồng dữ liệu."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_platform_data_health')
+      - ref('dm_platform_health_summary')
+      - ref('dm_platform_source_health')
+      - ref('dm_platform_status_distribution')
+
+  - name: streamlit_page_weather_impact
+    label: "Streamlit: Weather Impact (Ảnh hưởng Thời tiết)"
+    type: dashboard
+    maturity: high
+    description: "Mối liên hệ giữa khí tượng (nhiệt độ, độ ẩm) và AQI."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_weather_pollution_correlation_daily')
+      - ref('dm_weather_hourly_trend')
+
+  - name: streamlit_page_ask_data
+    label: "Streamlit: Ask Data (Hỏi đáp dữ liệu)"
+    type: dashboard
+    maturity: high
+    description: "Trang hỏi dữ liệu tự nhiên với lượng preview SQL trước khi thực thi trên bề mặt analytics được phê duyệt."
+    owner:
+      name: "Nhuong Nguyen"
+    depends_on:
+      - ref('dm_air_quality_national_summary')
+      - ref('dm_air_quality_overview_daily')
+      - ref('dm_air_quality_overview_hourly')
+      - ref('dm_air_quality_overview_monthly')
+      - ref('dm_aqi_current_status')
+      - ref('dm_aqi_compliance_standards')
+      - ref('dm_aqi_health_impact_summary')
+      - ref('dm_aqi_temporal_patterns')
+      - ref('dm_platform_data_health')
+      - ref('dm_pollutant_source_fingerprint')
+      - ref('dm_regional_health_risk_ranking')
+      - ref('dm_traffic_hourly_trend')
+      - ref('dm_traffic_pollution_correlation_daily')
+      - ref('dm_weather_hourly_trend')
+      - ref('dm_weather_pollution_correlation_daily')
+      - ref('fct_air_quality_summary_hourly')
+      - ref('fct_air_quality_summary_daily')
+      - ref('fct_air_quality_summary_monthly')
+      - ref('fct_air_quality_province_level_hourly')
+      - ref('fct_air_quality_province_level_daily')
+      - ref('fct_air_quality_province_level_monthly')
+      - ref('fct_air_quality_ward_level_hourly')
+      - ref('fct_air_quality_ward_level_daily')
+      - ref('fct_air_quality_ward_level_monthly')
+      - ref('fct_aqi_weather_traffic_unified')

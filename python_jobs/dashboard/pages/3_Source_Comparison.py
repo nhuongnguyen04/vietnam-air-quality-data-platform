@@ -6,38 +6,37 @@ import sys
 
 sys.path.insert(0, "..")
 
-"""
-Trang So sánh Nguồn (Source Comparison) đối chiếu dữ liệu chất lượng không khí từ nhiều
-nguồn khác nhau (PAM Air, OpenAQ, v.v.). Điều này giúp đánh giá độ chính xác và tính
-nhất quán của dữ liệu từ các hệ thống quan trắc khác nhau.
-"""
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
-from lib.data_service import build_where_clause
+from lib.data_service import (
+    build_where_clause,
+    get_source_correlation,
+    get_source_coverage,
+)
 from lib.filters import render_sidebar_filters
 from lib.i18n import t
+from lib.style import get_plotly_layout, render_metric_card
 
 # ── Translation Helper ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
 
-st.title(t("source_comparison_title", lang))
-st.caption(t("source_comparison_caption", lang))
+st.title(t("source_comparison_title", lang) if lang == "vi" else "📡 Source Comparison & Correlation")
+st.caption(t("source_comparison_caption", lang) if lang == "vi" else "Deep-dive analysis comparing physical ground monitors vs. satellite grid model.")
 
 # ── Methodology explanation (measured vs modeled) ─────────────────────────────
 _explanation = (
     "**Tại sao AQI khác nhau giữa 2 nguồn?**\n"
-    "- **AQI.in**: Tổng hợp từ **trạm quan trắc vật lý** (ground monitors) — phản ánh ô nhiễm tại điểm đo cụ thể, thường đặt gần đường giao thông hoặc khu công nghiệp.\n"
-    "- **OpenWeather**: Dữ liệu từ mô hình **SILAM** (Finnish Meteorological Institute) — ước tính trung bình cho khu vực rộng (~25km grid).\n"
-    "- Chênh lệch 2-3× là **bình thường** khi so sánh measured vs modeled data.\n"
-    "- Dashboard chính ưu tiên ranking có **độ tin cậy vừa/cao**; OpenWeather vẫn được giữ như **ước tính mô hình** cho vùng thiếu trạm."
+    "- **AQI.in**: Dữ liệu từ **trạm quan trắc thực tế** (ground monitors) — phản ánh ô nhiễm tại điểm đo cụ thể, thường nhạy bén với nguồn thải giao thông/mặt đất.\n"
+    "- **OpenWeather (SILAM)**: Ước tính từ **mô hình mạng lưới khí quyển vệ tinh** (~25km grid) — phản ánh trung bình vùng và có độ bao phủ 100% nhưng có xu hướng thấp hơn đo thực tế.\n"
+    "- So sánh tương quan Pearson, MAE và Bias giúp đánh giá độ tin cậy và tìm ra hệ số hiệu chỉnh không gian lý tưởng."
 ) if lang == "vi" else (
     "**Why do AQI values differ between sources?**\n"
-    "- **AQI.in**: Aggregated from **physical ground monitors** — reflects pollution at specific measurement points, often near roads or industrial zones.\n"
-    "- **OpenWeather**: Uses the **SILAM** atmospheric model (Finnish Meteorological Institute) — estimates averages across ~25km grid cells.\n"
-    "- A 2-3× difference is **normal** when comparing measured vs modeled data.\n"
-    "- Main dashboard rankings prioritize **medium/high confidence** rows; OpenWeather remains a **modeled estimate** for areas without monitors."
+    "- **AQI.in**: Physical **ground monitors** — represents local air quality, highly sensitive to immediate ground-level emissions.\n"
+    "- **OpenWeather (SILAM)**: Atmospheric **satellite grid model** (~25km) — represents spatial average with 100% coverage, but tends to underestimate compared to physical monitors.\n"
+    "- Analyzing Pearson correlation, MAE, and Bias enables data verification and calibration strategies."
 )
 st.info(_explanation)
 
@@ -49,10 +48,13 @@ date_range = filters["date_range"]
 pollutant = filters["pollutant"]
 standard = filters["standard"]
 
-# ── helpers ─────────────────────────────────────────────────────────────────────
+# Helper to format metric labels
+val_label = "AQI" if pollutant == "aqi" else pollutant.upper()
 
-SOURCE_LABELS = {"aqiin": "AQI.in", "openweather": "OpenWeather"}
-SOURCE_COLORS = {"aqiin": "#00A8E8", "openweather": "#FF7E00"}
+# ── Helpers ─────────────────────────────────────────────────────────────────────
+
+SOURCE_LABELS = {"aqiin": "📡 Quan trắc mặt đất", "openweather": "🛰️ Mô hình vệ tinh"}
+SOURCE_COLORS = {"aqiin": "#2563eb", "openweather": "#f97316"}
 
 
 @st.cache_data(ttl=300)
@@ -121,112 +123,224 @@ def get_data_freshness():
     """
     return query_df(q)
 
-
 # ── page body ─────────────────────────────────────────────────────────────────────
 
 try:
-    # ── source trend (full width) ────────────────────────────────────────────────
-    st.subheader(t("chart_aqi_by_source", lang))
-    with st.spinner(t("loading", lang) if lang=="en" else "Đang tải so sánh nguồn..."):
-        trend = get_source_trend(date_range, scope_val if spatial_grain in ["Tỉnh", "Phường"] else None)
-    if not trend.empty:
-        fig = px.line(
-            trend,
-            x="date",
-            y="avg_aqi",
-            color="source",
-            color_discrete_map=SOURCE_COLORS,
-            labels={
-                "date": t("chart_label_date", lang),
-                "avg_aqi": "AQI US",
-                "source": t("nav_status", lang), # "Nguồn" or "Source" is not exactly nav_status but let's use status or status_label
-            },
-            custom_data=["source"],
+    # Set up tabbed interface for deep comparison
+    tab_corr, tab_stats, tab_freshness = st.tabs([
+        "🎯 Tương quan & Chênh lệch" if lang == "vi" else "🎯 Correlation & Bias",
+        "📊 Phân bố & Thống kê" if lang == "vi" else "📊 Distribution & Stats",
+        "📶 Độ tươi & Sức khỏe Dữ liệu" if lang == "vi" else "📶 Freshness & Platform Health",
+    ])
+    
+    with tab_corr:
+        corr_df = get_source_correlation(
+            province=scope_val if spatial_grain in ["Tỉnh", "Phường"] else None,
+            start_date=date_range[0].strftime("%Y-%m-%d") if date_range and len(date_range) >= 1 else None,
+            end_date=date_range[1].strftime("%Y-%m-%d") if date_range and len(date_range) >= 2 else None,
         )
-        fig.update_layout(height=320, margin={"l": 0, "r": 0, "t": 10, "b": 40})
-        st.plotly_chart(fig, width='stretch')
-    else:
-        st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu so sánh nguồn."), width='stretch')
-
-    # ── box plot + stats table (col2) ──────────────────────────────────────────
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.subheader(t("chart_aqi_distribution_by_source", lang))
-        dist = get_source_distribution(date_range, scope_val if spatial_grain in ["Tỉnh", "Phường"] else None)
-        if not dist.empty:
-            fig = px.box(
-                dist,
-                x="source",
-                y="avg_aqi",
-                color="source",
-                color_discrete_map=SOURCE_COLORS,
-                labels={"source": t("nav_status", lang) if lang=="en" else "Nguồn", "avg_aqi": "AQI US"},
-                custom_data=["source"],
+        
+        if corr_df.empty:
+            st.plotly_chart(render_empty_chart("Không có dữ liệu tương quan cho phạm vi này." if lang == "vi" else "No correlation data available."), width='stretch')
+        else:
+            both_sources_df = corr_df[corr_df["aqiin_aqi"].notnull() & corr_df["ow_aqi"].notnull()]
+            
+            # KPI stats row
+            c_corr1, c_corr2, c_corr3, c_corr4 = st.columns(4)
+            
+            avg_bias = both_sources_df["aqi_bias"].mean() if not both_sources_df.empty else float("nan")
+            avg_mae = both_sources_df["aqi_mae"].mean() if not both_sources_df.empty else float("nan")
+            r_val = both_sources_df["aqiin_pm25"].corr(both_sources_df["ow_pm25"]) if not both_sources_df.empty else float("nan")
+            agree_rows = both_sources_df[both_sources_df["category_agreement"].isin(["both_good", "both_unhealthy"])]
+            agree_pct = (len(agree_rows) * 100.0 / len(both_sources_df)) if not both_sources_df.empty else 0
+            
+            with c_corr1:
+                render_metric_card(
+                    "Độ tương quan Pearson (r)" if lang == "vi" else "Pearson Correlation (r)",
+                    f"{r_val:.2f}" if not pd.isna(r_val) else "N/A",
+                    icon="insights"
+                )
+            with c_corr2:
+                render_metric_card(
+                    "Độ lệch AQI TB (Bias)" if lang == "vi" else "Avg AQI Bias",
+                    f"{avg_bias:+.1f} AQI" if not pd.isna(avg_bias) else "N/A",
+                    icon="compare_arrows"
+                )
+            with c_corr3:
+                render_metric_card(
+                    "Sai số tuyệt đối (MAE)" if lang == "vi" else "Mean Absolute Error",
+                    f"{avg_mae:.1f} AQI" if not pd.isna(avg_mae) else "N/A",
+                    icon="summarize"
+                )
+            with c_corr4:
+                render_metric_card(
+                    "Đồng thuận Category" if lang == "vi" else "Category Agreement",
+                    f"{agree_pct:.0f}%" if len(both_sources_df) > 0 else "N/A",
+                    icon="fact_check"
+                )
+                
+            st.markdown("---")
+            
+            col_chart1, col_chart2 = st.columns(2)
+            with col_chart1:
+                st.subheader("📈 Xu hướng chất lượng không khí đồng hành" if lang == "vi" else "📈 Temporal Overlay Trend")
+                timeline_df = corr_df.groupby("date")[["aqiin_aqi", "ow_aqi"]].mean().reset_index()
+                
+                fig_timeline = px.line(
+                    timeline_df, x="date", y=["aqiin_aqi", "ow_aqi"],
+                    labels={
+                        "value": "AQI VN",
+                        "variable": "Nguồn" if lang == "vi" else "Source",
+                        "date": "Ngày" if lang == "vi" else "Date"
+                    },
+                    color_discrete_map={"aqiin_aqi": "#2563eb", "ow_aqi": "#f97316"}
+                )
+                fig_timeline.data[0].name = "📡 Trạm mặt đất" if lang == "vi" else "📡 Ground Monitors"
+                fig_timeline.data[1].name = "🛰️ Vệ tinh (SILAM)" if lang == "vi" else "🛰️ Satellite (SILAM)"
+                fig_timeline.update_layout(get_plotly_layout(height=400), hovermode="x unified")
+                st.plotly_chart(fig_timeline, width="stretch")
+                
+            with col_chart2:
+                st.subheader("🎯 Đồ thị phân tán PM2.5 đồng hồ đo" if lang == "vi" else "🎯 PM2.5 Scatter Plot")
+                if both_sources_df.empty:
+                    st.plotly_chart(render_empty_chart("Không có trạm song hành."), width="stretch")
+                else:
+                    fig_scatter = px.scatter(
+                        both_sources_df, x="aqiin_pm25", y="ow_pm25",
+                        hover_name="province", hover_data=["date", "aqiin_aqi", "ow_aqi"],
+                        labels={
+                            "aqiin_pm25": "PM2.5 Mặt đất (µg/m³)" if lang == "vi" else "Ground PM2.5 (µg/m³)",
+                            "ow_pm25": "PM2.5 Vệ tinh (µg/m³)" if lang == "vi" else "Satellite PM2.5 (µg/m³)"
+                        },
+                        color="aqi_bias",
+                        color_continuous_scale="RdBu_r"
+                    )
+                    fig_scatter.update_layout(get_plotly_layout(height=400))
+                    st.plotly_chart(fig_scatter, width="stretch")
+                    
+            st.markdown("---")
+            
+            # Provincial bias bar chart
+            st.subheader("📍 Độ lệch AQI và Tỷ lệ bao phủ trạm mặt đất theo Tỉnh thành" if lang == "vi" else "📍 Provincial AQI Bias & Station Coverage")
+            col_bar1, col_bar2 = st.columns(2)
+            with col_bar1:
+                if both_sources_df.empty:
+                    st.plotly_chart(render_empty_chart("Không có trạm song hành."), width="stretch")
+                else:
+                    bias_df = both_sources_df.groupby("province")["aqi_bias"].mean().reset_index()
+                    bias_df = bias_df.sort_values("aqi_bias", ascending=False).head(15)
+                    
+                    fig_bias = px.bar(
+                        bias_df, x="aqi_bias", y="province", orientation="h",
+                        color="aqi_bias", color_continuous_scale="RdBu_r",
+                        labels={
+                            "aqi_bias": "Độ lệch (Mặt đất - Vệ tinh)" if lang == "vi" else "AQI Bias (Ground - Sat)",
+                            "province": "Tỉnh thành" if lang == "vi" else "Province"
+                        }
+                    )
+                    fig_bias.update_layout(get_plotly_layout(height=400))
+                    st.plotly_chart(fig_bias, width="stretch")
+            
+            with col_bar2:
+                cov_df = get_source_coverage()
+                if cov_df.empty:
+                    st.plotly_chart(render_empty_chart("Không có dữ liệu."), width="stretch")
+                else:
+                    cov_df_plot = cov_df.sort_values("aqiin_coverage_pct", ascending=True).head(15)
+                    fig_cov = px.bar(
+                        cov_df_plot, x="aqiin_coverage_pct", y="province", orientation="h",
+                        color="aqiin_coverage_pct", color_continuous_scale="Blues",
+                        labels={
+                            "aqiin_coverage_pct": "% Xã/Phường có trạm" if lang == "vi" else "Wards with Monitors %",
+                            "province": "Tỉnh thành" if lang == "vi" else "Province"
+                        }
+                    )
+                    fig_cov.update_layout(get_plotly_layout(height=400))
+                    st.plotly_chart(fig_cov, width="stretch")
+                    
+    with tab_stats:
+        # Distribution box plot and Stats Table
+        col_left, col_right = st.columns(2)
+        
+        with col_left:
+            st.subheader(t("chart_aqi_distribution_by_source", lang))
+            dist = get_source_distribution(date_range, scope_val if spatial_grain in ["Tỉnh", "Phường"] else None)
+            if not dist.empty:
+                dist_plot = dist.copy()
+                dist_plot["Nguồn"] = dist_plot["source"].map({"aqiin": "📡 Mặt đất", "openweather": "🛰️ Vệ tinh"})
+                fig = px.box(
+                    dist_plot,
+                    x="Nguồn",
+                    y="avg_aqi",
+                    color="Nguồn",
+                    color_discrete_map={"📡 Mặt đất": "#2563eb", "🛰️ Vệ tinh": "#f97316"},
+                    labels={"Nguồn": "Nguồn" if lang=="vi" else "Source", "avg_aqi": "AQI VN"},
+                )
+                fig.update_layout(height=350, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
+                st.plotly_chart(fig, width='stretch')
+            else:
+                st.plotly_chart(render_empty_chart("Không có dữ liệu phân bố."), width='stretch')
+                
+        with col_right:
+            st.subheader(t("chart_aqi_stats_by_source", lang))
+            stats = get_source_stats(date_range)
+            if not stats.empty:
+                stats_display = stats.copy()
+                stats_display["Nguồn"] = stats_display["source"].map({"aqiin": "📡 Trạm mặt đất", "openweather": "🛰️ Vệ tinh (SILAM)"})
+                stats_display["Trung bình AQI"] = stats_display["avg_aqi"]
+                stats_display["AQI tối đa"] = stats_display["max_aqi"]
+                stats_display["AQI tối thiểu"] = stats_display["min_aqi"]
+                stats_display["Ngày"] = stats_display["day_count"]
+                stats_display["Ngày tốt (AQI≤50)"] = stats_display["good_days"]
+                stats_display["% Tốt"] = (
+                    stats_display["good_days"] / stats_display["day_count"] * 100
+                ).round(1).astype(str) + "%"
+                st.dataframe(
+                    stats_display[[
+                        "Nguồn", "Trung bình AQI", "AQI tối đa", "AQI tối thiểu",
+                        "Ngày", "Ngày tốt (AQI≤50)", "% Tốt",
+                    ]].set_index("Nguồn"),
+                    width='stretch',
+                    use_container_width=True,
+                )
+            else:
+                st.info("Chưa có thống kê nguồn trong khoảng thời gian đã chọn.")
+                
+    with tab_freshness:
+        # Data freshness and health indicators
+        st.subheader(t("chart_data_freshness_by_source", lang))
+        freshness = get_data_freshness()
+        if not freshness.empty:
+            freshness_display = freshness.copy()
+            freshness_display["Nguồn"] = freshness_display["source"].map({"aqiin": "📡 Trạm mặt đất", "openweather": "🛰️ Vệ tinh (SILAM)"})
+            freshness_display["latest_label"] = freshness_display["latest_lag_hours"].round(1).astype(str) + "h"
+            
+            fig = px.bar(
+                freshness_display,
+                x="Nguồn",
+                y="reliable_pct",
+                color="Nguồn",
+                color_discrete_map={"📡 Trạm mặt đất": "#2563eb", "🛰️ Vệ tinh (SILAM)": "#f97316"},
+                text="latest_label",
+                labels={
+                    "reliable_pct": t("reliable_coverage", lang) if lang == "vi" else "Reliability %",
+                    "Nguồn": "Nguồn" if lang == "vi" else "Source",
+                },
+                hover_data={
+                    "latest_label": False,
+                    "latest_lag_hours": ":.1f",
+                    "latest_ingest_lag_hours": ":.1f",
+                    "stale_count": True,
+                    "offline_count": True,
+                },
             )
-            fig.update_layout(height=300, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
+            fig.update_yaxes(range=[0, 100], ticksuffix="%")
+            fig.update_layout(height=320, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
+            fig.update_traces(textposition="outside")
             st.plotly_chart(fig, width='stretch')
+            st.caption("Thời gian lag hiển thị trên cột thể hiện độ trễ thu thập trung bình của dữ liệu (giờ).")
         else:
-            st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu phân bố."), width='stretch')
-
-    with col_right:
-        st.subheader(t("chart_aqi_stats_by_source", lang))
-        stats = get_source_stats(date_range)
-        if not stats.empty:
-            stats_display = stats.copy()
-            stats_display["Nguồn"] = stats_display["source"].map(SOURCE_LABELS)
-            stats_display["Trung bình AQI"] = stats_display["avg_aqi"]
-            stats_display["AQI tối đa"] = stats_display["max_aqi"]
-            stats_display["AQI tối thiểu"] = stats_display["min_aqi"]
-            stats_display["Ngày"] = stats_display["day_count"]
-            stats_display["Ngày tốt (AQI≤50)"] = stats_display["good_days"]
-            stats_display["% Tốt"] = (
-                stats_display["good_days"] / stats_display["day_count"] * 100
-            ).round(1).astype(str) + "%"
-            st.dataframe(
-                stats_display[[
-                    "Nguồn", "Trung bình AQI", "AQI tối đa", "AQI tối thiểu",
-                    "Ngày", "Ngày tốt (AQI≤50)", "% Tốt",
-                ]].set_index("Nguồn"),
-                width='stretch',
-            )
-        else:
-            st.info(t("no_data", lang) if lang=="en" else "Chưa có thống kê nguồn trong khoảng thời gian đã chọn.")
-
-    # ── data freshness ──────────────────────────────────────────────────────────
-    st.subheader(t("chart_data_freshness_by_source", lang))
-    freshness = get_data_freshness()
-    if not freshness.empty:
-        freshness = freshness.copy()
-        freshness["Nguồn"] = freshness["source"].map(SOURCE_LABELS)
-        freshness["latest_label"] = freshness["latest_lag_hours"].round(1).astype(str) + "h"
-        fig = px.bar(
-            freshness,
-            x="Nguồn",
-            y="reliable_pct",
-            color="source",
-            color_discrete_map=SOURCE_COLORS,
-            text="latest_label",
-            labels={
-                "reliable_pct": t("reliable_coverage", lang),
-                "source": t("chart_label_source", lang),
-            },
-            hover_data={
-                "source": False,
-                "latest_label": False,
-                "latest_lag_hours": ":.1f",
-                "latest_ingest_lag_hours": ":.1f",
-                "stale_count": True,
-                "offline_count": True,
-            },
-        )
-        fig.update_yaxes(range=[0, 100], ticksuffix="%")
-        fig.update_layout(height=260, showlegend=False, margin={"l": 0, "r": 0, "t": 10, "b": 30})
-        fig.update_traces(textposition="outside")
-        st.plotly_chart(fig, width='stretch')
-        st.caption(t("ops_dashboard_note", lang))
-    else:
-        st.plotly_chart(render_empty_chart(t("no_data", lang) if lang=="en" else "Không có dữ liệu độ tươi."), width='stretch')
+            st.plotly_chart(render_empty_chart("Không có dữ liệu độ tươi."), width='stretch')
 
 except Exception as e:
     st.error(f"Truy vấn thất bại: {e}")
