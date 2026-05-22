@@ -143,7 +143,7 @@ from monthly_agg
 {% endmacro %}
 
 
-{% macro process_ward_hourly_to_province_hourly(ward_hourly_ref) %}
+{% macro process_ward_hourly_to_province_hourly(ward_hourly_ref, source_mix='observed', confidence_score=1.0, confidence_level='high') %}
 with province_hourly as (
     select
         datetime_hour,
@@ -210,9 +210,9 @@ select
     o3_aqi,
     total_ward_count,
     observation_count,
-    'observed' as source_mix,
-    1.0 as confidence_score,
-    'high' as confidence_level,
+    '{{ source_mix }}' as source_mix,
+    {{ confidence_score }} as confidence_score,
+    '{{ confidence_level }}' as confidence_level,
     last_ingested_at,
     max_raw_loaded_at as raw_loaded_at,
     latest_raw_sync_run_id as raw_sync_run_id,
@@ -222,7 +222,7 @@ from province_hourly
 {% endmacro %}
 
 
-{% macro process_ward_daily_to_province_daily(ward_daily_ref) %}
+{% macro process_ward_daily_to_province_daily(ward_daily_ref, source_mix='observed', confidence_score=1.0, confidence_level='high') %}
 with province_daily as (
     select
         date,
@@ -294,9 +294,9 @@ select
     o3_aqi,
     total_ward_count,
     observation_count,
-    'observed' as source_mix,
-    1.0 as confidence_score,
-    'high' as confidence_level,
+    '{{ source_mix }}' as source_mix,
+    {{ confidence_score }} as confidence_score,
+    '{{ confidence_level }}' as confidence_level,
     last_ingested_at,
     max_raw_loaded_at as raw_loaded_at,
     latest_raw_sync_run_id as raw_sync_run_id,
@@ -306,7 +306,7 @@ from province_daily
 {% endmacro %}
 
 
-{% macro process_ward_monthly_to_province_monthly(ward_monthly_ref) %}
+{% macro process_ward_monthly_to_province_monthly(ward_monthly_ref, source_mix='observed', confidence_score=1.0, confidence_level='high') %}
 with province_monthly as (
     select
         month,
@@ -378,9 +378,9 @@ select
     o3_aqi,
     total_ward_count,
     observation_count,
-    'observed' as source_mix,
-    1.0 as confidence_score,
-    'high' as confidence_level,
+    '{{ source_mix }}' as source_mix,
+    {{ confidence_score }} as confidence_score,
+    '{{ confidence_level }}' as confidence_level,
     last_ingested_at,
     max_raw_loaded_at as raw_loaded_at,
     latest_raw_sync_run_id as raw_sync_run_id,

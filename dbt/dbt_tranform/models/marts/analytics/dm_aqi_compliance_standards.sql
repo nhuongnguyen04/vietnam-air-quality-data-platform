@@ -3,8 +3,8 @@
     on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(ingest_time)',
-    unique_key=['province', 'date'],
-    order_by='(province, date)',
+    unique_key=['province', 'date', 'source_mix'],
+    order_by='(province, date, source_mix)',
     partition_by='toYYYYMM(date)',
     query_settings={
         'max_threads': 1,

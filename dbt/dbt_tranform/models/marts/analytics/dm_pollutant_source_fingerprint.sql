@@ -3,8 +3,8 @@
     on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(ingest_time)',
-    unique_key=['province', 'ward_code', 'date'],
-    order_by='(province, date)',
+    unique_key=['province', 'ward_code', 'date', 'source_mix'],
+    order_by='(province, date, ward_code, source_mix)',
     partition_by='toYYYYMM(date)',
     query_settings={
         'max_threads': 1,
@@ -47,7 +47,7 @@ source_calc as (
         avg(pm10_value) as pm10,
         avg(confidence_score) as confidence_score,
         topK(1)(confidence_level)[1] as confidence_level,
-        topK(1)(source_mix)[1] as source_mix,
+        source_mix,
         avg(pm25_value) / nullIf(avg(pm10_value), 0) as pm25_pm10_ratio,
         case
             when avg(pm25_value) / nullIf(avg(pm10_value), 0) > 0.6 then 'Combustion/Traffic'
@@ -56,7 +56,7 @@ source_calc as (
         end as probable_source,
         max(ingest_time) as ingest_time
     from hourly_data
-    group by date, province, ward_code
+    group by date, province, ward_code, source_mix
 )
 
 select
