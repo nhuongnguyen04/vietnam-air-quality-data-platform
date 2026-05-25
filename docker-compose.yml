@@ -878,7 +878,7 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
-    mem_limit: 1.2g
+    mem_limit: 2g
     cpus: '1'
     healthcheck:
       test:
