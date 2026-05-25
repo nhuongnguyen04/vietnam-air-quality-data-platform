@@ -624,7 +624,7 @@ def render_source_dashboard(source_name: str):
             zoom=zoom_level,
             center={"lat": map_lat, "lon": map_lon},
             size="display_val",
-            size_max=35,
+            size_max=30,
             labels={
                 "display_val": val_label,
                 "province":    t("province", lang),
