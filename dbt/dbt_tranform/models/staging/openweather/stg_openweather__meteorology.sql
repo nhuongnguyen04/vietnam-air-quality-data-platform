@@ -21,9 +21,9 @@ with ward_cluster_map as (
         lon as longitude,
         concat(
             'grid_',
-            toString(toDecimal64(round(lat / 0.2) * 0.2, 1)),
+            printf('%.1f', round(lat / 0.2) * 0.2),
             '_',
-            toString(toDecimal64(round(lon / 0.2) * 0.2, 1))
+            printf('%.1f', round(lon / 0.2) * 0.2)
         ) as weather_cluster
     from {{ ref('stg_core__administrative_units') }}
 ),

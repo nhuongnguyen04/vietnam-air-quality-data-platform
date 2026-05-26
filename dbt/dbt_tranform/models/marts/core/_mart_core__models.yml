@@ -978,6 +978,55 @@ models:
           - air-quality-team
         tags:
           - Certification.Gold
+  - name: fct_weather_ward_hourly
+    description: |
+      Standalone fact table containing hourly weather measurements at the ward grain.
+
+      **Grain:** One row per (ward_code, datetime_hour).
+
+      **Business Rules:**
+      - Aggregates weather data from OpenWeather.
+      - Provides local ward-level variables (temperature, humidity, wind_speed, wind_direction, pressure) as well as province fallbacks.
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: temperature
+        description: Local temperature (°C).
+      - name: humidity
+        description: Local relative humidity (%).
+      - name: wind_speed
+        description: Local wind speed (m/s).
+      - name: wind_direction
+        description: Wind direction (degrees).
+      - name: pressure
+        description: Atmospheric pressure (hPa).
+  - name: fct_traffic_ward_hourly
+    description: |
+      Standalone fact table containing hourly traffic flow measurements at the ward grain.
+
+      **Grain:** One row per (ward_code, datetime_hour).
+
+      **Business Rules:**
+      - Aggregates congestion index data from TomTom.
+    columns:
+      - name: datetime_hour
+        description: UTC hour bucket.
+      - name: date
+        description: Calendar date.
+      - name: province
+        description: Province name.
+      - name: ward_code
+        description: Ward identifier.
+      - name: congestion_index
+        description: TomTom traffic congestion ratio.
+      - name: traffic_data_type
+        description: TomTom data status (Real-time vs Historical).
   - name: fct_aqi_weather_traffic_unified
     description: |
       The core unified fact dataset for dashboards — joins AQI, weather, traffic, and population data into one denormalized table.

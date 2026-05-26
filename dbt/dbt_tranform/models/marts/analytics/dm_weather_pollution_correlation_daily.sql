@@ -1,11 +1,11 @@
--- depends_on: {{ ref('fct_aqi_weather_traffic_unified') }}
+-- depends_on: {{ ref('dm_weather_hourly_trend') }}
 {{ config(
     materialized='incremental',
     on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(dbt_updated_at)',
     unique_key=['province', 'ward_code', 'date'],
-    order_by='(province, date)',
+    order_by='(province, date, ward_code)',
     partition_by='toYYYYMM(date)',
     query_settings={
         'max_threads': 1,
@@ -34,7 +34,7 @@ WITH source_data AS (
         raw_loaded_at,
         raw_sync_run_id,
         raw_sync_started_at
-    FROM {{ ref('fct_aqi_weather_traffic_unified') }}
+    FROM {{ ref('dm_weather_hourly_trend') }}
     WHERE {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
 ),
 
