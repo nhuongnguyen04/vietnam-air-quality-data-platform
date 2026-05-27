@@ -21,7 +21,7 @@ from lib.data_service import (
     get_source_mix,
     get_source_table,
 )
-from lib.filters import render_sidebar_filters
+from lib.filters import render_top_filters
 from lib.i18n import t
 from lib.page_helpers import page_wrapper, render_section_divider
 from lib.style import render_metric_card
@@ -152,7 +152,7 @@ def get_temporal_patterns(col: str, province: str | None, source_name: str, date
 @page_wrapper("nav_trends", "📈 Historical Trends Analysis", icon="📈")
 def main(lang: str):
     # ── Sidebar Filters ────────────────────────────────────────────────────────────
-    filters = render_sidebar_filters()
+    filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     time_unit     = filters["time_unit"]
     scope_val     = filters["scope_val"]
@@ -211,7 +211,7 @@ def main(lang: str):
         avg_label = t("chart_label_avg", lang)
         metric_label = f"{val_label} {avg_label.lower()}" if lang == "vi" else f"{avg_label} {val_label}"
         colorbar_config = get_aqi_colorbar_config(standard, metric_label) if pollutant == "aqi" else {"title": {"text": metric_label}}
-        colorbar_config.update({"x": 1.02, "xanchor": "left", "xpad": 8, "len": 0.84, "thickness": 16})
+        colorbar_config.update({"x": 1.01, "xanchor": "left", "xpad": 4, "len": 0.84, "thickness": 16})
         
         plot_df = df.copy()
         plot_df["date"] = pd.to_datetime(plot_df["date_str"])
@@ -231,7 +231,7 @@ def main(lang: str):
         )
         fig.update_layout(
             height=height,
-            margin={"l": 20, "r": 110, "t": 10, "b": 58},
+            margin={"l": 20, "r": 130, "t": 10, "b": 58},
             xaxis={"title": t("chart_label_date", lang), "automargin": True},
             yaxis={"title": t("province", lang), "automargin": True},
             coloraxis_colorbar=colorbar_config,
@@ -257,24 +257,37 @@ def main(lang: str):
             with col4:
                 render_metric_card(f"{t('chart_label_max', lang)} {val_label}", f"{row.overall_max:.0f}", icon="error")
 
-        # 2. Daily Trend
-        st.markdown(f"#### 📈 {t('nav_overview', lang)} ({val_label})")
-        trend_df = get_daily_trend(display_col, spatial_grain, scope_val, date_range, source_name, time_unit)
-        if not trend_df.empty:
-            fig = render_daily_trend_chart(trend_df, height=320)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.plotly_chart(create_empty_state("Không có dữ liệu xu hướng cho nguồn này."), use_container_width=True)
+        # 2 & 3. Daily Trend + Monthly Average (2-column layout)
+        c_left, c_right = st.columns(2, gap="large")
+        
+        with c_left:
+            st.markdown(f"#### 📈 {t('nav_overview', lang)} ({val_label})")
+            trend_df = get_daily_trend(display_col, spatial_grain, scope_val, date_range, source_name, time_unit)
+            if not trend_df.empty:
+                fig = render_daily_trend_chart(trend_df, height=280)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.plotly_chart(create_empty_state("Không có dữ liệu xu hướng cho nguồn này.", height=280), use_container_width=True)
+                
+        with c_right:
+            period_label = "month" if lang == "en" else "tháng"
+            st.markdown(f"#### 📅 {t('chart_label_avg', lang)} {period_label} ({val_label})")
+            monthly_df = get_monthly_trend(display_col, date_range, source_name, spatial_grain)
+            if not monthly_df.empty:
+                fig = render_monthly_average_chart(monthly_df)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.plotly_chart(create_empty_state("Không có dữ liệu trung bình tháng.", height=280), use_container_width=True)
 
         render_section_divider()
 
-        # 3. Temporal heatmaps
+        # 4. Temporal heatmaps
         st.markdown(f"#### ⏱️ {t('weather_dispersal_analysis', lang)} ({val_label})")
         df_temporal = get_temporal_patterns(display_col, scope_val if spatial_grain in ["Tỉnh", "Phường"] else None, source_name, date_range, spatial_grain, lang)
         
         if not df_temporal.empty:
             temporal_colorbar = get_aqi_colorbar_config(standard, val_label) if pollutant == "aqi" else {"title": {"text": val_label}}
-            temporal_colorbar.update({"x": 0.935, "xanchor": "left", "xpad": 6, "len": 0.82, "thickness": 16})
+            temporal_colorbar.update({"x": 1.01, "xanchor": "left", "xpad": 4, "len": 0.84, "thickness": 16})
             
             fig_temp = px.density_heatmap(
                 df_temporal,
@@ -286,8 +299,8 @@ def main(lang: str):
                 labels={"hour_of_day": t("chart_label_hour", lang), "day_name": t("chart_label_day_of_week", lang), "avg_aqi": val_label},
             )
             fig_temp.update_layout(
-                height=340,
-                margin={"l": 20, "r": 60, "t": 10, "b": 42},
+                height=280,
+                margin={"l": 20, "r": 130, "t": 10, "b": 42},
                 coloraxis_colorbar=temporal_colorbar,
             )
             st.plotly_chart(fig_temp, use_container_width=True)
@@ -296,17 +309,7 @@ def main(lang: str):
 
         render_section_divider()
 
-        # 4. Monthly average
-        period_label = "month" if lang == "en" else "tháng"
-        st.markdown(f"#### 📅 {t('chart_label_avg', lang)} {period_label} ({val_label})")
-        monthly_df = get_monthly_trend(display_col, date_range, source_name, spatial_grain)
-        if not monthly_df.empty:
-            fig = render_monthly_average_chart(monthly_df)
-            st.plotly_chart(fig, use_container_width=True)
-
-        render_section_divider()
-
-        # 5. Province heatmap
+        # 5. Province heatmap (User decided to "Giữ nguyên" height)
         st.markdown(f"#### 🌡️ {t('chart_heatmap', lang)} {val_label} - Tỉnh × Ngày")
         heatmap_data = get_heatmap_data(display_col, spatial_grain, scope_val, date_range, source_name, time_unit)
         if not heatmap_data.empty:
@@ -389,7 +392,7 @@ def main(lang: str):
             chart_height = max(380, len(all_provs) * 22)
 
             colorbar_config = {"title": {"text": f"Đo lệch {val_label}"}}
-            colorbar_config.update({"x": 1.02, "xanchor": "left", "xpad": 8, "len": 0.84, "thickness": 16})
+            colorbar_config.update({"x": 1.01, "xanchor": "left", "xpad": 4, "len": 0.84, "thickness": 16})
 
             plot_df = filtered.copy()
             plot_df["date"] = pd.to_datetime(plot_df["date_str"])
@@ -414,7 +417,7 @@ def main(lang: str):
             )
             fig_bias_heat.update_layout(
                 height=chart_height,
-                margin={"l": 20, "r": 110, "t": 10, "b": 58},
+                margin={"l": 20, "r": 130, "t": 10, "b": 58},
                 coloraxis_colorbar=colorbar_config,
             )
             date_format = "%d/%m/%Y" if lang == "vi" else "%b %d, %Y"

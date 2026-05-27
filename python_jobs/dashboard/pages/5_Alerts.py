@@ -2,21 +2,20 @@
 Alerts & Standards Compliance page.
 Provides standard compliance timelines, WHO/TCVN breach comparative bars, and risk heatmaps.
 """
+
 from __future__ import annotations
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
-from lib.aqi_utils import render_empty_chart
+from lib.chart_config import create_empty_state, get_plotly_layout
 from lib.clickhouse_client import query_df
 from lib.data_service import escape_value
-from lib.filters import render_sidebar_filters
+from lib.filters import render_top_filters
 from lib.i18n import t
 from lib.page_helpers import page_wrapper, render_section_divider
 from lib.style import render_metric_card
-from lib.chart_config import get_plotly_layout, create_empty_state
 
 COMPLIANCE_COLORS = {
     "Good/Safe": "#10B981",
@@ -25,18 +24,30 @@ COMPLIANCE_COLORS = {
 }
 
 EN_MONTH_ABBR = {
-    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
-    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
+    1: "Jan",
+    2: "Feb",
+    3: "Mar",
+    4: "Apr",
+    5: "May",
+    6: "Jun",
+    7: "Jul",
+    8: "Aug",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dec",
 }
+
 
 def format_date_label(value, lang: str) -> str:
     date_value = pd.to_datetime(value)
     if pd.isna(date_value):
         return str(value)
     if lang == "vi":
-        return f"{date_value.day}/{date_value.month}<br>{date_value.year}"
+        return f"{date_value.day:02d}/{date_value.month:02d}/{date_value.year}"
     month = EN_MONTH_ABBR[date_value.month]
-    return f"{month} {date_value.day}<br>{date_value.year}"
+    return f"{month} {date_value.day:02d}, {date_value.year}"
+
 
 @st.cache_data(ttl=300)
 def get_compliance_timeline(days: int, province: str | None):
@@ -59,6 +70,7 @@ def get_compliance_timeline(days: int, province: str | None):
     """
     return query_df(q)
 
+
 @st.cache_data(ttl=300)
 def get_breach_by_province(days: int):
     days = int(days)
@@ -75,6 +87,7 @@ def get_breach_by_province(days: int):
     LIMIT 15
     """
     return query_df(q)
+
 
 @st.cache_data(ttl=300)
 def get_high_risk_heatmap(days: int, province: str | None):
@@ -107,10 +120,11 @@ def get_high_risk_heatmap(days: int, province: str | None):
     """
     return query_df(q)
 
+
 @page_wrapper("alert", "🚨 Alerts & Standards Compliance", icon="🚨")
 def main(lang: str):
     # ── Sidebar Filters (Synchronized) ────────────────────────────────────────────
-    filters = render_sidebar_filters()
+    filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     scope_val = filters["scope_val"]
     date_range = filters["date_range"]
@@ -133,7 +147,7 @@ def main(lang: str):
         total_breach = timeline[timeline["compliance_status"] != "Good/Safe"]["cnt"].sum()
         total_days = timeline["cnt"].sum()
         rate = ((total_days - total_breach) * 100.0 / total_days) if total_days > 0 else 100.0
-        
+
         with c_alert[0]:
             render_metric_card("Tỷ lệ tuân thủ", f"{rate:.1f}%", icon="star")
         with c_alert[1]:
@@ -150,72 +164,81 @@ def main(lang: str):
 
     render_section_divider()
 
-    # ── 2. Compliance Timeline ──────────────────────────────────────────────────
-    st.markdown(f"#### 📈 {t('chart_compliance_timeline', lang)}")
-    if not timeline.empty:
-        comp_map = {
-            "Good/Safe": t("compliance_good", lang),
-            "Warning (WHO Breach)": t("compliance_who", lang),
-            "Unhealthy (TCVN Breach)": t("compliance_tcvn", lang)
-        }
-        timeline["status_label"] = timeline["compliance_status"].map(comp_map).fillna(timeline["compliance_status"])
-        timeline["date_label"] = timeline["date"].apply(lambda val: format_date_label(val, lang))
-        date_order = timeline[["date", "date_label"]].drop_duplicates().sort_values("date")["date_label"].tolist()
+    # ── 2 & 3. Compliance Timeline & Comparative Bars (2-column layout) ─────────
+    c_left, c_right = st.columns(2, gap="large")
 
-        color_map = {
-            t("compliance_good", lang): COMPLIANCE_COLORS["Good/Safe"],
-            t("compliance_who", lang): COMPLIANCE_COLORS["Warning (WHO Breach)"],
-            t("compliance_tcvn", lang): COMPLIANCE_COLORS["Unhealthy (TCVN Breach)"]
-        }
+    with c_left:
+        st.markdown(f"#### 📈 {t('chart_compliance_timeline', lang)}")
+        if not timeline.empty:
+            comp_map = {
+                "Good/Safe": t("compliance_good", lang),
+                "Warning (WHO Breach)": t("compliance_who", lang),
+                "Unhealthy (TCVN Breach)": t("compliance_tcvn", lang),
+            }
+            timeline["status_label"] = timeline["compliance_status"].map(comp_map).fillna(timeline["compliance_status"])
+            timeline["date_label"] = timeline["date"].apply(lambda val: format_date_label(val, lang))
+            date_order = timeline[["date", "date_label"]].drop_duplicates().sort_values("date")["date_label"].tolist()
 
-        fig = px.bar(
-            timeline,
-            x="date_label",
-            y="cnt",
-            color="status_label",
-            color_discrete_map=color_map,
-            category_orders={"date_label": date_order},
-            barmode="stack",
-            labels={"date_label": t("chart_label_date", lang), "cnt": t("chart_label_count", lang), "status_label": t("chart_label_status", lang)},
-        )
-        fig.update_layout(get_plotly_layout(height=300, compact=True), showlegend=True)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.plotly_chart(create_empty_state("Không có dữ liệu tuân thủ trong phạm vi này."), use_container_width=True)
+            color_map = {
+                t("compliance_good", lang): COMPLIANCE_COLORS["Good/Safe"],
+                t("compliance_who", lang): COMPLIANCE_COLORS["Warning (WHO Breach)"],
+                t("compliance_tcvn", lang): COMPLIANCE_COLORS["Unhealthy (TCVN Breach)"],
+            }
 
-    render_section_divider()
+            fig = px.bar(
+                timeline,
+                x="date_label",
+                y="cnt",
+                color="status_label",
+                color_discrete_map=color_map,
+                category_orders={"date_label": date_order},
+                barmode="stack",
+                labels={
+                    "date_label": t("chart_label_date", lang),
+                    "cnt": t("chart_label_count", lang),
+                    "status_label": t("chart_label_status", lang),
+                },
+            )
+            fig.update_layout(get_plotly_layout(height=280, compact=True), showlegend=True)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.plotly_chart(
+                create_empty_state("Không có dữ liệu tuân thủ trong phạm vi này.", height=280), use_container_width=True
+            )
 
-    # ── 3. WHO/TCVN Breach Comparative Bars ─────────────────────────────────────
-    st.markdown(f"#### 📊 {t('chart_breach_comparison', lang)}")
-    if not breach.empty:
-        breach_melted = pd.melt(
-            breach,
-            id_vars=["province"],
-            value_vars=["who_breach_days", "tcvn_breach_days"],
-            var_name="standard_key",
-            value_name="days_val",
-        )
-        standard_map = {
-            "who_breach_days": "WHO (PM2.5 > 15 µg/m³)",
-            "tcvn_breach_days": "TCVN (PM2.5 > 50 µg/m³)",
-        }
-        breach_melted["standard"] = breach_melted["standard_key"].map(standard_map)
-        fig = px.bar(
-            breach_melted,
-            x="province",
-            y="days_val",
-            color="standard",
-            barmode="group",
-            color_discrete_map={
-                "WHO (PM2.5 > 15 µg/m³)": "#F59E0B",
-                "TCVN (PM2.5 > 50 µg/m³)": "#EF4444",
-            },
-            labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
-        )
-        fig.update_layout(get_plotly_layout(height=320, compact=True), showlegend=True)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.plotly_chart(create_empty_state("Không có dữ liệu vi phạm tiêu chuẩn."), use_container_width=True)
+    with c_right:
+        st.markdown(f"#### 📊 {t('chart_breach_comparison', lang)}")
+        if not breach.empty:
+            breach_melted = pd.melt(
+                breach,
+                id_vars=["province"],
+                value_vars=["who_breach_days", "tcvn_breach_days"],
+                var_name="standard_key",
+                value_name="days_val",
+            )
+            standard_map = {
+                "who_breach_days": "WHO (PM2.5 > 15 µg/m³)",
+                "tcvn_breach_days": "TCVN (PM2.5 > 50 µg/m³)",
+            }
+            breach_melted["standard"] = breach_melted["standard_key"].map(standard_map)
+            fig = px.bar(
+                breach_melted,
+                x="province",
+                y="days_val",
+                color="standard",
+                barmode="group",
+                color_discrete_map={
+                    "WHO (PM2.5 > 15 µg/m³)": "#F59E0B",
+                    "TCVN (PM2.5 > 50 µg/m³)": "#EF4444",
+                },
+                labels={"province": t("province", lang), "days_val": t("chart_label_days", lang)},
+            )
+            fig.update_layout(get_plotly_layout(height=280, compact=True), showlegend=True)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.plotly_chart(
+                create_empty_state("Không có dữ liệu vi phạm tiêu chuẩn.", height=280), use_container_width=True
+            )
 
     render_section_divider()
 
@@ -228,10 +251,12 @@ def main(lang: str):
 
         date_order = risk[["date", "date_label"]].drop_duplicates().sort_values("date")["date_label"].tolist()
         top_provs = risk.groupby("province")["high_risk_hours"].sum().nlargest(12).index.tolist()
-        
+
         if top_provs:
             filtered = risk[risk["province"].isin(top_provs)]
-            heatmap = filtered.pivot(index="province", columns="date_label", values="high_risk_hours").reindex(index=top_provs, columns=date_order)
+            heatmap = filtered.pivot(index="province", columns="date_label", values="high_risk_hours").reindex(
+                index=top_provs, columns=date_order
+            )
 
             hovertemplate = (
                 f"{t('province', lang)}: %{{y}}<br>"
@@ -272,6 +297,7 @@ def main(lang: str):
             st.plotly_chart(create_empty_state("Không đủ dữ liệu giờ rủi ro cao."), use_container_width=True)
     else:
         st.plotly_chart(create_empty_state("Không có dữ liệu giờ rủi ro cao."), use_container_width=True)
+
 
 if __name__ == "__main__":
     main()

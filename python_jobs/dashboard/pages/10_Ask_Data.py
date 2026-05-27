@@ -74,16 +74,14 @@ def main(lang: str):
     )
 
     st.caption("💡 " + (t("ask_data_examples_label", lang) if lang == "vi" else "Suggested Prompts:"))
-    example_columns = st.columns(3)
-    for column, example_question in zip(example_columns, example_questions, strict=False):
-        with column:
-            st.button(
-                example_question,
-                key=f"ask_data_example_{example_question}",
-                use_container_width=True,
-                on_click=_set_example_question,
-                args=(example_question,),
-            )
+    for example_question in example_questions:
+        st.button(
+            "💡 " + example_question,
+            key=f"ask_data_example_{example_question}",
+            use_container_width=True,
+            on_click=_set_example_question,
+            args=(example_question,),
+        )
 
     st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
 

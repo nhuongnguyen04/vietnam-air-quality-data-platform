@@ -20,7 +20,6 @@ if "lang" not in st.session_state:
 
 # ── Styling ───────────────────────────────────────────────────────────────────
 inject_style()
-render_top_bar()
 
 # ── Sidebar Navigation ────────────────────────────────────────────────────────
 lang = st.session_state.get("lang", "vi")
@@ -50,7 +49,7 @@ pages = {
 with st.sidebar:
     # Premium Brand Logo Area
     st.markdown(f"""
-    <div style='padding: 0.5rem 0; margin-bottom: 1.25rem;'>
+    <div class='sidebar-brand-container' style='padding: 0.5rem 0; margin-bottom: 1.25rem;'>
         <h1 style='margin:0; font-family:"Outfit",sans-serif; font-size:1.6rem; font-weight:800;
                    background: linear-gradient(135deg, #0891B2, #06B6D4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
             🌿 GreenAir VN
@@ -62,6 +61,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.divider()
 
+    st.markdown("<div class='sidebar-filters-container'>", unsafe_allow_html=True)
     st.subheader(t("standard_guidelines", lang))
     st.select_slider(
         label=t("standard_guidelines", lang),
@@ -77,6 +77,7 @@ with st.sidebar:
         "**WHO 2021**: WHO Global Air Quality Guidelines."
     )
     st.markdown(f"<div style='font-size:0.78rem; opacity:0.7; line-height:1.4;'>{_std_help}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     st.divider()
     
     # Sidebar footer with version & freshness

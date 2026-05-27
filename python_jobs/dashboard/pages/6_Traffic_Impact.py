@@ -11,9 +11,9 @@ from plotly.subplots import make_subplots
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause
-from lib.filters import render_sidebar_filters
+from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import page_wrapper, render_section_divider
+from lib.page_helpers import page_wrapper, render_section_divider, render_info_banner
 from lib.style import render_metric_card
 from lib.chart_config import get_plotly_layout, create_empty_state
 
@@ -114,7 +114,7 @@ def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, c
 @page_wrapper("traffic", "🚦 Traffic Impact Analysis", icon="🚦")
 def main(lang: str):
     # ── Sidebar Filters ────────────────────────────────────────────────────────────
-    filters = render_sidebar_filters()
+    filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     scope_val = filters["scope_val"]
     date_range = filters["date_range"]
@@ -157,29 +157,26 @@ def main(lang: str):
         )
 
         # Context Alerts
-        st.markdown(f"""
-        <div class="glass-card" style="border-left: 5px solid #F59E0B; background: rgba(245, 158, 11, 0.04); padding: 0.85rem 1.25rem;">
-            <p style="margin:0; font-size:0.88rem; font-weight:500; line-height:1.4;">
-                {"⚠️ <b>Lưu ý:</b> Các chỉ số thể hiện tương quan quan sát từ dữ liệu đồng hành TomTom Flow và AQI.in. Đây không phải là mô hình chứng minh nhân quả trực tiếp."
-                if lang == "vi" else
-                "⚠️ <b>Note:</b> Metrics reflect observational correlations between TomTom Flow traffic and AQI.in data. They are not direct causal estimates."}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
+        render_info_banner(
+            "Lưu ý: Các chỉ số thể hiện tương quan quan sát từ dữ liệu TomTom Flow và AQI.in, không phải quan hệ nhân quả trực tiếp."
+            if lang == "vi" else
+            "Note: Observational correlations between TomTom Flow traffic and AQI.in data, not direct causal estimates.",
+            type="info"
+        )
+        
         if pd.isna(avg_coverage) or avg_coverage < 0.1 or not has_uplift:
-            st.markdown(f"""
-            <div style="margin-bottom:1.5rem; border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.05); padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.85rem; opacity:0.8;">
-                ⚠️ {"Mật độ dữ liệu TomTom tại vùng này chưa đủ tiêu chuẩn để tính chênh lệch phát thải (PM2.5 Uplift). Thống kê Uplift hiển thị N/A."
+            render_info_banner(
+                "Mật độ dữ liệu TomTom tại vùng này chưa đủ tiêu chuẩn để tính chênh lệch phát thải (PM2.5 Uplift). Thống kê Uplift hiển thị N/A."
                 if lang == "vi" else
-                "TomTom congestion data density is too sparse to evaluate PM2.5 Uplift safely. Uplift card is shown as N/A."}
-            </div>
-            """, unsafe_allow_html=True)
+                "TomTom congestion data density is too sparse to evaluate PM2.5 Uplift safely. Uplift card is shown as N/A.",
+                type="warning"
+            )
 
         # ── KPI Cards ──────────────────────────────────────────────────────
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         traffic_display = f"{avg_traffic:.1%}" if avg_traffic > 0 else "N/A"
         uplift_display = f"{pm25_uplift:.1f} µg/m³" if has_uplift else "N/A"
+        coverage_display = f"{avg_coverage:.1%}" if not pd.isna(avg_coverage) else "N/A"
 
         with c1:
             render_metric_card(t("traffic_congestion", lang), traffic_display, icon="traffic")
@@ -187,73 +184,79 @@ def main(lang: str):
             render_metric_card(t("traffic_contribution", lang), uplift_display, icon="air")
         with c3:
             render_metric_card(t("traffic_impact", lang), f"{comovement_score:.2f}", icon="insights")
+        with c4:
+            render_metric_card("Độ phủ dữ liệu" if lang == "vi" else "TomTom Coverage", coverage_display, icon="location")
 
         render_section_divider()
 
-        # ── Hourly Correlation Chart ──────────────────────────────────────
-        st.markdown(f"#### 📈 {t('traffic_hourly_correlation', lang)}")
+        # ── Hourly Correlation & Hotspot Ranking (2-column layout) ─────────
+        c_left, c_right = st.columns([1.0, 1.0], gap="large")
         
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(
-            go.Scatter(
-                x=df_hourly.datetime_hour, y=df_hourly.avg_congestion, 
-                name="Tắc nghẽn giao thông" if lang == "vi" else "TomTom Congestion Index",
-                line={"color": '#0891B2', "width": 3}
-            ),
-            secondary_y=True,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=df_hourly.datetime_hour, y=df_hourly.avg_p, 
-                name=target_poll.upper(),
-                fill='tozeroy', line={"color": '#F59E0B', "width": 2}
-            ),
-            secondary_y=False,
-        )
-        fig.update_layout(
-            get_plotly_layout(height=420), 
-            margin={"l": 60, "r": 60, "t": 20, "b": 60}, 
-            hovermode="x unified"
-        )
-        fig.update_yaxes(title_text=f"{target_poll.upper()} (µg/m³)", secondary_y=False)
-        fig.update_yaxes(title_text="Tắc nghẽn giao thông" if lang == "vi" else "Congestion", secondary_y=True)
-        st.plotly_chart(fig, use_container_width=True)
-
-        # ── Hotspot Ranking ──────────────────────────────────────────────────
-        st.markdown(f"#### 🏆 {t('traffic_hotspot_ranking', lang)}")
-        if not df_rank.empty:
-            is_ward_ranking = spatial_grain in ["Tỉnh", "Phường"] and bool(scope_val)
-            area_label = "Phường/Xã" if is_ward_ranking and lang == "vi" else ("Ward" if is_ward_ranking else t("chart_label_area", lang))
-            
-            df_rank_plot = df_rank.sort_values('impact_score', ascending=True)
-
-            loc_map = {
-                "Urban": t("location_urban", lang),
-                "Industrial": t("location_industrial", lang),
-                "Rural": t("location_rural", lang)
-            }
-            df_rank_plot["loc_label"] = df_rank_plot["location_type"].map(loc_map).fillna(df_rank_plot["location_type"])
-
-            color_map = {
-                t("location_urban", lang): "#0891B2",      # Cyan
-                t("location_industrial", lang): "#EF4444", # Red
-                t("location_rural", lang): "#10B981"       # Emerald
-            }
-
-            fig_rank = px.bar(
-                df_rank_plot,
-                x="impact_score",
-                y="label_col",
-                color="loc_label",
-                orientation='h',
-                labels={"impact_score": t("traffic_impact", lang), "label_col": area_label, "loc_label": t("chart_label_type", lang)},
-                color_discrete_map=color_map,
+        with c_left:
+            st.markdown(f"#### 📈 {t('traffic_hourly_correlation', lang)}")
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            fig.add_trace(
+                go.Scatter(
+                    x=df_hourly.datetime_hour, y=df_hourly.avg_congestion, 
+                    name="Tắc nghẽn giao thông" if lang == "vi" else "TomTom Congestion Index",
+                    line={"color": '#0891B2', "width": 3}
+                ),
+                secondary_y=True,
             )
-            fig_rank.update_layout(get_plotly_layout(height=420, compact=True))
-            st.plotly_chart(fig_rank, use_container_width=True)
-        else:
-            st.plotly_chart(create_empty_state("Không có dữ liệu xếp hạng giao thông cho vùng này."), use_container_width=True)
-
+            fig.add_trace(
+                go.Scatter(
+                    x=df_hourly.datetime_hour, y=df_hourly.avg_p, 
+                    name=target_poll.upper(),
+                    fill='tozeroy', line={"color": '#F59E0B', "width": 2}
+                ),
+                secondary_y=False,
+            )
+            fig.update_layout(
+                get_plotly_layout(height=320, compact=True), 
+                margin={"l": 50, "r": 65, "t": 40, "b": 40}, 
+                hovermode="x unified"
+            )
+            fig.update_yaxes(title_text=f"{target_poll.upper()} (µg/m³)", secondary_y=False)
+            fig.update_yaxes(title_text="Tắc nghẽn" if lang == "vi" else "Congestion", secondary_y=True)
+            st.plotly_chart(fig, use_container_width=True)
+ 
+        with c_right:
+            st.markdown(f"#### 🏆 {t('traffic_hotspot_ranking', lang)}")
+            if not df_rank.empty:
+                is_ward_ranking = spatial_grain in ["Tỉnh", "Phường"] and bool(scope_val)
+                area_label = "Phường/Xã" if is_ward_ranking and lang == "vi" else ("Ward" if is_ward_ranking else t("chart_label_area", lang))
+                
+                df_rank_plot = df_rank.sort_values('impact_score', ascending=True)
+ 
+                loc_map = {
+                    "Urban": t("location_urban", lang),
+                    "Industrial": t("location_industrial", lang),
+                    "Rural": t("location_rural", lang)
+                }
+                df_rank_plot["loc_label"] = df_rank_plot["location_type"].map(loc_map).fillna(df_rank_plot["location_type"])
+ 
+                color_map = {
+                    t("location_urban", lang): "#0891B2",      # Cyan
+                    t("location_industrial", lang): "#EF4444", # Red
+                    t("location_rural", lang): "#10B981"       # Emerald
+                }
+ 
+                fig_rank = px.bar(
+                    df_rank_plot,
+                    x="impact_score",
+                    y="label_col",
+                    color="loc_label",
+                    orientation='h',
+                    labels={"impact_score": t("traffic_impact", lang), "label_col": area_label, "loc_label": t("chart_label_type", lang)},
+                    color_discrete_map=color_map,
+                )
+                fig_rank.update_layout(
+                    get_plotly_layout(height=320, compact=True),
+                    margin={"l": 80, "r": 20, "t": 40, "b": 45}
+                )
+                st.plotly_chart(fig_rank, use_container_width=True)
+            else:
+                st.plotly_chart(create_empty_state("Không có dữ liệu xếp hạng giao thông cho vùng này.", height=320), use_container_width=True)
     else:
         st.plotly_chart(create_empty_state("Không có dữ liệu KPI/xu hướng giao thông cho vùng này."), use_container_width=True)
 

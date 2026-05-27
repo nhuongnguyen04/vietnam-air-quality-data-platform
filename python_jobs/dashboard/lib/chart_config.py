@@ -39,6 +39,12 @@ AQI_PALETTE = {
     "Unknown": "#94A3B8",                     # Slate-400
 }
 
+# ── Standardized Chart Heights ────────────────────────────────────────────────
+CHART_HEIGHT_SM = 200
+CHART_HEIGHT_MD = 300
+CHART_HEIGHT_LG = 400
+CHART_HEIGHT_XL = 500
+
 # ── Preset Layout Configurations ─────────────────────────────────────────────
 def get_plotly_layout(height=400, animate=False, compact=False):
     """Return a polished Plotly layout consistent with premium glassmorphism."""

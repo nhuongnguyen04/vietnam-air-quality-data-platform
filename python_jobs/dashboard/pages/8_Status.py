@@ -5,6 +5,7 @@ Displays data ingestion pipeline logs, source reliable coverage ratios, and syst
 from __future__ import annotations
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from lib.aqi_utils import render_empty_chart
@@ -30,7 +31,7 @@ def format_pct(value) -> str:
         return "-"
     return f"{float(value):.1f}%"
 
-def platform_status(latest_lag: float, reliable_pct: float) -> str:
+def platform_status(latest_lag: float, reliable_pct: float, lang: str = "vi") -> str:
     if latest_lag <= 1 and reliable_pct >= 90:
         return t("status_operational", lang) if "status_operational" in TRANSLATIONS[lang] else "Operational"
     if latest_lag <= 3 and reliable_pct >= 70:
@@ -81,6 +82,8 @@ def main(lang: str):
         reliable_pct = float(summary_row["reliable_pct"])
         source_ward_count = int(summary_row["source_ward_count"])
         attention_count = int(summary_row["attention_count"])
+        stale_count = int(summary_row["stale_count"])
+        offline_count = int(summary_row["offline_count"])
 
         # ── KPI Cards ──────────────────────────────────────────────────────────
         c1, c2, c3, c4 = st.columns(4)
@@ -100,30 +103,19 @@ def main(lang: str):
 
         render_section_divider()
 
-        # Alert banner
-        stale_count = int(summary_row.get("stale_count", 0))
-        offline_count = int(summary_row.get("offline_count", 0))
+        # Alert banner using render_info_banner helper
+        from lib.page_helpers import render_info_banner
         
         if attention_count > 0:
-            st.markdown(f"""
-            <div class="glass-card" style="border-left: 5px solid #F59E0B; background: rgba(245, 158, 11, 0.04);">
-                <p style="margin:0; font-size:0.9rem; line-height:1.4; font-weight:500;">
-                    ⚠️ {t("data_trust_warning", lang).format(
-                        attention_count=attention_count,
-                        source_ward_count=source_ward_count,
-                        stale_count=stale_count,
-                        offline_count=offline_count
-                    )}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+            msg = t("data_trust_warning", lang).format(
+                attention_count=attention_count,
+                source_ward_count=source_ward_count,
+                stale_count=stale_count,
+                offline_count=offline_count
+            )
+            render_info_banner(msg, type="warning")
         else:
-            st.markdown(f"""
-            <div class="glass-card" style="border-left: 5px solid #10B981; background: rgba(16, 185, 129, 0.04); display:flex; align-items:center; gap:8px;">
-                <span style="color:#10B981; font-size:1.1rem;">✅</span>
-                <span style="font-size:0.9rem; font-weight:500;">{t("data_trust_ok", lang)}</span>
-            </div>
-            """, unsafe_allow_html=True)
+            render_info_banner(t("data_trust_ok", lang), type="success")
 
         st.caption(f"💡 {t('ops_dashboard_note', lang)}")
         
@@ -155,8 +147,28 @@ def main(lang: str):
             
         render_section_divider()
 
-        # ── Source Reliability table ──────────────────────────────────────────
+        # ── Source Reliability Chart & Monitoring ─────────────────────────────
         st.markdown(f"#### 📡 {t('source_reliability_monitoring', lang)}")
+        if not source_summary.empty:
+            source_summary_plot = source_summary.copy()
+            source_summary_plot["source_name"] = source_summary_plot["source"].str.upper()
+            fig_rel = px.bar(
+                source_summary_plot,
+                x="reliable_pct",
+                y="source_name",
+                color="source_name",
+                orientation="h",
+                labels={"reliable_pct": "Reliability (%)", "source_name": t("chart_label_source", lang)},
+                color_discrete_map={"AQIIN": "#0891B2", "OPENWEATHER": "#F59E0B"}
+            )
+            fig_rel.update_layout(
+                get_plotly_layout(height=160, compact=True),
+                showlegend=False,
+                margin={"l": 20, "r": 20, "t": 10, "b": 30}
+            )
+            fig_rel.update_xaxes(ticksuffix="%", range=[0, 100])
+            st.plotly_chart(fig_rel, use_container_width=True)
+
         if not source_summary.empty:
             source_summary = source_summary.copy()
             source_summary[t("chart_label_source", lang)] = source_summary["source"].str.upper()

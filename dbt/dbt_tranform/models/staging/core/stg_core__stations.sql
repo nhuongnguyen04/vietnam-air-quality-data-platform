@@ -19,7 +19,7 @@ aqicn_stations as (
         -- Normalize province names for joining
         lower(trim(case 
             when province = 'TP.Hà Nội' then 'Hà Nội'
-            when province = 'TP.Hồ Chí Minh' then 'Thành phố Hồ Chí Minh'
+            when province = 'TP.Hồ Chí Minh' then 'Hồ Chí Minh'
             when province = 'TP.Đà Nẵng' then 'Đà Nẵng'
             when province = 'TP.Hải Phòng' then 'Hải Phòng'
             when province = 'TP.Cần Thơ' then 'Cần Thơ'
@@ -46,7 +46,7 @@ mapped_by_name as (
 
 -- 2. Fallback for those that didn't match by name
 fallback_needed as (
-    select * from mapped_by_name where ward_code is null
+    select * from mapped_by_name where coalesce(ward_code, '') = ''
 ),
 
 mapped_by_distance as (
@@ -64,7 +64,7 @@ mapped_by_distance as (
 
 -- Unify Aqiin stations
 unified_aqiin as (
-    select * from mapped_by_name where ward_code is not null
+    select * from mapped_by_name where coalesce(ward_code, '') != ''
     union all
     select * from mapped_by_distance
 )

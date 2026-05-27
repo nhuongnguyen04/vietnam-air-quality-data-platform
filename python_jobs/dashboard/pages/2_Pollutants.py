@@ -8,7 +8,7 @@ import streamlit as st
 
 from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause, get_pollutant_cols, get_source_table
-from lib.filters import render_sidebar_filters
+from lib.filters import render_top_filters
 from lib.i18n import t
 from lib.page_helpers import page_wrapper, render_section_divider
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
@@ -134,7 +134,7 @@ def get_compliance_status(grain: str, scope_val: str | None, dates, source_mix: 
 @page_wrapper("nav_pollutants", "📊 Pollutants Analysis Dashboard", icon="📊")
 def main(lang: str):
     # ── Sidebar Filters (Synchronized) ────────────────────────────────────────────
-    filters = render_sidebar_filters()
+    filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     time_grain    = filters["time_grain"]
     time_unit     = filters["time_unit"]
@@ -172,7 +172,7 @@ def main(lang: str):
                     "variable": t("chart_label_variable", lang),
                 },
             )
-            fig.update_layout(get_plotly_layout(height=380), hovermode="x unified")
+            fig.update_layout(get_plotly_layout(height=320), hovermode="x unified")
             fig.update_xaxes(tickformat="%d/%m/%Y", hoverformat="%d/%m/%Y")
 
             if highlight_poll:
@@ -190,7 +190,7 @@ def main(lang: str):
         render_section_divider()
 
         # Source attribution & Compliance
-        c1, c2 = st.columns([1, 1.5])
+        c1, c2 = st.columns([0.8, 1.2])
         with c1:
             st.markdown(f"#### 🎨 {t('source_attribution', lang)}")
             df_source = get_source_fingerprint(spatial_grain, scope_val, date_range, source_mix, time_unit)
@@ -216,7 +216,7 @@ def main(lang: str):
                     color_discrete_map=color_map,
                 )
                 fig_pie.update_layout(
-                    get_plotly_layout(height=360, compact=True),
+                    get_plotly_layout(height=300, compact=True),
                     annotations=[{"text": "Sources", "showarrow": False, "font_size": 14, "font_family": "Outfit"}]
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
@@ -249,7 +249,7 @@ def main(lang: str):
                     barmode="stack"
                 )
                 fig_comp.update_layout(
-                    get_plotly_layout(height=360, compact=True),
+                    get_plotly_layout(height=300, compact=True),
                     barnorm="percent",
                 )
                 fig_comp.update_xaxes(tickangle=-45)

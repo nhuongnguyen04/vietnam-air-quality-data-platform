@@ -15,10 +15,11 @@ from lib.data_service import (
     get_source_correlation,
     get_source_coverage,
 )
-from lib.filters import render_sidebar_filters
+from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import page_wrapper, render_section_divider
+from lib.page_helpers import page_wrapper, render_section_divider, render_info_banner
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
+from lib.style import render_metric_card
 
 SOURCE_LABELS = {"aqiin": "📡 Quan trắc mặt đất", "openweather": "🛰️ Mô hình vệ tinh"}
 SOURCE_COLORS = {"aqiin": "#0891B2", "openweather": "#F59E0B"}
@@ -88,6 +89,9 @@ def get_data_freshness():
 
 @page_wrapper("source_comparison", "📡 Source Comparison & Correlation", icon="📡")
 def main(lang: str):
+    # ── Sidebar Filters ────────────────────────────────────────────────────────────
+    filters = render_top_filters()
+
     # ── Methodology expandable card ─────────────────────────────────────────────
     with st.expander("ℹ️  Phương pháp so sánh dữ liệu (Quan trắc vs Vệ tinh)", expanded=False):
         st.markdown(
@@ -105,9 +109,6 @@ def main(lang: str):
             "Typically smooths out local peak concentrations, resulting in underestimations.\n"
             "- **Analytics Integration**: Computes Pearson correlation (r), Bias and Mean Absolute Error (MAE) for scientific calibration."
         )
-
-    # ── Sidebar Filters ────────────────────────────────────────────────────────────
-    filters = render_sidebar_filters()
     spatial_grain = filters["spatial_grain"]
     scope_val = filters["scope_val"]
     date_range = filters["date_range"]
@@ -270,25 +271,28 @@ def main(lang: str):
         if health_df.empty:
             st.plotly_chart(create_empty_state("Chưa có thông tin sức khỏe hệ thống."), use_container_width=True)
         else:
-            # Table visualization with status indicator
             for _, row in health_df.iterrows():
-                status_color = "#10b981" if row.reliable_pct >= 95 else ("#f59e0b" if row.reliable_pct >= 80 else "#ef4444")
-                st.markdown(f"""
-                <div class="glass-card" style="border-left: 5px solid {status_color}; padding: 1.25rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4 style="margin:0; font-family:'Outfit';">{SOURCE_LABELS.get(row.source, row.source)}</h4>
-                        <span style="background-color:{status_color}; color:white; padding:3px 10px; border-radius:10px; font-size:0.8rem; font-weight:bold;">
-                            {row.reliable_pct:.1f}% Reliable
-                        </span>
-                    </div>
-                    <div style="display:flex; gap:2rem; margin-top:0.75rem; font-size:0.9rem; opacity:0.85;">
-                        <div>Độ trễ API: <b>{row.latest_lag_hours:.1f} giờ</b></div>
-                        <div>Độ trễ nạp (DB): <b>{row.latest_ingest_lag_hours:.1f} giờ</b></div>
-                        <div>Số ward stale: <b>{int(row.stale_count)}</b></div>
-                        <div>Số ward offline: <b>{int(row.offline_count)}</b></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                src_name = SOURCE_LABELS.get(row.source, row.source)
+                st.markdown(f"<h4 style='margin-top:1.5rem; margin-bottom:0.5rem; font-family:Outfit;'>{src_name}</h4>", unsafe_allow_html=True)
+                
+                # Render the status banner
+                if row.reliable_pct >= 95:
+                    render_info_banner(f"Hệ thống hoạt động ổn định: Độ tin cậy đạt {row.reliable_pct:.1f}%" if lang == "vi" else f"System is stable: Reliability is {row.reliable_pct:.1f}%", type="success")
+                elif row.reliable_pct >= 80:
+                    render_info_banner(f"Hệ thống cảnh báo: Độ tin cậy đạt {row.reliable_pct:.1f}%" if lang == "vi" else f"System warning: Reliability is {row.reliable_pct:.1f}%", type="warning")
+                else:
+                    render_info_banner(f"Hệ thống gặp sự cố: Độ tin cậy chỉ đạt {row.reliable_pct:.1f}%" if lang == "vi" else f"System incident: Reliability is {row.reliable_pct:.1f}%", type="error")
+                
+                # Metric columns
+                mc1, mc2, mc3, mc4 = st.columns(4)
+                with mc1:
+                    render_metric_card("Độ trễ API" if lang == "vi" else "API Lag", f"{row.latest_lag_hours:.1f}h", icon="schedule")
+                with mc2:
+                    render_metric_card("Độ trễ nạp (DB)" if lang == "vi" else "Ingestion Lag", f"{row.latest_ingest_lag_hours:.1f}h", icon="upload")
+                with mc3:
+                    render_metric_card("Số phường trễ" if lang == "vi" else "Stale Wards", f"{int(row.stale_count)}", icon="biotech")
+                with mc4:
+                    render_metric_card("Số phường ngoại tuyến" if lang == "vi" else "Offline Wards", f"{int(row.offline_count)}", icon="error")
 
 if __name__ == "__main__":
     main()

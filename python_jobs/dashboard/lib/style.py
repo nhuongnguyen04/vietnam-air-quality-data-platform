@@ -10,19 +10,19 @@ def inject_style():
         card_bg = "rgba(15, 23, 42, 0.65)" # slate-900 with glass
         border_color = "rgba(255, 255, 255, 0.08)"
         sidebar_bg = "#0f172a"           # slate-900
-        shadow = "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
-        glass_blur = "blur(16px)"
+        shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2)"
+        glass_blur = "blur(12px)"
         accent_color = "#0891b2"         # cyan-600
         accent_glow = "rgba(8, 145, 178, 0.25)"
         divider_color = "rgba(255, 255, 255, 0.1)"
     else:
         bg_color = "#f8fafc"             # slate-50
         text_color = "#0f172a"           # slate-900
-        card_bg = "rgba(255, 255, 255, 0.75)"
+        card_bg = "rgba(255, 255, 255, 0.85)"
         border_color = "rgba(226, 232, 240, 0.8)"
         sidebar_bg = "#ffffff"
-        shadow = "0 8px 32px 0 rgba(31, 38, 135, 0.05)"
-        glass_blur = "blur(12px)"
+        shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)"
+        glass_blur = "blur(8px)"
         accent_color = "#0891b2"
         accent_glow = "rgba(8, 145, 178, 0.15)"
         divider_color = "rgba(15, 23, 42, 0.08)"
@@ -31,6 +31,7 @@ def inject_style():
     <style>
         /* ── Base Styles & Typography ─────────────────────── */
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
 
         html, body, [data-testid="stAppViewContainer"], .stMarkdown {{
             font-family: 'Inter', sans-serif !important;
@@ -54,7 +55,7 @@ def inject_style():
 
         header[data-testid="stHeader"] {{ visibility: hidden; height: 0; }}
         footer {{ visibility: hidden; }}
-        .block-container {{ padding-top: 1rem !important; padding-bottom: 4rem !important; }}
+        .block-container {{ padding-top: 0.25rem !important; padding-bottom: 0.35rem !important; }}
 
         /* ── Custom Scrollbars ────────────────────────────── */
         ::-webkit-scrollbar {{
@@ -78,8 +79,20 @@ def inject_style():
             border-right: 1px solid {border_color};
             min-width: 260px !important;
         }}
+        [data-testid="stSidebar"] > div:first-child [data-testid="stVerticalBlockBorderWrapper"] > div {{
+            display: flex;
+            flex-direction: column;
+        }}
         [data-testid="stSidebarNav"] {{
             padding-top: 0 !important;
+            order: 2;
+        }}
+        .sidebar-brand-container {{
+            order: 1;
+            margin-top: 1rem;
+        }}
+        .sidebar-filters-container {{
+            order: 3;
         }}
         [data-testid="stSidebarNav"] span {{
             color: {text_color} !important;
@@ -103,23 +116,23 @@ def inject_style():
             background: linear-gradient(135deg, {card_bg}, rgba(8, 145, 178, 0.04));
             border: 1px solid {border_color};
             border-left: 5px solid {accent_color};
-            border-radius: 16px;
-            padding: 1.5rem 1.75rem;
-            margin-bottom: 2rem;
+            border-radius: 12px;
+            padding: 0.5rem 0.85rem;
+            margin-bottom: 0.5rem;
             box-shadow: {shadow};
             animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }}
         .page-hero-content {{
             display: flex;
             align-items: center;
-            gap: 1.25rem;
+            gap: 1rem;
         }}
         .page-hero-icon {{
-            font-size: 2.25rem;
+            font-size: 1.5rem;
             background: {bg_color};
             border: 1px solid {border_color};
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.3rem;
+            border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             display: flex;
             align-items: center;
@@ -127,15 +140,15 @@ def inject_style():
         }}
         .page-hero-title {{
             margin: 0 !important;
-            font-size: 1.75rem !important;
+            font-size: 1.3rem !important;
             line-height: 1.2;
             color: {text_color};
         }}
         .page-hero-subtitle {{
-            margin: 0.35rem 0 0 0 !important;
-            font-size: 0.95rem;
+            margin: 0.15rem 0 0 0 !important;
+            font-size: 0.8rem;
             opacity: 0.75;
-            line-height: 1.4;
+            line-height: 1.3;
         }}
 
         /* ── Top Bar Columns Alignment ──────────────────── */
@@ -149,9 +162,9 @@ def inject_style():
             backdrop-filter: {glass_blur};
             -webkit-backdrop-filter: {glass_blur};
             border: 1px solid {border_color};
-            border-radius: 16px;
-            padding: 1.25rem;
-            margin-bottom: 1.5rem;
+            border-radius: 12px;
+            padding: 0.75rem;
+            margin-bottom: 0.65rem;
             box-shadow: {shadow};
             animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             overflow: hidden;
@@ -206,9 +219,8 @@ def inject_style():
             font-weight: 600;
             opacity: 0.7;
             margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            line-height: 1.3;
         }}
 
         /* ── City Metric (Special Dual Value) ────────────── */
@@ -244,7 +256,7 @@ def inject_style():
         .section-divider {{
             height: 1px;
             background: {divider_color};
-            margin: 2.25rem 0;
+            margin: 0.5rem 0;
             border-radius: 1px;
         }}
 
@@ -382,11 +394,11 @@ def render_metric_card(label, value, delta=None, delta_color="normal", icon=None
     icon_svg = f'<svg viewBox="0 0 24 24">{icons.get(icon, "")}</svg>' if icon in icons else ""
 
     st.markdown(f"""
-        <div class="glass-card">
-            <div class="metric-card">
+        <div class="glass-card" style="min-height: 84px; display: flex; align-items: center; width: 100%;">
+            <div class="metric-card" style="width: 100%;">
                 <div class="metric-icon">{icon_svg}</div>
                 <div>
-                    <div class="metric-label">{label}</div>
+                    <div class="metric-label" style="min-height: 36px; max-height: 36px; display: flex; align-items: center; overflow: hidden;">{label}</div>
                     <div class="metric-value">{value}</div>
                 </div>
             </div>

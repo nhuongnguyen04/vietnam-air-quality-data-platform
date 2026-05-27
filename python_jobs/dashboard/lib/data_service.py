@@ -293,7 +293,7 @@ def get_current_aqi_status():
     return query_df(q)
 
 
-@st.cache_data(ttl=300)
+# Caching bypassed to ensure instant, 100% reactive KPI card updating across filter changes
 def get_national_summary(table, col, m_col, grain, scope, dates, tunit, source_name="blended"):
     """KPI summary — follows the active filter (time_unit aware)."""
     source_mix = get_source_mix(source_name)
@@ -411,7 +411,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
                 0 AS openweather_observation_count
             FROM air_quality.stg_aqiin__measurements m
             JOIN air_quality.stg_core__stations s ON m.station_name = s.station_name
-            LEFT JOIN air_quality.dim_administrative_units d ON m.ward_code = d.ward_code
+            LEFT JOIN air_quality.dim_administrative_units d ON s.ward_code = d.ward_code
             WHERE m.parameter = '{escape_value(pollutant_name)}'
               AND {date_filter}
               AND {spatial_filter_str}

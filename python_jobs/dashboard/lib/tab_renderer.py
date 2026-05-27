@@ -15,56 +15,86 @@ def render_coverage_banner(source_name: str, spatial_grain: str, scope_val: str,
                 aqi_w = row["aqiin_ward_count"]
 
                 if cov_pct < 50:
-                    st.warning(
-                        f"⚠️ **Chất lượng bao phủ thấp:** Chỉ có **{cov_pct:.1f}%** số phường/xã "
+                    msg = (
+                        f"**Chất lượng bao phủ thấp:** Chỉ có **{cov_pct:.1f}%** số phường/xã "
                         f"({int(aqi_w)}/{int(total_w)}) tại **{prov_val}** có trạm quan trắc mặt đất hoạt động. "
                         f"Dữ liệu bản đồ có thể có khoảng trống không gian lớn."
                         if lang == "vi" else
-                        f"⚠️ **Low Spatial Coverage:** Only **{cov_pct:.1f}%** of wards "
+                        f"**Low Spatial Coverage:** Only **{cov_pct:.1f}%** of wards "
                         f"({int(aqi_w)}/{int(total_w)}) in **{prov_val}** have active ground monitors. "
                         f"Map visualization may contain significant spatial gaps."
                     )
+                    st.markdown(f"""
+                    <div style="display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); color: #d97706; font-size: 0.8rem; margin-bottom: 0.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.04);">
+                        <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">⚠️</span>
+                        <span style="font-weight: 500;">{msg}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.success(
-                        f"✅ **Độ bao phủ mặt đất tốt:** **{cov_pct:.1f}%** số phường/xã "
+                    msg = (
+                        f"**Độ bao phủ mặt đất tốt:** **{cov_pct:.1f}%** số phường/xã "
                         f"({int(aqi_w)}/{int(total_w)}) tại **{prov_val}** có trạm quan trắc hoạt động."
                         if lang == "vi" else
-                        f"✅ **Good Ground Coverage:** **{cov_pct:.1f}%** of wards "
+                        f"**Good Ground Coverage:** **{cov_pct:.1f}%** of wards "
                         f"({int(aqi_w)}/{int(total_w)}) in **{prov_val}** have active ground monitors."
                     )
+                    st.markdown(f"""
+                    <div style="display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 12px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); color: #059669; font-size: 0.8rem; margin-bottom: 0.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.04);">
+                        <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">✅</span>
+                        <span style="font-weight: 500;">{msg}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
                 total_aqiin_wards = cov_df["aqiin_ward_count"].sum()
                 total_wards = cov_df["total_ward_count"].sum()
                 cov_pct = (total_aqiin_wards * 100.0 / total_wards) if total_wards > 0 else 0
 
                 if cov_pct < 30:
-                    st.warning(
-                        f"⚠️ **Bao phủ trạm mặt đất hạn chế:** Toàn quốc chỉ có **{cov_pct:.1f}%** số phường/xã "
+                    msg = (
+                        f"**Bao phủ trạm mặt đất hạn chế:** Toàn quốc chỉ có **{cov_pct:.1f}%** số phường/xã "
                         f"({int(total_aqiin_wards)}/{int(total_wards)}) có trạm quan trắc mặt đất hoạt động. "
                         f"Khuyến nghị tham khảo thêm tab **🛰 Mô hình vệ tinh** để bổ sung vùng thiếu dữ liệu."
                         if lang == "vi" else
-                        f"⚠️ **Limited Ground Monitor Coverage:** Only **{cov_pct:.1f}%** of wards "
+                        f"**Limited Ground Monitor Coverage:** Only **{cov_pct:.1f}%** of wards "
                         f"({int(total_aqiin_wards)}/{int(total_wards)}) nationwide have active ground monitors. "
                         f"We recommend checking the **🛰 Satellite Model** tab for full spatial coverage."
                     )
+                    st.markdown(f"""
+                    <div style="display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); color: #d97706; font-size: 0.8rem; margin-bottom: 0.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.04);">
+                        <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">⚠️</span>
+                        <span style="font-weight: 500;">{msg}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.success(
-                        f"✅ **Tình trạng bao phủ mặt đất:** **{cov_pct:.1f}%** số phường/xã toàn quốc "
+                    msg = (
+                        f"**Tình trạng bao phủ mặt đất:** **{cov_pct:.1f}%** số phường/xã toàn quốc "
                         f"({int(total_aqiin_wards)}/{int(total_wards)}) có trạm quan trắc hoạt động."
                         if lang == "vi" else
-                        f"✅ **Ground Monitor Coverage:** **{cov_pct:.1f}%** of wards "
+                        f"**Ground Monitor Coverage:** **{cov_pct:.1f}%** of wards "
                         f"({int(total_aqiin_wards)}/{int(total_wards)}) nationwide have active ground monitors."
                     )
+                    st.markdown(f"""
+                    <div style="display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 12px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); color: #059669; font-size: 0.8rem; margin-bottom: 0.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.04);">
+                        <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">✅</span>
+                        <span style="font-weight: 500;">{msg}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
     elif source_name == "openweather":
-        st.info(
-            "🛰️ **Mô hình Vệ tinh & SILAM:** Cung cấp độ bao phủ địa lý đầy đủ (100% xã/phường) dựa trên "
+        msg = (
+            "**Mô hình Vệ tinh & SILAM:** Cung cấp độ bao phủ địa lý đầy đủ (100% xã/phường) dựa trên "
             "dữ liệu lưới ô ~25km từ Viện Khí tượng Phần Lan (FMI). Lưu ý: do là mô hình kết hợp, "
             "chỉ số AQI/nồng độ chất ô nhiễm thường có xu hướng thấp hơn (underestimate) thực tế đo tại mặt đất từ 1.5 đến 2.5 lần."
             if lang == "vi" else
-            "🛰️ **Satellite & SILAM Model:** Provides complete geographic coverage (100% of wards) based on "
+            "**Satellite & SILAM Model:** Provides complete geographic coverage (100% of wards) based on "
             "~25km grid resolution from the Finnish Meteorological Institute (FMI). Note: due to the model blending nature, "
             "AQI/concentrations typically tend to be underestimated by 1.5x to 2.5x compared to ground-truth monitors."
         )
+        st.markdown(f"""
+        <div style="display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 12px; background: rgba(8, 145, 178, 0.08); border: 1px solid rgba(8, 145, 178, 0.25); color: #0891b2; font-size: 0.8rem; margin-bottom: 0.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(8, 145, 178, 0.04);">
+            <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">🛰️</span>
+            <span style="font-weight: 500;">{msg}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 def render_3_tabs(
     lang: str,
@@ -85,9 +115,19 @@ def render_3_tabs(
         
     with tab_sat:
         if sat_info_text_vi and lang == "vi":
-            st.info(sat_info_text_vi)
+            st.markdown(f"""
+            <div style="display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 12px; background: rgba(8, 145, 178, 0.08); border: 1px solid rgba(8, 145, 178, 0.25); color: #0891b2; font-size: 0.85rem; margin-bottom: 1.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(8, 145, 178, 0.04);">
+                <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">🛰️</span>
+                <span style="font-weight: 500;">{sat_info_text_vi}</span>
+            </div>
+            """, unsafe_allow_html=True)
         elif sat_info_text_en and lang == "en":
-            st.info(sat_info_text_en)
+            st.markdown(f"""
+            <div style="display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 12px; background: rgba(8, 145, 178, 0.08); border: 1px solid rgba(8, 145, 178, 0.25); color: #0891b2; font-size: 0.85rem; margin-bottom: 1.5rem; max-width: 100%; line-height: 1.45; box-shadow: 0 2px 8px rgba(8, 145, 178, 0.04);">
+                <span style="font-size: 1.25rem; flex-shrink: 0; display: flex; align-items: center; line-height: 1;">🛰️</span>
+                <span style="font-weight: 500;">{sat_info_text_en}</span>
+            </div>
+            """, unsafe_allow_html=True)
         render_sat_fn()
         
     with tab_comp:

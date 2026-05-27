@@ -9,7 +9,7 @@ import streamlit as st
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import escape_value, localize_confidence_level, localize_source_mix
-from lib.filters import render_sidebar_filters
+from lib.filters import render_top_filters
 from lib.i18n import t
 from lib.page_helpers import page_wrapper, render_section_divider
 from lib.style import render_metric_card
@@ -48,7 +48,7 @@ def get_health_risks(spatial_grain, scope_val):
 @page_wrapper("health", "🏥 Health Risk Assessment", icon="🏥")
 def main(lang: str):
     # ── Sidebar Filters ────────────────────────────────────────────────────────────
-    filters = render_sidebar_filters()
+    filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     scope_val = filters["scope_val"]
 
@@ -59,19 +59,36 @@ def main(lang: str):
         top_polluted = df.sort_values("time_weighted_pm25", ascending=False).iloc[0]
         mean_pm25 = df.time_weighted_pm25.mean()
         high_risk_count = len(df[df.risk_category.isin(['CRITICAL', 'HIGH RISK'])])
+        total_pop = df.population.sum() if "population" in df.columns else 0
 
         # KPI Metrics
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             render_metric_card(t("worst_location", lang), top_polluted.province, icon="health")
         with col2:
             render_metric_card(t("health_avg_pm25", lang), f"{mean_pm25:.1f} µg/m³", icon="device_thermostat")
         with col3:
             render_metric_card(t("critical_hotspots", lang), str(high_risk_count), icon="error")
+        with col4:
+            render_metric_card("Dân số phơi nhiễm" if lang == "vi" else "Population Exposed", f"{total_pop / 1_000_000:.2f}M" if total_pop > 1_000_000 else f"{total_pop:,.0f}", icon="location")
 
         render_section_divider()
 
         # Premium addition: Risk Summary Donut Chart alongside ranking
+        risk_category_labels = {
+            "CRITICAL": t("risk_critical", lang),
+            "HIGH RISK": t("risk_high", lang),
+            "MODERATE": t("risk_moderate", lang),
+            "LOW": t("risk_low", lang),
+        }
+        
+        df_pm25 = df.sort_values("time_weighted_pm25", ascending=False).copy()
+        df_pm25["risk_label"] = df_pm25["risk_category"].map(risk_category_labels).fillna(df_pm25["risk_category"])
+        df_pm25["confidence_label"] = df_pm25["confidence_level"].apply(lambda x: localize_confidence_level(x, lang))
+        df_pm25["source_label"] = df_pm25["source_mix"].apply(lambda x: localize_source_mix(x, lang))
+        
+        chart_height = 450
+
         c_left, c_right = st.columns([1.2, 1.8])
         
         with c_left:
@@ -79,12 +96,6 @@ def main(lang: str):
             st.markdown(f"#### 📊 {title_text}")
             risk_summary = df["risk_category"].value_counts().reset_index()
             risk_summary.columns = ["risk_category", "count"]
-            risk_category_labels = {
-                "CRITICAL": t("risk_critical", lang),
-                "HIGH RISK": t("risk_high", lang),
-                "MODERATE": t("risk_moderate", lang),
-                "LOW": t("risk_low", lang),
-            }
             risk_summary["risk_label"] = risk_summary["risk_category"].map(risk_category_labels)
             
             fig_donut = px.pie(
@@ -100,19 +111,13 @@ def main(lang: str):
                     t("risk_low", lang): RISK_PALETTE["risk_low"],
                 }
             )
-            fig_donut.update_layout(get_plotly_layout(height=350, compact=True))
+            fig_donut.update_layout(get_plotly_layout(height=chart_height, compact=True))
             st.plotly_chart(fig_donut, use_container_width=True)
 
         with c_right:
             st.markdown(f"#### 🏭 {t('health_pollution_ranking', lang)}")
-            df_pm25 = df.sort_values("time_weighted_pm25", ascending=True).copy()
-            df_pm25["risk_label"] = df_pm25["risk_category"].map(risk_category_labels).fillna(df_pm25["risk_category"])
-            df_pm25["confidence_label"] = df_pm25["confidence_level"].apply(lambda x: localize_confidence_level(x, lang))
-            df_pm25["source_label"] = df_pm25["source_mix"].apply(lambda x: localize_source_mix(x, lang))
-
             fig1 = px.bar(
-                df_pm25, x="time_weighted_pm25", y="province", color="risk_label",
-                orientation='h',
+                df_pm25, x="province", y="time_weighted_pm25", color="risk_label",
                 labels={
                     "time_weighted_pm25": "PM2.5 (µg/m³, 30d avg)",
                     "province": t("province", lang),
@@ -126,11 +131,13 @@ def main(lang: str):
                     t("risk_low", lang): RISK_PALETTE["risk_low"],
                 }
             )
-            fig1.add_vline(x=15, line_dash="dash", line_color="#F59E0B", annotation_text="WHO (15 µg)", annotation_position="top right")
-            fig1.add_vline(x=25, line_dash="dash", line_color="#EF4444", annotation_text="TCVN (25 µg)", annotation_position="top right")
+            fig1.add_hline(y=15, line_dash="dash", line_color="#F59E0B", annotation_text="WHO (15 µg)", annotation_position="top right")
+            fig1.add_hline(y=25, line_dash="dash", line_color="#EF4444", annotation_text="TCVN (25 µg)", annotation_position="top right")
 
-            chart_height = max(350, len(df_pm25) * 22)
-            fig1.update_layout(get_plotly_layout(height=chart_height, compact=True))
+            layout1 = get_plotly_layout(height=chart_height, compact=True)
+            layout1["margin"]["r"] = 80  # Expand right margin to prevent TCVN / WHO labels clipping
+            fig1.update_layout(layout1)
+            fig1.update_xaxes(type='category', dtick=1, tickangle=-45)
             st.plotly_chart(fig1, use_container_width=True)
 
         st.caption(
@@ -145,14 +152,13 @@ def main(lang: str):
 
         # ── Population Exposure Ranking ──────────────────────────────
         st.markdown(f"#### 👥 {t('health_exposure_ranking', lang)}")
-        df_exp = df.sort_values("total_exposure_index_m", ascending=True).copy()
+        df_exp = df.sort_values("total_exposure_index_m", ascending=False).copy()
         df_exp["exp_risk_label"] = df_exp["exposure_risk_category"].map(risk_category_labels).fillna(df_exp["exposure_risk_category"])
         df_exp["confidence_label"] = df_exp["confidence_level"].apply(lambda x: localize_confidence_level(x, lang))
         df_exp["source_label"] = df_exp["source_mix"].apply(lambda x: localize_source_mix(x, lang))
 
         fig2 = px.bar(
-            df_exp, x="total_exposure_index_m", y="province", color="exp_risk_label",
-            orientation='h',
+            df_exp, x="province", y="total_exposure_index_m", color="exp_risk_label",
             labels={
                 "total_exposure_index_m": t("exposure_index", lang),
                 "province": t("province", lang),
@@ -167,6 +173,7 @@ def main(lang: str):
             }
         )
         fig2.update_layout(get_plotly_layout(height=chart_height, compact=True))
+        fig2.update_xaxes(type='category', dtick=1, tickangle=-45)
         st.plotly_chart(fig2, use_container_width=True)
 
         st.caption(
