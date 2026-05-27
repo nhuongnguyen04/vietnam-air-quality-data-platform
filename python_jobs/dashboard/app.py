@@ -48,7 +48,18 @@ pages = {
 
 # ── Sidebar Utilities ────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("# VN Air Quality")
+    # Premium Brand Logo Area
+    st.markdown(f"""
+    <div style='padding: 0.5rem 0; margin-bottom: 1.25rem;'>
+        <h1 style='margin:0; font-family:"Outfit",sans-serif; font-size:1.6rem; font-weight:800;
+                   background: linear-gradient(135deg, #0891B2, #06B6D4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
+            🌿 GreenAir VN
+        </h1>
+        <p style='margin:0.25rem 0 0 0; font-size:0.8rem; opacity:0.6; font-family:"Inter",sans-serif;'>
+            Vietnam Air Quality Data Platform
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     st.divider()
 
     st.subheader(t("standard_guidelines", lang))
@@ -59,14 +70,25 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     _std_help = (
-        "**VN_AQI**: Chỉ số AQI Việt Nam (QĐ 1459/QĐ-TCMT). "
-        "**WHO 2021**: Hướng dẫn Chất lượng Không khí Toàn cầu."
+        "**VN_AQI**: Chỉ số AQI Việt Nam (QĐ 1459/QĐ-TCMT).<br>"
+        "**WHO 2021**: Hướng dẫn chất lượng không khí toàn cầu của WHO."
     ) if lang == "vi" else (
-        "**VN_AQI**: Vietnam AQI (Decision 1459/QD-TCMT). "
-        "**WHO 2021**: Global Air Quality Guidelines."
+        "**VN_AQI**: Vietnam AQI standard (Decision 1459).<br>"
+        "**WHO 2021**: WHO Global Air Quality Guidelines."
     )
-    st.caption(_std_help)
+    st.markdown(f"<div style='font-size:0.78rem; opacity:0.7; line-height:1.4;'>{_std_help}</div>", unsafe_allow_html=True)
     st.divider()
+    
+    # Sidebar footer with version & freshness
+    st.markdown(f"""
+    <div style='position: fixed; bottom: 15px; left: 15px; width: 230px; font-family:"Inter",sans-serif; font-size:0.75rem; opacity:0.5;'>
+        <div style='display:flex; align-items:center; gap:6px;'>
+            <span style='height:8px; width:8px; background-color:#10b981; border-radius:50%; display:inline-block;'></span>
+            <span>Platform Status: Operational</span>
+        </div>
+        <div style='margin-top:2px;'>v1.2.0 · Live Data Sync</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ── Run Navigation ────────────────────────────────────────────────────────────
 pg = st.navigation(pages)

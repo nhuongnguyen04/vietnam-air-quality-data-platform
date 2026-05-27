@@ -1,19 +1,19 @@
-"""System Status page for data freshness and source coverage."""
+"""
+System Status page.
+Displays data ingestion pipeline logs, source reliable coverage ratios, and system health status.
+"""
 from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
+
 from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import localize_confidence_level, localize_source_mix
 from lib.i18n import t
+from lib.page_helpers import page_wrapper, render_section_divider
 from lib.style import render_metric_card
-
-# ── Translation Helper ────────────────────────────────────────────────────────
-lang = st.session_state.get("lang", "vi")
-
-st.title(t("status_title", lang))
-
+from lib.chart_config import get_plotly_layout, create_empty_state
 
 def format_hours(value) -> str:
     if pd.isna(value):
@@ -25,32 +25,29 @@ def format_hours(value) -> str:
         return f"{value:.1f}h"
     return f"{value / 24:.1f}d"
 
-
 def format_pct(value) -> str:
     if pd.isna(value):
         return "-"
     return f"{float(value):.1f}%"
 
-
 def platform_status(latest_lag: float, reliable_pct: float) -> str:
     if latest_lag <= 1 and reliable_pct >= 90:
-        return t("status_operational", lang)
+        return t("status_operational", lang) if "status_operational" in TRANSLATIONS[lang] else "Operational"
     if latest_lag <= 3 and reliable_pct >= 70:
-        return t("status_degraded", lang)
-    return t("status_delayed", lang)
+        return t("status_degraded", lang) if "status_degraded" in TRANSLATIONS[lang] else "Degraded"
+    return t("status_delayed", lang) if "status_delayed" in TRANSLATIONS[lang] else "Delayed"
 
+# Backup translate list in case of local testing
+TRANSLATIONS = {
+    "vi": {"status_operational": "Ổn định", "status_degraded": "Giảm chất lượng", "status_delayed": "Bị trễ"},
+    "en": {"status_operational": "Operational", "status_degraded": "Degraded", "status_delayed": "Delayed"}
+}
 
 @st.cache_data(ttl=60)
 def get_platform_status_data():
-    summary_q = """
-    SELECT *
-    FROM air_quality.dm_platform_health_summary
-    """
-    source_q = """
-    SELECT *
-    FROM air_quality.dm_platform_source_health
-    ORDER BY source
-    """
+    summary_q = "SELECT * FROM air_quality.dm_platform_health_summary"
+    source_q = "SELECT * FROM air_quality.dm_platform_source_health ORDER BY source"
+    
     confidence_q = """
     WITH latest_date AS (
         SELECT max(date) AS date
@@ -72,107 +69,125 @@ def get_platform_status_data():
     """
     return query_df(summary_q), query_df(source_q), query_df(confidence_q)
 
+@page_wrapper("status", "⚙️ System Platform Health Status", icon="⚙️")
+def main(lang: str):
+    # Fetch Data
+    summary, source_summary, confidence_summary = get_platform_status_data()
 
-summary, source_summary, confidence_summary = get_platform_status_data()
+    if not summary.empty and int(summary.loc[0, "source_ward_count"]) > 0:
+        summary_row = summary.iloc[0]
+        latest_lag = float(summary_row["latest_lag_hours"])
+        latest_ingest_lag = float(summary_row["latest_ingest_lag_hours"])
+        reliable_pct = float(summary_row["reliable_pct"])
+        source_ward_count = int(summary_row["source_ward_count"])
+        attention_count = int(summary_row["attention_count"])
 
-if not summary.empty and int(summary.loc[0, "source_ward_count"]) > 0:
-    summary_row = summary.iloc[0]
-    latest_lag = float(summary_row["latest_lag_hours"])
-    latest_ingest_lag = float(summary_row["latest_ingest_lag_hours"])
-    reliable_pct = float(summary_row["reliable_pct"])
-    source_ward_count = int(summary_row["source_ward_count"])
-    attention_count = int(summary_row["attention_count"])
+        # ── KPI Cards ──────────────────────────────────────────────────────────
+        c1, c2, c3, c4 = st.columns(4)
+        
+        # Platform status determination
+        status_val = "Operational" if latest_lag <= 1.5 and reliable_pct >= 90 else ("Degraded" if latest_lag <= 4 else "Delayed")
+        status_label = TRANSLATIONS.get(lang, TRANSLATIONS["vi"]).get(f"status_{status_val.lower()}", status_val)
+        
+        with c1:
+            render_metric_card(t("latest_data_lag", lang), format_hours(latest_lag), icon="schedule")
+        with c2:
+            render_metric_card(t("latest_ingest_lag", lang), format_hours(latest_ingest_lag), icon="upload")
+        with c3:
+            render_metric_card(t("reliable_coverage", lang), f"{format_pct(reliable_pct)}", icon="insights")
+        with c4:
+            render_metric_card(t("system_status", lang), status_label, icon="health")
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        render_metric_card(t("latest_data_lag", lang), format_hours(latest_lag), icon="schedule")
-    with col2:
-        render_metric_card(t("latest_ingest_lag", lang), format_hours(latest_ingest_lag), icon="upload")
-    with col3:
-        render_metric_card(t("reliable_coverage", lang), f"{format_pct(reliable_pct)}", icon="insights")
-    with col4:
-        render_metric_card(t("system_status", lang), platform_status(latest_lag, reliable_pct), icon="health")
+        render_section_divider()
 
-    stale_count = int(summary_row.get("stale_count", 0))
-    offline_count = int(summary_row.get("offline_count", 0))
-    if attention_count > 0:
-        st.warning(
-            t("data_trust_warning", lang).format(
-                attention_count=attention_count,
-                source_ward_count=source_ward_count,
-                stale_count=stale_count,
-                offline_count=offline_count,
+        # Alert banner
+        stale_count = int(summary_row.get("stale_count", 0))
+        offline_count = int(summary_row.get("offline_count", 0))
+        
+        if attention_count > 0:
+            st.markdown(f"""
+            <div class="glass-card" style="border-left: 5px solid #F59E0B; background: rgba(245, 158, 11, 0.04);">
+                <p style="margin:0; font-size:0.9rem; line-height:1.4; font-weight:500;">
+                    ⚠️ {t("data_trust_warning", lang).format(
+                        attention_count=attention_count,
+                        source_ward_count=source_ward_count,
+                        stale_count=stale_count,
+                        offline_count=offline_count
+                    )}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="glass-card" style="border-left: 5px solid #10B981; background: rgba(16, 185, 129, 0.04); display:flex; align-items:center; gap:8px;">
+                <span style="color:#10B981; font-size:1.1rem;">✅</span>
+                <span style="font-size:0.9rem; font-weight:500;">{t("data_trust_ok", lang)}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.caption(f"💡 {t('ops_dashboard_note', lang)}")
+        
+        render_section_divider()
+
+        # ── Confidence Table ──────────────────────────────────────────────────
+        st.markdown(f"#### 🛡️ {'Độ tin cậy AQI' if lang == 'vi' else 'AQI Confidence'}")
+        if not confidence_summary.empty:
+            confidence_summary = confidence_summary.copy()
+            confidence_summary["Nguồn"] = confidence_summary["source_mix"].apply(lambda x: localize_source_mix(x, lang))
+            confidence_summary["Mức tin cậy"] = confidence_summary["confidence_level"].apply(lambda x: localize_confidence_level(x, lang))
+            st.dataframe(
+                confidence_summary[
+                    [
+                        "Nguồn", "Mức tin cậy", "ward_count", "confidence_score",
+                        "aqiin_observations", "openweather_observations",
+                    ]
+                ].rename(
+                    columns={
+                        "ward_count": "Số ward" if lang == "vi" else "Wards",
+                        "confidence_score": "Điểm tin cậy" if lang == "vi" else "Confidence",
+                        "aqiin_observations": "Quan trắc AQI.in" if lang == "vi" else "AQI.in observations",
+                        "openweather_observations": "Ước tính OpenWeather" if lang == "vi" else "OpenWeather estimates",
+                    }
+                ),
+                use_container_width=True,
+                hide_index=True,
             )
-        )
+            
+        render_section_divider()
+
+        # ── Source Reliability table ──────────────────────────────────────────
+        st.markdown(f"#### 📡 {t('source_reliability_monitoring', lang)}")
+        if not source_summary.empty:
+            source_summary = source_summary.copy()
+            source_summary[t("chart_label_source", lang)] = source_summary["source"].str.upper()
+            source_summary[t("latest_data_lag", lang)] = source_summary["latest_lag_hours"].map(format_hours)
+            source_summary[t("latest_ingest_lag", lang)] = source_summary["latest_ingest_lag_hours"].map(format_hours)
+            source_summary[t("reliable_coverage", lang)] = source_summary["reliable_pct"].map(format_pct)
+            source_summary[t("source_ward_count", lang)] = source_summary["source_ward_count"].astype(int)
+            source_summary[t("attention_needed", lang)] = (
+                source_summary["stale_count"].astype(int).astype(str)
+                + " / "
+                + source_summary["offline_count"].astype(int).astype(str)
+            )
+            st.dataframe(
+                source_summary[
+                    [
+                        t("chart_label_source", lang),
+                        t("latest_data_lag", lang),
+                        t("latest_ingest_lag", lang),
+                        t("reliable_coverage", lang),
+                        t("source_ward_count", lang),
+                        t("attention_needed", lang),
+                    ]
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
     else:
-        st.success(t("data_trust_ok", lang))
+        st.plotly_chart(
+            create_empty_state(t("no_data", lang) if lang == "en" else "Không có dữ liệu sức khỏe hệ thống."),
+            use_container_width=True,
+        )
 
-    st.caption(t("ops_dashboard_note", lang))
-    st.markdown("---")
-
-    st.subheader("Độ tin cậy AQI" if lang == "vi" else "AQI Confidence")
-    if not confidence_summary.empty:
-        confidence_summary = confidence_summary.copy()
-        confidence_summary["Nguồn"] = confidence_summary["source_mix"].apply(
-            lambda x: localize_source_mix(x, lang)
-        )
-        confidence_summary["Mức tin cậy"] = confidence_summary["confidence_level"].apply(
-            lambda x: localize_confidence_level(x, lang)
-        )
-        st.dataframe(
-            confidence_summary[
-                [
-                    "Nguồn",
-                    "Mức tin cậy",
-                    "ward_count",
-                    "confidence_score",
-                    "aqiin_observations",
-                    "openweather_observations",
-                ]
-            ].rename(
-                columns={
-                    "ward_count": "Số ward" if lang == "vi" else "Wards",
-                    "confidence_score": "Điểm tin cậy" if lang == "vi" else "Confidence",
-                    "aqiin_observations": "Quan trắc AQI.in" if lang == "vi" else "AQI.in observations",
-                    "openweather_observations": "Ước tính OpenWeather" if lang == "vi" else "OpenWeather estimates",
-                }
-            ),
-            width="stretch",
-            hide_index=True,
-        )
-    st.markdown("---")
-
-    st.subheader(t("source_reliability_monitoring", lang))
-    if not source_summary.empty:
-        source_summary = source_summary.copy()
-        source_summary[t("chart_label_source", lang)] = source_summary["source"].str.upper()
-        source_summary[t("latest_data_lag", lang)] = source_summary["latest_lag_hours"].map(format_hours)
-        source_summary[t("latest_ingest_lag", lang)] = source_summary["latest_ingest_lag_hours"].map(format_hours)
-        source_summary[t("reliable_coverage", lang)] = source_summary["reliable_pct"].map(format_pct)
-        source_summary[t("source_ward_count", lang)] = source_summary["source_ward_count"].astype(int)
-        source_summary[t("attention_needed", lang)] = (
-            source_summary["stale_count"].astype(int).astype(str)
-            + " / "
-            + source_summary["offline_count"].astype(int).astype(str)
-        )
-        st.dataframe(
-            source_summary[
-                [
-                    t("chart_label_source", lang),
-                    t("latest_data_lag", lang),
-                    t("latest_ingest_lag", lang),
-                    t("reliable_coverage", lang),
-                    t("source_ward_count", lang),
-                    t("attention_needed", lang),
-                ]
-            ],
-            width='stretch',
-            hide_index=True,
-        )
-else:
-    st.plotly_chart(
-        render_empty_chart(
-            t("no_data", lang) if lang == "en" else "Không có dữ liệu sức khỏe hệ thống."
-        ),
-        width='stretch',
-    )
+if __name__ == "__main__":
+    main()

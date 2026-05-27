@@ -59,8 +59,8 @@ AQI_BREAKPOINTS = [
     (301, 500, "Hazardous"),
 ]
 
-# EPA color map cho Plotly color_discrete_map (dùng category name làm key)
-EPA_COLORS = {
+# Unified AQI color map cho Plotly color_discrete_map
+AQI_CATEGORY_COLORS = {
     "Good": "#00E400",
     "Moderate": "#FFFF00",
     "Unhealthy for Sensitive Groups": "#FF7E00",
@@ -69,14 +69,8 @@ EPA_COLORS = {
     "Hazardous": "#7E0023",
 }
 
-VN_AQI_COLORS = {
-    "Good": "#00E400",
-    "Moderate": "#FFFF00",
-    "Unhealthy for Sensitive Groups": "#FF7E00",
-    "Unhealthy": "#FF0000",
-    "Very Unhealthy": "#8F3F97",
-    "Hazardous": "#7E0023",
-}
+EPA_COLORS = AQI_CATEGORY_COLORS
+VN_AQI_COLORS = AQI_CATEGORY_COLORS
 
 VN_AQI_COLORBAR_TICKVALS = [25, 75, 125, 175, 250, 400]
 VN_AQI_COLORBAR_TICKTEXT = ["0-50", "51-100", "101-150", "151-200", "201-300", "301-500"]
@@ -213,32 +207,79 @@ def apply_epa_template(fig, height: int = 400):
 
 def render_empty_chart(message: str, height: int = 250):
     """Return an empty Plotly figure with a descriptive message (theme-aware)."""
-    import plotly.graph_objects as go
-    import streamlit as st
+    from lib.chart_config import create_empty_state
+    return create_empty_state(message, height)
 
-    theme = st.session_state.get("theme", "light")
-    if theme == "dark":
-        text_color = "#94a3b8"   # slate-400
-        bg_color = "rgba(15,23,42,0.6)"
-    else:
-        text_color = "#64748b"   # slate-500
-        bg_color = "rgba(255,255,255,0.7)"
 
-    fig = go.Figure()
-    fig.update_layout(
-        xaxis={"visible": False, "showgrid": False},
-        yaxis={"visible": False, "showgrid": False},
-        annotations=[{
-            "text": message,
-            "x": 0.5, "y": 0.5,
-            "showarrow": False,
-            "font": {"size": 14, "color": text_color},
-            "xref": "paper", "yref": "paper",
-        }],
-        height=height,
-        paper_bgcolor=bg_color,
-        plot_bgcolor=bg_color,
-        margin={"l": 10, "r": 10, "t": 30, "b": 10},
-        transition={"duration": 300, "easing": "cubic-in-out"},
-    )
-    return fig
+
+AQI_VN_SQL_EXPR = """
+CASE
+    WHEN LOWER(parameter) = 'pm25' THEN
+        CASE
+            WHEN value <= 25 THEN ((50.0 - 0.0) / (25.0 - 0.0)) * (value - 0.0) + 0.0
+            WHEN value <= 50 THEN ((100.0 - 51.0) / (50.0 - 26.0)) * (value - 26.0) + 51.0
+            WHEN value <= 80 THEN ((150.0 - 101.0) / (80.0 - 51.0)) * (value - 51.0) + 101.0
+            WHEN value <= 150 THEN ((200.0 - 151.0) / (150.0 - 81.0)) * (value - 81.0) + 151.0
+            WHEN value <= 250 THEN ((300.0 - 201.0) / (250.0 - 151.0)) * (value - 151.0) + 201.0
+            WHEN value <= 350 THEN ((400.0 - 301.0) / (350.0 - 251.0)) * (value - 251.0) + 301.0
+            WHEN value <= 500 THEN ((500.0 - 401.0) / (500.0 - 351.0)) * (value - 351.0) + 401.0
+            ELSE NULL
+        END
+    WHEN LOWER(parameter) = 'pm10' THEN
+        CASE
+            WHEN value <= 50 THEN ((50.0 - 0.0) / (50.0 - 0.0)) * (value - 0.0) + 0.0
+            WHEN value <= 150 THEN ((100.0 - 51.0) / (150.0 - 51.0)) * (value - 51.0) + 51.0
+            WHEN value <= 250 THEN ((150.0 - 101.0) / (250.0 - 151.0)) * (value - 151.0) + 101.0
+            WHEN value <= 350 THEN ((200.0 - 151.0) / (350.0 - 251.0)) * (value - 251.0) + 151.0
+            WHEN value <= 420 THEN ((300.0 - 201.0) / (420.0 - 351.0)) * (value - 351.0) + 201.0
+            WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 421.0)) * (value - 421.0) + 301.0
+            WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+            ELSE NULL
+        END
+    WHEN LOWER(parameter) = 'o3' THEN
+        CASE
+            WHEN value <= 160 THEN ((50.0 - 0.0) / (160.0 - 0.0)) * (value - 0.0) + 0.0
+            WHEN value <= 200 THEN ((100.0 - 51.0) / (200.0 - 161.0)) * (value - 161.0) + 51.0
+            WHEN value <= 240 THEN ((150.0 - 101.0) / (240.0 - 201.0)) * (value - 201.0) + 101.0
+            WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 241.0)) * (value - 241.0) + 151.0
+            WHEN value <= 400 THEN ((300.0 - 201.0) / (400.0 - 281.0)) * (value - 281.0) + 201.0
+            WHEN value <= 500 THEN ((400.0 - 301.0) / (500.0 - 401.0)) * (value - 401.0) + 301.0
+            WHEN value <= 600 THEN ((500.0 - 401.0) / (600.0 - 501.0)) * (value - 501.0) + 401.0
+            ELSE NULL
+        END
+    WHEN LOWER(parameter) = 'so2' THEN
+        CASE
+            WHEN value <= 125 THEN ((50.0 - 0.0) / (125.0 - 0.0)) * (value - 0.0) + 0.0
+            WHEN value <= 350 THEN ((100.0 - 51.0) / (350.0 - 126.0)) * (value - 126.0) + 51.0
+            WHEN value <= 550 THEN ((150.0 - 101.0) / (550.0 - 351.0)) * (value - 351.0) + 101.0
+            WHEN value <= 800 THEN ((200.0 - 151.0) / (800.0 - 551.0)) * (value - 551.0) + 151.0
+            WHEN value <= 1600 THEN ((300.0 - 201.0) / (1600.0 - 801.0)) * (value - 801.0) + 201.0
+            WHEN value <= 2100 THEN ((400.0 - 301.0) / (2100.0 - 1601.0)) * (value - 1601.0) + 301.0
+            WHEN value <= 2630 THEN ((500.0 - 401.0) / (2630.0 - 2101.0)) * (value - 2101.0) + 401.0
+            ELSE NULL
+        END
+    WHEN LOWER(parameter) = 'no2' THEN
+        CASE
+            WHEN value <= 40 THEN ((50.0 - 0.0) / (40.0 - 0.0)) * (value - 0.0) + 0.0
+            WHEN value <= 80 THEN ((100.0 - 51.0) / (80.0 - 41.0)) * (value - 41.0) + 51.0
+            WHEN value <= 180 THEN ((150.0 - 101.0) / (180.0 - 81.0)) * (value - 81.0) + 101.0
+            WHEN value <= 280 THEN ((200.0 - 151.0) / (280.0 - 181.0)) * (value - 181.0) + 151.0
+            WHEN value <= 565 THEN ((300.0 - 201.0) / (565.0 - 281.0)) * (value - 281.0) + 201.0
+            WHEN value <= 750 THEN ((400.0 - 301.0) / (750.0 - 566.0)) * (value - 566.0) + 301.0
+            WHEN value <= 940 THEN ((500.0 - 401.0) / (940.0 - 751.0)) * (value - 751.0) + 401.0
+            ELSE NULL
+        END
+    WHEN LOWER(parameter) = 'co' THEN
+        CASE
+            WHEN value <= 10000 THEN ((50.0 - 0.0) / (10000.0 - 0.0)) * (value - 0.0) + 0.0
+            WHEN value <= 30000 THEN ((100.0 - 51.0) / (30000.0 - 10001.0)) * (value - 10001.0) + 51.0
+            WHEN value <= 45000 THEN ((150.0 - 101.0) / (45000.0 - 30001.0)) * (value - 30001.0) + 101.0
+            WHEN value <= 60000 THEN ((200.0 - 151.0) / (60000.0 - 45001.0)) * (value - 45001.0) + 151.0
+            WHEN value <= 90000 THEN ((300.0 - 201.0) / (90000.0 - 60001.0)) * (value - 60001.0) + 201.0
+            WHEN value <= 120000 THEN ((400.0 - 301.0) / (120000.0 - 90001.0)) * (value - 90001.0) + 301.0
+            WHEN value <= 150000 THEN ((500.0 - 401.0) / (150000.0 - 120001.0)) * (value - 120001.0) + 401.0
+            ELSE NULL
+        END
+    ELSE NULL
+END
+"""

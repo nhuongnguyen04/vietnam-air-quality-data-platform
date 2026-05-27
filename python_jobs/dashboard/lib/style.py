@@ -1,31 +1,36 @@
 import streamlit as st
 
-
 def inject_style():
     """Inject custom CSS for premium UI look and feel."""
     theme = st.session_state.get("theme", "light")
 
     if theme == "dark":
-        bg_color = "#020617"
-        text_color = "#cbd5e1"
-        card_bg = "rgba(15,23,42,0.6)"
-        border_color = "rgba(255,255,255,0.08)"
-        sidebar_bg = "#0f172a"
-        shadow = "0 8px 32px 0 rgba(0,0,0,0.4)"
+        bg_color = "#020617"             # slate-950
+        text_color = "#cbd5e1"           # slate-300
+        card_bg = "rgba(15, 23, 42, 0.65)" # slate-900 with glass
+        border_color = "rgba(255, 255, 255, 0.08)"
+        sidebar_bg = "#0f172a"           # slate-900
+        shadow = "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
         glass_blur = "blur(16px)"
+        accent_color = "#0891b2"         # cyan-600
+        accent_glow = "rgba(8, 145, 178, 0.25)"
+        divider_color = "rgba(255, 255, 255, 0.1)"
     else:
-        bg_color = "#f8fafb"
-        text_color = "#0f172a"
-        card_bg = "rgba(255,255,255,0.7)"
-        border_color = "rgba(226,232,240,0.8)"
+        bg_color = "#f8fafc"             # slate-50
+        text_color = "#0f172a"           # slate-900
+        card_bg = "rgba(255, 255, 255, 0.75)"
+        border_color = "rgba(226, 232, 240, 0.8)"
         sidebar_bg = "#ffffff"
-        shadow = "0 8px 32px 0 rgba(31,38,135,0.07)"
+        shadow = "0 8px 32px 0 rgba(31, 38, 135, 0.05)"
         glass_blur = "blur(12px)"
+        accent_color = "#0891b2"
+        accent_glow = "rgba(8, 145, 178, 0.15)"
+        divider_color = "rgba(15, 23, 42, 0.08)"
 
     st.markdown(f"""
     <style>
-        /* ── Base Styles ─────────────────────────────────── */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        /* ── Base Styles & Typography ─────────────────────── */
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
         html, body, [data-testid="stAppViewContainer"], .stMarkdown {{
             font-family: 'Inter', sans-serif !important;
@@ -34,29 +39,103 @@ def inject_style():
             transition: background-color 0.3s ease, color 0.3s ease;
         }}
 
+        /* Restore Material Icons Font Family to prevent raw text ligatures */
+        span[data-testid="stIconMaterial"], [class*="material-symbols"], [class*="material-icons"] {{
+            font-family: 'Material Symbols Outlined', 'Material Symbols Sharp', 'Material Symbols Rounded', 'Material Icons', 'Material Icons Round' !important;
+        }}
+
+
+
+        h1, h2, h3, .page-hero-title {{
+            font-family: 'Outfit', sans-serif !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.02em;
+        }}
+
         header[data-testid="stHeader"] {{ visibility: hidden; height: 0; }}
         footer {{ visibility: hidden; }}
-        .block-container {{ padding-top: 1rem !important; padding-bottom: 5rem !important; }}
+        .block-container {{ padding-top: 1rem !important; padding-bottom: 4rem !important; }}
+
+        /* ── Custom Scrollbars ────────────────────────────── */
+        ::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        ::-webkit-scrollbar-track {{
+            background: rgba(0, 0, 0, 0.02);
+        }}
+        ::-webkit-scrollbar-thumb {{
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 10px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
+            background: rgba(148, 163, 184, 0.5);
+        }}
 
         /* ── Sidebar Polish ──────────────────────────────── */
         [data-testid="stSidebar"] {{
             background-color: {sidebar_bg} !important;
             border-right: 1px solid {border_color};
-            min-width: 250px !important;
+            min-width: 260px !important;
         }}
         [data-testid="stSidebarNav"] {{
             padding-top: 0 !important;
         }}
         [data-testid="stSidebarNav"] span {{
             color: {text_color} !important;
+            font-family: 'Outfit', sans-serif;
             font-weight: 600;
             font-size: 0.95rem;
         }}
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 {{
-            font-size: 1.4rem !important;
-            font-weight: 700 !important;
-            margin-bottom: 0 !important;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem !important;
+            font-weight: 800 !important;
+            margin-bottom: 0.5rem !important;
             padding-top: 1.5rem !important;
+            background: linear-gradient(135deg, {accent_color}, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }}
+
+        /* ── Page Hero Header ────────────────────────────── */
+        .page-hero {{
+            background: linear-gradient(135deg, {card_bg}, rgba(8, 145, 178, 0.04));
+            border: 1px solid {border_color};
+            border-left: 5px solid {accent_color};
+            border-radius: 16px;
+            padding: 1.5rem 1.75rem;
+            margin-bottom: 2rem;
+            box-shadow: {shadow};
+            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }}
+        .page-hero-content {{
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }}
+        .page-hero-icon {{
+            font-size: 2.25rem;
+            background: {bg_color};
+            border: 1px solid {border_color};
+            padding: 0.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .page-hero-title {{
+            margin: 0 !important;
+            font-size: 1.75rem !important;
+            line-height: 1.2;
+            color: {text_color};
+        }}
+        .page-hero-subtitle {{
+            margin: 0.35rem 0 0 0 !important;
+            font-size: 0.95rem;
+            opacity: 0.75;
+            line-height: 1.4;
         }}
 
         /* ── Top Bar Columns Alignment ──────────────────── */
@@ -71,55 +150,61 @@ def inject_style():
             -webkit-backdrop-filter: {glass_blur};
             border: 1px solid {border_color};
             border-radius: 16px;
-            padding: 1rem;
+            padding: 1.25rem;
             margin-bottom: 1.5rem;
             box-shadow: {shadow};
-            animation: fadeIn 0.4s ease-out;
+            animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }}
 
         .glass-card:hover {{
-            box-shadow: 0 12px 40px rgba(31,38,135,0.12);
-            transition: box-shadow 0.3s ease;
-        }}
-
-        @keyframes fadeIn {{
-            from {{ opacity: 0; transform: translateY(8px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
+            transform: translateY(-2px);
+            box-shadow: 0 16px 40px {accent_glow};
+            border-color: rgba(8, 145, 178, 0.3);
         }}
 
         /* ── Metric Card ─────────────────────────────────── */
         .metric-card {{
             display: flex;
             align-items: center;
-            gap: 0.8rem;
-            padding: 0.2rem 0;
+            gap: 1rem;
+            padding: 0.1rem 0;
         }}
         .metric-icon {{
             background: {bg_color};
             border: 1px solid {border_color};
             border-radius: 12px;
-            width: 42px;
-            height: 42px;
+            width: 46px;
+            height: 46px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease;
+        }}
+        .metric-card:hover .metric-icon {{
+            transform: scale(1.05);
+            border-color: {accent_color};
         }}
         .metric-icon svg {{
-            fill: {text_color};
+            fill: {accent_color};
             width: 22px;
             height: 22px;
         }}
         .metric-value {{
-            font-size: 1.6rem;
-            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 800;
             line-height: 1.1;
+            color: {text_color};
         }}
         .metric-label {{
+            font-family: 'Inter', sans-serif;
             font-size: 0.85rem;
             font-weight: 600;
-            opacity: 0.8;
+            opacity: 0.7;
             margin-bottom: 2px;
             white-space: nowrap;
             overflow: hidden;
@@ -128,46 +213,118 @@ def inject_style():
 
         /* ── City Metric (Special Dual Value) ────────────── */
         .city-card {{
-            padding: 0.8rem;
+            padding: 1rem;
         }}
         .city-name {{
-            font-size: 0.9rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
-            opacity: 0.9;
+            color: {text_color};
         }}
         .city-main-val {{
-            font-size: 1.8rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem;
             font-weight: 800;
             line-height: 1;
+            color: {accent_color};
         }}
         .city-sub-row {{
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             margin-top: 6px;
-            font-size: 0.75rem;
-        }}
-        .city-badge {{
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-weight: 600;
+            font-size: 0.8rem;
         }}
         .city-sub-label {{
             opacity: 0.6;
         }}
 
-        /* ── Buttons ────────────────────────────────────── */
+        /* ── Section Divider ─────────────────────────────── */
+        .section-divider {{
+            height: 1px;
+            background: {divider_color};
+            margin: 2.25rem 0;
+            border-radius: 1px;
+        }}
+
+        /* ── Loading Skeleton ────────────────────────────── */
+        .loading-skeleton {{
+            background: {card_bg};
+            border: 1px solid {border_color};
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }}
+        .skeleton-pulse {{
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                rgba(148, 163, 184, 0.0) 0%, 
+                rgba(148, 163, 184, 0.08) 50%, 
+                rgba(148, 163, 184, 0.0) 100%
+            );
+            animation: pulse 1.5s infinite;
+        }}
+
+        /* ── Animations ──────────────────────────────────── */
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(12px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+
+        @keyframes slideDown {{
+            from {{ opacity: 0; transform: translateY(-16px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+
+        @keyframes pulse {{
+            0% {{ transform: translateX(-100%); }}
+            100% {{ transform: translateX(100%); }}
+        }}
+
+        /* ── Streamlit Native Element Styling ─────────────── */
         .stButton button {{
             border-radius: 10px !important;
+            font-family: 'Outfit', sans-serif !important;
             font-weight: 600 !important;
-            transition: all 0.2s ease;
+            transition: all 0.2s ease !important;
+            border: 1px solid {border_color} !important;
+            background-color: {card_bg} !important;
         }}
         .stButton > button:hover {{
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(8, 145, 178, 0.15) !important;
+            border-color: {accent_color} !important;
+            color: {accent_color} !important;
+        }}
+
+        /* Expander customization */
+        .st-emotion-cache-p2wz29 {{
+            background-color: {card_bg} !important;
+            border: 1px solid {border_color} !important;
+            border-radius: 12px !important;
+        }}
+
+        /* Responsive Breakpoints */
+        @media (max-width: 768px) {{
+            .page-hero-content {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }}
+            .page-hero-icon {{
+                font-size: 1.75rem;
+            }}
+            .page-hero-title {{
+                font-size: 1.4rem !important;
+            }}
+            .metric-card {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }}
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -178,18 +335,14 @@ def render_top_bar():
     lang = st.session_state.get("lang", "vi").upper()
 
     # Use a single row of columns for more reliable alignment
-    # c_spacer: pushes everything right
-    # c_globe: icon
-    # c_lang: segmented control
-    # c_theme: toggle button
     c_spacer, c_globe, c_lang, c_theme = st.columns(
-        [0.8, 0.03, 0.12, 0.05],
+        [0.82, 0.03, 0.1, 0.05],
         vertical_alignment="center",
         gap="small"
     )
 
     with c_globe:
-        st.markdown("🌐")
+        st.markdown("<span style='font-size:1.1rem; opacity:0.8;'>🌐</span>", unsafe_allow_html=True)
 
     with c_lang:
         new_lang = st.segmented_control(
@@ -204,7 +357,6 @@ def render_top_bar():
             st.rerun()
 
     with c_theme:
-        # Standard button for the theme toggle
         mode_icon = "🌙" if theme == "light" else "☀️"
         if st.button(mode_icon, key="theme_toggle"):
             st.session_state.theme = "dark" if theme == "light" else "light"
@@ -263,29 +415,6 @@ def render_city_metric(city_name, avg_aqi, hotspot_aqi, label_avg="Avg", label_h
 
 def get_plotly_layout(height=400, animate=False):
     """Return a polished Plotly layout consistent with the glassmorphism theme."""
-    theme = st.session_state.get("theme", "light")
-    text_color = "#cbd5e1" if theme == "dark" else "#0f172a"
-    grid_color = "rgba(255, 255, 255, 0.05)" if theme == "dark" else "rgba(0, 0, 0, 0.05)"
-
-    layout = {
-        "height": height,
-        "paper_bgcolor": 'rgba(0,0,0,0)',
-        "plot_bgcolor": 'rgba(0,0,0,0)',
-        "font": {"family": 'Inter, sans-serif', "color": text_color},
-        "margin": {"l": 20, "r": 20, "t": 40, "b": 20},
-        "xaxis": {"gridcolor": grid_color, "zeroline": False},
-        "yaxis": {"gridcolor": grid_color, "zeroline": False},
-        "legend": {
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.05,
-            "xanchor": "center",
-            "x": 0.5,
-            "title_text": None
-        }
-    }
-
-    if animate:
-        layout["transition"] = {"duration": 500, "easing": "cubic-in-out"}
-
-    return layout
+    # Delegate to the centralized chart_config for DRY compliance
+    from lib.chart_config import get_plotly_layout as _get_layout
+    return _get_layout(height=height, animate=animate)

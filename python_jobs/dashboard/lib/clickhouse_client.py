@@ -5,8 +5,10 @@ import os
 
 import clickhouse_connect
 import pandas as pd
+import streamlit as st
 
 
+@st.cache_resource
 def get_client():
     """Create ClickHouse client from environment variables.
 
@@ -31,6 +33,7 @@ def get_client():
             "receive_timeout": 60,
         },
     )
+
 
 
 def query_df(query: str, client=None) -> pd.DataFrame:
