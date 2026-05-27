@@ -85,19 +85,30 @@ def dag_ingest_hourly():
 
     @task
     def run_aqiin_measurements_ingestion():
-        """Run AQI.in measurements ingestion."""
+        """Run AQI.in or WAQI measurements ingestion based on token availability."""
         import subprocess
 
         env = os.environ.copy()
         env.update(get_job_env_vars())
 
-        cmd = f"cd {PYTHON_PATH} && python jobs/aqiin/ingest_measurements.py --mode incremental"
+        # Select ingest script based on WAQI_TOKEN environment variable
+        waqi_token = env.get("WAQI_TOKEN")
+        if waqi_token:
+            cmd = f"cd {PYTHON_PATH} && python jobs/waqi/ingest_measurements.py --mode incremental"
+            source_name = "WAQI API"
+        else:
+            cmd = f"cd {PYTHON_PATH} && python jobs/aqiin/ingest_measurements.py --mode incremental"
+            source_name = "AQI.in Scraper"
+
+        print(f"Running {source_name} ingestion via command: {cmd}")
 
         result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
             raise Exception(f"Command failed: {cmd}")
-        print("AQI.in measurements ingestion completed")
+        print(f"{source_name} measurements ingestion completed")
+
+
 
     @task
     def run_openweather_unified_ingestion():

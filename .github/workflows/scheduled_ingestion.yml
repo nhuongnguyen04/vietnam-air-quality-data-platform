@@ -23,6 +23,7 @@ jobs:
       CLICKHOUSE_USER: ${{ secrets.CLICKHOUSE_USER }}
       CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
       AQIIN_TOKEN: ${{ secrets.AQIIN_TOKEN }}
+      WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}
       PYTHONPATH: .
 
     steps:
@@ -46,7 +47,13 @@ jobs:
       - name: Parallel Data Ingestion
         run: |
           echo "Starting parallel ingestion..."
-          python python_jobs/jobs/aqiin/ingest_measurements.py &
+          if [ -n "${{ secrets.WAQI_TOKEN }}" ]; then
+            echo "WAQI_TOKEN is set. Running WAQI Ingestion..."
+            python python_jobs/jobs/waqi/ingest_measurements.py &
+          else
+            echo "WAQI_TOKEN is not set. Running legacy AQI.in Ingestion..."
+            python python_jobs/jobs/aqiin/ingest_measurements.py &
+          fi
           AQIIN_PID=$!
           python python_jobs/jobs/openweather/ingest_openweather_unified.py &
           OPENWEATHER_PID=$!
