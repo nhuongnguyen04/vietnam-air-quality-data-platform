@@ -254,3 +254,12 @@ station_name,latitude,longitude,province,source,ward
 "Xuan Tao Ward, North Tu Liem District, Ha Noi, Vietnam",21.031618118286133,105.76729583740234,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
 "ong a, Quy Nhon, Binh Dinh, Vietnam",13.782999992370604,109.2239990234375,Gia Lai,original,Xã Đăk Song
 "phuong 7, Vung Tau, Ba Ria - Vung Tau, Vietnam",10.54170036315918,107.24250030517578,TP.Hồ Chí Minh,original,Xã Nghĩa Thành
+"United Nations International School of Hanoi, Vietnam (Trường Quốc tế Liên Hợp Quốc Hà Nội)",21.0811211,105.8180306,TP.Hà Nội,waqi_discovery,Phường Phú Thượng
+"Gia Lai/Phù Đổng, Thành phố Pleiku - KTTV - Trạm cảm biến, Vietnam",13.968848,108.017617,Gia Lai,waqi_discovery,Phường Phù Đổng
+"Cần Thơ/Ninh Kiều - KTTV - Trạm cảm biến, Vietnam",10.026977,105.768249,TP.Cần Thơ,waqi_discovery,Phường Long Tuyền
+"Tây Ninh/Thị xã Tràng Bảng, Vietnam",11.030287,106.35631,Tây Ninh,waqi_discovery,Xã Tràng Bảng
+"Quảng Bình/Khu kinh tế Hòn La, Vietnam",17.932938,106.49662,Quảng Bình,waqi_discovery,Xã Quảng Đông
+"Ninh Bình/Cúc Phương, Đông Phong, Nho Quan - KTTV - Trạm cảm biến, Vietnam",20.320741,105.745489,Ninh Bình,waqi_discovery,Xã Cúc Phương
+"Da Nang, Vietnam (TP Đà Nẵng)",16.074,108.217,TP.Đà Nẵng,waqi_discovery,Phường Hòa Cường
+"Viet Tri, Vietnam (Tp Việt Trì)",21.33847,105.3673,Phú Thọ,waqi_discovery,Phường Tiên Cát
+
