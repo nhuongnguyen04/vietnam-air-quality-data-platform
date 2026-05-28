@@ -17,17 +17,35 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Biến cấu hình
+REFRESH_SEEDS=false
+
+# Phân tích tham số dòng lệnh
+for arg in "$@"; do
+    case $arg in
+        --refresh-seeds)
+            REFRESH_SEEDS=true
+            shift
+            ;;
+    esac
+done
+
 echo -e "${BLUE}=====================================================================${NC}"
 echo -e "${GREEN}      ĐÓNG GÓI PHIÊN BẢN FULL STACK BẢO MẬT (<100MB SUBMISSION)    ${NC}"
 echo -e "${BLUE}=====================================================================${NC}"
 
 # 1. Tự động xuất dữ liệu lịch sử 14 ngày làm hạt giống dữ liệu (seeds)
-echo -e "${YELLOW}[1/6] Quét và xuất dữ liệu 14 ngày gần nhất ra Parquet siêu nén...${NC}"
-if [ -f "scripts/export_data.sh" ]; then
-    ./scripts/export_data.sh
+if [ "$REFRESH_SEEDS" = "true" ]; then
+    echo -e "${YELLOW}[1/6] Quét và xuất dữ liệu 14 ngày gần nhất ra Parquet siêu nén...${NC}"
+    if [ -f "scripts/export_data.sh" ]; then
+        ./scripts/export_data.sh
+    else
+        echo -e "${RED}Lỗi: Không tìm thấy script 'scripts/export_data.sh'.${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}Lỗi: Không tìm thấy script 'scripts/export_data.sh'.${NC}"
-    exit 1
+    echo -e "${GREEN}[1/6] Sử dụng dữ liệu hạt giống (clickhouse-seeds) sẵn có trong codebase.${NC}"
+    echo -e "      (Sử dụng tham số '${YELLOW}--refresh-seeds${NC}' nếu bạn muốn trích xuất dữ liệu mới từ ClickHouse)"
 fi
 
 # 2. Dừng các Docker container đang chạy để dọn dẹp tài nguyên

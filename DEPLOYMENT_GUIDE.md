@@ -125,3 +125,57 @@ Sau khi chạy `./setup_full.sh` và các container đã hoạt động:
 ### 2. Tràn bộ nhớ RAM khiến container bị ép tắt (OOM Killed)
 * **Triệu chứng:** Một số dịch vụ lớn như ClickHouse hoặc Elasticsearch tự động bị tắt mà không rõ nguyên nhân.
 * **Cách sửa:** Tăng dung lượng RAM swap cho Docker Desktop/WSL2 hoặc hạ giới hạn `mem_limit` trong tệp `docker-compose.yml` xuống mức thấp hơn (Ví dụ giảm ClickHouse xuống `2g` hoặc `3g`).
+
+---
+
+## 🚢 PHẦN IV: HƯỚNG DẪN CI/CD & QUẢN TRỊ PHIÊN BẢN (CI/CD & VERSION RELEASES)
+
+Hệ thống tích hợp quy trình **CI/CD Quản trị Phiên bản (Version Release Management)** tự động hóa cao bằng GitHub Actions. Quy trình này tách biệt giữa quá trình kiểm thử mã nguồn hàng ngày (CI) và quá trình đóng gói phát hành Docker Images lên Docker Hub (CD).
+
+### 1. Cấu hình GitHub Secrets ban đầu
+Để kích hoạt tính năng CD đẩy ảnh Docker lên Docker Hub, quản trị viên cần khai báo 2 **Repository Secrets** trong phần cài đặt của GitHub Repository (`Settings > Secrets and variables > Actions`):
+1. **`DOCKERHUB_USERNAME`**: Tên tài khoản Docker Hub của bạn (Ví dụ: `nguyennhuong`).
+2. **`DOCKERHUB_TOKEN`**: Khóa Personal Access Token (PAT) được sinh từ Docker Hub có quyền write.
+
+*(Lưu ý: Nếu không cấu hình các secret này, pipeline vẫn sẽ chạy build thử nghiệm để kiểm tra lỗi biên dịch mã nguồn nhưng sẽ tự động bỏ qua bước Push lên registry mà không gây lỗi đỏ workflow).*
+
+### 2. Kích hoạt Tự động qua Git Tags (Gắn nhãn Phiên bản)
+Mỗi khi bạn muốn đóng gói và công bố một phiên bản chính thức, hãy tạo Git Tag có định dạng `v*` và đẩy lên GitHub:
+```bash
+# Tạo thẻ phiên bản v1.0.0
+git tag v1.0.0
+
+# Đẩy thẻ tag lên GitHub để kích hoạt pipeline
+git push origin v1.0.0
+```
+* **Cách hoạt động:** Pipeline sẽ tự động kích hoạt, build song song cả 4 images cốt lõi (Airflow, Streamlit Dashboard, Text-to-SQL, và Stats Exporter) bằng Docker Buildx và đẩy chúng lên registry với tag `:1.0.0` và tag `:latest`.
+
+### 3. Kích hoạt Thủ công linh hoạt (Manual Run - workflow_dispatch)
+Nếu muốn phát hành nhanh hoặc chỉ cập nhật một phần của hệ thống, bạn có thể chạy thủ công từ giao diện của GitHub Actions:
+1. Truy cập tab **Actions** trên GitHub và chọn **Docker Release Pipeline**.
+2. Nhấn nút **Run workflow** ở góc phải.
+3. Điền các tham số trong form hiển thị:
+   - **`Version Tag`**: Tên tag phiên bản muốn gán (ví dụ: `latest`, `dev`, `1.2.0-beta`).
+   - Các nút tích chọn để bật/tắt build cho từng Image (**Airflow**, **Dashboard**, **Text-to-SQL**, **Stats Exporter**). 
+4. *Ví dụ: Nếu bạn chỉ cập nhật giao diện mà không sửa đổi dbt hay AI, hãy bỏ tích 3 thành phần kia và chỉ tích chọn "Build & Push Streamlit Dashboard Image". Job sẽ chạy cực nhanh và chỉ cập nhật duy nhất Dashboard trên Docker Hub!*
+
+### 4. Đóng gói Offline không cần ClickHouse (`--refresh-seeds`)
+Mặc định, các script đóng gói cục bộ (`./deployments/package_full.sh` và `./deployments/package_experience.sh`) chạy hoàn toàn **offline**, không cần chạy container ClickHouse hay trích xuất dữ liệu trực tiếp, giúp việc build bundle nhanh chóng (<5 giây) nhờ sử dụng thư mục Parquet seeds có sẵn (`clickhouse-seeds/`).
+
+Nếu bạn muốn cập nhật dữ liệu mẫu 14 ngày mới nhất từ cơ sở dữ liệu Clickhouse cục bộ đang chạy vào gói nén, hãy thêm tham số `--refresh-seeds`:
+```bash
+# Đóng gói Full Stack và đồng thời trích xuất dữ liệu Clickhouse mới
+./deployments/package_full.sh --refresh-seeds
+
+# Đóng gói bản Trải nghiệm siêu nhẹ và cập nhật dữ liệu
+./deployments/package_experience.sh --refresh-seeds
+```
+
+### 5. Tùy chọn nạp dữ liệu mẫu khi Cài đặt (`LOAD_SAMPLE_DATA`)
+Khi chạy script khởi tạo ban đầu `./setup.sh` (hoặc `./setup_full.sh`), hệ thống sẽ hỏi lựa chọn:
+> *Bạn có muốn tự động nạp dữ liệu mẫu lịch sử 14 ngày vào ClickHouse không? (Y/n)*
+
+Lựa chọn này sẽ cập nhật biến cấu hình **`LOAD_SAMPLE_DATA`** trong tệp `.env`:
+* **`LOAD_SAMPLE_DATA=true`**: Khi khởi chạy container ClickHouse lần đầu, script `/docker-entrypoint-initdb.d/02-import.sh` sẽ tự động quét và nạp siêu tốc toàn bộ dữ liệu mẫu Parquet lịch sử vào database. Hệ thống có sẵn dữ liệu phân tích ngay lập tức.
+* **`LOAD_SAMPLE_DATA=false`**: ClickHouse sẽ khởi động sạch hoàn toàn (trống trơn). Phù hợp nếu bạn muốn hệ thống lưu trữ độc quyền dữ liệu thực tế tự cào bằng API mà không bị lẫn dữ liệu mẫu.
+

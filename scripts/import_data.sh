@@ -12,6 +12,14 @@ echo "====================================================================="
 
 USER_FILES_DIR="/var/lib/clickhouse/user_files"
 
+# Kiểm tra biến môi trường LOAD_SAMPLE_DATA để tùy chọn nạp dữ liệu mẫu
+if [ "$LOAD_SAMPLE_DATA" = "false" ]; then
+    echo "====================================================================="
+    echo "[-] Bỏ qua tự động nạp dữ liệu mẫu (LOAD_SAMPLE_DATA=false)."
+    echo "====================================================================="
+    exit 0
+fi
+
 # Kiểm tra thư mục chứa tệp Parquet
 if [ ! -d "$USER_FILES_DIR" ]; then
     echo "[-] Không tìm thấy thư mục user_files ($USER_FILES_DIR). Bỏ qua import."

@@ -1,0 +1,265 @@
+name: Docker Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Version Tag (e.g. 1.0.0, latest, dev)'
+        required: true
+        default: 'latest'
+      build_airflow:
+        description: 'Build & Push Airflow Image'
+        type: boolean
+        required: true
+        default: true
+      build_dashboard:
+        description: 'Build & Push Streamlit Dashboard Image'
+        type: boolean
+        required: true
+        default: true
+      build_text_to_sql:
+        description: 'Build & Push Text-to-SQL Image'
+        type: boolean
+        required: true
+        default: true
+      build_stats_exporter:
+        description: 'Build & Push Stats Exporter Image'
+        type: boolean
+        required: true
+        default: true
+
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare Release Parameters
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve-tag.outputs.tag }}
+      build_airflow: ${{ steps.resolve-build.outputs.airflow }}
+      build_dashboard: ${{ steps.resolve-build.outputs.dashboard }}
+      build_text_to_sql: ${{ steps.resolve-build.outputs.text_to_sql }}
+      build_stats_exporter: ${{ steps.resolve-build.outputs.stats_exporter }}
+    steps:
+      - name: Resolve Tag Name
+        id: resolve-tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            # Strip 'v' prefix if it exists, e.g., v1.0.0 -> 1.0.0
+            TAG_NAME="${{ github.ref_name }}"
+            CLEAN_TAG="${TAG_NAME#v}"
+            echo "tag=${CLEAN_TAG}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Resolve Build Decisions
+        id: resolve-build
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "airflow=${{ inputs.build_airflow }}" >> $GITHUB_OUTPUT
+            echo "dashboard=${{ inputs.build_dashboard }}" >> $GITHUB_OUTPUT
+            echo "text_to_sql=${{ inputs.build_text_to_sql }}" >> $GITHUB_OUTPUT
+            echo "stats_exporter=${{ inputs.build_stats_exporter }}" >> $GITHUB_OUTPUT
+          else
+            echo "airflow=true" >> $GITHUB_OUTPUT
+            echo "dashboard=true" >> $GITHUB_OUTPUT
+            echo "text_to_sql=true" >> $GITHUB_OUTPUT
+            echo "stats_exporter=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-airflow:
+    name: Build Airflow Image
+    needs: prepare
+    if: needs.prepare.outputs.build_airflow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Resolve Image Tags
+        id: tags
+        run: |
+          REGISTRY="${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}"
+          IMAGE="${REGISTRY}/vietnam-air-quality-airflow"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          
+          TAGS="${IMAGE}:${TAG}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            TAGS="${TAGS},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        if: secrets.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: airflow/Dockerfile
+          push: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-dashboard:
+    name: Build Dashboard Image
+    needs: prepare
+    if: needs.prepare.outputs.build_dashboard == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Resolve Image Tags
+        id: tags
+        run: |
+          REGISTRY="${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}"
+          IMAGE="${REGISTRY}/vietnam-air-quality-dashboard"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          
+          TAGS="${IMAGE}:${TAG}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            TAGS="${TAGS},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        if: secrets.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: python_jobs/dashboard/Dockerfile
+          push: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-text-to-sql:
+    name: Build Text-to-SQL Image
+    needs: prepare
+    if: needs.prepare.outputs.build_text_to_sql == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Resolve Image Tags
+        id: tags
+        run: |
+          REGISTRY="${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}"
+          IMAGE="${REGISTRY}/vietnam-air-quality-text-to-sql"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          
+          TAGS="${IMAGE}:${TAG}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            TAGS="${TAGS},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        if: secrets.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: python_jobs/text_to_sql/Dockerfile
+          push: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-stats-exporter:
+    name: Build Stats Exporter Image
+    needs: prepare
+    if: needs.prepare.outputs.build_stats_exporter == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Resolve Image Tags
+        id: tags
+        run: |
+          REGISTRY="${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}"
+          IMAGE="${REGISTRY}/vietnam-air-quality-stats-exporter"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          
+          TAGS="${IMAGE}:${TAG}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            TAGS="${TAGS},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        if: secrets.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME || 'nguyennhuong' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: monitoring/docker-stats-exporter
+          file: monitoring/docker-stats-exporter/Dockerfile
+          push: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

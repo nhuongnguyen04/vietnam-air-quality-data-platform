@@ -33,6 +33,7 @@ services:
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-experience_only}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - LOAD_SAMPLE_DATA=${LOAD_SAMPLE_DATA:-true}
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping || exit 1"]
       interval: 10s

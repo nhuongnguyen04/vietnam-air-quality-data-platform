@@ -16,17 +16,35 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Biến cấu hình
+REFRESH_SEEDS=false
+
+# Phân tích tham số dòng lệnh
+for arg in "$@"; do
+    case $arg in
+        --refresh-seeds)
+            REFRESH_SEEDS=true
+            shift
+            ;;
+    esac
+done
+
 echo -e "${BLUE}=====================================================================${NC}"
 echo -e "${GREEN}  ĐÓNG GÓI PHIÊN BẢN TRẢI NGHIỆM SIÊU NHẸ (LIGHTWEIGHT EXPERIENCE)   ${NC}"
 echo -e "${BLUE}=====================================================================${NC}"
 
 # 1. Xuất dữ liệu sạch ra tệp Parquet trước khi đóng gói
-echo -e "${YELLOW}[1/6] Xuất dữ liệu sạch ra định dạng Parquet siêu nén...${NC}"
-if [ -f "scripts/export_data.sh" ]; then
-    ./scripts/export_data.sh
+if [ "$REFRESH_SEEDS" = "true" ]; then
+    echo -e "${YELLOW}[1/6] Xuất dữ liệu sạch ra định dạng Parquet siêu nén...${NC}"
+    if [ -f "scripts/export_data.sh" ]; then
+        ./scripts/export_data.sh
+    else
+        echo -e "${RED}Lỗi: Không tìm thấy script 'scripts/export_data.sh'.${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}Lỗi: Không tìm thấy script 'scripts/export_data.sh'.${NC}"
-    exit 1
+    echo -e "${GREEN}[1/6] Sử dụng dữ liệu hạt giống (clickhouse-seeds) sẵn có trong codebase.${NC}"
+    echo -e "      (Sử dụng tham số '${YELLOW}--refresh-seeds${NC}' nếu bạn muốn trích xuất dữ liệu mới từ ClickHouse)"
 fi
 
 # 2. Flush dữ liệu và dừng các Docker container
@@ -51,6 +69,7 @@ cat <<EOF > "$STAGING_DIR/.env"
 CLICKHOUSE_DB=air_quality
 CLICKHOUSE_USER=admin
 CLICKHOUSE_PASSWORD=experience_only
+LOAD_SAMPLE_DATA=true
 GF_SECURITY_ADMIN_PASSWORD=admin
 EOF
 

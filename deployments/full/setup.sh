@@ -32,6 +32,32 @@ else
     exit 1
 fi
 
+# 2.1. Lựa chọn nạp dữ liệu mẫu lịch sử 14 ngày
+echo -e "\n${BLUE}=====================================================================${NC}"
+echo -e "${YELLOW}📊 LỰA CHỌN NẠP DỮ LIỆU MẪU (14 NGÀY LỊCH SỬ VIỆT NAM):${NC}"
+echo -e "   - Việc nạp dữ liệu mẫu giúp Streamlit/Grafana hoạt động được ngay lập tức offline."
+echo -e "   - Chọn 'y' để tự động import dữ liệu Parquet từ thư mục 'clickhouse-seeds'."
+echo -e "   - Chọn 'n' nếu bạn muốn ClickHouse sạch hoàn toàn để tự cào dữ liệu thực tế."
+echo -e "${BLUE}=====================================================================${NC}"
+read -p "Bạn có muốn tự động nạp dữ liệu mẫu 14 ngày vào ClickHouse không? (Y/n, mặc định Y): " load_seeds
+load_seeds=${load_seeds:-Y}
+
+if [[ "$load_seeds" =~ ^[Nn]$ ]]; then
+    if grep -q "LOAD_SAMPLE_DATA=" .env; then
+        sed -i 's/LOAD_SAMPLE_DATA=true/LOAD_SAMPLE_DATA=false/' .env
+    else
+        echo "LOAD_SAMPLE_DATA=false" >> .env
+    fi
+    echo -e "${YELLOW}--> Đã cấu hình: KHÔNG tự động nạp dữ liệu mẫu (LOAD_SAMPLE_DATA=false).${NC}"
+else
+    if grep -q "LOAD_SAMPLE_DATA=" .env; then
+        sed -i 's/LOAD_SAMPLE_DATA=false/LOAD_SAMPLE_DATA=true/' .env
+    else
+        echo "LOAD_SAMPLE_DATA=true" >> .env
+    fi
+    echo -e "${GREEN}--> Đã cấu hình: TỰ ĐỘNG nạp dữ liệu mẫu (LOAD_SAMPLE_DATA=true).${NC}"
+fi
+
 # 3. Thông báo điền API Key quan trọng
 echo -e "${BLUE}=====================================================================${NC}"
 echo -e "${YELLOW}👉 BƯỚC QUAN TRỌNG: Hãy điền các API Token của bạn vào file '.env':${NC}"
