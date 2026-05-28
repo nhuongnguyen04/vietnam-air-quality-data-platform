@@ -148,7 +148,9 @@ git tag v1.0.0
 # Đẩy thẻ tag lên GitHub để kích hoạt pipeline
 git push origin v1.0.0
 ```
-* **Cách hoạt động:** Pipeline sẽ tự động kích hoạt, build song song cả 4 images cốt lõi (Airflow, Streamlit Dashboard, Text-to-SQL, và Stats Exporter) bằng Docker Buildx và đẩy chúng lên registry với tag `:1.0.0` và tag `:latest`.
+* **Cách hoạt động:** Pipeline sẽ tự động kích hoạt, build song song cả 4 images cốt lõi (Airflow, Streamlit Dashboard, Text-to-SQL, và Stats Exporter) bằng Docker Buildx và đẩy chúng lên registry:
+  - **Phiên bản Ổn định (Stable Release)**: Nếu tag phát hành không chứa ký tự gạch ngang `-` (Ví dụ: `v1.0.0`), ảnh sẽ được đẩy lên với cả hai nhãn là `:1.0.0` và `:latest`.
+  - **Phiên bản Thử nghiệm (Pre-release)**: Nếu tag phát hành có chứa ký tự gạch ngang `-` theo chuẩn SemVer (Ví dụ: `v1.0.0-beta`, `v2.0.0-rc1`), ảnh sẽ **chỉ được đẩy lên với nhãn tương ứng đó** và hoàn toàn **bỏ qua** việc ghi đè lên nhãn `:latest` ổn định hiện tại. Điều này giúp ngăn ngừa việc các bản thử nghiệm đè lên bản ổn định trong môi trường production.
 
 ### 3. Kích hoạt Thủ công linh hoạt (Manual Run - workflow_dispatch)
 Nếu muốn phát hành nhanh hoặc chỉ cập nhật một phần của hệ thống, bạn có thể chạy thủ công từ giao diện của GitHub Actions:

@@ -97,7 +97,8 @@ jobs:
           TAG="${{ needs.prepare.outputs.tag }}"
           
           TAGS="${IMAGE}:${TAG}"
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Chỉ tự động gắn tag ':latest' khi trigger bằng Git Tag và tag đó KHÔNG chứa ký tự '-' (chuẩn pre-release SemVer)
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [[ "$TAG" != *"-"* ]]; then
             TAGS="${TAGS},${IMAGE}:latest"
           fi
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
@@ -146,7 +147,8 @@ jobs:
           TAG="${{ needs.prepare.outputs.tag }}"
           
           TAGS="${IMAGE}:${TAG}"
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Chỉ tự động gắn tag ':latest' khi trigger bằng Git Tag và tag đó KHÔNG chứa ký tự '-' (chuẩn pre-release SemVer)
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [[ "$TAG" != *"-"* ]]; then
             TAGS="${TAGS},${IMAGE}:latest"
           fi
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
@@ -195,7 +197,8 @@ jobs:
           TAG="${{ needs.prepare.outputs.tag }}"
           
           TAGS="${IMAGE}:${TAG}"
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Chỉ tự động gắn tag ':latest' khi trigger bằng Git Tag và tag đó KHÔNG chứa ký tự '-' (chuẩn pre-release SemVer)
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [[ "$TAG" != *"-"* ]]; then
             TAGS="${TAGS},${IMAGE}:latest"
           fi
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
@@ -244,7 +247,8 @@ jobs:
           TAG="${{ needs.prepare.outputs.tag }}"
           
           TAGS="${IMAGE}:${TAG}"
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Chỉ tự động gắn tag ':latest' khi trigger bằng Git Tag và tag đó KHÔNG chứa ký tự '-' (chuẩn pre-release SemVer)
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [[ "$TAG" != *"-"* ]]; then
             TAGS="${TAGS},${IMAGE}:latest"
           fi
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
