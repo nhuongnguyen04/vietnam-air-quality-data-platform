@@ -47,6 +47,27 @@ def _execute_button_disabled() -> bool:
 @page_wrapper("ask_data", "🧠 Ask Data (Text-to-SQL)", icon="🧠")
 def main(lang: str):
     _ensure_state()
+    
+    import os
+    is_experience_mode = os.environ.get("DASHBOARD_MODE") == "experience"
+    
+    if is_experience_mode:
+        st.markdown(f"""
+        <div class="glass-card" style="border-left: 5px solid #EAB308; background: rgba(234, 179, 8, 0.08); margin-bottom: 1.5rem; padding: 1rem;">
+            <h4 style="margin:0 0 0.5rem 0; font-family:'Outfit'; color: #EAB308;">💡 Phiên Bản Trải Nghiệm Siêu Nhẹ</h4>
+            <p style="margin:0; font-size:0.9rem; opacity:0.85; line-height:1.5;">
+                Bạn đang trải nghiệm phiên bản <b>Trải nghiệm Siêu nhẹ</b> của hệ thống. 
+                Để đảm bảo an toàn bảo mật (không lộ API keys của tác giả) và tiết kiệm tài nguyên RAM, 
+                tính năng <b>Hỏi Trợ lý AI (Text-to-SQL)</b> hiện đang được tạm dừng trong bản cài đặt này.
+            </p>
+            <p style="margin:0.5rem 0 0 0; font-size:0.85rem; opacity:0.75; font-style: italic;">
+                Lưu ý: Để sử dụng đầy đủ tính năng này và lập lịch cào dữ liệu tự động, vui lòng thiết lập phiên bản <b>Full Stack</b> theo hướng dẫn đi kèm.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.info("💡 Bạn có thể xem các trang phân tích dữ liệu lịch sử khác ở thanh bên trái!")
+        return
+
     client = TextToSqlClient()
 
     example_questions = [

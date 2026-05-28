@@ -1,0 +1,813 @@
+# Vietnam Air Quality Data Platform — Sealed Full Stack Edition (Academic Submission)
+# =====================================================================================
+# Cấu hình Docker Compose dành riêng cho nộp đồ án tốt nghiệp (<100MB).
+# Bảo mật mã nguồn tuyệt đối: Kéo các container đã biên dịch sẵn từ Registry.
+# Tự động khởi tạo: Tự nạp dữ liệu Parquet 14 ngày lịch sử thực tế khi khởi chạy.
+
+services:
+  # --- ClickHouse (Analytical DB) ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.12
+    container_name: clickhouse
+    restart: unless-stopped
+    ports:
+      - 8123:8123
+      - 9000:9000
+      - 9440:9440
+      - 9363:9363
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    mem_limit: 4g  # Giới hạn RAM an toàn cho máy khách chấm đồ án
+    cpus: '2'
+    volumes:
+      - ./clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse-seeds:/var/lib/clickhouse/user_files:ro  # Mount hạt giống Parquet 14 ngày
+      - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/01-init.sql  # Khởi tạo bảng
+      - ./scripts/import_data.sh:/docker-entrypoint-initdb.d/02-import.sh      # Tự động nạp dữ liệu Parquet
+      - ./monitoring/clickhouse/config.d/prometheus_exporter.xml:/etc/clickhouse-server/config.d/prometheus_exporter.xml:ro
+      - ./monitoring/clickhouse/config.d/logger.xml:/etc/clickhouse-server/config.d/logger.xml:ro
+      - ./monitoring/clickhouse/config.d/system_logs_retention.xml:/etc/clickhouse-server/config.d/system_logs_retention.xml:ro
+      - ./monitoring/clickhouse/config.d/storage_safety.xml:/etc/clickhouse-server/config.d/storage_safety.xml:ro
+      - ./monitoring/clickhouse/config.d/memory_management.xml:/etc/clickhouse-server/config.d/memory_management.xml:ro
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Airflow Webserver (Sealed Image - No local code mount) ---
+  airflow-webserver:
+    image: nguyennhuong/vietnam-air-quality-airflow:latest
+    container_name: airflow-webserver1
+    restart: unless-stopped
+    command: api-server
+    group_add:
+      - '1001'
+    ports:
+      - 8090:8080
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - dbt-target:/opt/dbt/dbt_tranform/target
+      - dbt-logs:/opt/dbt/dbt_tranform/logs
+      - dbt-cache:/opt/dbt/.cache
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__CORE__ENABLE_AIRFLOW_TASKS_STDOUT=true
+      - AIRFLOW__CORE__STRICT_DATABASE_EXPRESSIONS=false
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_API_AUTH_JWT_SECRET}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
+      - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
+      - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+      - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - OM_ADMIN_USER=${OM_ADMIN_USER}
+      - OM_ADMIN_PASSWORD=${OM_ADMIN_PASSWORD}
+      - PYTHON_JOBS_DIR=/opt/python/jobs/
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+      - TOMTOM_API_KEY=${TOMTOM_API_KEY}
+      - WAQI_TOKEN=${WAQI_TOKEN}
+      - GDRIVE_ROOT_FOLDER_ID=${GDRIVE_ROOT_FOLDER_ID}
+      - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
+      - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
+      - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+      - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+      - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      airflow-scheduler:
+        condition: service_started
+      airflow-dag-processor:
+        condition: service_started
+      airflow-triggerer:
+        condition: service_started
+    mem_limit: 1g
+    cpus: '0.5'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:8080/api/v2/monitor/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Airflow Scheduler (Sealed Image - No local code mount) ---
+  airflow-scheduler:
+    image: nguyennhuong/vietnam-air-quality-airflow:latest
+    container_name: airflow-scheduler1
+    restart: unless-stopped
+    command: scheduler
+    group_add:
+      - '1001'
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - dbt-target:/opt/dbt/dbt_tranform/target
+      - dbt-logs:/opt/dbt/dbt_tranform/logs
+      - dbt-cache:/opt/dbt/.cache
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__CORE__ENABLE_AIRFLOW_TASKS_STDOUT=true
+      - AIRFLOW__CORE__STRICT_DATABASE_EXPRESSIONS=false
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_API_AUTH_JWT_SECRET}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
+      - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
+      - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+      - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - OM_ADMIN_USER=${OM_ADMIN_USER}
+      - OM_ADMIN_PASSWORD=${OM_ADMIN_PASSWORD}
+      - PYTHON_JOBS_DIR=/opt/python/jobs
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+      - TOMTOM_API_KEY=${TOMTOM_API_KEY}
+      - WAQI_TOKEN=${WAQI_TOKEN}
+      - GDRIVE_ROOT_FOLDER_ID=${GDRIVE_ROOT_FOLDER_ID}
+      - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
+      - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
+      - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+      - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+      - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    mem_limit: 1.5g
+    cpus: '1'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:8080/api/v2/monitor/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Airflow Dag Processor (Sealed Image - No local code mount) ---
+  airflow-dag-processor:
+    image: nguyennhuong/vietnam-air-quality-airflow:latest
+    container_name: airflow-dag-processor1
+    restart: unless-stopped
+    command: dag-processor
+    group_add:
+      - '1001'
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - dbt-target:/opt/dbt/dbt_tranform/target
+      - dbt-logs:/opt/dbt/dbt_tranform/logs
+      - dbt-cache:/opt/dbt/.cache
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__CORE__ENABLE_AIRFLOW_TASKS_STDOUT=true
+      - AIRFLOW__CORE__STRICT_DATABASE_EXPRESSIONS=false
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_API_AUTH_JWT_SECRET}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
+      - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
+      - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+      - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - OM_ADMIN_USER=${OM_ADMIN_USER}
+      - OM_ADMIN_PASSWORD=${OM_ADMIN_PASSWORD}
+      - PYTHON_JOBS_DIR=/opt/python/jobs
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+      - TOMTOM_API_KEY=${TOMTOM_API_KEY}
+      - WAQI_TOKEN=${WAQI_TOKEN}
+      - GDRIVE_ROOT_FOLDER_ID=${GDRIVE_ROOT_FOLDER_ID}
+      - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
+      - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
+      - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+      - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+      - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    mem_limit: 1g
+    cpus: '0.5'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:8080/api/v2/monitor/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Airflow Triggerer (Sealed Image - No local code mount) ---
+  airflow-triggerer:
+    image: nguyennhuong/vietnam-air-quality-airflow:latest
+    container_name: airflow-triggerer1
+    restart: unless-stopped
+    command: triggerer
+    group_add:
+      - '1001'
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - dbt-target:/opt/dbt/dbt_tranform/target
+      - dbt-logs:/opt/dbt/dbt_tranform/logs
+      - dbt-cache:/opt/dbt/.cache
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__CORE__ENABLE_AIRFLOW_TASKS_STDOUT=true
+      - AIRFLOW__CORE__STRICT_DATABASE_EXPRESSIONS=false
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_API_AUTH_JWT_SECRET}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY}
+      - AIRFLOW_CONN_CLICKHOUSE_DEFAULT=http://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@clickhouse:8123/?database=${CLICKHOUSE_DB}
+      - DBT_PROFILES_DIR=/opt/dbt/dbt_tranform
+      - DBT_PACKAGES_INSTALL_PATH=/opt/dbt/.cache/dbt_packages
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - OM_ADMIN_USER=${OM_ADMIN_USER}
+      - OM_ADMIN_PASSWORD=${OM_ADMIN_PASSWORD}
+      - PYTHON_JOBS_DIR=/opt/python/jobs
+      - OPENWEATHER_API_TOKEN=${OPENWEATHER_API_TOKEN}
+      - TOMTOM_API_KEY=${TOMTOM_API_KEY}
+      - WAQI_TOKEN=${WAQI_TOKEN}
+      - GDRIVE_ROOT_FOLDER_ID=${GDRIVE_ROOT_FOLDER_ID}
+      - GDRIVE_CLIENT_ID=${GDRIVE_CLIENT_ID}
+      - GDRIVE_CLIENT_SECRET=${GDRIVE_CLIENT_SECRET}
+      - GDRIVE_REFRESH_TOKEN=${GDRIVE_REFRESH_TOKEN}
+      - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+      - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: '0.5'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:8080/api/v2/monitor/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Postgres (Airflow Metadata DB) ---
+  postgres:
+    image: postgres:15
+    container_name: airflow-postgres1
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - ./airflow/data/postgres:/var/lib/postgresql/data
+      - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+    mem_limit: 768m
+    cpus: '0.5'
+    healthcheck:
+      test:
+        - CMD
+        - pg_isready
+        - -U
+        - airflow
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Airflow Init Container ---
+  airflow-init:
+    image: nguyennhuong/vietnam-air-quality-airflow:latest
+    user: root
+    container_name: airflow-init
+    environment:
+      - AIRFLOW_SKIP_DB_MIGRATE=true
+      - AIRFLOW_ADMIN_USERNAME=${AIRFLOW_ADMIN_USERNAME:-admin}
+      - AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD}
+      - OM_ADMIN_USER=${OM_ADMIN_USER}
+      - OM_ADMIN_PASSWORD=${OM_ADMIN_PASSWORD}
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - dbt-target:/opt/dbt/dbt_tranform/target
+      - dbt-logs:/opt/dbt/dbt_tranform/logs
+      - dbt-cache:/opt/dbt/.cache
+    command: >
+      bash -c "mkdir -p /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache/dbt_packages
+      && python /opt/airflow/config/write_simple_auth_passwords.py /opt/airflow/simple_auth_manager_passwords.json
+      && chown -R airflow:0 /opt/airflow/logs /opt/dbt/dbt_tranform/logs /opt/dbt/dbt_tranform/target /opt/dbt/.cache
+      && chmod -R 777 /opt/airflow/logs /opt/dbt/dbt_tranform
+      && echo 'Permissions setup complete.'"
+    networks:
+      - air-quality-network
+
+  # --- Streamlit Dashboard (Sealed Image - No local code mount) ---
+  dashboard:
+    image: nguyennhuong/vietnam-air-quality-dashboard:latest
+    container_name: streamlit-dashboard
+    restart: unless-stopped
+    ports:
+      - 8501:8501
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-air_quality}
+      - TEXT_TO_SQL_URL=http://text-to-sql:8000
+      - TEXT_TO_SQL_TIMEOUT_SECONDS=${TEXT_TO_SQL_TIMEOUT_SECONDS:-90}
+      - STREAMLIT_SERVER_PORT=8501
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      text-to-sql:
+        condition: service_healthy
+    mem_limit: 384m
+    cpus: '0.25'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:8501/_stcore/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Text-to-SQL AI Assistant (Sealed Image) ---
+  text-to-sql:
+    image: nguyennhuong/vietnam-air-quality-text-to-sql:latest
+    container_name: text-to-sql
+    restart: unless-stopped
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-qwen/qwen3-32b}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - VANNA_API_KEY=${VANNA_API_KEY}
+      - TEXT_TO_SQL_URL=http://text-to-sql:8000
+      - TEXT_TO_SQL_CLICKHOUSE_USER=${TEXT_TO_SQL_CLICKHOUSE_USER}
+      - TEXT_TO_SQL_CLICKHOUSE_PASSWORD=${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}
+      - TEXT_TO_SQL_PREVIEW_SECRET=${TEXT_TO_SQL_PREVIEW_SECRET}
+      - TEXT_TO_SQL_VANNA_CLIENT=${TEXT_TO_SQL_VANNA_CLIENT:-chromadb}
+      - TEXT_TO_SQL_VANNA_COLLECTION=${TEXT_TO_SQL_VANNA_COLLECTION:-air_quality_ask_data}
+      - TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY=${TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY:-/data/vanna}
+      - TEXT_TO_SQL_VANNA_REBUILD=${TEXT_TO_SQL_VANNA_REBUILD:-false}
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_DB=air_quality
+    volumes:
+      - text-to-sql-vanna-data:/data/vanna
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: '0.25'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:8000/health/ready
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Grafana UI ---
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ALERTMANAGER_FOR=new
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - TELEGRAM_AQ_BOT_TOKEN=${TELEGRAM_AQ_BOT_TOKEN}
+      - TELEGRAM_AQ_CHAT_ID=${TELEGRAM_AQ_CHAT_ID}
+      - TELEGRAM_SYS_BOT_TOKEN=${TELEGRAM_SYS_BOT_TOKEN}
+      - TELEGRAM_SYS_CHAT_ID=${TELEGRAM_SYS_CHAT_ID}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    mem_limit: 384m
+    cpus: '0.25'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - http://localhost:3000/api/health
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+  # --- Prometheus (Infrastructure Monitoring) ---
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - 9090:9090
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - ./monitoring/prometheus/queries-postgresql.yaml:/queries.yaml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    mem_limit: 384m
+    cpus: '0.25'
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://localhost:9090/-/healthy
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - air-quality-network
+
+  # --- Node Exporter (System Metrics) ---
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - 9100:9100
+    mem_limit: 96m
+    cpus: '0.1'
+    networks:
+      - air-quality-network
+
+  # --- Docker Stats Exporter (Sealed Image) ---
+  docker-stats-exporter:
+    image: nguyennhuong/vietnam-air-quality-stats-exporter:latest
+    container_name: docker-stats-exporter
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 9888:9888
+    mem_limit: 96m
+    cpus: '0.1'
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://localhost:9888/healthz
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - air-quality-network
+
+  # --- Postgres Exporter (DB Metrics) ---
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: postgres-exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://airflow:airflow@postgres:5432/airflow?sslmode=disable
+    command:
+      - '--extend.query-path=/queries.yaml'
+    volumes:
+      - ./monitoring/prometheus/queries-postgresql.yaml:/queries.yaml:ro
+    ports:
+      - 9187:9187
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 128m
+    cpus: '0.1'
+    networks:
+      - air-quality-network
+
+  # --- Elasticsearch (OM Index Store) ---
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+    container_name: openmetadata-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
+      - xpack.security.enabled=false
+    volumes:
+      - ./openmetadata/elasticsearch-data:/usr/share/elasticsearch/data
+    mem_limit: 1.5g
+    cpus: '1'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -s http://localhost:9200/_cluster/health?pretty | grep status | grep -qE 'green|yellow' || exit 1"
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: '5'
+    networks:
+      - air-quality-network
+
+  # --- OM Ingestion Workflow Migrate ---
+  execute-migrate-all:
+    image: docker.getcollate.io/openmetadata/server:1.12.4
+    container_name: execute_migrate_all
+    command: "./bootstrap/openmetadata-ops.sh migrate"
+    environment:
+      - OPENMETADATA_CLUSTER_NAME=${OPENMETADATA_CLUSTER_NAME:-openmetadata}
+      - SERVER_PORT=${SERVER_PORT:-8585}
+      - SERVER_ADMIN_PORT=${SERVER_ADMIN_PORT:-8586}
+      - LOG_LEVEL=INFO
+      - MIGRATION_LIMIT_PARAM=${MIGRATION_LIMIT_PARAM:-1200}
+      - DB_DRIVER_CLASS=org.postgresql.Driver
+      - DB_SCHEME=postgresql
+      - DB_PARAMS=allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      - DB_USER=${POSTGRES_OM_USER:-openmetadata_user}
+      - DB_USER_PASSWORD=${POSTGRES_OM_PASSWORD:-openmetadata_password}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - OM_DATABASE=${POSTGRES_OM_DB:-openmetadata_db}
+      - AUTHORIZER_CLASS_NAME=org.openmetadata.service.security.DefaultAuthorizer
+      - AUTHORIZER_REQUEST_FILTER=org.openmetadata.service.security.JwtFilter
+      - AUTHORIZER_ADMIN_PRINCIPALS=[admin]
+      - AUTHORIZER_INGESTION_PRINCIPALS=[ingestion-bot]
+      - AUTHORIZER_PRINCIPAL_DOMAIN=open-metadata.org
+      - AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN=false
+      - AUTHORIZER_ENABLE_SECURE_SOCKET=false
+      - AUTHENTICATION_PROVIDER=basic
+      - AUTHENTICATION_PUBLIC_KEYS=[http://localhost:8585/api/v1/system/config/jwks]
+      - AUTHENTICATION_AUTHORITY=https://accounts.google.com
+      - AUTHENTICATION_ENABLE_SELF_SIGNUP=true
+      - AUTHENTICATION_CLIENT_TYPE=public
+      - RSA_PUBLIC_KEY_FILE_PATH=./conf/public_key.der
+      - RSA_PRIVATE_KEY_FILE_PATH=./conf/private_key.der
+      - JWT_ISSUER=open-metadata.org
+      - JWT_KEY_ID=Gb389a-9f76-gdjs-a92j-0242bk94356
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - ELASTICSEARCH_SCHEME=http
+      - SEARCH_TYPE=elasticsearch
+      - PIPELINE_SERVICE_CLIENT_ENDPOINT=http://om-ingestion:8080
+      - SERVER_HOST_API_URL=http://openmetadata:8585/api
+      - PIPELINE_SERVICE_CLIENT_VERIFY_SSL=no-ssl
+      - PIPELINE_SERVICE_CLIENT_CLASS_NAME=org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient
+      - AIRFLOW_USERNAME=admin
+      - AIRFLOW_PASSWORD=admin
+      - FERNET_KEY=jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA=
+      - SECRET_MANAGER=db
+      - EVENT_MONITOR=prometheus
+      - OPENMETADATA_HEAP_OPTS=-Xmx1G -Xms1G
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - air-quality-network
+
+  # --- OpenMetadata Data Catalog Server ---
+  openmetadata:
+    image: docker.getcollate.io/openmetadata/server:1.12.4
+    container_name: openmetadata
+    restart: unless-stopped
+    ports:
+      - "8585:8585"
+      - "8586:8586"
+    environment:
+      - OPENMETADATA_CLUSTER_NAME=${OPENMETADATA_CLUSTER_NAME:-openmetadata}
+      - SERVER_PORT=8585
+      - SERVER_ADMIN_PORT=8586
+      - LOG_LEVEL=INFO
+      - DB_DRIVER_CLASS=org.postgresql.Driver
+      - DB_SCHEME=postgresql
+      - DB_PARAMS=allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      - DB_USER=${POSTGRES_OM_USER:-openmetadata_user}
+      - DB_USER_PASSWORD=${POSTGRES_OM_PASSWORD:-openmetadata_password}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - OM_DATABASE=${POSTGRES_OM_DB:-openmetadata_db}
+      - AUTHORIZER_CLASS_NAME=org.openmetadata.service.security.DefaultAuthorizer
+      - AUTHORIZER_REQUEST_FILTER=org.openmetadata.service.security.JwtFilter
+      - AUTHORIZER_ADMIN_PRINCIPALS=[admin]
+      - AUTHORIZER_INGESTION_PRINCIPALS=[ingestion-bot]
+      - AUTHORIZER_PRINCIPAL_DOMAIN=open-metadata.org
+      - AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN=false
+      - AUTHORIZER_ENABLE_SECURE_SOCKET=false
+      - AUTHENTICATION_PROVIDER=basic
+      - AUTHENTICATION_PUBLIC_KEYS=[http://localhost:8585/api/v1/system/config/jwks]
+      - AUTHENTICATION_AUTHORITY=https://accounts.google.com
+      - AUTHENTICATION_ENABLE_SELF_SIGNUP=true
+      - AUTHENTICATION_CLIENT_TYPE=public
+      - RSA_PUBLIC_KEY_FILE_PATH=./conf/public_key.der
+      - RSA_PRIVATE_KEY_FILE_PATH=./conf/private_key.der
+      - JWT_ISSUER=open-metadata.org
+      - JWT_KEY_ID=Gb389a-9f76-gdjs-a92j-0242bk94356
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - ELASTICSEARCH_SCHEME=http
+      - SEARCH_TYPE=elasticsearch
+      - PIPELINE_SERVICE_CLIENT_ENDPOINT=http://om-ingestion:8080
+      - SERVER_HOST_API_URL=http://openmetadata:8585/api
+      - PIPELINE_SERVICE_CLIENT_VERIFY_SSL=no-ssl
+      - PIPELINE_SERVICE_CLIENT_CLASS_NAME=org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient
+      - AIRFLOW_USERNAME=admin
+      - AIRFLOW_PASSWORD=admin
+      - FERNET_KEY=jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA=
+      - SECRET_MANAGER=db
+      - EVENT_MONITOR=prometheus
+      - OPENMETADATA_HEAP_OPTS=-Xmx1G -Xms1G
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      execute-migrate-all:
+        condition: service_completed_successfully
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: '3'
+    networks:
+      - air-quality-network
+
+networks:
+  air-quality-network:
+    name: air-quality-network
+    driver: bridge
+
+volumes:
+  grafana-data:
+  dbt-target:
+  dbt-logs:
+  dbt-cache:
+  prometheus-data:
+  text-to-sql-vanna-data:

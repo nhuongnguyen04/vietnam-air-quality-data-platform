@@ -48,6 +48,7 @@ specs/
 
 data/
 clickhouse-data/
+clickhouse-seeds/
 elasticsearch-data/
 *.cfg
 
