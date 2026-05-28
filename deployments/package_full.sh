@@ -88,9 +88,10 @@ cp scripts/generate_secrets.py "$STAGING_DIR/scripts/"
 cp scripts/init-clickhouse.sql "$STAGING_DIR/scripts/"
 cp scripts/import_data.sh "$STAGING_DIR/scripts/"
 
-# Sao chép hướng dẫn triển khai đồ án và file setup
+# Sao chép hướng dẫn triển khai đồ án, cẩm nang vận hành và file setup
 cp deployments/full/setup.sh "$STAGING_DIR/setup.sh"
 cp DEPLOYMENT_GUIDE.md "$STAGING_DIR/"
+cp HUONG_DAN_VAN_HANH.md "$STAGING_DIR/"
 cp .env.example "$STAGING_DIR/"
 
 # 5. Tạo file README.md chuyên nghiệp hướng dẫn hội đồng đồ án vận hành bản Full Stack
@@ -130,8 +131,9 @@ Phiên bản này tích hợp trọn bộ các công cụ Data Engineering hiệ
    *Script này sẽ sinh ngẫu nhiên toàn bộ mật khẩu, Fernet Key cho Airflow, mã hóa bảo mật cho hệ thống và tự động tạo file `.env`.*
 
 2. **Cấu hình API Key (Tùy chọn - để cào dữ liệu thực tế):**
-   Nếu bạn muốn kích hoạt luồng cào dữ liệu thực tế thời gian thực, mở file `.env` vừa được tạo và điền các API Key của bạn (OpenWeather, TomTom, WAQI).
-   *Nếu không điền, hệ thống vẫn hoạt động hoàn hảo với 14 ngày dữ liệu mẫu lịch sử đã được đóng gói sẵn trong ClickHouse!*
+   Nếu bạn muốn kích hoạt luồng cào dữ liệu thực tế thời gian thực, mở file `.env` vừa được tạo và điền các API Key của bạn (OpenWeather, TomTom, WAQI, Groq AI).
+   * 👉 **QUAN TRỌNG:** Xem hướng dẫn chi tiết cách đăng ký, lấy API Keys/Tokens từng bước và điền file `.env` tại tài liệu độc lập **HUONG_DAN_VAN_HANH.md** ở cùng thư mục giải nén.
+   * *Nếu không điền, hệ thống vẫn hoạt động hoàn hảo với 14 ngày dữ liệu mẫu lịch sử đã được đóng gói sẵn trong ClickHouse!*
 
 3. **Truy cập và Trải nghiệm:**
    Sau khi các service khởi chạy thành công, bạn có thể truy cập các địa chỉ sau:

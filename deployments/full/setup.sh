@@ -60,17 +60,14 @@ fi
 
 # 3. Thông báo điền API Key quan trọng
 echo -e "${BLUE}=====================================================================${NC}"
-echo -e "${YELLOW}👉 BƯỚC QUAN TRỌNG: Hãy điền các API Token của bạn vào file '.env':${NC}"
-echo -e "   1. Mở file ${GREEN}.env${NC} bằng trình chỉnh sửa text."
-echo -e "   2. Tìm và điền các khóa sau để kích hoạt cào dữ liệu thực tế:"
-echo -e "      - ${GREEN}OPENWEATHER_API_TOKEN${NC} (Lấy miễn phí từ openweather.org)"
-echo -e "      - ${GREEN}TOMTOM_API_KEY${NC} (Lấy miễn phí từ developer.tomtom.com)"
-echo -e "      - ${GREEN}WAQI_TOKEN${NC} (Lấy miễn phí từ aqicn.org)"
-echo -e "      - ${GREEN}GROQ_API_KEY${NC} (Cho tính năng Ask Data - Hỏi đáp AI)"
-echo -e "      - ${GREEN}TELEGRAM_AQ_BOT_TOKEN${NC} / ${GREEN}CHAT_ID${NC} (Nếu muốn nhận cảnh báo)"
+echo -e "${YELLOW}👉 THÔNG BÁO QUAN TRỌNG: Cấu hình API Keys & Vận hành Hệ thống${NC}"
+echo -e "   - Để cào dữ liệu thực tế (OpenWeather, TomTom, WAQI, Groq AI, v.v.),"
+echo -e "     vui lòng mở file ${GREEN}HUONG_DAN_VAN_HANH.md${NC} tại thư mục gốc."
+echo -e "   - Tài liệu này chứa hướng dẫn chi tiết từng bước lấy Token/Key"
+echo -e "     và điền vào file ${GREEN}.env${NC}."
 echo -e "${BLUE}=====================================================================${NC}"
 
-read -p "Nhấn [Enter] sau khi bạn đã chỉnh sửa file .env (hoặc để tiếp tục chạy mặc định)..."
+read -p "Nhấn [Enter] sau khi bạn đã xem/chỉnh sửa file .env (hoặc để tiếp tục chạy mặc định)..."
 
 # 4. Tạo các thư mục dữ liệu cục bộ cần thiết
 echo -e "${YELLOW}[2/4] Tạo các thư mục lưu trữ dữ liệu cục bộ...${NC}"
