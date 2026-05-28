@@ -77,9 +77,9 @@ joined as (
         t.positive_traffic_ward_count,
         cast(
             t.traffic_ward_count / nullIf(pc.total_ward_count, 0)
-            as Float32
+            as Nullable(Float32)
         ) as traffic_coverage_ratio,
-        cast(a.pm25 * t.avg_congestion as Float32) as traffic_pollution_impact_score,
+        cast(a.pm25 * t.avg_congestion as Nullable(Float32)) as traffic_pollution_impact_score,
         cast(0.0 as Float32) as traffic_contribution_pct,
         t.last_traffic_ingested_at,
         a.last_ingested_at
