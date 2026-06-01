@@ -136,7 +136,7 @@ final_metrics AS (
         ) as pm25_congestion_uplift,
 
         -- Observational co-movement score; not a causal impact estimate.
-        CAST(d.avg_pm25 * d.avg_congestion AS Float32) as traffic_pollution_impact_score,
+        CAST(d.avg_pm25 * d.avg_congestion AS Nullable(Float32)) as traffic_pollution_impact_score,
 
         -- Deprecated compatibility column. Causal attribution is not estimated here.
         CAST(NULL AS Nullable(Float32)) as traffic_contribution_pct
