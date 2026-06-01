@@ -9,12 +9,23 @@ def inject_style():
         text_color = "#cbd5e1"           # slate-300
         card_bg = "rgba(15, 23, 42, 0.65)" # slate-900 with glass
         border_color = "rgba(255, 255, 255, 0.08)"
-        sidebar_bg = "#0f172a"           # slate-900
+        sidebar_bg = "#262524"           # premium warm dark charcoal matching mockup
         shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2)"
         glass_blur = "blur(12px)"
         accent_color = "#0891b2"         # cyan-600
         accent_glow = "rgba(8, 145, 178, 0.25)"
         divider_color = "rgba(255, 255, 255, 0.1)"
+        
+        # Sidebar specific variables
+        nav_item_hover_bg = "rgba(255, 255, 255, 0.04)"
+        nav_item_active_bg = "rgba(255, 255, 255, 0.08)"
+        nav_text_color = "rgba(255, 255, 255, 0.7)"
+        nav_text_active_color = "#ffffff"
+        nav_icon_color = "rgba(255, 255, 255, 0.6)"
+        nav_icon_active_color = "#ffffff"
+        nav_header_color = "rgba(255, 255, 255, 0.4)"
+        badge_bg = "#ffffff"
+        badge_text = "#ef4444"
     else:
         bg_color = "#f8fafc"             # slate-50
         text_color = "#0f172a"           # slate-900
@@ -26,6 +37,17 @@ def inject_style():
         accent_color = "#0891b2"
         accent_glow = "rgba(8, 145, 178, 0.15)"
         divider_color = "rgba(15, 23, 42, 0.08)"
+        
+        # Sidebar specific variables
+        nav_item_hover_bg = "rgba(15, 23, 42, 0.03)"
+        nav_item_active_bg = "rgba(15, 23, 42, 0.05)"
+        nav_text_color = "rgba(15, 23, 42, 0.7)"
+        nav_text_active_color = "#0f172a"
+        nav_icon_color = "rgba(15, 23, 42, 0.6)"
+        nav_icon_active_color = "#0f172a"
+        nav_header_color = "rgba(15, 23, 42, 0.45)"
+        badge_bg = "#fef2f2"
+        badge_text = "#dc2626"
 
     st.markdown(f"""
     <style>
@@ -94,12 +116,96 @@ def inject_style():
         .sidebar-filters-container {{
             order: 3;
         }}
-        [data-testid="stSidebarNav"] span {{
-            color: {text_color} !important;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 600;
-            font-size: 0.95rem;
+        
+        /* Navigation links styling */
+        a[data-testid="stSidebarNavLink"] {{
+            padding: 8px 16px !important;
+            margin: 2px 0 !important;
+            border-radius: 4px !important;
+            transition: all 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            text-decoration: none !important;
+            background-color: transparent !important;
         }}
+        
+        a[data-testid="stSidebarNavLink"]:hover {{
+            background-color: {nav_item_hover_bg} !important;
+        }}
+        
+        a[data-testid="stSidebarNavLink"][aria-current="page"] {{
+            background-color: {nav_item_active_bg} !important;
+            border-right: 4px solid #10b981 !important; /* Premium active green indicator on the right edge */
+            border-radius: 4px 0 0 4px !important;
+        }}
+        
+        /* Normal text color for links */
+        a[data-testid="stSidebarNavLink"] div[data-testid="stMarkdownContainer"] p {{
+            color: {nav_text_color} !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 500 !important;
+            font-size: 0.95rem !important;
+            margin: 0 !important;
+        }}
+        
+        /* Active text color for link */
+        a[data-testid="stSidebarNavLink"][aria-current="page"] div[data-testid="stMarkdownContainer"] p {{
+            color: {nav_text_active_color} !important;
+            font-weight: 700 !important;
+        }}
+        
+        /* Normal icon styling */
+        a[data-testid="stSidebarNavLink"] [data-testid="stIconMaterial"] {{
+            color: {nav_icon_color} !important;
+            font-size: 1.25rem !important;
+            margin-right: 8px !important;
+        }}
+        
+        /* Active icon styling */
+        a[data-testid="stSidebarNavLink"][aria-current="page"] [data-testid="stIconMaterial"] {{
+            color: {nav_icon_active_color} !important;
+        }}
+        
+        /* Section headers in sidebar navigation */
+        header[data-testid="stNavSectionHeader"] {{
+            padding-top: 1.25rem !important;
+            padding-bottom: 0.5rem !important;
+            margin-left: 12px !important;
+        }}
+        
+        /* Header text styling */
+        header[data-testid="stNavSectionHeader"] span[class*="e1lpckdq8"] p {{
+            font-family: 'Outfit', sans-serif !important;
+            font-size: 0.74rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.08em !important;
+            color: {nav_header_color} !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
+        }}
+        
+        /* Hide the native expand/collapse icons in the headers */
+        header[data-testid="stNavSectionHeader"] div[class*="e1lpckdq7"] {{
+            display: none !important;
+        }}
+        
+        /* Badge for Cảnh báo (Alerts) next to the text */
+        span[label="Cảnh báo"] div[data-testid="stMarkdownContainer"] p::after,
+        span[label="Alerts"] div[data-testid="stMarkdownContainer"] p::after {{
+            content: "3" !important;
+            background-color: {badge_bg} !important;
+            color: {badge_text} !important;
+            font-size: 0.75rem !important;
+            font-weight: 700 !important;
+            padding: 1px 6px !important;
+            border-radius: 4px !important;
+            margin-left: 12px !important;
+            display: inline-block !important;
+            border: 1px solid rgba(239, 68, 68, 0.15) !important;
+            line-height: 1.2 !important;
+            vertical-align: middle !important;
+        }}
+        
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 {{
             font-family: 'Outfit', sans-serif;
             font-size: 1.5rem !important;
@@ -151,19 +257,33 @@ def inject_style():
             line-height: 1.3;
         }}
 
+
         /* ── Top Bar Columns Alignment ──────────────────── */
-        [data-testid="stHorizontalBlock"] {{
-            align-items: center;
-        }}
+        /* Note: Removed global align-items: center; to respect native Streamlit vertical_alignment settings and allow standard top alignment */
+
 
         /* ── Glass Card & Charts ─────────────────────────── */
-        .glass-card, .stPlotlyChart {{
+        .glass-card {{
             background: {card_bg};
             backdrop-filter: {glass_blur};
             -webkit-backdrop-filter: {glass_blur};
             border: 1px solid {border_color};
             border-radius: 12px;
             padding: 0.75rem;
+            margin-bottom: 0.65rem;
+            box-shadow: {shadow};
+            animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+
+        .stPlotlyChart {{
+            background: {card_bg};
+            backdrop-filter: {glass_blur};
+            -webkit-backdrop-filter: {glass_blur};
+            border: 1px solid {border_color};
+            border-radius: 12px;
+            padding: 6px;
             margin-bottom: 0.65rem;
             box-shadow: {shadow};
             animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;

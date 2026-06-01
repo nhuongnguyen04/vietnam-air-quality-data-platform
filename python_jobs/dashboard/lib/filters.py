@@ -9,24 +9,24 @@ from .i18n import t
 # ── Per-grain time preset options ──────────────────────────────────────────────
 GRAIN_TIME_OPTIONS = {
     "Giờ": {
-        6:   {"vi": "6 giờ gần nhất", "en": "Last 6 hours"},
-        24:  {"vi": "24 giờ gần nhất", "en": "Last 24 hours"},
-        48:  {"vi": "48 giờ gần nhất", "en": "Last 48 hours"},
-        168: {"vi": "7 ngày gần nhất", "en": "Last 7 days"},
-        0:   {"vi": "Tùy chọn khoảng giờ", "en": "Custom hour range"},
+        6:   {"vi": "6 giờ", "en": "6 hours"},
+        24:  {"vi": "24 giờ", "en": "24 hours"},
+        48:  {"vi": "48 giờ", "en": "48 hours"},
+        168: {"vi": "7 ngày", "en": "7 days"},
+        0:   {"vi": "Tùy chọn", "en": "Custom"},
     },
     "Ngày": {
-        7:   {"vi": "7 ngày gần nhất", "en": "Last 7 days"},
-        30:  {"vi": "30 ngày gần nhất", "en": "Last 30 days"},
-        90:  {"vi": "3 tháng gần nhất", "en": "Last 3 months"},
-        365: {"vi": "1 năm gần nhất", "en": "Last 1 year"},
-        0:   {"vi": "Tùy chọn khoảng ngày", "en": "Custom day range"},
+        7:   {"vi": "7 ngày", "en": "7 days"},
+        30:  {"vi": "30 ngày", "en": "30 days"},
+        90:  {"vi": "3 tháng", "en": "3 months"},
+        365: {"vi": "1 năm", "en": "1 year"},
+        0:   {"vi": "Tùy chọn", "en": "Custom"},
     },
     "Tháng": {
-        30:  {"vi": "1 tháng gần nhất", "en": "Last 1 month"},
-        90:  {"vi": "3 tháng gần nhất", "en": "Last 3 months"},
-        365: {"vi": "1 năm gần nhất", "en": "Last 1 year"},
-        0:   {"vi": "Tùy chọn khoảng tháng", "en": "Custom month range"},
+        30:  {"vi": "1 tháng", "en": "1 month"},
+        90:  {"vi": "3 tháng", "en": "3 months"},
+        365: {"vi": "1 năm", "en": "1 year"},
+        0:   {"vi": "Tùy chọn", "en": "Custom"},
     },
 }
 
@@ -132,7 +132,7 @@ def render_top_filters(render_tabs_fn=None, key_suffix="", compact=False):
 
     # 2. Metrics Label
     pollutant_map = {
-        "aqi":  "AQI Tổng hợp" if lang == "vi" else "Composite AQI",
+        "aqi":  "AQI",
         "pm25": "PM2.5",
         "pm10": "PM10",
         "no2":  "NO2",
@@ -205,29 +205,6 @@ def render_top_filters(render_tabs_fn=None, key_suffix="", compact=False):
                 st.session_state.f_scope_val = None
 
     with c2:
-        with st.popover(metrics_label, use_container_width=True, key=f"popover_metrics{suffix}"):
-            pollutant_map = {
-                "aqi":  "AQI Tổng hợp" if lang == "vi" else "Composite AQI",
-                "pm25": "PM2.5",
-                "pm10": "PM10",
-                "no2":  "NO2",
-                "o3":   "O3",
-                "so2":  "SO2",
-                "co":   "CO",
-            }
-            poll_keys = list(pollutant_map.keys())
-            poll_idx = poll_keys.index(st.session_state.f_pollutant) if st.session_state.f_pollutant in poll_keys else 0
-            
-            st.session_state.f_pollutant = st.selectbox(
-                FILTER_LABELS["pollutant_of_interest"][lang],
-                poll_keys,
-                format_func=lambda x: pollutant_map[x],
-                index=poll_idx,
-                key=f"sb_pollutant{suffix}"
-            )
-            st.session_state.f_standard = st.session_state.get("standard", "VN_AQI")
-
-    with c3:
         with st.popover(time_label, use_container_width=True, key=f"popover_time{suffix}"):
             time_grain_options = ["Giờ", "Ngày", "Tháng"]
             tg_map = {
@@ -326,6 +303,29 @@ def render_top_filters(render_tabs_fn=None, key_suffix="", compact=False):
                     )
                 time_unit = "day"
 
+    with c3:
+        with st.popover(metrics_label, use_container_width=True, key=f"popover_metrics{suffix}"):
+            pollutant_map = {
+                "aqi":  "AQI",
+                "pm25": "PM2.5",
+                "pm10": "PM10",
+                "no2":  "NO2",
+                "o3":   "O3",
+                "so2":  "SO2",
+                "co":   "CO",
+            }
+            poll_keys = list(pollutant_map.keys())
+            poll_idx = poll_keys.index(st.session_state.f_pollutant) if st.session_state.f_pollutant in poll_keys else 0
+            
+            st.session_state.f_pollutant = st.selectbox(
+                FILTER_LABELS["pollutant_of_interest"][lang],
+                poll_keys,
+                format_func=lambda x: pollutant_map[x],
+                index=poll_idx,
+                key=f"sb_pollutant{suffix}"
+            )
+            st.session_state.f_standard = st.session_state.get("standard", "VN_AQI")
+
     with c4:
         if st.button("🔄 " + ("Reset" if lang == "en" else "Đặt lại"), use_container_width=True, key=f"reset_btn{suffix}"):
             st.session_state.f_spatial_grain = "Toàn quốc"
@@ -355,11 +355,11 @@ def render_top_filters(render_tabs_fn=None, key_suffix="", compact=False):
             from lib.aqi_utils import get_aqi_category
 
             if render_tabs_fn:
-                col_tabs, col_alerts = st.columns([2.6, 1.4], gap="small")
+                col_tabs, col_alerts = st.columns([2.2, 1.8], gap="small")
                 with col_tabs:
                     render_tabs_fn()
             else:
-                col_spacer, col_alerts = st.columns([2.8, 1.2], gap="small")
+                col_spacer, col_alerts = st.columns([2.3, 1.7], gap="small")
 
             with col_alerts:
                 try:
@@ -369,7 +369,7 @@ def render_top_filters(render_tabs_fn=None, key_suffix="", compact=False):
                         has_alerts = not alert_provinces.empty
 
                         if has_alerts:
-                            btn_label = f"⚠️ Cảnh báo ({len(alert_provinces)})" if lang == "vi" else f"⚠️ Alerts ({len(alert_provinces)})"
+                            btn_label = f"⚠️ {len(alert_provinces)} tỉnh vượt ngưỡng" if lang == "vi" else f"⚠️ {len(alert_provinces)} provinces exceeding"
                             st.markdown("""
                             <style>
                             div[data-testid="stPopover"] button {

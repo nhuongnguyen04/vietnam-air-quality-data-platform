@@ -11,8 +11,8 @@ from lib.clickhouse_client import query_df
 from lib.data_service import escape_value, localize_confidence_level, localize_source_mix
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import page_wrapper, render_section_divider
-from lib.style import render_metric_card
+from lib.page_helpers import render_section_divider, render_unified_brand_header
+from lib.style import inject_style
 from lib.chart_config import get_plotly_layout, create_empty_state, RISK_PALETTE
 
 @st.cache_data(ttl=300)
@@ -45,12 +45,70 @@ def get_health_risks(spatial_grain, scope_val):
     """
     return query_df(q)
 
-@page_wrapper("health", "🏥 Health Risk Assessment", icon="🏥")
-def main(lang: str):
-    # ── Sidebar Filters ────────────────────────────────────────────────────────────
+def render_health_kpi_card(title: str, value: str, subtext: str, val_color: str, sub_color: str = None):
+    """Render a premium individual KPI card matching the new card layout design."""
+    theme = st.session_state.get("theme", "light")
+    
+    if theme == "dark":
+        bg_color = "rgba(30, 41, 59, 0.45)"  # slate-800 glass
+        border_color = "rgba(255, 255, 255, 0.08)"
+        text_color = "#f8fafc"
+        label_color = "#94a3b8"
+        default_sub_color = "#64748b"
+        shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.3)"
+    else:
+        bg_color = "#ffffff"
+        border_color = "rgba(226, 232, 240, 0.8)"
+        text_color = "#0f172a"
+        label_color = "#64748b"
+        default_sub_color = "#94a3b8"
+        shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.05)"
+
+    color_style = f"color: {val_color};" if val_color else f"color: {text_color};"
+    final_sub_color = sub_color if sub_color else default_sub_color
+
+    card_html = f"""
+        <div style="
+            background: {bg_color};
+            border: 1px solid {border_color};
+            border-radius: 16px;
+            padding: 1.15rem 1.25rem;
+            min-height: 105px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: {shadow};
+            transition: all 0.25s ease;
+            margin-bottom: 0.5rem;
+        " onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+            <div style="font-size: 0.8rem; font-weight: 700; color: {label_color}; text-transform: uppercase; letter-spacing: 0.03em;">{title}</div>
+            <div style="font-family: 'Outfit', sans-serif; font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin: 0.25rem 0; {color_style}">{value}</div>
+            <div style="font-size: 0.82rem; font-weight: 600; color: {final_sub_color}; display: flex; align-items: center; gap: 4px;">{subtext}</div>
+        </div>
+    """
+    st.markdown(" ".join(line.strip() for line in card_html.split("\n") if line.strip()), unsafe_allow_html=True)
+
+def main():
+    # ── Initialize Layout & Styling ────────────────────────────────────────────────
+    inject_style()
+    render_unified_brand_header()
+
+    # ── Top Filters ────────────────────────────────────────────────────────────
     filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     scope_val = filters["scope_val"]
+
+    # ── Get active state configurations ────────────────────────────────────────────
+    lang = st.session_state.get("lang", "vi")
+    theme = st.session_state.get("theme", "light")
+
+    # ── Title and Subtitle ─────────────────────────────────────────────────────────
+    title_text = "Rủi ro sức khỏe & phơi nhiễm dân số" if lang == "vi" else "Health Risk & Population Exposure"
+    subtitle_text = "PM2.5 trọng số thời gian 30 ngày · QCVN 05:2023 · WHO 2021" if lang == "vi" else "30-day time-weighted PM2.5 · QCVN 05:2023 · WHO 2021"
+    
+    st.markdown("<div style='margin-top: 0.75rem;'></div>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='margin:0; padding:0; font-family:\"Outfit\",sans-serif; font-size:1.65rem; font-weight:700; opacity: 0.95;'>{title_text}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p style='margin:0.25rem 0 0 0; font-size:0.8rem; opacity:0.6; font-weight: 500;'>{subtitle_text}</p>", unsafe_allow_html=True)
 
     with st.spinner(t("loading", lang) if lang == "en" else "Đang phân tích rủi ro sức khỏe..."):
         df = get_health_risks(spatial_grain, scope_val)
@@ -61,18 +119,95 @@ def main(lang: str):
         high_risk_count = len(df[df.risk_category.isin(['CRITICAL', 'HIGH RISK'])])
         total_pop = df.population.sum() if "population" in df.columns else 0
 
-        # KPI Metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            render_metric_card(t("worst_location", lang), top_polluted.province, icon="health")
-        with col2:
-            render_metric_card(t("health_avg_pm25", lang), f"{mean_pm25:.1f} µg/m³", icon="device_thermostat")
-        with col3:
-            render_metric_card(t("critical_hotspots", lang), str(high_risk_count), icon="error")
-        with col4:
-            render_metric_card("Dân số phơi nhiễm" if lang == "vi" else "Population Exposed", f"{total_pop / 1_000_000:.2f}M" if total_pop > 1_000_000 else f"{total_pop:,.0f}", icon="location")
+        # Col 1: Worst location
+        worst_loc_label = "Ô nhiễm nhất" if lang == "vi" else "Most Polluted"
+        worst_loc_val = top_polluted.province
+        worst_loc_sub = f"{top_polluted.time_weighted_pm25:.1f} µg/m³ PM2.5"
+        
+        # Col 2: Avg PM2.5
+        if lang == "vi":
+            if spatial_grain in ["Vùng", "Region"]:
+                avg_label = "PM2.5 TB vùng"
+            elif spatial_grain in ["Khu vực", "Area"]:
+                avg_label = "PM2.5 TB khu vực"
+            elif spatial_grain in ["Tỉnh", "Phường", "Province", "Ward"]:
+                avg_label = "PM2.5 TB tỉnh/thành"
+            else:
+                avg_label = "PM2.5 TB quốc gia"
+        else:
+            if spatial_grain in ["Vùng", "Region"]:
+                avg_label = "Region Avg PM2.5"
+            elif spatial_grain in ["Khu vực", "Area"]:
+                avg_label = "Area Avg PM2.5"
+            elif spatial_grain in ["Tỉnh", "Phường", "Province", "Ward"]:
+                avg_label = "Province Avg PM2.5"
+            else:
+                avg_label = "National Avg PM2.5"
+                
+        avg_val = f"{mean_pm25:.1f} <span style='font-size: 1.1rem; font-weight: 500;'>µg/m³</span>"
+        if mean_pm25 > 15:
+            avg_sub = f"vượt WHO {mean_pm25 / 15:.1f}×" if lang == "vi" else f"exceeds WHO {mean_pm25 / 15:.1f}×"
+            avg_color = "#d97706" if theme == "light" else "#f59e0b" # Deep amber in light mode
+        else:
+            avg_sub = "đạt chuẩn WHO" if lang == "vi" else "meets WHO standard"
+            avg_color = "#15803D" if theme == "light" else "#10b981" # Forest green in light mode
+            
+        # Col 3: Critical Hotspots
+        if lang == "vi":
+            crit_label = "Điểm nguy kịch" if spatial_grain in ["Tỉnh", "Phường", "Province", "Ward"] else "Tỉnh nguy kịch"
+            crit_sub = "rủi ro Critical+High"
+        else:
+            crit_label = "Critical Hotspots" if spatial_grain in ["Tỉnh", "Phường", "Province", "Ward"] else "Critical Provinces"
+            crit_sub = "Critical+High risk"
+        crit_val = str(high_risk_count)
+        crit_color = "#dc2626" if theme == "light" else "#ef4444" # Deep red in light mode
+        if high_risk_count == 0:
+            crit_color = "#15803D" if theme == "light" else "#10b981"
+        
+        # Col 4: Exposed Population
+        pop_label = "Dân số phơi nhiễm" if lang == "vi" else "Exposed Population"
+        pop_val = f"{total_pop / 1_000_000:.1f}M" if total_pop > 1_000_000 else f"{total_pop:,.0f}"
+        pop_sub = "môi trường không đạt WHO" if lang == "vi" else "non-compliant WHO env"
+        if mean_pm25 <= 15:
+            pop_sub = "môi trường đạt WHO" if lang == "vi" else "compliant WHO env"
 
-        render_section_divider()
+        # Render the KPI metrics row using columns and the custom cards
+        kpi_cols = st.columns(4)
+        
+        with kpi_cols[0]:
+            render_health_kpi_card(
+                title=worst_loc_label,
+                value=worst_loc_val,
+                subtext=worst_loc_sub,
+                val_color="#dc2626" if theme == "light" else "#ef4444"
+            )
+            
+        with kpi_cols[1]:
+            render_health_kpi_card(
+                title=avg_label,
+                value=avg_val,
+                subtext=avg_sub,
+                val_color=avg_color
+            )
+            
+        with kpi_cols[2]:
+            render_health_kpi_card(
+                title=crit_label,
+                value=crit_val,
+                subtext=crit_sub,
+                val_color=crit_color
+            )
+            
+        with kpi_cols[3]:
+            # Highlight population subtext in red if non-compliant with WHO
+            pop_sub_color = ("#dc2626" if theme == "light" else "#f87171") if mean_pm25 > 15 else ("#15803D" if theme == "light" else "#34d399")
+            render_health_kpi_card(
+                title=pop_label,
+                value=pop_val,
+                subtext=pop_sub,
+                val_color="#0f172a" if theme == "light" else "#f8fafc",
+                sub_color=pop_sub_color
+            )
 
         # Premium addition: Risk Summary Donut Chart alongside ranking
         risk_category_labels = {

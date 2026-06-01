@@ -13,8 +13,8 @@ from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import page_wrapper, render_section_divider, render_info_banner
-from lib.style import render_metric_card
+from lib.page_helpers import render_page_hero, render_unified_brand_header, render_section_divider, render_info_banner, clean_html
+from lib.style import render_metric_card, inject_style
 from lib.chart_config import get_plotly_layout, create_empty_state
 
 @st.cache_data(ttl=300)
@@ -24,15 +24,13 @@ def get_traffic_correlation_hourly(dates, grain, scope, col="pm25"):
 
     q = f"""
     SELECT
-        toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh') as datetime_hour,
+        toHour(toTimeZone(datetime_hour, 'Asia/Ho_Chi_Minh')) as hour_val,
         avg(avg_congestion) as avg_congestion,
-        avg({target_col}) as avg_p,
-        avg(traffic_coverage_ratio) as traffic_coverage_ratio,
-        sum(traffic_ward_count) as traffic_ward_count
+        avg({target_col}) as avg_p
     FROM air_quality.dm_traffic_hourly_trend
     WHERE {where_clause}
-    GROUP BY datetime_hour
-    ORDER BY datetime_hour
+    GROUP BY hour_val
+    ORDER BY hour_val
     """
     return query_df(q)
 
@@ -111,14 +109,69 @@ def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, c
     """
     return query_df(q)
 
-@page_wrapper("traffic", "🚦 Traffic Impact Analysis", icon="🚦")
-def main(lang: str):
-    # ── Sidebar Filters ────────────────────────────────────────────────────────────
+def clean_label(label):
+    if not label:
+        return ""
+    for prefix in ["phường ", "Phường ", "xã ", "Xã ", "thị trấn ", "Thị trấn "]:
+        if label.startswith(prefix):
+            return label[len(prefix):]
+    return label
+
+def get_hotspot_color(rank_idx):
+    if rank_idx < 2:
+        return "#EF4444" # Red
+    elif rank_idx < 5:
+        return "#D97706" # Orange/Gold
+    else:
+        return "#10B981" # Green
+
+def render_traffic_metric_card(label, value, subtext, val_color=None):
+    theme = st.session_state.get("theme", "light")
+    text_color = "#cbd5e1" if theme == "dark" else "#0f172a"
+    sub_color = "#94a3b8" if theme == "dark" else "#64748b"
+    lbl_color = "#94a3b8" if theme == "dark" else "#64748b"
+    card_bg = "rgba(15, 23, 42, 0.65)" if theme == "dark" else "rgba(255, 255, 255, 0.85)"
+    border_color = "rgba(255, 255, 255, 0.08)" if theme == "dark" else "rgba(226, 232, 240, 0.8)"
+    shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2)" if theme == "dark" else "0 4px 6px -1px rgba(0, 0, 0, 0.05)"
+    glass_blur = "blur(12px)" if theme == "dark" else "blur(8px)"
+    
+    color_style = f"color: {val_color};" if val_color else f"color: {text_color};"
+    
+    html_content = f"""
+    <div class="glass-card" style="min-height: 105px; padding: 0.85rem 1rem; display: flex; flex-direction: column; justify-content: space-between; background: {card_bg}; backdrop-filter: {glass_blur}; -webkit-backdrop-filter: {glass_blur}; border: 1px solid {border_color}; border-radius: 12px; box-shadow: {shadow}; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+        <div style="font-size: 0.82rem; font-weight: 600; color: {lbl_color}; text-transform: none; margin-bottom: 2px;">{label}</div>
+        <div style="font-family: 'Outfit', sans-serif; font-size: 1.85rem; font-weight: 800; {color_style} line-height: 1.1; margin-bottom: 2px;">{value}</div>
+        <div style="font-size: 0.78rem; font-weight: 500; color: {sub_color}; opacity: 0.9;">{subtext}</div>
+    </div>
+    """
+    st.markdown(clean_html(html_content), unsafe_allow_html=True)
+
+def main():
+    # ── Page Initialization ────────────────────────────────────────────────────────
+    inject_style()
+    lang = st.session_state.get("lang", "vi")
+    render_unified_brand_header()
+
+    # ── Filters ABOVE Title ────────────────────────────────────────────────────────
     filters = render_top_filters()
     spatial_grain = filters["spatial_grain"]
     scope_val = filters["scope_val"]
     date_range = filters["date_range"]
     pollutant = filters.get("pollutant", "pm25")
+
+    # ── Page Title & Caption BELOW Filters ─────────────────────────────────────────
+    title_text = t("traffic_title", lang)
+    if not title_text or title_text == "traffic_title":
+        title_text = t("traffic", lang)
+    if not title_text or title_text == "traffic":
+        title_text = "Ảnh ảnh hưởng giao thông" if lang == "vi" else "Traffic Impact Analysis"
+
+    caption_text = t("traffic_caption", lang)
+    if not caption_text or caption_text == "traffic_caption":
+        caption_text = "TomTom Flow × AQI.in · tương quan quan sát" if lang == "vi" else "TomTom Flow × AQI.in · observed correlation"
+
+    st.markdown("<div style='margin-top: 0.75rem;'></div>", unsafe_allow_html=True)
+    render_page_hero(title_text, caption_text, icon="🚦")
 
     target_poll = "pm25" if pollutant not in ["pm10"] else pollutant
 
@@ -158,9 +211,7 @@ def main(lang: str):
 
         # Context Alerts
         render_info_banner(
-            "Lưu ý: Các chỉ số thể hiện tương quan quan sát từ dữ liệu TomTom Flow và AQI.in, không phải quan hệ nhân quả trực tiếp."
-            if lang == "vi" else
-            "Note: Observational correlations between TomTom Flow traffic and AQI.in data, not direct causal estimates.",
+            t("traffic_caption", lang),
             type="info"
         )
         
@@ -173,90 +224,232 @@ def main(lang: str):
             )
 
         # ── KPI Cards ──────────────────────────────────────────────────────
+        # Determine dynamic colors based on values
+        # 1. Congestion color
+        if avg_traffic >= 0.40:
+            congestion_color = "#EF4444" # Red
+        elif avg_traffic >= 0.25:
+            congestion_color = "#F59E0B" # Amber/Gold
+        else:
+            congestion_color = "#10B981" # Green
+
+        # 2. PM2.5 Uplift color
+        if has_uplift:
+            if pm25_uplift >= 10.0:
+                uplift_color = "#EF4444" # Red
+            elif pm25_uplift >= 5.0:
+                uplift_color = "#F59E0B" # Amber/Gold
+            else:
+                uplift_color = "#10B981" # Green
+        else:
+            uplift_color = None
+
+        # 3. Co-movement score color
+        if comovement_score >= 0.80:
+            comovement_color = "#EF4444" # Red
+        elif comovement_score >= 0.50:
+            comovement_color = "#F59E0B" # Amber/Gold
+        else:
+            comovement_color = "#CBD5E1" if st.session_state.get("theme", "light") == "dark" else "#0F172A"
+
+        # 4. Coverage ratio color
+        if not pd.isna(avg_coverage):
+            if avg_coverage >= 0.80:
+                coverage_color = "#10B981" # Green
+            elif avg_coverage >= 0.50:
+                coverage_color = "#F59E0B" # Amber/Gold
+            else:
+                coverage_color = "#EF4444" # Red
+        else:
+            coverage_color = None
+
         c1, c2, c3, c4 = st.columns(4)
         traffic_display = f"{avg_traffic:.1%}" if avg_traffic > 0 else "N/A"
-        uplift_display = f"{pm25_uplift:.1f} µg/m³" if has_uplift else "N/A"
+        uplift_display = f"+{pm25_uplift:.1f} µg/m³" if has_uplift else "N/A"
         coverage_display = f"{avg_coverage:.1%}" if not pd.isna(avg_coverage) else "N/A"
 
         with c1:
-            render_metric_card(t("traffic_congestion", lang), traffic_display, icon="traffic")
+            render_traffic_metric_card(
+                t("traffic_congestion_lbl", lang), 
+                traffic_display, 
+                t("traffic_congestion_sub", lang),
+                val_color=congestion_color
+            )
         with c2:
-            render_metric_card(t("traffic_contribution", lang), uplift_display, icon="air")
+            render_traffic_metric_card(
+                t("traffic_contribution_lbl", lang), 
+                uplift_display, 
+                t("traffic_contribution_sub", lang),
+                val_color=uplift_color
+            )
         with c3:
-            render_metric_card(t("traffic_impact", lang), f"{comovement_score:.2f}", icon="insights")
+            render_traffic_metric_card(
+                t("traffic_impact_lbl", lang), 
+                f"{comovement_score:.2f}", 
+                t("traffic_impact_sub", lang),
+                val_color=comovement_color
+            )
         with c4:
-            render_metric_card("Độ phủ dữ liệu" if lang == "vi" else "TomTom Coverage", coverage_display, icon="location")
+            render_traffic_metric_card(
+                t("traffic_coverage_lbl", lang), 
+                coverage_display, 
+                t("traffic_coverage_sub", lang),
+                val_color=coverage_color
+            )
 
         render_section_divider()
 
         # ── Hourly Correlation & Hotspot Ranking (2-column layout) ─────────
+        c_title_left, c_title_right = st.columns([1.0, 1.0], gap="large")
+        
+        with c_title_left:
+            st.markdown(f"##### 📊 {t('traffic_hourly_correlation', lang)} (trục kép)" if lang == "vi" else f"##### 📊 {t('traffic_hourly_correlation', lang)} (Dual Axis)")
+            
+        with c_title_right:
+            right_title = "Điểm nóng giao thông — PM2.5 × congestion" if lang == "vi" else "Traffic Hotspots — PM2.5 × congestion"
+            st.markdown(f"##### 🏆 {right_title}")
+            
         c_left, c_right = st.columns([1.0, 1.0], gap="large")
         
         with c_left:
-            st.markdown(f"#### 📈 {t('traffic_hourly_correlation', lang)}")
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(
-                go.Scatter(
-                    x=df_hourly.datetime_hour, y=df_hourly.avg_congestion, 
-                    name="Tắc nghẽn giao thông" if lang == "vi" else "TomTom Congestion Index",
-                    line={"color": '#0891B2', "width": 3}
-                ),
-                secondary_y=True,
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=df_hourly.datetime_hour, y=df_hourly.avg_p, 
-                    name=target_poll.upper(),
-                    fill='tozeroy', line={"color": '#F59E0B', "width": 2}
-                ),
-                secondary_y=False,
-            )
-            fig.update_layout(
-                get_plotly_layout(height=320, compact=True), 
-                margin={"l": 50, "r": 65, "t": 40, "b": 40}, 
-                hovermode="x unified"
-            )
-            fig.update_yaxes(title_text=f"{target_poll.upper()} (µg/m³)", secondary_y=False)
-            fig.update_yaxes(title_text="Tắc nghẽn" if lang == "vi" else "Congestion", secondary_y=True)
-            st.plotly_chart(fig, use_container_width=True)
- 
-        with c_right:
-            st.markdown(f"#### 🏆 {t('traffic_hotspot_ranking', lang)}")
-            if not df_rank.empty:
-                is_ward_ranking = spatial_grain in ["Tỉnh", "Phường"] and bool(scope_val)
-                area_label = "Phường/Xã" if is_ward_ranking and lang == "vi" else ("Ward" if is_ward_ranking else t("chart_label_area", lang))
+            if not df_hourly.empty:
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
                 
-                df_rank_plot = df_rank.sort_values('impact_score', ascending=True)
- 
-                loc_map = {
-                    "Urban": t("location_urban", lang),
-                    "Industrial": t("location_industrial", lang),
-                    "Rural": t("location_rural", lang)
-                }
-                df_rank_plot["loc_label"] = df_rank_plot["location_type"].map(loc_map).fillna(df_rank_plot["location_type"])
- 
-                color_map = {
-                    t("location_urban", lang): "#0891B2",      # Cyan
-                    t("location_industrial", lang): "#EF4444", # Red
-                    t("location_rural", lang): "#10B981"       # Emerald
-                }
- 
-                fig_rank = px.bar(
-                    df_rank_plot,
-                    x="impact_score",
-                    y="label_col",
-                    color="loc_label",
-                    orientation='h',
-                    labels={"impact_score": t("traffic_impact", lang), "label_col": area_label, "loc_label": t("chart_label_type", lang)},
-                    color_discrete_map=color_map,
+                # PM2.5 Area trace (left Y axis)
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_hourly.hour_val, 
+                        y=df_hourly.avg_p, 
+                        name=f"{target_poll.upper()} (µg/m³)",
+                        fill='tozeroy', 
+                        fillcolor='rgba(59, 130, 246, 0.12)',
+                        line=dict(shape='spline', smoothing=1.3, color='#3B82F6', width=2.5)
+                    ),
+                    secondary_y=False,
                 )
-                fig_rank.update_layout(
-                    get_plotly_layout(height=320, compact=True),
-                    margin={"l": 80, "r": 20, "t": 40, "b": 45}
+                
+                # Congestion Area trace (right Y axis)
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_hourly.hour_val, 
+                        y=df_hourly.avg_congestion * 100, # Display as percentage
+                        name="Tắc nghẽn (%)" if lang == "vi" else "Congestion (%)",
+                        fill='tozeroy',
+                        fillcolor='rgba(217, 119, 6, 0.08)',
+                        line=dict(shape='spline', smoothing=1.3, color='#D97706', width=2.5)
+                    ),
+                    secondary_y=True,
                 )
-                st.plotly_chart(fig_rank, use_container_width=True)
+                
+                theme = st.session_state.get("theme", "light")
+                layout = get_plotly_layout(height=345, compact=True)
+                
+                fig.update_layout(
+                    layout,
+                    margin={"l": 40, "r": 40, "t": 20, "b": 20},
+                    hovermode="x unified",
+                    legend=dict(
+                        orientation="h",
+                        y=-0.25,
+                        x=0.0,
+                        xanchor="left",
+                        yanchor="top",
+                        bgcolor="rgba(0,0,0,0)"
+                    )
+                )
+                
+                fig.update_xaxes(
+                    title_text="Giờ" if lang == "vi" else "Hour",
+                    tickmode='array',
+                    tickvals=list(range(24)),
+                    ticktext=[str(i) for i in range(24)],
+                    gridcolor="rgba(255,255,255,0.05)" if theme == "dark" else "rgba(0,0,0,0.04)"
+                )
+                
+                fig.update_yaxes(
+                    title_text=f"{target_poll.upper()} (µg/m³)", 
+                    secondary_y=False,
+                    gridcolor="rgba(255,255,255,0.05)" if theme == "dark" else "rgba(0,0,0,0.04)"
+                )
+                fig.update_yaxes(
+                    title_text="Tắc nghẽn (%)" if lang == "vi" else "Congestion (%)", 
+                    secondary_y=True,
+                    showgrid=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
             else:
-                st.plotly_chart(create_empty_state("Không có dữ liệu xếp hạng giao thông cho vùng này.", height=320), use_container_width=True)
+                st.plotly_chart(create_empty_state("Không có dữ liệu xu hướng giao thông cho vùng này.", height=345), use_container_width=True)
+  
+        with c_right:
+            if not df_rank.empty:
+                theme = st.session_state.get("theme", "light")
+                text_color = "#cbd5e1" if theme == "dark" else "#0f172a"
+                sub_color = "#94a3b8" if theme == "dark" else "#64748b"
+                card_bg = "rgba(15, 23, 42, 0.65)" if theme == "dark" else "rgba(255, 255, 255, 0.85)"
+                border_color = "rgba(255, 255, 255, 0.08)" if theme == "dark" else "rgba(226, 232, 240, 0.8)"
+                shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2)" if theme == "dark" else "0 4px 6px -1px rgba(0, 0, 0, 0.05)"
+                glass_blur = "blur(12px)" if theme == "dark" else "blur(8px)"
+                
+                note = "Chỉ số = PM2.5 avg × congestion avg" if lang == "vi" else "Score = PM2.5 avg × congestion avg"
+                
+                # Sort and clean data
+                df_sorted = df_rank.sort_values(by="impact_score", ascending=False).head(6)
+                
+                rows_html = ""
+                max_score = df_sorted["impact_score"].max() if not df_sorted.empty else 1.0
+                bar_bg = "rgba(255, 255, 255, 0.08)" if theme == "dark" else "rgba(0, 0, 0, 0.05)"
+                
+                for idx, (_, row) in enumerate(df_sorted.iterrows()):
+                    raw_label = row["label_col"]
+                    cleaned_label = clean_label(raw_label)
+                    score = row["impact_score"]
+                    percentage = (score / max_score) * 100 if max_score > 0 else 0
+                    bar_color = get_hotspot_color(idx)
+                    
+                    rows_html += f"""
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <div style="width: 100px; font-size: 0.85rem; font-weight: 600; color: {text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{raw_label}">
+                            {cleaned_label}
+                        </div>
+                        <div style="flex-grow: 1; margin: 0 12px; height: 8px; background: {bar_bg}; border-radius: 4px; overflow: hidden; position: relative;">
+                            <div style="width: {percentage}%; height: 100%; background: {bar_color}; border-radius: 4px;"></div>
+                        </div>
+                        <div style="width: 32px; text-align: right; font-size: 0.85rem; font-weight: 700; color: {text_color};">
+                            {score:.1f}
+                        </div>
+                    </div>
+                    """
+                    
+                html_content = f"""
+                <div class="glass-card" style="padding: 1.2rem; min-height: 345px; display: flex; flex-direction: column; justify-content: space-between; background: {card_bg}; backdrop-filter: {glass_blur}; -webkit-backdrop-filter: {glass_blur}; border: 1px solid {border_color}; border-radius: 12px; box-shadow: {shadow}; margin-bottom: 0.65rem;">
+                    <div>
+                        <div style="display: flex; flex-direction: column; margin-top: 4px;">
+                            {rows_html}
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: {sub_color}; margin-top: 12px; opacity: 0.8; font-weight: 500;">
+                        {note}
+                    </div>
+                </div>
+                """
+                st.markdown(clean_html(html_content), unsafe_allow_html=True)
+            else:
+                st.plotly_chart(create_empty_state("Không có dữ liệu xếp hạng giao thông cho vùng này.", height=345), use_container_width=True)
+                
+        # Center circular down arrow icon
+        theme = st.session_state.get("theme", "light")
+        btn_bg = "rgba(255, 255, 255, 0.06)" if theme == "dark" else "rgba(0, 0, 0, 0.04)"
+        btn_border = "rgba(255, 255, 255, 0.08)" if theme == "dark" else "rgba(0, 0, 0, 0.06)"
+        arrow_color = "#94a3b8" if theme == "dark" else "#64748b"
+        
+        st.markdown(f"""
+        <div style="display: flex; justify-content: center; margin-top: 1.2rem; margin-bottom: 0.5rem;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: {btn_bg}; border: 1px solid {btn_border}; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s;">
+                <span style="font-size: 1.2rem; color: {arrow_color}; font-weight: 700;">↓</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
         st.plotly_chart(create_empty_state("Không có dữ liệu KPI/xu hướng giao thông cho vùng này."), use_container_width=True)
 
