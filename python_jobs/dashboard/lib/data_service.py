@@ -535,3 +535,191 @@ def get_aqi_distribution(table, col, grain, scope, dates, tunit, source_name="bl
     return df
 
 
+def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> list:
+    """Generate dynamic insights based on active filters and ClickHouse data."""
+    from datetime import datetime, timedelta
+
+    # 1. Date calculations
+    date_range = filters.get("date_range")
+    if not date_range or len(date_range) < 1:
+        # Fallback to last 7 days from now
+        latest_date = datetime.now().date()
+        date_range = [latest_date - timedelta(days=7), latest_date]
+        
+    d1 = date_range[0]
+    d2 = date_range[1] if len(date_range) > 1 else date_range[0]
+    
+    if hasattr(d1, "date"): # if datetime
+        d1 = d1.date()
+    if hasattr(d2, "date"):
+        d2 = d2.date()
+        
+    days_diff = (d2 - d1).days + 1
+    # Cap days back to prevent huge scans
+    days_cap = min(days_diff, 30)
+    
+    curr_start = d2 - timedelta(days=days_cap - 1)
+    curr_end = d2
+    prev_start = curr_start - timedelta(days=days_cap)
+    prev_end = curr_start - timedelta(days=1)
+    
+    time_grain = filters.get("time_grain", "Ngày")
+    pollutant = filters.get("pollutant", "aqi")
+    standard = filters.get("standard", "VN_AQI")
+    
+    avg_col, _ = get_pollutant_cols(pollutant, standard)
+    
+    source_name = st.session_state.get("overview_source", "ground")
+    source_mix = "observed" if source_name == "ground" else "modeled" if source_name == "satellite" else None
+    
+    source_clause = ""
+    if source_mix:
+        source_clause = f"AND source_mix = '{escape_value(source_mix)}'"
+        
+    if time_grain == "Giờ":
+        table_name = "dm_air_quality_overview_hourly"
+        curr_start_str = curr_start.strftime("%Y-%m-%d 00:00:00")
+        curr_end_str = curr_end.strftime("%Y-%m-%d 23:59:59")
+        prev_start_str = prev_start.strftime("%Y-%m-%d 00:00:00")
+        prev_end_str = prev_end.strftime("%Y-%m-%d 23:59:59")
+        between_expr_curr = f"datetime_hour BETWEEN toDateTime('{curr_start_str}') AND toDateTime('{curr_end_str}')"
+        between_expr_prev = f"datetime_hour BETWEEN toDateTime('{prev_start_str}') AND toDateTime('{prev_end_str}')"
+    else:
+        table_name = "dm_air_quality_overview_daily"
+        curr_start_str = curr_start.strftime("%Y-%m-%d")
+        curr_end_str = curr_end.strftime("%Y-%m-%d")
+        prev_start_str = prev_start.strftime("%Y-%m-%d")
+        prev_end_str = prev_end.strftime("%Y-%m-%d")
+        between_expr_curr = f"date BETWEEN '{curr_start_str}' AND '{curr_end_str}'"
+        between_expr_prev = f"date BETWEEN '{prev_start_str}' AND '{prev_end_str}'"
+        
+    pollutant_labels = {
+        "aqi": "AQI",
+        "pm25": "PM2.5",
+        "pm10": "PM10",
+        "no2": "NO2",
+        "o3": "O3",
+        "so2": "SO2",
+        "co": "CO"
+    }
+    p_label = pollutant_labels.get(pollutant, pollutant.upper())
+
+    # --- INSIGHT 1: Worst Trend (Xu hướng xấu) ---
+    insight1 = {
+        "type": "worst_trend",
+        "title": "XU HƯỚNG XẤU" if lang == "vi" else "WORST TREND",
+        "icon": "📈",
+        "icon_color": "#ef4444",
+        "title_color": "#f87171" if theme == "dark" else "#ef4444",
+        "message": (
+            "Chất lượng không khí toàn quốc có xu hướng cải thiện hoặc ổn định so với giai đoạn trước."
+            if lang == "vi" else
+            "National air quality shows a stable or improving trend compared to the previous period."
+        )
+    }
+    
+    try:
+        q_trend = f"""
+        SELECT 
+            province,
+            avg(if({between_expr_prev}, {avg_col}, null)) as prev_avg,
+            avg(if({between_expr_curr}, {avg_col}, null)) as curr_avg
+        FROM air_quality.{table_name}
+        WHERE province != '' AND {avg_col} IS NOT NULL {source_clause}
+        GROUP BY province
+        HAVING prev_avg > 0 AND curr_avg > prev_avg
+        ORDER BY (curr_avg - prev_avg) / prev_avg DESC
+        LIMIT 1
+        """
+        df_trend = query_df(q_trend)
+        if not df_trend.empty:
+            row = df_trend.iloc[0]
+            pct = ((row.curr_avg - row.prev_avg) / row.prev_avg) * 100
+            prov = row.province
+            if lang == "vi":
+                insight1["message"] = f"{prov} có xu hướng ô nhiễm tăng mạnh nhất — {p_label} tăng {pct:.0f}% so với giai đoạn trước."
+            else:
+                insight1["message"] = f"{prov} shows the steepest deteriorating trend — {p_label} increased by {pct:.0f}% compared to the previous period."
+    except Exception:
+        pass
+
+    # --- INSIGHT 2: Weather stagnant / dispersal risk (Thời tiết/Tích tụ) ---
+    insight2 = {
+        "type": "weather",
+        "title": "THỜI TIẾT" if lang == "vi" else "WEATHER",
+        "icon": "💨",
+        "icon_color": "#60a5fa",
+        "title_color": "#93c5fd" if theme == "dark" else "#3b82f6",
+        "message": (
+            "Tốc độ gió trung bình ôn hòa góp phần phân tán tốt chất ô nhiễm trên toàn quốc."
+            if lang == "vi" else
+            "Moderate average wind speeds contributed to good pollutant dispersion nationwide."
+        )
+    }
+    
+    try:
+        q_weather = f"""
+        SELECT 
+            province,
+            avg(wind_daily_avg) as avg_wind,
+            avg(stagnant_hours) as avg_stagnant_hours,
+            avg(pm25_daily_avg) as avg_pm25
+        FROM air_quality.dm_weather_pollution_correlation_daily
+        WHERE date BETWEEN '{curr_start_str}' AND '{curr_end_str}' AND province != ''
+        GROUP BY province
+        ORDER BY avg_stagnant_hours DESC, avg_pm25 DESC
+        LIMIT 1
+        """
+        df_weather = query_df(q_weather)
+        if not df_weather.empty:
+            row = df_weather.iloc[0]
+            prov = row.province
+            wind = row.avg_wind
+            hours = row.avg_stagnant_hours
+            if hours > 1.0:
+                if lang == "vi":
+                    insight2["message"] = f"Gió yếu (TB {wind:.1f} m/s) tại {prov} góp phần tích tụ {hours:.1f} giờ lặng gió gần đây, làm tăng nồng độ bụi."
+                else:
+                    insight2["message"] = f"Light winds (avg {wind:.1f} m/s) in {prov} contributed to {hours:.1f} hours of stagnant air recently, building up dust."
+    except Exception:
+        pass
+
+    # --- INSIGHT 3: Best performing (Tốt nhất) ---
+    insight3 = {
+        "type": "best",
+        "title": "TỐT NHẤT" if lang == "vi" else "BEST PERFORMING",
+        "icon": "✅",
+        "icon_color": "#34d399",
+        "title_color": "#6ee7b7" if theme == "dark" else "#10b981",
+        "message": (
+            "Không có dữ liệu xếp hạng chất lượng không khí tốt."
+            if lang == "vi" else
+            "No data available for best performing regions."
+        )
+    }
+    
+    try:
+        q_best = f"""
+        SELECT 
+            province,
+            avg({avg_col}) as avg_val
+        FROM air_quality.{table_name}
+        WHERE {between_expr_curr} AND province != '' AND {avg_col} IS NOT NULL {source_clause}
+        GROUP BY province
+        ORDER BY avg_val ASC
+        LIMIT 2
+        """
+        df_best = query_df(q_best)
+        if not df_best.empty:
+            provs = ", ".join(df_best["province"].tolist())
+            lowest_val = df_best.iloc[0].avg_val
+            if lang == "vi":
+                insight3["message"] = f"{provs} duy trì chất lượng không khí tốt nhất với {p_label} trung bình chỉ từ {lowest_val:.0f}."
+            else:
+                insight3["message"] = f"{provs} recorded the cleanest air quality, with average {p_label} as low as {lowest_val:.0f}."
+    except Exception:
+        pass
+
+    return [insight1, insight2, insight3]
+
+

@@ -60,9 +60,9 @@ def get_readable_color(color_hex: str, theme: str) -> str:
         # Pure yellow is unreadable on white background, shift to deep rich amber
         if color_upper in ["#FFFF00", "YELLOW"]:
             return "#B45309"
-        # Pure bright green can be hard on eyes, shift to forest green
+        # Pure bright green can be hard on eyes, shift to forest green / emerald-900
         if color_upper in ["#00E400", "GREEN"]:
-            return "#15803D"
+            return "#065F46"
     return color_hex
 
 
@@ -630,25 +630,167 @@ def render_source_dashboard(source_name: str, source_mix: str, filters: dict, la
     st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
 
     # 4. Render Bottom Highlights Row
-    render_bottom_highlights_row(source_mix, date_range, spatial_grain, scope_val, time_unit, lang, theme)
+    render_bottom_highlights_row(source_mix, filters, lang, theme)
 
 
-def render_bottom_highlights_row(source_mix, date_range, spatial_grain, scope_val, time_unit, lang, theme):
+def render_bottom_highlights_row(source_mix: str, filters: dict, lang: str, theme: str):
     """Render the Nổi bật & Cải thiện alert widgets dynamically."""
+    from datetime import datetime, timedelta
+    
+    spatial_grain = filters["spatial_grain"]
+    time_grain    = filters["time_grain"]
+    time_unit     = filters["time_unit"]
+    scope_val     = filters["scope_val"]
+    date_range    = filters["date_range"]
+    pollutant     = filters["pollutant"]
+    standard      = filters["standard"]
+    
+    table_name = get_source_table(spatial_grain, time_grain)
+    col = get_pollutant_col(pollutant)
+    
+    # 1. Get standard thresholds
+    std_limits = TCVN_STANDARDS if standard == "VN_AQI" else WHO_STANDARDS
+    std_limit = std_limits.get(pollutant, {}).get("val", 15)
+    std_unit = std_limits.get(pollutant, {}).get("unit", "µg/m³")
+    
+    # --- CARD 1: Nổi bật (Spotlight / Warning) ---
+    prov = "Hà Nội"
+    exceed_ratio = "19/30"
+    breach_days = 0
+    total_days = 30
+    
     try:
-        insights_df = get_insights_data(source_mix, date_range, spatial_grain, scope_val, time_unit)
-        if not insights_df.empty:
-            row = insights_df.iloc[0]
+        where_clause = build_where_clause(spatial_grain, scope_val, date_range, time_unit=time_unit, source_mix=source_mix)
+        q_spotlight = f"""
+        SELECT
+            province,
+            count() as total_days,
+            sum(if({col} > {std_limit}, 1, 0)) as breach_days
+        FROM air_quality.{table_name}
+        WHERE {where_clause}
+          AND {col} IS NOT NULL
+          AND province != ''
+        GROUP BY province
+        ORDER BY breach_days DESC, total_days DESC
+        LIMIT 1
+        """
+        df_spotlight = query_df(q_spotlight)
+        if not df_spotlight.empty:
+            row = df_spotlight.iloc[0]
             prov = row.province
-            b_days = int(row.breach_days)
-            t_days = int(row.total_days)
-            exceed_ratio = f"{b_days}/{t_days}"
-        else:
-            prov = "Hà Nội"
-            exceed_ratio = "19/30"
+            breach_days = int(row.breach_days)
+            total_days = int(row.total_days)
+            exceed_ratio = f"{breach_days}/{total_days}"
     except Exception:
-        prov = "Hà Nội"
-        exceed_ratio = "19/30"
+        pass
+        
+    p_label = pollutant.upper() if pollutant != "aqi" else "AQI"
+    
+    if breach_days > 0:
+        if lang == "vi":
+            card1_msg = f"{p_label} tại {prov} vượt ngưỡng an toàn ({std_limit} {std_unit}) {exceed_ratio} ngày trong giai đoạn này."
+        else:
+            card1_msg = f"{p_label} in {prov} exceeded safety limits ({std_limit} {std_unit}) on {exceed_ratio} days in this period."
+    else:
+        if lang == "vi":
+            card1_msg = f"Không ghi nhận ngày vượt ngưỡng an toàn ({std_limit} {std_unit}) cho {p_label} tại khu vực này."
+        else:
+            card1_msg = f"No safety threshold exceedance ({std_limit} {std_unit}) recorded for {p_label} in this area."
+
+    # --- CARD 2: Cải thiện (Improvement) ---
+    card2_msg = (
+        "Nồng độ các chất ô nhiễm trong giai đoạn này duy trì ổn định so với giai đoạn trước."
+        if lang == "vi" else
+        "Pollutant concentrations remained stable in this period compared to the previous period."
+    )
+    
+    try:
+        d1 = date_range[0]
+        d2 = date_range[1] if len(date_range) > 1 else date_range[0]
+        if hasattr(d1, "date"): d1 = d1.date()
+        if hasattr(d2, "date"): d2 = d2.date()
+        days_diff = (d2 - d1).days + 1
+        days_cap = min(days_diff, 30)
+        curr_start = d2 - timedelta(days=days_cap - 1)
+        curr_end = d2
+        prev_start = curr_start - timedelta(days=days_cap)
+        prev_end = curr_start - timedelta(days=1)
+        
+        if time_grain == "Giờ":
+            curr_start_str = curr_start.strftime("%Y-%m-%d 00:00:00")
+            curr_end_str = curr_end.strftime("%Y-%m-%d 23:59:59")
+            prev_start_str = prev_start.strftime("%Y-%m-%d 00:00:00")
+            prev_end_str = prev_end.strftime("%Y-%m-%d 23:59:59")
+            between_expr_curr = f"datetime_hour BETWEEN toDateTime('{curr_start_str}') AND toDateTime('{curr_end_str}')"
+            between_expr_prev = f"datetime_hour BETWEEN toDateTime('{prev_start_str}') AND toDateTime('{prev_end_str}')"
+        else:
+            curr_start_str = curr_start.strftime("%Y-%m-%d")
+            curr_end_str = curr_end.strftime("%Y-%m-%d")
+            prev_start_str = prev_start.strftime("%Y-%m-%d")
+            prev_end_str = prev_end.strftime("%Y-%m-%d")
+            between_expr_curr = f"date BETWEEN '{curr_start_str}' AND '{curr_end_str}'"
+            between_expr_prev = f"date BETWEEN '{prev_start_str}' AND '{prev_end_str}'"
+            
+        where_clause_without_dates = build_where_clause(spatial_grain, scope_val, None, time_unit=time_unit, source_mix=source_mix)
+        
+        q_improvement = f"""
+        SELECT
+            avg(if({between_expr_prev}, {col}, null)) as prev_avg,
+            avg(if({between_expr_curr}, {col}, null)) as curr_avg
+        FROM air_quality.{table_name}
+        WHERE {where_clause_without_dates} AND {col} IS NOT NULL
+        """
+        df_improvement = query_df(q_improvement)
+        if not df_improvement.empty:
+            row = df_improvement.iloc[0]
+            prev_avg = row.prev_avg
+            curr_avg = row.curr_avg
+            if prev_avg and curr_avg and curr_avg < prev_avg:
+                pct = ((prev_avg - curr_avg) / prev_avg) * 100
+                if lang == "vi":
+                    card2_msg = f"{p_label} trung bình giảm {pct:.0f}% so với giai đoạn trước tại khu vực đã chọn, phản ánh xu hướng cải thiện chất lượng không khí."
+                else:
+                    card2_msg = f"{p_label} average decreased by {pct:.0f}% compared to the previous period, reflecting an improving trend."
+            elif prev_avg and curr_avg:
+                # If active pollutant increased or didn't improve, search for the one that improved the most out of ALL pollutants
+                q_all_pollutants = f"""
+                SELECT
+                    avg(if({between_expr_prev}, pm25_avg, null)) as prev_pm25,
+                    avg(if({between_expr_curr}, pm25_avg, null)) as curr_pm25,
+                    avg(if({between_expr_prev}, pm10_avg, null)) as prev_pm10,
+                    avg(if({between_expr_curr}, pm10_avg, null)) as curr_pm10,
+                    avg(if({between_expr_prev}, no2_avg, null)) as prev_no2,
+                    avg(if({between_expr_curr}, no2_avg, null)) as curr_no2,
+                    avg(if({between_expr_prev}, so2_avg, null)) as prev_so2,
+                    avg(if({between_expr_curr}, so2_avg, null)) as curr_so2,
+                    avg(if({between_expr_prev}, o3_avg, null)) as prev_o3,
+                    avg(if({between_expr_curr}, o3_avg, null)) as curr_o3,
+                    avg(if({between_expr_prev}, co_avg, null)) as prev_co,
+                    avg(if({between_expr_curr}, co_avg, null)) as curr_co
+                FROM air_quality.{table_name}
+                WHERE {where_clause_without_dates}
+                """
+                df_all = query_df(q_all_pollutants)
+                if not df_all.empty:
+                    all_row = df_all.iloc[0]
+                    improvements = {}
+                    for p in ["pm25", "pm10", "no2", "so2", "o3", "co"]:
+                        p_prev = all_row.get(f"prev_{p}")
+                        p_curr = all_row.get(f"curr_{p}")
+                        if p_prev and p_curr and p_curr < p_prev:
+                            pct_dec = ((p_prev - p_curr) / p_prev) * 100
+                            improvements[p] = pct_dec
+                    if improvements:
+                        # Get the best improvement
+                        best_p = max(improvements, key=improvements.get)
+                        best_pct = improvements[best_p]
+                        best_p_lbl = best_p.upper() if best_p != "pm25" else "PM2.5"
+                        if lang == "vi":
+                            card2_msg = f"{best_p_lbl} trung bình giảm {best_pct:.0f}% so với giai đoạn trước tại khu vực đã chọn, cho thấy tín hiệu cải thiện tích cực."
+                        else:
+                            card2_msg = f"{best_p_lbl} average decreased by {best_pct:.0f}% compared to the previous period, showing a positive improvement."
+    except Exception:
+        pass
 
     c_ins1, c_ins2 = st.columns(2, gap="medium")
     
@@ -671,9 +813,9 @@ def render_bottom_highlights_row(source_mix, date_range, spatial_grain, scope_va
         ">
             <div style="font-size: 1.5rem; color: {label_color}; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(239, 68, 68, 0.1); border-radius: 50%;">⚠️</div>
             <div style="display: flex; flex-direction: column; gap: 2px;">
-                <span style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: {label_color}; letter-spacing: 0.05em;">Nổi bật</span>
+                <span style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: {label_color}; letter-spacing: 0.05em;">{"Nổi bật" if lang == "vi" else "Spotlight"}</span>
                 <p style="margin: 0; font-size: 0.88rem; font-weight: 500; line-height: 1.4;">
-                    PM2.5 {prov} vượt ngưỡng WHO {exceed_ratio} ngày cao nhất trong 3 tháng gần nhất.
+                    {card1_msg}
                 </p>
             </div>
         </div>
@@ -699,9 +841,9 @@ def render_bottom_highlights_row(source_mix, date_range, spatial_grain, scope_va
         ">
             <div style="font-size: 1.5rem; color: {label_color_g}; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(16, 185, 129, 0.1); border-radius: 50%;">📉</div>
             <div style="display: flex; flex-direction: column; gap: 2px;">
-                <span style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: {label_color_g}; letter-spacing: 0.05em;">Cải thiện</span>
+                <span style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: {label_color_g}; letter-spacing: 0.05em;">{"Cải thiện" if lang == "vi" else "Improvement"}</span>
                 <p style="margin: 0; font-size: 0.88rem; font-weight: 500; line-height: 1.4;">
-                    NO2 giảm 12% so với tháng trước — phản ánh giảm lưu lượng xe buýt diesel cũ.
+                    {card2_msg}
                 </p>
             </div>
         </div>

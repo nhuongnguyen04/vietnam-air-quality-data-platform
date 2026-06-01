@@ -17,6 +17,7 @@ from lib.data_service import (
     get_source_table,
     localize_confidence_level,
     localize_source_mix,
+    generate_insights,
 )
 from lib.filters import render_top_filters
 from lib.i18n import t
@@ -44,9 +45,9 @@ def get_readable_color(color_hex: str, theme: str) -> str:
         # Pure yellow is unreadable on white background, shift to deep rich amber
         if color_upper in ["#FFFF00", "YELLOW"]:
             return "#B45309"
-        # Pure bright green can be hard on eyes, shift to forest green
+        # Pure bright green can be hard on eyes, shift to forest green / emerald-900
         if color_upper in ["#00E400", "GREEN"]:
-            return "#15803D"
+            return "#065F46"
     return color_hex
 
 
@@ -250,7 +251,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
                         <span style='color: {text_color}; font-weight: 700;'>{val}</span>
                     </div>
                     <div style='height: 8px; width: 100%; background-color: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden;'>
-                        <div style='height: 100%; width: {pct}%; background-color: {color}; border-radius: 4px;'></div>
+                        <div class='progress-bar-fill' style='height: 100%; width: {pct}%; background-color: {color}; border-radius: 4px;'></div>
                     </div>
                 </div>
                 """)
@@ -276,7 +277,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
                         <span style='color: {text_color}; font-weight: 700;'>{val}</span>
                     </div>
                     <div style='height: 8px; width: 100%; background-color: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden;'>
-                        <div style='height: 100%; width: {pct}%; background-color: {color}; border-radius: 4px;'></div>
+                        <div class='progress-bar-fill' style='height: 100%; width: {pct}%; background-color: {color}; border-radius: 4px;'></div>
                     </div>
                 </div>
                 """)
@@ -523,72 +524,47 @@ def main():
     else:
         render_comparison_tab(filters, lang)
 
-    # 7. Bottom Insights Section (3 Cards layout)
+    # 7. Bottom Insights Section (3 Dynamic Cards layout)
     st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
-    c_ins1, c_ins2, c_ins3 = st.columns(3, gap="medium")
     
-    with c_ins1:
-        ins1_html = """
-        <div style="
-            background: rgba(30, 41, 59, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 1.15rem;
-            min-height: 105px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        ">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
-                <span style="color: #ef4444; font-size: 1.15rem;">📈</span>
-                <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; color: #f87171; letter-spacing: 0.05em;">Xu hướng xấu</span>
-            </div>
-            <p style="margin: 0; font-size: 0.9rem; font-weight: 500; line-height: 1.45; opacity: 0.95;">
-                Miền Bắc đang vào mùa khô — PM2.5 tăng 23% so với tuần trước.
-            </p>
-        </div>
-        """
-        st.markdown(clean_html(ins1_html), unsafe_allow_html=True)
-
-    with c_ins2:
-        ins2_html = """
-        <div style="
-            background: rgba(30, 41, 59, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 1.15rem;
-            min-height: 105px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        ">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
-                <span style="color: #60a5fa; font-size: 1.15rem;">💨</span>
-                <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; color: #93c5fd; letter-spacing: 0.05em;">Thời tiết</span>
-            </div>
-            <p style="margin: 0; font-size: 0.9rem; font-weight: 500; line-height: 1.45; opacity: 0.95;">
-                Gió yếu (&lt;1 m/s) dự báo 3 ngày tới ➔ tích tụ ô nhiễm ở Hà Nội, Hải Phòng.
-            </p>
-        </div>
-        """
-        st.markdown(clean_html(ins2_html), unsafe_allow_html=True)
-
-    with c_ins3:
-        ins3_html = """
-        <div style="
-            background: rgba(30, 41, 59, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 1.15rem;
-            min-height: 105px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        ">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
-                <span style="color: #34d399; font-size: 1.15rem;">✅</span>
-                <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; color: #6ee7b7; letter-spacing: 0.05em;">Tốt nhất</span>
-            </div>
-            <p style="margin: 0; font-size: 0.9rem; font-weight: 500; line-height: 1.45; opacity: 0.95;">
-                Đà Lạt, Phú Yên duy trì AQI &lt;50 liên tục 14 ngày.
-            </p>
-        </div>
-        """
-        st.markdown(clean_html(ins3_html), unsafe_allow_html=True)
+    try:
+        insights = generate_insights(filters, lang, theme)
+    except Exception:
+        insights = []
+        
+    if insights:
+        c_ins = st.columns(len(insights), gap="medium")
+        for i, insight in enumerate(insights):
+            with c_ins[i]:
+                # Dynamic theme backgrounds and borders
+                if theme == "dark":
+                    bg_color = "rgba(30, 41, 59, 0.45)"
+                    border_color = "rgba(255, 255, 255, 0.08)"
+                    text_color = "rgba(255, 255, 255, 0.95)"
+                else:
+                    bg_color = "rgba(255, 255, 255, 0.85)"
+                    border_color = "rgba(226, 232, 240, 0.8)"
+                    text_color = "#0f172a"
+                    
+                ins_html = f"""
+                <div style="
+                    background: {bg_color};
+                    border: 1px solid {border_color};
+                    border-radius: 12px;
+                    padding: 1.15rem;
+                    min-height: 105px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+                ">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
+                        <span style="color: {insight['icon_color']}; font-size: 1.15rem;">{insight['icon']}</span>
+                        <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; color: {insight['title_color']}; letter-spacing: 0.05em;">{insight['title']}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9rem; font-weight: 500; line-height: 1.45; color: {text_color};">
+                        {insight['message']}
+                    </p>
+                </div>
+                """
+                st.markdown(clean_html(ins_html), unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

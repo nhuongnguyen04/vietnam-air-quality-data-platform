@@ -147,10 +147,10 @@ def main():
         avg_val = f"{mean_pm25:.1f} <span style='font-size: 1.1rem; font-weight: 500;'>µg/m³</span>"
         if mean_pm25 > 15:
             avg_sub = f"vượt WHO {mean_pm25 / 15:.1f}×" if lang == "vi" else f"exceeds WHO {mean_pm25 / 15:.1f}×"
-            avg_color = "#d97706" if theme == "light" else "#f59e0b" # Deep amber in light mode
+            avg_color = "#B45309" if theme == "light" else "#f59e0b" # Deep amber in light mode
         else:
             avg_sub = "đạt chuẩn WHO" if lang == "vi" else "meets WHO standard"
-            avg_color = "#15803D" if theme == "light" else "#10b981" # Forest green in light mode
+            avg_color = "#065F46" if theme == "light" else "#10b981" # Forest green in light mode
             
         # Col 3: Critical Hotspots
         if lang == "vi":
@@ -162,7 +162,7 @@ def main():
         crit_val = str(high_risk_count)
         crit_color = "#dc2626" if theme == "light" else "#ef4444" # Deep red in light mode
         if high_risk_count == 0:
-            crit_color = "#15803D" if theme == "light" else "#10b981"
+            crit_color = "#065F46" if theme == "light" else "#10b981"
         
         # Col 4: Exposed Population
         pop_label = "Dân số phơi nhiễm" if lang == "vi" else "Exposed Population"
@@ -200,7 +200,7 @@ def main():
             
         with kpi_cols[3]:
             # Highlight population subtext in red if non-compliant with WHO
-            pop_sub_color = ("#dc2626" if theme == "light" else "#f87171") if mean_pm25 > 15 else ("#15803D" if theme == "light" else "#34d399")
+            pop_sub_color = ("#dc2626" if theme == "light" else "#f87171") if mean_pm25 > 15 else ("#065F46" if theme == "light" else "#34d399")
             render_health_kpi_card(
                 title=pop_label,
                 value=pop_val,

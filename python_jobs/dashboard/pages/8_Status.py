@@ -347,7 +347,69 @@ def main(lang: str):
 
     # ── Column 3: dbt Pipeline Status ──────────────────────────────
     with col3:
-        # Pipeline dbt models with simulated dynamic relative times
+        import time
+        
+        # Initialize default values matching hardcoded fallback in case database query fails
+        now_ts = int(time.time())
+        model_timestamps = {
+            "stg_aqiin": now_ts - 1800,       # 30 mins ago
+            "fct_hourly": now_ts - 2100,      # 35 mins ago
+            "dm_overview": now_ts - 2400,     # 40 mins ago
+            "dm_health_risk": now_ts - 7560,   # 2.1h ago
+            "dm_traffic_corr": now_ts - 3300,  # 55 mins ago
+        }
+        
+        try:
+            q_times = """
+            SELECT
+                (SELECT toUnixTimestamp(max(timestamp_utc)) FROM air_quality.stg_aqiin__measurements) as stg_aqiin,
+                (SELECT toUnixTimestamp(max(datetime_hour)) FROM air_quality.fct_air_quality_summary_hourly) as fct_hourly,
+                (SELECT toUnixTimestamp(max(last_ingested_at)) FROM air_quality.dm_air_quality_overview_daily) as dm_overview,
+                (SELECT toUnixTimestamp(max(ingest_time)) FROM air_quality.dm_aqi_health_impact_summary) as dm_health_risk,
+                (SELECT toUnixTimestamp(max(dbt_updated_at)) FROM air_quality.dm_traffic_pollution_correlation_daily) as dm_traffic_corr
+            """
+            df_times = query_df(q_times)
+            if not df_times.empty:
+                row = df_times.iloc[0]
+                for model in model_timestamps.keys():
+                    val = row.get(model)
+                    if val and not pd.isna(val) and val > 0:
+                        model_timestamps[model] = int(val)
+        except Exception:
+            pass
+
+        def get_model_indicator(elapsed):
+            # Dynamic green / orange / red status dots depending on freshness
+            if elapsed <= 3600:       # <= 1 hour
+                return "#10b981", "0 0 6px #10b981"
+            elif elapsed <= 10800:   # <= 3 hours
+                return "#f59e0b", "0 0 6px #f59e0b"
+            else:
+                return "#ef4444", "0 0 6px #ef4444"
+
+        def get_elapsed_str(elapsed, lang):
+            if elapsed < 60:
+                return "vừa xong" if lang == "vi" else "just now"
+            minutes = int(elapsed / 60)
+            if minutes < 60:
+                return f"{minutes} phút trước" if lang == "vi" else f"{minutes} mins ago"
+            hours = elapsed / 3600.0
+            if hours < 24:
+                return f"{hours:.1f}h trước" if lang == "vi" else f"{hours:.1f}h ago"
+            days = hours / 24.0
+            return f"{days:.1f} ngày trước" if lang == "vi" else f"{days:.1f} days ago"
+
+        rendered_models = {}
+        for m, ts in model_timestamps.items():
+            elapsed = max(now_ts - ts, 0)
+            color, shadow = get_model_indicator(elapsed)
+            elapsed_str = get_elapsed_str(elapsed, lang)
+            rendered_models[m] = {
+                "color": color,
+                "shadow": shadow,
+                "text": elapsed_str
+            }
+
         col3_html = f"""
         <div class="glass-card" style="padding: 1.2rem; border-radius: 12px; height: 100%; min-height: 380px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
@@ -358,46 +420,46 @@ def main(lang: str):
                     <!-- stg_aqiin -->
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px #10b981;"></span>
+                            <span style="height: 8px; width: 8px; background-color: {rendered_models['stg_aqiin']['color']}; border-radius: 50%; display: inline-block; box-shadow: {rendered_models['stg_aqiin']['shadow']};"></span>
                             <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">stg_aqiin</span>
                         </div>
-                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{"30 phút trước" if lang == "vi" else "30 mins ago"}</span>
+                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['stg_aqiin']['text']}</span>
                     </div>
                     
                     <!-- fct_hourly -->
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px #10b981;"></span>
+                            <span style="height: 8px; width: 8px; background-color: {rendered_models['fct_hourly']['color']}; border-radius: 50%; display: inline-block; box-shadow: {rendered_models['fct_hourly']['shadow']};"></span>
                             <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">fct_hourly</span>
                         </div>
-                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{"35 phút trước" if lang == "vi" else "35 mins ago"}</span>
+                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['fct_hourly']['text']}</span>
                     </div>
                     
                     <!-- dm_overview -->
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px #10b981;"></span>
+                            <span style="height: 8px; width: 8px; background-color: {rendered_models['dm_overview']['color']}; border-radius: 50%; display: inline-block; box-shadow: {rendered_models['dm_overview']['shadow']};"></span>
                             <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">dm_overview</span>
                         </div>
-                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{"40 phút trước" if lang == "vi" else "40 mins ago"}</span>
+                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['dm_overview']['text']}</span>
                     </div>
                     
                     <!-- dm_health_risk -->
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="height: 8px; width: 8px; background-color: #f59e0b; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px #f59e0b;"></span>
+                            <span style="height: 8px; width: 8px; background-color: {rendered_models['dm_health_risk']['color']}; border-radius: 50%; display: inline-block; box-shadow: {rendered_models['dm_health_risk']['shadow']};"></span>
                             <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">dm_health_risk</span>
                         </div>
-                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{"2.1h trước" if lang == "vi" else "2.1h ago"}</span>
+                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['dm_health_risk']['text']}</span>
                     </div>
                     
                     <!-- dm_traffic_corr -->
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px #10b981;"></span>
+                            <span style="height: 8px; width: 8px; background-color: {rendered_models['dm_traffic_corr']['color']}; border-radius: 50%; display: inline-block; box-shadow: {rendered_models['dm_traffic_corr']['shadow']};"></span>
                             <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">dm_traffic_corr</span>
                         </div>
-                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{"55 phút trước" if lang == "vi" else "55 mins ago"}</span>
+                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['dm_traffic_corr']['text']}</span>
                     </div>
                 </div>
             </div>

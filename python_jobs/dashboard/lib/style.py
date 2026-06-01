@@ -7,9 +7,9 @@ def inject_style():
     if theme == "dark":
         bg_color = "#020617"             # slate-950
         text_color = "#cbd5e1"           # slate-300
-        card_bg = "rgba(15, 23, 42, 0.65)" # slate-900 with glass
+        card_bg = "rgba(15, 23, 42, 0.7)"  # slate-900 solid-like glass per design proposal
         border_color = "rgba(255, 255, 255, 0.08)"
-        sidebar_bg = "#262524"           # premium warm dark charcoal matching mockup
+        sidebar_bg = "#0F172A"           # slate-900 matching design system dark mode sidebar
         shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2)"
         glass_blur = "blur(12px)"
         accent_color = "#0891b2"         # cyan-600
@@ -18,7 +18,7 @@ def inject_style():
         
         # Sidebar specific variables
         nav_item_hover_bg = "rgba(255, 255, 255, 0.04)"
-        nav_item_active_bg = "rgba(255, 255, 255, 0.08)"
+        nav_item_active_bg = "rgba(8, 145, 178, 0.08)" # Changed to cyan transparent highlight
         nav_text_color = "rgba(255, 255, 255, 0.7)"
         nav_text_active_color = "#ffffff"
         nav_icon_color = "rgba(255, 255, 255, 0.6)"
@@ -27,10 +27,10 @@ def inject_style():
         badge_bg = "#ffffff"
         badge_text = "#ef4444"
     else:
-        bg_color = "#f8fafc"             # slate-50
+        bg_color = "#FAFBFC"             # light background per design proposal
         text_color = "#0f172a"           # slate-900
-        card_bg = "rgba(255, 255, 255, 0.85)"
-        border_color = "rgba(226, 232, 240, 0.8)"
+        card_bg = "#FFFFFF"              # solid white per design proposal
+        border_color = "#E2E8F0"         # border per design proposal
         sidebar_bg = "#ffffff"
         shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)"
         glass_blur = "blur(8px)"
@@ -40,7 +40,7 @@ def inject_style():
         
         # Sidebar specific variables
         nav_item_hover_bg = "rgba(15, 23, 42, 0.03)"
-        nav_item_active_bg = "rgba(15, 23, 42, 0.05)"
+        nav_item_active_bg = "rgba(8, 145, 178, 0.08)" # Changed to cyan transparent highlight
         nav_text_color = "rgba(15, 23, 42, 0.7)"
         nav_text_active_color = "#0f172a"
         nav_icon_color = "rgba(15, 23, 42, 0.6)"
@@ -52,14 +52,18 @@ def inject_style():
     st.markdown(f"""
     <style>
         /* ── Base Styles & Typography ─────────────────────── */
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
 
         html, body, [data-testid="stAppViewContainer"], .stMarkdown {{
-            font-family: 'Inter', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
             background-color: {bg_color};
             color: {text_color};
             transition: background-color 0.3s ease, color 0.3s ease;
+        }}
+
+        code, kbd, pre, samp, [data-testid="stCodeBlock"] code, .jetbrains-mono {{
+            font-family: 'JetBrains Mono', monospace !important;
         }}
 
         /* Restore Material Icons Font Family to prevent raw text ligatures */
@@ -101,6 +105,10 @@ def inject_style():
             border-right: 1px solid {border_color};
             min-width: 260px !important;
         }}
+        [data-testid="stSidebarContent"] {{
+            padding-top: 0.5rem !important;
+            padding-bottom: 3.5rem !important;
+        }}
         [data-testid="stSidebar"] > div:first-child [data-testid="stVerticalBlockBorderWrapper"] > div {{
             display: flex;
             flex-direction: column;
@@ -111,7 +119,7 @@ def inject_style():
         }}
         .sidebar-brand-container {{
             order: 1;
-            margin-top: 1rem;
+            margin-top: 0.5rem;
         }}
         .sidebar-filters-container {{
             order: 3;
@@ -119,8 +127,8 @@ def inject_style():
         
         /* Navigation links styling */
         a[data-testid="stSidebarNavLink"] {{
-            padding: 8px 16px !important;
-            margin: 2px 0 !important;
+            padding: 5px 12px !important;
+            margin: 1px 0 !important;
             border-radius: 4px !important;
             transition: all 0.2s ease !important;
             display: flex !important;
@@ -135,7 +143,7 @@ def inject_style():
         
         a[data-testid="stSidebarNavLink"][aria-current="page"] {{
             background-color: {nav_item_active_bg} !important;
-            border-right: 4px solid #10b981 !important; /* Premium active green indicator on the right edge */
+            border-right: 3px solid {accent_color} !important; /* Cyan active indicator per design proposal */
             border-radius: 4px 0 0 4px !important;
         }}
         
@@ -144,7 +152,7 @@ def inject_style():
             color: {nav_text_color} !important;
             font-family: 'Inter', sans-serif !important;
             font-weight: 500 !important;
-            font-size: 0.95rem !important;
+            font-size: 0.86rem !important;
             margin: 0 !important;
         }}
         
@@ -157,7 +165,7 @@ def inject_style():
         /* Normal icon styling */
         a[data-testid="stSidebarNavLink"] [data-testid="stIconMaterial"] {{
             color: {nav_icon_color} !important;
-            font-size: 1.25rem !important;
+            font-size: 1.1rem !important;
             margin-right: 8px !important;
         }}
         
@@ -168,15 +176,15 @@ def inject_style():
         
         /* Section headers in sidebar navigation */
         header[data-testid="stNavSectionHeader"] {{
-            padding-top: 1.25rem !important;
-            padding-bottom: 0.5rem !important;
+            padding-top: 0.6rem !important;
+            padding-bottom: 0.2rem !important;
             margin-left: 12px !important;
         }}
         
         /* Header text styling */
         header[data-testid="stNavSectionHeader"] span[class*="e1lpckdq8"] p {{
             font-family: 'Outfit', sans-serif !important;
-            font-size: 0.74rem !important;
+            font-size: 0.72rem !important;
             text-transform: uppercase !important;
             letter-spacing: 0.08em !important;
             color: {nav_header_color} !important;
@@ -274,7 +282,7 @@ def inject_style():
             box-shadow: {shadow};
             animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }}
 
         .stPlotlyChart {{
@@ -288,13 +296,12 @@ def inject_style():
             box-shadow: {shadow};
             animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }}
 
-        .glass-card:hover {{
+        .glass-card:hover, .stPlotlyChart:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 16px 40px {accent_glow};
-            border-color: rgba(8, 145, 178, 0.3);
+            border-color: {accent_color} !important;
         }}
 
         /* ── Metric Card ─────────────────────────────────── */
@@ -392,12 +399,8 @@ def inject_style():
         .skeleton-pulse {{
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, 
-                rgba(148, 163, 184, 0.0) 0%, 
-                rgba(148, 163, 184, 0.08) 50%, 
-                rgba(148, 163, 184, 0.0) 100%
-            );
-            animation: pulse 1.5s infinite;
+            background-color: rgba(148, 163, 184, 0.12);
+            animation: pulse 1.5s infinite ease-in-out;
         }}
 
         /* ── Animations ──────────────────────────────────── */
@@ -412,8 +415,17 @@ def inject_style():
         }}
 
         @keyframes pulse {{
-            0% {{ transform: translateX(-100%); }}
-            100% {{ transform: translateX(100%); }}
+            0% {{ opacity: 0.4; }}
+            50% {{ opacity: 0.8; }}
+            100% {{ opacity: 0.4; }}
+        }}
+
+        @keyframes growProgressBar {{
+            from {{ width: 0%; }}
+        }}
+
+        .progress-bar-fill {{
+            animation: growProgressBar 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }}
 
         /* ── Streamlit Native Element Styling ─────────────── */
