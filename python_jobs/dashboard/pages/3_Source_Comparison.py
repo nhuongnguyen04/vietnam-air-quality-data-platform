@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import (
     build_where_clause,

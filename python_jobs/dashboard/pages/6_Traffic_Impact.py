@@ -8,14 +8,13 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import render_page_hero, render_unified_brand_header, render_section_divider, render_info_banner, clean_html
-from lib.style import render_metric_card, inject_style
+from lib.page_helpers import render_page_hero, render_section_divider, render_info_banner, clean_html, page_wrapper
 from lib.chart_config import get_plotly_layout, create_empty_state
+from lib.ui_components import render_kpi_card
 
 @st.cache_data(ttl=300)
 def get_traffic_correlation_hourly(dates, grain, scope, col="pm25"):
@@ -125,32 +124,11 @@ def get_hotspot_color(rank_idx):
     else:
         return "#10B981" # Green
 
-def render_traffic_metric_card(label, value, subtext, val_color=None):
-    theme = st.session_state.get("theme", "light")
-    text_color = "#cbd5e1" if theme == "dark" else "#0f172a"
-    sub_color = "#94a3b8" if theme == "dark" else "#64748b"
-    lbl_color = "#94a3b8" if theme == "dark" else "#64748b"
-    card_bg = "rgba(15, 23, 42, 0.65)" if theme == "dark" else "rgba(255, 255, 255, 0.85)"
-    border_color = "rgba(255, 255, 255, 0.08)" if theme == "dark" else "rgba(226, 232, 240, 0.8)"
-    shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2)" if theme == "dark" else "0 4px 6px -1px rgba(0, 0, 0, 0.05)"
-    glass_blur = "blur(12px)" if theme == "dark" else "blur(8px)"
-    
-    color_style = f"color: {val_color};" if val_color else f"color: {text_color};"
-    
-    html_content = f"""
-    <div class="glass-card" style="min-height: 105px; padding: 0.85rem 1rem; display: flex; flex-direction: column; justify-content: space-between; background: {card_bg}; backdrop-filter: {glass_blur}; -webkit-backdrop-filter: {glass_blur}; border: 1px solid {border_color}; border-radius: 12px; box-shadow: {shadow}; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
-        <div style="font-size: 0.82rem; font-weight: 600; color: {lbl_color}; text-transform: none; margin-bottom: 2px;">{label}</div>
-        <div style="font-family: 'Outfit', sans-serif; font-size: 1.85rem; font-weight: 800; {color_style} line-height: 1.1; margin-bottom: 2px;">{value}</div>
-        <div style="font-size: 0.78rem; font-weight: 500; color: {sub_color}; opacity: 0.9;">{subtext}</div>
-    </div>
-    """
-    st.markdown(clean_html(html_content), unsafe_allow_html=True)
 
-def main():
+
+@page_wrapper("traffic", "Ảnh ảnh hưởng giao thông", icon="🚦", skip_hero=True)
+def main(lang):
     # ── Page Initialization ────────────────────────────────────────────────────────
-    inject_style()
-    lang = st.session_state.get("lang", "vi")
-    render_unified_brand_header()
 
     # ── Filters ABOVE Title ────────────────────────────────────────────────────────
     filters = render_top_filters()
@@ -269,28 +247,28 @@ def main():
         coverage_display = f"{avg_coverage:.1%}" if not pd.isna(avg_coverage) else "N/A"
 
         with c1:
-            render_traffic_metric_card(
+            render_kpi_card(
                 t("traffic_congestion_lbl", lang), 
                 traffic_display, 
                 t("traffic_congestion_sub", lang),
                 val_color=congestion_color
             )
         with c2:
-            render_traffic_metric_card(
+            render_kpi_card(
                 t("traffic_contribution_lbl", lang), 
                 uplift_display, 
                 t("traffic_contribution_sub", lang),
                 val_color=uplift_color
             )
         with c3:
-            render_traffic_metric_card(
+            render_kpi_card(
                 t("traffic_impact_lbl", lang), 
                 f"{comovement_score:.2f}", 
                 t("traffic_impact_sub", lang),
                 val_color=comovement_color
             )
         with c4:
-            render_traffic_metric_card(
+            render_kpi_card(
                 t("traffic_coverage_lbl", lang), 
                 coverage_display, 
                 t("traffic_coverage_sub", lang),

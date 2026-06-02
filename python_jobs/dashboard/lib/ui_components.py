@@ -169,3 +169,136 @@ def render_ranking_chart(rank_df, bar_y_col, color_scale, range_val, val_label, 
         plot_bgcolor="rgba(0,0,0,0)"
     )
     st.plotly_chart(fig, use_container_width=True)
+
+def render_kpi_card(title: str, value: str, subtext: str, val_color: str = None, sub_color: str = None, icon: str = None):
+    """Unified KPI card component replacing all page-specific variants with standard HTML.
+    Fully theme-aware and responsive.
+    """
+    from lib.design_tokens import get_theme_tokens
+    from lib.page_helpers import clean_html, get_readable_color
+    
+    theme = st.session_state.get("theme", "light")
+    if val_color:
+        val_color = get_readable_color(val_color, theme)
+        
+    tokens = get_theme_tokens()
+    bg = tokens["card_bg"]
+    border = tokens["border"]
+    text = tokens["text"]
+    label = tokens["label"]
+    shadow = tokens["shadow"]
+    
+    val_style = f"color: {val_color};" if val_color else f"color: {text};"
+    sub_style = f"color: {sub_color};" if sub_color else f"color: {label};"
+    
+    icon_html = f'<div style="font-size: 1.5rem; margin-right: 0.75rem; display: flex; align-items: center;">{icon}</div>' if icon else ''
+    
+    html = f"""
+    <div style="
+        background: {bg};
+        border: 1px solid {border};
+        border-radius: 16px;
+        padding: 1.15rem 1.25rem;
+        min-height: 105px;
+        display: flex;
+        align-items: center;
+        box-shadow: {shadow};
+        transition: all 0.25s ease;
+        margin-bottom: 0.5rem;
+        width: 100%;
+    " class="glass-card" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+        {icon_html}
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 70px;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: {label}; text-transform: uppercase; letter-spacing: 0.03em;">{title}</div>
+            <div style="font-family: 'Outfit', sans-serif; font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin: 0.25rem 0; {val_style}">{value}</div>
+            <div style="font-size: 0.82rem; font-weight: 600; {sub_style}; display: flex; align-items: center; gap: 4px;">{subtext}</div>
+        </div>
+    </div>
+    """
+    st.markdown(clean_html(html), unsafe_allow_html=True)
+
+def render_progress_bar(name: str, value: float, max_value: float, bar_color: str, suffix: str = ""):
+    """Render a unified horizontal progress bar with beautiful aesthetics.
+    Used for top polluted widgets and ingestion status bars.
+    """
+    from lib.design_tokens import get_theme_tokens
+    from lib.page_helpers import clean_html
+    
+    tokens = get_theme_tokens()
+    text_color = tokens["text"]
+    bar_bg = tokens["accent_light"]
+    
+    percentage = (value / max_value) * 100 if max_value > 0 else 0
+    percentage = min(max(percentage, 0), 100)
+    
+    html = f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; width: 100%;">
+        <div style="width: 120px; font-size: 0.85rem; font-weight: 600; color: {text_color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{name}">
+            {name}
+        </div>
+        <div style="flex-grow: 1; margin: 0 12px; height: 8px; background: {bar_bg}; border-radius: 4px; overflow: hidden; position: relative;">
+            <div style="width: {percentage}%; height: 100%; background: {bar_color}; border-radius: 4px;"></div>
+        </div>
+        <div style="width: 50px; text-align: right; font-size: 0.85rem; font-weight: 700; color: {text_color};">
+            {value:.1f}{suffix}
+        </div>
+    </div>
+    """
+    st.markdown(clean_html(html), unsafe_allow_html=True)
+
+def render_insight_card(icon: str, title: str, message: str, icon_color: str = "#0891b2", title_color: str = None):
+    """Unified layout for insights & warnings card across pages."""
+    from lib.design_tokens import get_theme_tokens
+    from lib.page_helpers import clean_html
+    
+    tokens = get_theme_tokens()
+    bg = tokens["card_bg"]
+    border = tokens["border"]
+    text = tokens["text_secondary"]
+    title_color = title_color or tokens["text"]
+    shadow = tokens["shadow"]
+    
+    html = f"""
+    <div class="glass-card" style="
+        background: {bg};
+        border: 1px solid {border};
+        border-left: 4px solid {icon_color};
+        border-radius: 12px;
+        padding: 1.1rem 1.25rem;
+        box-shadow: {shadow};
+        margin-bottom: 1.25rem;
+        display: flex;
+        gap: 0.85rem;
+        align-items: flex-start;
+        width: 100%;
+    ">
+        <span style="font-size: 1.35rem; color: {icon_color}; display: flex; align-items: center; margin-top: 2px;">{icon}</span>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 0.9rem; font-weight: 750; color: {title_color};">{title}</div>
+            <div style="font-size: 0.85rem; font-weight: 550; color: {text}; line-height: 1.45; opacity: 0.95;">{message}</div>
+        </div>
+    </div>
+    """
+    st.markdown(clean_html(html), unsafe_allow_html=True)
+
+def render_status_dot(color: str, label: str, subtext: str = ""):
+    """Unified status dot component, ideal for pipeline status and ingestion channels."""
+    from lib.design_tokens import get_theme_tokens
+    from lib.page_helpers import clean_html
+    
+    tokens = get_theme_tokens()
+    text = tokens["text"]
+    label_color = tokens["label"]
+    
+    subtext_html = f'<div style="font-size: 0.76rem; color: {label_color}; margin-top: 1px;">{subtext}</div>' if subtext else ''
+    
+    html = f"""
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.5rem; width: 100%;">
+        <span style="height: 10px; width: 10px; background-color: {color}; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px {color}; flex-shrink: 0;"></span>
+        <div style="display: flex; flex-direction: column;">
+            <div style="font-size: 0.85rem; font-weight: 700; color: {text}; line-height: 1.2;">{label}</div>
+            {subtext_html}
+        </div>
+    </div>
+    """
+    st.markdown(clean_html(html), unsafe_allow_html=True)

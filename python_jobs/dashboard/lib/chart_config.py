@@ -92,13 +92,6 @@ def get_plotly_layout(height=400, animate=False, compact=False):
 
     return layout
 
-LAYOUT_COMPACT = get_plotly_layout(height=280, compact=True)
-LAYOUT_WIDE = get_plotly_layout(height=400)
-LAYOUT_HEATMAP = {
-    **get_plotly_layout(height=450),
-    "margin": {"l": 80, "r": 20, "t": 40, "b": 60}
-}
-
 # ── Dynamic Formatting Helpers ────────────────────────────────────────────────
 def format_hover_template(value_name: str, val_format: str = ".1f") -> str:
     """Return a standard premium hover template for Plotly charts."""

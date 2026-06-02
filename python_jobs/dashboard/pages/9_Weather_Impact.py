@@ -20,14 +20,13 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import build_where_clause
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import render_page_hero, render_unified_brand_header, render_section_divider, clean_html
-from lib.style import render_metric_card, inject_style
+from lib.page_helpers import render_page_hero, render_section_divider, clean_html, page_wrapper
 from lib.chart_config import get_plotly_layout, create_empty_state
+from lib.ui_components import render_kpi_card
 from lib.text_to_sql_client import TextToSqlClient
 
 # ── Data Fetching Functions ──────────────────────────────────────────────────
@@ -217,36 +216,6 @@ def clean_label(label: str) -> str:
         if label.startswith(prefix):
             return label[len(prefix):]
     return label
-
-def render_weather_kpi_card(title: str, value: str, subtext: str, val_color: str | None = None):
-    """Render a high-fidelity weather custom metric card with border-radius & harmonious colors."""
-    theme = st.session_state.get("theme", "light")
-    text_color = "#f8fafc" if theme == "dark" else "#0f172a"
-    sub_color = "#94a3b8" if theme == "dark" else "#64748b"
-    card_bg = "rgba(15, 23, 42, 0.5)" if theme == "dark" else "rgba(255, 255, 255, 0.85)"
-    border_color = "rgba(255, 255, 255, 0.08)" if theme == "dark" else "rgba(226, 232, 240, 0.8)"
-    shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2)" if theme == "dark" else "0 4px 6px -1px rgba(0, 0, 0, 0.05)"
-    
-    val_style = f"color: {val_color};" if val_color else f"color: {text_color};"
-    
-    html = f"""
-    <div class="glass-card" style="
-        min-height: 96px; 
-        padding: 0.8rem 1rem; 
-        display: flex; 
-        flex-direction: column; 
-        justify-content: center;
-        background: {card_bg}; 
-        border: 1px solid {border_color}; 
-        border-radius: 12px; 
-        box-shadow: {shadow};
-    ">
-        <div style="font-size: 0.85rem; font-weight: 600; color: {sub_color}; margin-bottom: 3px;">{title}</div>
-        <div style="font-family: 'Outfit', sans-serif; font-size: 1.85rem; font-weight: 800; {val_style} line-height: 1.1; margin-bottom: 2px;">{value}</div>
-        <div style="font-size: 0.78rem; font-weight: 500; color: {sub_color}; opacity: 0.95;">{subtext}</div>
-    </div>
-    """
-    st.markdown(clean_html(html), unsafe_allow_html=True)
 
 def render_warning_callout(location_name: str, influence_pct: float, pollutant: str, lang: str):
     """Render a premium warning callout banner matching the amber styling in the mock."""
@@ -570,14 +539,12 @@ def _render_ai_chat(lang):
 
 # ── Main Page Redesign ───────────────────────────────────────────────────────
 
-def main():
+@page_wrapper("weather", "Ảnh hưởng thời tiết", icon="🌤️", skip_hero=True)
+def main(lang):
     # Initialize session state triggers
     st.session_state.setdefault("show_ai_chat", False)
 
     # ── Page Initialization ────────────────────────────────────────────────────────
-    inject_style()
-    lang = st.session_state.get("lang", "vi")
-    render_unified_brand_header()
 
     # ── Filters ABOVE Title ────────────────────────────────────────────────────────
     filters = render_top_filters()
@@ -643,7 +610,7 @@ def main():
         stagnant_color = "#EF4444" if stagnant_prob > 0.20 else None
 
         with c_kpi1:
-            render_weather_kpi_card(
+            render_kpi_card(
                 t("weather_influence", lang) if lang == "en" else "Ảnh hưởng thời tiết",
                 f"{influence_pct:.1f}%",
                 "stagnant/windy diff" if lang == "en" else "chênh lệch lặng/gió",
@@ -651,7 +618,7 @@ def main():
             )
         with c_kpi2:
             temp_display = f"{avg_temp:.1f}°C" if not pd.isna(avg_temp) else "N/A"
-            render_weather_kpi_card(
+            render_kpi_card(
                 "Avg Temperature" if lang == "en" else "Nhiệt độ TB",
                 temp_display,
                 "in selected period" if lang == "en" else "trong kỳ chọn"
@@ -666,14 +633,14 @@ def main():
             else:
                 wind_sub = "strong &rarr; fast dispersion" if lang == "en" else "mạnh &rarr; khuếch tán nhanh"
             
-            render_weather_kpi_card(
+            render_kpi_card(
                 t("weather_wind_speed", lang) if lang == "en" else "Tốc độ gió TB",
                 wind_display,
                 wind_sub
             )
         with c_kpi4:
             stagnant_pct = stagnant_prob * 100
-            render_weather_kpi_card(
+            render_kpi_card(
                 "Stagnant Air Risk" if lang == "en" else "Rủi ro lặng gió",
                 f"{stagnant_pct:.1f}%",
                 "probability in period" if lang == "en" else "xác suất ngày hiện tại",

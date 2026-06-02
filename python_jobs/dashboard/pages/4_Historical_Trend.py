@@ -23,10 +23,10 @@ from lib.data_service import (
 )
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import render_section_divider, render_unified_brand_header
-from lib.style import inject_style
+from lib.page_helpers import render_section_divider, page_wrapper
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
 from lib.tab_renderer import render_coverage_banner
+from lib.ui_components import render_kpi_card
 
 @st.cache_data(ttl=300)
 def get_overall_stats(col, dates, source_name, tunit="day", spatial_grain="Toàn quốc"):
@@ -112,63 +112,10 @@ def get_heatmap_data(col, scope_grain, scope_val, dates, source_name, tunit="day
     """
     return query_df(q)
 
-def render_historical_kpi_card(title: str, value: str, subtext: str, val_color: str = None):
-    """Render a minimal, beautiful KPI card for the Historical Trend page."""
-    theme = st.session_state.get("theme", "light")
-    if theme == "dark":
-        bg_color = "rgba(30, 41, 59, 0.45)"  # slate-800 glass
-        border_color = "rgba(255, 255, 255, 0.08)"
-        text_color = "#f8fafc"
-        label_color = "#94a3b8"
-    else:
-        bg_color = "rgba(255, 255, 255, 0.85)"
-        border_color = "rgba(226, 232, 240, 0.8)"
-        text_color = "#0f172a"
-        label_color = "#64748b"
-
-    # Make colors readable in Light Mode
-    if val_color:
-        if theme == "light":
-            if val_color == "#ef4444":
-                val_color = "#dc2626"
-            elif val_color == "#10b981":
-                val_color = "#059669"
-            elif val_color == "#f59e0b":
-                val_color = "#d97706"
-    else:
-        val_color = text_color
-
-    card_html = f"""
-        <div style="
-            background: {bg_color};
-            border: 1px solid {border_color};
-            border-radius: 12px;
-            padding: 1.15rem 1rem;
-            min-height: 105px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: all 0.25s ease;
-        " onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
-            <div style="font-size: 0.8rem; font-weight: 600; color: {label_color}; text-transform: uppercase; letter-spacing: 0.02em;">{title}</div>
-            <div style="font-family: 'Outfit', sans-serif; font-size: 1.85rem; font-weight: 800; line-height: 1.2; margin: 0.2rem 0; color: {val_color};">{value}</div>
-            <div style="font-size: 0.82rem; font-weight: 500; opacity: 0.85; display: flex; align-items: center; gap: 4px; color: {label_color};">{subtext}</div>
-        </div>
-    """
-    st.markdown(" ".join(line.strip() for line in card_html.split("\n") if line.strip()), unsafe_allow_html=True)
-
-def main():
-    # 1. Initialize general dashboard style settings
-    inject_style()
-
-    # 2. Get active state configurations
-    lang = st.session_state.get("lang", "vi")
+@page_wrapper("historical_trend", "Xu hướng lịch sử", icon="📈", skip_hero=True)
+def main(lang):
     theme = st.session_state.get("theme", "light")
     standard = st.session_state.get("standard", "VN_AQI")
-
-    # 3. Render persistent top bar brand header bar
-    render_unified_brand_header()
 
     # 4. Render synchronized top filters
     filters = render_top_filters()
@@ -598,27 +545,27 @@ def main():
             
             kpi_cols = st.columns(4)
             with kpi_cols[0]:
-                render_historical_kpi_card(
+                render_kpi_card(
                     title="Số ngày phân tích" if lang == "vi" else "Days Analyzed",
                     value=f"{total_days_val}",
                     subtext=days_subtext
                 )
             with kpi_cols[1]:
-                render_historical_kpi_card(
+                render_kpi_card(
                     title=f"{val_label} trung bình" if lang == "vi" else f"Average {val_label}",
                     value=f"{overall_avg_val:.1f}" if pollutant != "aqi" else f"{int(overall_avg_val)}",
                     subtext=avg_subtext,
                     val_color="#f59e0b"
                 )
             with kpi_cols[2]:
-                render_historical_kpi_card(
+                render_kpi_card(
                     title=f"{val_label} thấp nhất" if lang == "vi" else f"Lowest {val_label}",
                     value=f"{overall_min_val:.1f}" if pollutant != "aqi" else f"{int(overall_min_val)}",
                     subtext=min_subtext,
                     val_color="#10b981"
                 )
             with kpi_cols[3]:
-                render_historical_kpi_card(
+                render_kpi_card(
                     title=f"{val_label} cao nhất" if lang == "vi" else f"Highest {val_label}",
                     value=f"{overall_max_val:.1f}" if pollutant != "aqi" else f"{int(overall_max_val)}",
                     subtext=max_subtext,
@@ -627,13 +574,13 @@ def main():
         else:
             kpi_cols = st.columns(4)
             with kpi_cols[0]:
-                render_historical_kpi_card("Số ngày phân tích" if lang == "vi" else "Days Analyzed", "0", "Không có dữ liệu" if lang == "vi" else "No data")
+                render_kpi_card("Số ngày phân tích" if lang == "vi" else "Days Analyzed", "0", "Không có dữ liệu" if lang == "vi" else "No data")
             with kpi_cols[1]:
-                render_historical_kpi_card(f"{val_label} trung bình" if lang == "vi" else f"Average {val_label}", "0.0", "Không có dữ liệu" if lang == "vi" else "No data")
+                render_kpi_card(f"{val_label} trung bình" if lang == "vi" else f"Average {val_label}", "0.0", "Không có dữ liệu" if lang == "vi" else "No data")
             with kpi_cols[2]:
-                render_historical_kpi_card(f"{val_label} thấp nhất" if lang == "vi" else f"Lowest {val_label}", "0.0", "Không có dữ liệu" if lang == "vi" else "No data")
+                render_kpi_card(f"{val_label} thấp nhất" if lang == "vi" else f"Lowest {val_label}", "0.0", "Không có dữ liệu" if lang == "vi" else "No data")
             with kpi_cols[3]:
-                render_historical_kpi_card(f"{val_label} cao nhất" if lang == "vi" else f"Highest {val_label}", "0.0", "Không có dữ liệu" if lang == "vi" else "No data")
+                render_kpi_card(f"{val_label} cao nhất" if lang == "vi" else f"Highest {val_label}", "0.0", "Không có dữ liệu" if lang == "vi" else "No data")
 
         st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
 

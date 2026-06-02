@@ -21,76 +21,9 @@ from lib.data_service import (
 )
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import render_section_divider, render_unified_brand_header
-from lib.style import inject_style
+from lib.page_helpers import render_section_divider, clean_html, get_readable_color, page_wrapper
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
-from lib.ui_components import render_map_component
-
-
-def clean_html(html_str: str) -> str:
-    """Helper to strip newlines and indentation from HTML strings.
-    This prevents the Markdown parser from misinterpreting indented HTML lines as code blocks.
-    """
-    return " ".join(line.strip() for line in html_str.split("\n") if line.strip())
-
-
-def get_readable_color(color_hex: str, theme: str) -> str:
-    """Ensure text colors are highly readable on both light and dark backgrounds.
-    Shifts pure yellow/green to deep amber/emerald on light background.
-    """
-    if not color_hex:
-        return color_hex
-    color_upper = color_hex.upper()
-    if theme == "light":
-        # Pure yellow is unreadable on white background, shift to deep rich amber
-        if color_upper in ["#FFFF00", "YELLOW"]:
-            return "#B45309"
-        # Pure bright green can be hard on eyes, shift to forest green / emerald-900
-        if color_upper in ["#00E400", "GREEN"]:
-            return "#065F46"
-    return color_hex
-
-
-def render_overview_kpi_card(title: str, value: str, subtext: str, val_color: str = None):
-    """Render a minimal, beautiful KPI card exactly matching the mockup layout (no icons)."""
-    theme = st.session_state.get("theme", "light")
-    
-    if theme == "dark":
-        bg_color = "rgba(30, 41, 59, 0.45)"  # slate-800 glass
-        border_color = "rgba(255, 255, 255, 0.08)"
-        text_color = "#f8fafc"
-        label_color = "#94a3b8"
-    else:
-        bg_color = "rgba(255, 255, 255, 0.85)"
-        border_color = "rgba(226, 232, 240, 0.8)"
-        text_color = "#0f172a"
-        label_color = "#64748b"
-
-    # Make colors readable in Light Mode
-    if val_color:
-        val_color = get_readable_color(val_color, theme)
-
-    color_style = f"color: {val_color};" if val_color else f"color: {text_color};"
-
-    card_html = f"""
-        <div style="
-            background: {bg_color};
-            border: 1px solid {border_color};
-            border-radius: 12px;
-            padding: 1.15rem 1rem;
-            min-height: 105px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: all 0.25s ease;
-        " onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
-            <div style="font-size: 0.8rem; font-weight: 600; color: {label_color}; text-transform: uppercase; letter-spacing: 0.02em;">{title}</div>
-            <div style="font-family: 'Outfit', sans-serif; font-size: 1.85rem; font-weight: 800; line-height: 1.2; margin: 0.2rem 0; {color_style}">{value}</div>
-            <div style="font-size: 0.82rem; font-weight: 500; opacity: 0.85; display: flex; align-items: center; gap: 4px;">{subtext}</div>
-        </div>
-    """
-    st.markdown(clean_html(card_html), unsafe_allow_html=True)
+from lib.ui_components import render_map_component, render_kpi_card, render_insight_card
 
 
 def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: str):
@@ -157,7 +90,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
                 title_text = f"Nồng độ TB Quốc gia ({val_label})" if lang == "vi" else f"National Avg ({val_label})"
             
             val_color = get_aqi_color(avg_val) if pollutant == "aqi" else None
-            render_overview_kpi_card(title_text, avg_display, avg_cat_text, val_color=val_color)
+            render_kpi_card(title_text, avg_display, avg_cat_text, val_color=val_color)
 
         with kpi_cols[1]:
             title_text = "Chất ô nhiễm chính" if lang == "vi" else "Dominant Pollutant"
@@ -173,7 +106,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
             else:
                 sub_text = "Tiêu chuẩn an toàn WHO" if lang == "vi" else "WHO Safety Standard"
             
-            render_overview_kpi_card(title_text, val_label if pollutant != "aqi" else dominant_poll, sub_text)
+            render_kpi_card(title_text, val_label if pollutant != "aqi" else dominant_poll, sub_text)
 
         with kpi_cols[2]:
             title_text = "AQI cao nhất" if lang == "vi" else "Worst AQI Recorded"
@@ -181,7 +114,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
                 title_text = f"Nồng độ cao nhất ({val_label})" if lang == "vi" else f"Max Recorded ({val_label})"
             
             val_color = get_aqi_color(max_val) if pollutant == "aqi" else "#ef4444"
-            render_overview_kpi_card(title_text, worst_display, f"{worst_province} · {worst_cat_text}", val_color=val_color)
+            render_kpi_card(title_text, worst_display, f"{worst_province} · {worst_cat_text}", val_color=val_color)
 
         with kpi_cols[3]:
             title_text = "Tỉnh theo dõi" if lang == "vi" else "Monitored Provinces"
@@ -189,13 +122,13 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
             badge_color = "#ef4444" if exceeding_count > 0 else None
             exceeding_sub = f"<span style='color:{badge_color}; font-weight:700;'>{exceeding_count} vượt ngưỡng</span>" if exceeding_count > 0 else ("0 vượt ngưỡng" if lang == "vi" else "0 exceeding")
             
-            render_overview_kpi_card(title_text, f"{int(province_count)}", exceeding_sub)
+            render_kpi_card(title_text, f"{int(province_count)}", exceeding_sub)
     else:
         # Fallbacks if database has no entries
-        with kpi_cols[0]: render_overview_kpi_card("AQI TB Quốc gia", "87", "Trung bình", val_color="#f59e0b")
-        with kpi_cols[1]: render_overview_kpi_card("Chất ô nhiễm chính", "PM2.5", "63% ngày vi phạm WHO")
-        with kpi_cols[2]: render_overview_kpi_card("AQI cao nhất", "194", "Hà Nội · Xấu", val_color="#ef4444")
-        with kpi_cols[3]: render_overview_kpi_card("Tỉnh theo dõi", "63", "<span style='color:#ef4444; font-weight:700;'>3 vượt ngưỡng</span>")
+        with kpi_cols[0]: render_kpi_card("AQI TB Quốc gia", "87", "Trung bình", val_color="#f59e0b")
+        with kpi_cols[1]: render_kpi_card("Chất ô nhiễm chính", "PM2.5", "63% ngày vi phạm WHO")
+        with kpi_cols[2]: render_kpi_card("AQI cao nhất", "194", "Hà Nội · Xấu", val_color="#ef4444")
+        with kpi_cols[3]: render_kpi_card("Tỉnh theo dõi", "63", "<span style='color:#ef4444; font-weight:700;'>3 vượt ngưỡng</span>")
 
     # 2. Map & Widgets Section (2 Columns)
     st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
@@ -416,16 +349,16 @@ def render_comparison_tab(filters: dict, lang: str):
     c_corr = st.columns(4)
     with c_corr[0]:
         val = "Có trạm đo" if not both_sources_df.empty else "Không có trạm"
-        render_overview_kpi_card("Trạm mặt đất" if lang == "vi" else "Ground Status", val, "Hoạt động")
+        render_kpi_card("Trạm mặt đất" if lang == "vi" else "Ground Status", val, "Hoạt động")
     with c_corr[1]:
         bias_text = f"{avg_bias:+.1f} AQI" if not pd.isna(avg_bias) else "N/A"
-        render_overview_kpi_card("Độ lệch TB (Bias)", bias_text, "Vệ tinh vs Mặt đất")
+        render_kpi_card("Độ lệch TB (Bias)", bias_text, "Vệ tinh vs Mặt đất")
     with c_corr[2]:
         mae_text = f"{avg_mae:.1f} AQI" if not pd.isna(avg_mae) else "N/A"
-        render_overview_kpi_card("Sai số MAE", mae_text, "Độ lệch trung bình tuyệt đối")
+        render_kpi_card("Sai số MAE", mae_text, "Độ lệch trung bình tuyệt đối")
     with c_corr[3]:
         agree_text = f"{agree_pct:.0f}%" if len(both_sources_df) > 0 else "N/A"
-        render_overview_kpi_card("Đồng thuận phân loại", agree_text, "Khớp phân loại chất lượng")
+        render_kpi_card("Đồng thuận phân loại", agree_text, "Khớp phân loại chất lượng")
 
     render_section_divider()
 
@@ -462,17 +395,10 @@ def render_comparison_tab(filters: dict, lang: str):
                 st.caption(f"<div style='font-size:0.8rem; margin-top:-10px;'>Hệ số tương quan tuyến tính Pearson (r): **{r_val:.2f}**</div>", unsafe_allow_html=True)
 
 
-def main():
-    """Main overview page rendering. Bypasses old wrapper for pixel-perfect layout alignment."""
-    # 1. Initialize general dashboard style settings
-    inject_style()
-
-    # 2. Get active state configurations
-    lang = st.session_state.get("lang", "vi")
+@page_wrapper("overview", "Tổng quan", icon="📊", skip_hero=True)
+def main(lang):
+    """Main overview page rendering."""
     theme = st.session_state.get("theme", "light")
-    
-    # 3. Render Brand Header Bar (GreenAir VN | Live | VI/EN | WHO/VN)
-    render_unified_brand_header()
 
     # 4. Render Top filters matching mockup layout order
     filters = render_top_filters()
@@ -536,35 +462,13 @@ def main():
         c_ins = st.columns(len(insights), gap="medium")
         for i, insight in enumerate(insights):
             with c_ins[i]:
-                # Dynamic theme backgrounds and borders
-                if theme == "dark":
-                    bg_color = "rgba(30, 41, 59, 0.45)"
-                    border_color = "rgba(255, 255, 255, 0.08)"
-                    text_color = "rgba(255, 255, 255, 0.95)"
-                else:
-                    bg_color = "rgba(255, 255, 255, 0.85)"
-                    border_color = "rgba(226, 232, 240, 0.8)"
-                    text_color = "#0f172a"
-                    
-                ins_html = f"""
-                <div style="
-                    background: {bg_color};
-                    border: 1px solid {border_color};
-                    border-radius: 12px;
-                    padding: 1.15rem;
-                    min-height: 105px;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-                ">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
-                        <span style="color: {insight['icon_color']}; font-size: 1.15rem;">{insight['icon']}</span>
-                        <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; color: {insight['title_color']}; letter-spacing: 0.05em;">{insight['title']}</span>
-                    </div>
-                    <p style="margin: 0; font-size: 0.9rem; font-weight: 500; line-height: 1.45; color: {text_color};">
-                        {insight['message']}
-                    </p>
-                </div>
-                """
-                st.markdown(clean_html(ins_html), unsafe_allow_html=True)
+                render_insight_card(
+                    icon=insight["icon"],
+                    title=insight["title"],
+                    message=insight["message"],
+                    icon_color=insight["icon_color"],
+                    title_color=insight["title_color"]
+                )
 
 
 if __name__ == "__main__":

@@ -39,11 +39,30 @@ def init_page(page_key: str, default_title: str = "", icon: str = "📊") -> str
 
     return lang
 
+import re
+
 def clean_html(html_str: str) -> str:
-    """Helper to strip newlines and indentation from HTML strings.
-    This prevents the Markdown parser from misinterpreting indented HTML lines as code blocks.
-    """
+    """Sanitize HTML by removing comments and flattening newlines/indents to avoid Markdown escaping."""
+    # Remove HTML comments
+    html_str = re.sub(r"<!--.*?-->", "", html_str, flags=re.DOTALL)
+    # Strip leading/trailing whitespaces from each line and join them with space
     return " ".join(line.strip() for line in html_str.split("\n") if line.strip())
+
+def get_readable_color(color_hex: str, theme: str) -> str:
+    """Ensure text colors are highly readable on both light and dark backgrounds.
+    Shifts pure yellow/green to deep amber/emerald on light background.
+    """
+    if not color_hex:
+        return color_hex
+    color_upper = color_hex.upper()
+    if theme == "light":
+        # Pure yellow is unreadable on white background, shift to deep rich amber
+        if color_upper in ["#FFFF00", "YELLOW"]:
+            return "#B45309"
+        # Pure bright green can be hard on eyes, shift to forest green / emerald-900
+        if color_upper in ["#00E400", "GREEN"]:
+            return "#065F46"
+    return color_hex
 
 def render_unified_brand_header(page_key: str | None = None):
     """Render a persistent top bar for theme, standard and language toggles on one row, aligned right.
@@ -244,7 +263,7 @@ def render_info_banner(message: str, type: str = "info"):
     """
     st.markdown(banner_html, unsafe_allow_html=True)
 
-def page_wrapper(page_key: str, default_title: str = "", icon: str = "📊"):
+def page_wrapper(page_key: str, default_title: str = "", icon: str = "📊", skip_hero: bool = False):
     """Decorator to standardise page loading, error boundary, and translation context."""
     def decorator(func):
         @functools.wraps(func)
@@ -256,7 +275,10 @@ def page_wrapper(page_key: str, default_title: str = "", icon: str = "📊"):
             # Render persistent top bar brand
             render_unified_brand_header(page_key)
             
-            lang = init_page(page_key, default_title, icon=icon)
+            if skip_hero:
+                lang = st.session_state.get("lang", "vi")
+            else:
+                lang = init_page(page_key, default_title, icon=icon)
             
             try:
                 # Custom loading spinner text

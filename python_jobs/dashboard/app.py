@@ -1,6 +1,6 @@
 import streamlit as st
 from lib.i18n import t
-from lib.style import inject_style, render_top_bar
+from lib.style import inject_style
 
 # ── Page Configuration ────────────────────────────────────────────────────────
 st.set_page_config(

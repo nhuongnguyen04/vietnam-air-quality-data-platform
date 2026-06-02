@@ -174,43 +174,6 @@ def get_epa_color_for_value(aqi: float) -> str:
     return EPA_COLORS["Hazardous"]
 
 
-def apply_epa_template(fig, height: int = 400):
-    """Apply consistent EPA-themed layout to a Plotly figure.
-
-    Args:
-        fig: plotly.graph_objects.Figure object
-        height: figure height in pixels
-
-    Returns:
-        Modified figure with EPA theme applied.
-    """
-    fig.update_layout(
-        font={"family": "sans-serif", "size": 12},
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="rgba(240,242,246,0.4)",
-        margin={"l": 20, "r": 20, "t": 30, "b": 20},
-        height=height,
-    )
-    fig.update_xaxes(
-        showgrid=True,
-        gridcolor="rgba(200,200,200,0.3)",
-        title_font={"size": 11},
-    )
-    fig.update_yaxes(
-        showgrid=True,
-        gridcolor="rgba(200,200,200,0.3)",
-        title_font={"size": 11},
-    )
-    fig.update_traces(marker_line_width=0)
-    return fig
-
-
-def render_empty_chart(message: str, height: int = 250):
-    """Return an empty Plotly figure with a descriptive message (theme-aware)."""
-    from lib.chart_config import create_empty_state
-    return create_empty_state(message, height)
-
-
 
 AQI_VN_SQL_EXPR = """
 CASE

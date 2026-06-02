@@ -8,22 +8,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import localize_confidence_level, localize_source_mix
 from lib.i18n import t
-from lib.page_helpers import page_wrapper, render_section_divider
-from lib.style import render_metric_card
+from lib.page_helpers import page_wrapper, render_section_divider, clean_html
 from lib.chart_config import get_plotly_layout, create_empty_state
-
-import re
-
-def clean_html(html_str: str) -> str:
-    """Sanitize HTML by removing comments and flattening newlines/indents to avoid Markdown escaping."""
-    # Remove HTML comments
-    html_str = re.sub(r"<!--.*?-->", "", html_str, flags=re.DOTALL)
-    # Strip leading/trailing whitespaces from each line and join them with space
-    return " ".join(line.strip() for line in html_str.split("\n") if line.strip())
+from lib.ui_components import render_kpi_card, render_progress_bar, render_status_dot
 
 def format_hours(value) -> str:
     if pd.isna(value):
@@ -42,16 +32,10 @@ def format_pct(value) -> str:
 
 def platform_status(latest_lag: float, reliable_pct: float, lang: str = "vi") -> str:
     if latest_lag <= 1 and reliable_pct >= 90:
-        return t("status_operational", lang) if "status_operational" in TRANSLATIONS[lang] else "Operational"
+        return t("status_operational", lang)
     if latest_lag <= 3 and reliable_pct >= 70:
-        return t("status_degraded", lang) if "status_degraded" in TRANSLATIONS[lang] else "Degraded"
-    return t("status_delayed", lang) if "status_delayed" in TRANSLATIONS[lang] else "Delayed"
-
-# Backup translate list in case of local testing
-TRANSLATIONS = {
-    "vi": {"status_operational": "Ổn định", "status_degraded": "Giảm chất lượng", "status_delayed": "Bị trễ"},
-    "en": {"status_operational": "Operational", "status_degraded": "Degraded", "status_delayed": "Delayed"}
-}
+        return t("status_degraded", lang)
+    return t("status_delayed", lang)
 
 @st.cache_data(ttl=60)
 def get_platform_status_data():
@@ -79,30 +63,7 @@ def get_platform_status_data():
     """
     return query_df(summary_q), query_df(source_q), query_df(confidence_q)
 
-def render_status_metric_card(label: str, value: str, caption: str, icon: str = None):
-    """Render a custom premium 3-line metric card with SVG icons."""
-    icons = {
-        "insights": '<path d="m16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z"/>',
-        "health": '<path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>',
-        "schedule": '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 5h-2v6l5 3 .9-1.64-3.9-2.31V7z"/>',
-        "upload": '<path d="M5 20h14v-2H5v2zm7-18-5.5 5.5 1.41 1.41L11 5.83V16h2V5.83l3.09 3.08 1.41-1.41L12 2z"/>',
-    }
-    icon_svg = f'<svg viewBox="0 0 24 24">{icons.get(icon, "")}</svg>' if icon in icons else ""
 
-    st.markdown(clean_html(f"""
-        <div class="glass-card" style="min-height: 104px; display: flex; align-items: center; width: 100%; padding: 0.75rem 1rem; margin-bottom: 0.5rem;">
-            <div class="metric-card" style="width: 100%; display: flex; align-items: center; gap: 1rem;">
-                <div class="metric-icon" style="display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 46px; height: 46px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);">
-                    {icon_svg}
-                </div>
-                <div>
-                    <div class="metric-label" style="font-size: 0.82rem; font-weight: 600; opacity: 0.7; line-height: 1.2; min-height: unset; max-height: unset; display: block; overflow: visible;">{label}</div>
-                    <div class="metric-value" style="font-family: 'Outfit', sans-serif; font-size: 1.8rem; font-weight: 800; line-height: 1.1; margin: 2px 0;">{value}</div>
-                    <div style="font-size: 0.74rem; opacity: 0.5; line-height: 1.2; font-weight: 500;">{caption}</div>
-                </div>
-            </div>
-        </div>
-    """), unsafe_allow_html=True)
 
 @page_wrapper("status", "⚙️ System Platform Health Status", icon="⚙️")
 def main(lang: str):
@@ -131,38 +92,38 @@ def main(lang: str):
 
     # Determine status val and labels
     status_val = "Operational" if latest_lag <= 1.5 and reliable_pct >= 90 else ("Degraded" if latest_lag <= 4 else "Delayed")
-    status_label = TRANSLATIONS.get(lang, TRANSLATIONS["vi"]).get(f"status_{status_val.lower()}", status_val)
+    status_label = t(f"status_{status_val.lower()}", lang)
     status_caption = "lag < 1h + reliability ≥90%" if lang == "vi" else "lag < 1h + reliability ≥90%"
 
     # ── KPI Cards ──────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        render_status_metric_card(
+        render_kpi_card(
             t("latest_data_lag", lang), 
             format_hours(latest_lag), 
             "lần quan trắc gần nhất" if lang == "vi" else "latest observation",
-            icon="schedule"
+            icon="⏱️"
         )
     with c2:
-        render_status_metric_card(
+        render_kpi_card(
             t("latest_ingest_lag", lang), 
             format_hours(latest_ingest_lag), 
             "lần ingest gần nhất" if lang == "vi" else "latest database ingest",
-            icon="upload"
+            icon="⚡"
         )
     with c3:
-        render_status_metric_card(
+        render_kpi_card(
             t("reliable_coverage", lang), 
             f"{format_pct(reliable_pct)}", 
             "ward/source active" if lang == "vi" else "ward/source active",
-            icon="insights"
+            icon="📊"
         )
     with c4:
-        render_status_metric_card(
+        render_kpi_card(
             t("system_status", lang), 
             status_label, 
             status_caption,
-            icon="health"
+            icon="⚙️"
         )
 
     render_section_divider()

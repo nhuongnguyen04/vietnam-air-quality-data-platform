@@ -13,12 +13,13 @@ from lib.data_service import (
     get_pollutant_col,
     get_pollutant_cols,
     get_source_table,
+    build_date_comparison_ranges,
 )
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import render_section_divider, render_unified_brand_header
-from lib.style import inject_style
+from lib.page_helpers import render_section_divider, clean_html, get_readable_color, page_wrapper
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
+from lib.ui_components import render_kpi_card
 
 # --- Dynamic KPI configuration ---
 WHO_STANDARDS = {
@@ -40,30 +41,6 @@ TCVN_STANDARDS = {
     "co": {"val": 30000, "unit": "ppb"},
     "aqi": {"val": 100, "unit": ""},
 }
-
-
-def clean_html(html_str: str) -> str:
-    """Helper to strip newlines and indentation from HTML strings.
-    This prevents the Markdown parser from misinterpreting indented HTML lines as code blocks.
-    """
-    return " ".join(line.strip() for line in html_str.split("\n") if line.strip())
-
-
-def get_readable_color(color_hex: str, theme: str) -> str:
-    """Ensure text colors are highly readable on both light and dark backgrounds.
-    Shifts pure yellow/green to deep amber/emerald on light background.
-    """
-    if not color_hex:
-        return color_hex
-    color_upper = color_hex.upper()
-    if theme == "light":
-        # Pure yellow is unreadable on white background, shift to deep rich amber
-        if color_upper in ["#FFFF00", "YELLOW"]:
-            return "#B45309"
-        # Pure bright green can be hard on eyes, shift to forest green / emerald-900
-        if color_upper in ["#00E400", "GREEN"]:
-            return "#065F46"
-    return color_hex
 
 
 @st.cache_data(ttl=300)
@@ -125,11 +102,7 @@ def get_insights_data(source_mix: str, date_range, spatial_grain: str, scope_val
 
 @st.cache_data(ttl=300)
 def get_pollutant_trend(table: str, grain: str, scope_val: str | None, dates, source: str, tunit: str = "day"):
-    where_clause = build_where_clause(grain, scope_val, dates, time_unit=tunit)
-    if where_clause:
-        where_clause += f" AND source = '{source}'"
-    else:
-        where_clause = f"source = '{source}'"
+    where_clause = build_where_clause(grain, scope_val, dates, time_unit=tunit, source=source)
 
     if table.endswith("_hourly") or tunit == "hour":
         q = f"""
@@ -244,47 +217,6 @@ def get_compliance_status(grain: str, scope_val: str | None, dates, source_mix: 
     return query_df(q)
 
 
-def render_pollutants_kpi_card(title: str, value: str, subtext: str, val_color: str = None):
-    """Render a minimal, beautiful KPI card for the Pollutants page."""
-    theme = st.session_state.get("theme", "light")
-    if theme == "dark":
-        bg_color = "rgba(30, 41, 59, 0.45)"  # slate-800 glass
-        border_color = "rgba(255, 255, 255, 0.08)"
-        text_color = "#f8fafc"
-        label_color = "#94a3b8"
-    else:
-        bg_color = "rgba(255, 255, 255, 0.85)"
-        border_color = "rgba(226, 232, 240, 0.8)"
-        text_color = "#0f172a"
-        label_color = "#64748b"
-
-    # Make colors readable in Light Mode
-    if val_color:
-        val_color = get_readable_color(val_color, theme)
-    else:
-        val_color = text_color
-
-    card_html = f"""
-        <div style="
-            background: {bg_color};
-            border: 1px solid {border_color};
-            border-radius: 12px;
-            padding: 1.15rem 1rem;
-            min-height: 105px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: all 0.25s ease;
-        " onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
-            <div style="font-size: 0.8rem; font-weight: 600; color: {label_color}; text-transform: uppercase; letter-spacing: 0.02em;">{title}</div>
-            <div style="font-family: 'Outfit', sans-serif; font-size: 1.85rem; font-weight: 800; line-height: 1.2; margin: 0.2rem 0; color: {val_color};">{value}</div>
-            <div style="font-size: 0.82rem; font-weight: 500; opacity: 0.85; display: flex; align-items: center; gap: 4px; color: {label_color};">{subtext}</div>
-        </div>
-    """
-    st.markdown(clean_html(card_html), unsafe_allow_html=True)
-
-
 def render_source_dashboard(source_name: str, source_mix: str, filters: dict, lang: str, theme: str):
     spatial_grain = filters["spatial_grain"]
     time_grain    = filters["time_grain"]
@@ -331,7 +263,7 @@ def render_source_dashboard(source_name: str, source_mix: str, filters: dict, la
         val_str = f"{avg_val:.1f} {unit}" if pollutant != "aqi" else f"{int(avg_val)}"
         sub_str = f"WHO: {who_limit} {unit}" if pollutant != "aqi" else "Mức an toàn"
         
-        render_pollutants_kpi_card(
+        render_kpi_card(
             title=f"{val_label} TB",
             value=val_str,
             subtext=sub_str,
@@ -342,7 +274,7 @@ def render_source_dashboard(source_name: str, source_mix: str, filters: dict, la
         val_str = f"{who_breach_pct:.0f}%"
         sub_str = f"{who_breach_cnt} ngày / {total_records} ngày" if time_unit == "day" else f"{who_breach_cnt} giờ / {total_records} giờ"
         
-        render_pollutants_kpi_card(
+        render_kpi_card(
             title="Vi phạm WHO",
             value=val_str,
             subtext=sub_str,
@@ -359,7 +291,7 @@ def render_source_dashboard(source_name: str, source_mix: str, filters: dict, la
             
         sub_str = f"PM2.5/PM10 = {pm_ratio:.2f}"
         
-        render_pollutants_kpi_card(
+        render_kpi_card(
             title="Nguồn chủ yếu",
             value=source_class,
             subtext=sub_str,
@@ -370,7 +302,7 @@ def render_source_dashboard(source_name: str, source_mix: str, filters: dict, la
         val_str = f"{tcvn_compliance_pct:.0f}%"
         sub_str = "QCVN 05:2023"
         
-        render_pollutants_kpi_card(
+        render_kpi_card(
             title="Tuân thủ TCVN",
             value=val_str,
             subtext=sub_str,
@@ -705,31 +637,9 @@ def render_bottom_highlights_row(source_mix: str, filters: dict, lang: str, them
     )
     
     try:
-        d1 = date_range[0]
-        d2 = date_range[1] if len(date_range) > 1 else date_range[0]
-        if hasattr(d1, "date"): d1 = d1.date()
-        if hasattr(d2, "date"): d2 = d2.date()
-        days_diff = (d2 - d1).days + 1
-        days_cap = min(days_diff, 30)
-        curr_start = d2 - timedelta(days=days_cap - 1)
-        curr_end = d2
-        prev_start = curr_start - timedelta(days=days_cap)
-        prev_end = curr_start - timedelta(days=1)
-        
-        if time_grain == "Giờ":
-            curr_start_str = curr_start.strftime("%Y-%m-%d 00:00:00")
-            curr_end_str = curr_end.strftime("%Y-%m-%d 23:59:59")
-            prev_start_str = prev_start.strftime("%Y-%m-%d 00:00:00")
-            prev_end_str = prev_end.strftime("%Y-%m-%d 23:59:59")
-            between_expr_curr = f"datetime_hour BETWEEN toDateTime('{curr_start_str}') AND toDateTime('{curr_end_str}')"
-            between_expr_prev = f"datetime_hour BETWEEN toDateTime('{prev_start_str}') AND toDateTime('{prev_end_str}')"
-        else:
-            curr_start_str = curr_start.strftime("%Y-%m-%d")
-            curr_end_str = curr_end.strftime("%Y-%m-%d")
-            prev_start_str = prev_start.strftime("%Y-%m-%d")
-            prev_end_str = prev_end.strftime("%Y-%m-%d")
-            between_expr_curr = f"date BETWEEN '{curr_start_str}' AND '{curr_end_str}'"
-            between_expr_prev = f"date BETWEEN '{prev_start_str}' AND '{prev_end_str}'"
+        ranges = build_date_comparison_ranges(date_range, time_grain)
+        between_expr_curr = ranges["between_expr_curr"]
+        between_expr_prev = ranges["between_expr_prev"]
             
         where_clause_without_dates = build_where_clause(spatial_grain, scope_val, None, time_unit=time_unit, source_mix=source_mix)
         
@@ -935,17 +845,10 @@ def render_pollutants_comparison_dashboard(filters: dict, lang: str, theme: str)
     st.info("🛰️ Vệ tinh (SILAM): Do độ phân giải lưới ~25km, các đỉnh nồng độ ô nhiễm cao (đặc biệt hạt mịn PM2.5) sẽ mịn hóa và thấp hơn trạm mặt đất." if lang == "vi" else "🛰️ Satellite SILAM: Fine grid smoothing typically reports lower extreme pollution peaks compared to localized ground stations.")
 
 
-def main():
+@page_wrapper("pollutants", "Chất ô nhiễm", icon="📊", skip_hero=True)
+def main(lang):
     """Main execution of the Pollutants Analysis page."""
-    # 1. Initialize general dashboard style settings
-    inject_style()
-
-    # 2. Get active state configurations
-    lang = st.session_state.get("lang", "vi")
     theme = st.session_state.get("theme", "light")
-
-    # 3. Render persistent top bar brand header bar
-    render_unified_brand_header()
 
     # 4. Render synchronized top filters
     filters = render_top_filters()

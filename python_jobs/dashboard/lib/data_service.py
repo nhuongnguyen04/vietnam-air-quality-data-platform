@@ -138,6 +138,7 @@ def build_where_clause(
     date_col: str = "date",
     time_unit: str = "day",
     source_mix: str = None,
+    source: str = None,
 ):
     """Construct dynamic WHERE clause based on hierarchical filters.
 
@@ -148,10 +149,13 @@ def build_where_clause(
         date_col: override the date column name (ignored when time_unit="hour")
         time_unit: "hour" uses datetime_hour + toDateTime(); "day" uses date column
         source_mix: optionally filter by source_mix ("observed" or "modeled")
+        source: optionally filter by source ("aqiin", "openweather", etc.)
     """
     clauses = []
     if source_mix:
         clauses.append(f"source_mix = '{escape_value(source_mix)}'")
+    if source:
+        clauses.append(f"source = '{escape_value(source)}'")
 
     if spatial_scope == "Vùng" and spatial_value:
         clauses.append(f"region_3 = '{escape_value(spatial_value)}'")
@@ -535,27 +539,37 @@ def get_aqi_distribution(table, col, grain, scope, dates, tunit, source_name="bl
     return df
 
 
-def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> list:
-    """Generate dynamic insights based on active filters and ClickHouse data."""
-    from datetime import datetime, timedelta
+POLLUTANT_LABELS = {
+    "aqi": "AQI",
+    "pm25": "PM2.5",
+    "pm10": "PM10",
+    "no2": "NO2",
+    "so2": "SO2",
+    "o3": "O3",
+    "co": "CO",
+}
 
-    # 1. Date calculations
-    date_range = filters.get("date_range")
+def build_date_comparison_ranges(date_range, time_grain: str = "Ngày"):
+    """Calculate date ranges for comparison (current vs previous period).
+    Returns a dict with curr_start, curr_end, prev_start, prev_end, between_expr_curr, between_expr_prev.
+    """
+    from datetime import datetime, timedelta
+    import pandas as pd
+    
     if not date_range or len(date_range) < 1:
-        # Fallback to last 7 days from now
         latest_date = datetime.now().date()
         date_range = [latest_date - timedelta(days=7), latest_date]
         
     d1 = date_range[0]
     d2 = date_range[1] if len(date_range) > 1 else date_range[0]
     
-    if hasattr(d1, "date"): # if datetime
+    # Extract actual date if they are datetime/Timestamp
+    if hasattr(d1, "date"):
         d1 = d1.date()
     if hasattr(d2, "date"):
         d2 = d2.date()
         
     days_diff = (d2 - d1).days + 1
-    # Cap days back to prevent huge scans
     days_cap = min(days_diff, 30)
     
     curr_start = d2 - timedelta(days=days_cap - 1)
@@ -563,9 +577,42 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
     prev_start = curr_start - timedelta(days=days_cap)
     prev_end = curr_start - timedelta(days=1)
     
+    if time_grain == "Giờ":
+        curr_start_str = curr_start.strftime("%Y-%m-%d 00:00:00")
+        curr_end_str = curr_end.strftime("%Y-%m-%d 23:59:59")
+        prev_start_str = prev_start.strftime("%Y-%m-%d 00:00:00")
+        prev_end_str = prev_end.strftime("%Y-%m-%d 23:59:59")
+        between_expr_curr = f"datetime_hour BETWEEN toDateTime('{curr_start_str}') AND toDateTime('{curr_end_str}')"
+        between_expr_prev = f"datetime_hour BETWEEN toDateTime('{prev_start_str}') AND toDateTime('{prev_end_str}')"
+    else:
+        curr_start_str = curr_start.strftime("%Y-%m-%d")
+        curr_end_str = curr_end.strftime("%Y-%m-%d")
+        prev_start_str = prev_start.strftime("%Y-%m-%d")
+        prev_end_str = prev_end.strftime("%Y-%m-%d")
+        between_expr_curr = f"date BETWEEN '{curr_start_str}' AND '{curr_end_str}'"
+        between_expr_prev = f"date BETWEEN '{prev_start_str}' AND '{prev_end_str}'"
+        
+    return {
+        "curr_start": curr_start,
+        "curr_end": curr_end,
+        "prev_start": prev_start,
+        "prev_end": prev_end,
+        "between_expr_curr": between_expr_curr,
+        "between_expr_prev": between_expr_prev,
+    }
+
+def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> list:
+    """Generate dynamic insights based on active filters and ClickHouse data."""
+    from datetime import datetime, timedelta
+
+    date_range = filters.get("date_range")
     time_grain = filters.get("time_grain", "Ngày")
     pollutant = filters.get("pollutant", "aqi")
     standard = filters.get("standard", "VN_AQI")
+    
+    ranges = build_date_comparison_ranges(date_range, time_grain)
+    between_expr_curr = ranges["between_expr_curr"]
+    between_expr_prev = ranges["between_expr_prev"]
     
     avg_col, _ = get_pollutant_cols(pollutant, standard)
     
@@ -576,33 +623,8 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
     if source_mix:
         source_clause = f"AND source_mix = '{escape_value(source_mix)}'"
         
-    if time_grain == "Giờ":
-        table_name = "dm_air_quality_overview_hourly"
-        curr_start_str = curr_start.strftime("%Y-%m-%d 00:00:00")
-        curr_end_str = curr_end.strftime("%Y-%m-%d 23:59:59")
-        prev_start_str = prev_start.strftime("%Y-%m-%d 00:00:00")
-        prev_end_str = prev_end.strftime("%Y-%m-%d 23:59:59")
-        between_expr_curr = f"datetime_hour BETWEEN toDateTime('{curr_start_str}') AND toDateTime('{curr_end_str}')"
-        between_expr_prev = f"datetime_hour BETWEEN toDateTime('{prev_start_str}') AND toDateTime('{prev_end_str}')"
-    else:
-        table_name = "dm_air_quality_overview_daily"
-        curr_start_str = curr_start.strftime("%Y-%m-%d")
-        curr_end_str = curr_end.strftime("%Y-%m-%d")
-        prev_start_str = prev_start.strftime("%Y-%m-%d")
-        prev_end_str = prev_end.strftime("%Y-%m-%d")
-        between_expr_curr = f"date BETWEEN '{curr_start_str}' AND '{curr_end_str}'"
-        between_expr_prev = f"date BETWEEN '{prev_start_str}' AND '{prev_end_str}'"
-        
-    pollutant_labels = {
-        "aqi": "AQI",
-        "pm25": "PM2.5",
-        "pm10": "PM10",
-        "no2": "NO2",
-        "o3": "O3",
-        "so2": "SO2",
-        "co": "CO"
-    }
-    p_label = pollutant_labels.get(pollutant, pollutant.upper())
+    table_name = "dm_air_quality_overview_hourly" if time_grain == "Giờ" else "dm_air_quality_overview_daily"
+    p_label = POLLUTANT_LABELS.get(pollutant, pollutant.upper())
 
     # --- INSIGHT 1: Worst Trend (Xu hướng xấu) ---
     insight1 = {

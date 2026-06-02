@@ -6,14 +6,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lib.aqi_utils import render_empty_chart
 from lib.clickhouse_client import query_df
 from lib.data_service import escape_value, localize_confidence_level, localize_source_mix
 from lib.filters import render_top_filters
 from lib.i18n import t
-from lib.page_helpers import render_section_divider, render_unified_brand_header
-from lib.style import inject_style
+from lib.page_helpers import render_section_divider, page_wrapper
 from lib.chart_config import get_plotly_layout, create_empty_state, RISK_PALETTE
+from lib.ui_components import render_kpi_card
 
 @st.cache_data(ttl=300)
 def get_health_risks(spatial_grain, scope_val):
@@ -45,53 +44,9 @@ def get_health_risks(spatial_grain, scope_val):
     """
     return query_df(q)
 
-def render_health_kpi_card(title: str, value: str, subtext: str, val_color: str, sub_color: str = None):
-    """Render a premium individual KPI card matching the new card layout design."""
-    theme = st.session_state.get("theme", "light")
-    
-    if theme == "dark":
-        bg_color = "rgba(30, 41, 59, 0.45)"  # slate-800 glass
-        border_color = "rgba(255, 255, 255, 0.08)"
-        text_color = "#f8fafc"
-        label_color = "#94a3b8"
-        default_sub_color = "#64748b"
-        shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.3)"
-    else:
-        bg_color = "#ffffff"
-        border_color = "rgba(226, 232, 240, 0.8)"
-        text_color = "#0f172a"
-        label_color = "#64748b"
-        default_sub_color = "#94a3b8"
-        shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.05)"
-
-    color_style = f"color: {val_color};" if val_color else f"color: {text_color};"
-    final_sub_color = sub_color if sub_color else default_sub_color
-
-    card_html = f"""
-        <div style="
-            background: {bg_color};
-            border: 1px solid {border_color};
-            border-radius: 16px;
-            padding: 1.15rem 1.25rem;
-            min-height: 105px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: {shadow};
-            transition: all 0.25s ease;
-            margin-bottom: 0.5rem;
-        " onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
-            <div style="font-size: 0.8rem; font-weight: 700; color: {label_color}; text-transform: uppercase; letter-spacing: 0.03em;">{title}</div>
-            <div style="font-family: 'Outfit', sans-serif; font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin: 0.25rem 0; {color_style}">{value}</div>
-            <div style="font-size: 0.82rem; font-weight: 600; color: {final_sub_color}; display: flex; align-items: center; gap: 4px;">{subtext}</div>
-        </div>
-    """
-    st.markdown(" ".join(line.strip() for line in card_html.split("\n") if line.strip()), unsafe_allow_html=True)
-
-def main():
+@page_wrapper("health_risk", "Rủi ro sức khỏe & phơi nhiễm dân số", icon="🏥", skip_hero=True)
+def main(lang):
     # ── Initialize Layout & Styling ────────────────────────────────────────────────
-    inject_style()
-    render_unified_brand_header()
 
     # ── Top Filters ────────────────────────────────────────────────────────────
     filters = render_top_filters()
@@ -175,7 +130,7 @@ def main():
         kpi_cols = st.columns(4)
         
         with kpi_cols[0]:
-            render_health_kpi_card(
+            render_kpi_card(
                 title=worst_loc_label,
                 value=worst_loc_val,
                 subtext=worst_loc_sub,
@@ -183,7 +138,7 @@ def main():
             )
             
         with kpi_cols[1]:
-            render_health_kpi_card(
+            render_kpi_card(
                 title=avg_label,
                 value=avg_val,
                 subtext=avg_sub,
@@ -191,7 +146,7 @@ def main():
             )
             
         with kpi_cols[2]:
-            render_health_kpi_card(
+            render_kpi_card(
                 title=crit_label,
                 value=crit_val,
                 subtext=crit_sub,
@@ -201,7 +156,7 @@ def main():
         with kpi_cols[3]:
             # Highlight population subtext in red if non-compliant with WHO
             pop_sub_color = ("#dc2626" if theme == "light" else "#f87171") if mean_pm25 > 15 else ("#065F46" if theme == "light" else "#34d399")
-            render_health_kpi_card(
+            render_kpi_card(
                 title=pop_label,
                 value=pop_val,
                 subtext=pop_sub,
