@@ -36,7 +36,7 @@ def get_data_writer(
         return ClickHouseWriter(
             host=host or os.environ.get("CLICKHOUSE_HOST", "clickhouse"),
             port=port or int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-            database=database or os.environ.get("CLICKHOUSE_DB", "airquality"),
+            database=database or os.environ.get("CLICKHOUSE_DB", "air_quality"),
             user=os.environ.get("CLICKHOUSE_USER", "admin"),
             password=os.environ.get("CLICKHOUSE_PASSWORD", "admin"),
             batch_size=batch_size

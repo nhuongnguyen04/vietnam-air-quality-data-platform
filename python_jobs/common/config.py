@@ -23,7 +23,7 @@ class ClickHouseConfig:
     """ClickHouse database configuration."""
     host: str = "clickhouse"
     port: int = 8123
-    database: str = "airquality"
+    database: str = "air_quality"
     user: str = "admin"
     password: str = "admin"
 
@@ -33,7 +33,7 @@ class ClickHouseConfig:
         return cls(
             host=os.environ.get("CLICKHOUSE_HOST", "clickhouse"),
             port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
-            database=os.environ.get("CLICKHOUSE_DB", "airquality"),
+            database=os.environ.get("CLICKHOUSE_DB", "air_quality"),
             user=os.environ.get("CLICKHOUSE_USER", "admin"),
             password=os.environ.get("CLICKHOUSE_PASSWORD", "admin")
         )
@@ -42,7 +42,6 @@ class ClickHouseConfig:
 @dataclass
 class APIConfig:
     """API configuration."""
-    openaq_token: str | None = None
     aqicn_token: str | None = None
     openweather_token: str | None = None
 
@@ -50,7 +49,6 @@ class APIConfig:
     def from_env(cls) -> "APIConfig":
         """Create config from environment variables."""
         return cls(
-            openaq_token=os.environ.get("OPENAQ_API_TOKEN"),
             aqicn_token=os.environ.get("AQICN_API_TOKEN"),
             openweather_token=os.environ.get("OPENWEATHER_API_TOKEN"),
         )
@@ -60,7 +58,6 @@ class APIConfig:
 class JobConfig:
     """Job-specific configuration."""
     # Rate limiting
-    rate_limit_openaq: float = 0.8  # requests per second
     rate_limit_aqicn: float = 1.0
 
     # Batch settings
@@ -83,10 +80,6 @@ class JobConfig:
         "lon_max": 109.555611
     })
 
-    # Country code for OpenAQ
-    country_code: str = "VN"
-    country_id: int = 56  # Vietnam
-
     @classmethod
     def from_yaml(cls, config_path: str) -> "JobConfig":
         """Load config from YAML file."""
@@ -100,7 +93,6 @@ class JobConfig:
     def from_env(cls) -> "JobConfig":
         """Create config from environment variables."""
         return cls(
-            rate_limit_openaq=float(os.environ.get("RATE_LIMIT_OPENAQ", "0.8")),
             rate_limit_aqicn=float(os.environ.get("RATE_LIMIT_AQICN", "1.0")),
             batch_size=int(os.environ.get("BATCH_SIZE", "1000")),
             max_workers=int(os.environ.get("MAX_WORKERS", "4")),
@@ -157,9 +149,6 @@ class IngestionConfig:
         Raises:
             ValueError: If configuration is invalid
         """
-        if not self.api.openaq_token:
-            logger.warning("OPENAQ_API_TOKEN not set")
-
         if not self.api.aqicn_token:
             logger.warning("AQICN_API_TOKEN not set")
 
@@ -198,4 +187,37 @@ def reset_config() -> None:
     """Reset global configuration (useful for testing)."""
     global _config
     _config = None
+
+
+def require_env(name: str) -> str:
+    """
+    Get an environment variable or raise RuntimeError if it is not set or is empty.
+
+    Args:
+        name: The name of the environment variable.
+
+    Returns:
+        The value of the environment variable.
+
+    Raises:
+        RuntimeError: If the environment variable is not set or is empty.
+    """
+    value = os.environ.get(name)
+    if value in (None, ''):
+        raise RuntimeError(f"{name} environment variable is required")
+    return value
+
+
+def get_clickhouse_env_vars() -> dict[str, str]:
+    """
+    Get ClickHouse connection parameters as environment variables,
+    ensuring CLICKHOUSE_PASSWORD is set.
+    """
+    return {
+        'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
+        'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
+        'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
+        'CLICKHOUSE_PASSWORD': require_env('CLICKHOUSE_PASSWORD'),
+        'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
+    }
 

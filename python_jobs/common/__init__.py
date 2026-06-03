@@ -28,7 +28,17 @@ except ImportError:
 from .api_client import APIClient, PaginatedAPIClient
 from .base_writer import DataWriter
 from .clickhouse_writer import ClickHouseWriter
-from .config import APIConfig, ClickHouseConfig, IngestionConfig, JobConfig, get_config, reset_config
+from .config import (
+    APIConfig,
+    ClickHouseConfig,
+    IngestionConfig,
+    JobConfig,
+    get_config,
+    reset_config,
+    require_env,
+    get_clickhouse_env_vars,
+)
+from .subprocess_runner import run_python_job
 from .csv_writer import CSVWriter
 from .logging_config import JobLogger, get_logger, log_job_stats, setup_logging
 from .rate_limiter import AdaptiveRateLimiter, TokenBucketRateLimiter
@@ -57,6 +67,11 @@ __all__ = [
     "IngestionConfig",
     "get_config",
     "reset_config",
+    "require_env",
+    "get_clickhouse_env_vars",
+
+    # Subprocess runner
+    "run_python_job",
 
     # Logging
     "setup_logging",

@@ -5,21 +5,16 @@
 clickhouse:
   host: "clickhouse"
   port: 8123
-  database: "airquality"
+  database: "air_quality"
   user: "admin"
   password: "admin"
 
 # API Configuration
 api:
-  openaq_token: ""  # Set via OPENAQ_API_TOKEN environment variable
   aqicn_token: ""  # Set via AQICN_API_TOKEN environment variable
 
 # Job-specific Configuration
 job:
-  # Rate limiting (requests per second)
-  rate_limit_openaq: 0.8  # ~48 requests/minute (safe under 60/min)
-  # D-AQI-02: AQICN removed (Phase 6)
-
   # Batch settings
   batch_size: 1000
   max_workers: 4
@@ -38,8 +33,3 @@ job:
     lon_min: 102.0
     lat_max: 23.5
     lon_max: 110.0
-
-  # Country code for OpenAQ
-  country_code: "VN"
-  country_id: 56  # Vietnam
-

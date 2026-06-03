@@ -20,7 +20,7 @@ class ClickHouseWriter:
         self,
         host: str = "clickhouse",
         port: int = 8123,
-        database: str = "airquality",
+        database: str = "air_quality",
         user: str = "admin",
         password: str = "admin",
         batch_size: int = 1000,
@@ -53,9 +53,7 @@ class ClickHouseWriter:
         for record in records:
             prepared_record = record.copy()
             if "source" not in prepared_record:
-                if "openaq" in table.lower():
-                    prepared_record["source"] = "openaq"
-                elif "aqicn" in table.lower():
+                if "aqicn" in table.lower():
                     prepared_record["source"] = "aqicn"
                 elif "tomtom" in table.lower():
                     prepared_record["source"] = "tomtom"

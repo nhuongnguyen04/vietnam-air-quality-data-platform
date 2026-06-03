@@ -15,7 +15,7 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 | `CLICKHOUSE_PORT` | Optional | `8123` | ClickHouse HTTP port. |
 | `CLICKHOUSE_USER` | Required for local stack | Varies: `admin` in Python/dbt helpers | Primary ClickHouse username used across services. |
 | `CLICKHOUSE_PASSWORD` | Required | No single safe default | Primary ClickHouse password. The dashboard refuses to start without it, and the dedicated text-to-SQL runtime no longer falls back to it. |
-| `CLICKHOUSE_DB` | Required for local stack | Varies: `air_quality` in Compose/dbt/OpenMetadata helpers, `airquality` in `python_jobs/common/config.py` and `python_jobs/config/job_config.yaml` | Main ClickHouse database name. Set this explicitly to avoid conflicting defaults. |
+| `CLICKHOUSE_DB` | Required for local stack | `air_quality` | Main ClickHouse database name. Set this explicitly to avoid conflicting defaults. |
 | `CLICKHOUSE_DATABASE` | Optional (documented-only) | `air_quality` in `.env.example` | Present in `.env.example`, but no repo-owned runtime code references it. |
 | `CLICKHOUSE_SECURE` | Optional (documented-only) | `false` in `.env.example` | Present in `.env.example`, but no repo-owned runtime code references it. |
 | `CLICKHOUSE_SERVICE` | Optional | `ClickHouse` | OpenMetadata Streamlit connector service name override for lineage FQNs. |
@@ -44,9 +44,6 @@ Populate a local `.env` file from `.env.example` for Docker Compose runs. Variab
 | `OPENWEATHER_API_TOKENS` | Optional | None | Comma-separated list of OpenWeather tokens for `python_jobs/jobs/openweather/ingest_openweather_unified.py`. |
 | `OPENWEATHER_API_TOKEN_1` ... `OPENWEATHER_API_TOKEN_20` | Optional | None | Additional token slots scanned by the unified OpenWeather ingestion job. |
 | `TOMTOM_API_KEY` | Required for traffic ingestion | None | TomTom traffic API key used by Airflow ingestion services. |
-| `AQICN_API_TOKEN` | Optional (legacy) | None | Still read by `python_jobs/common/config.py`, but the main Compose stack comments that AQICN is no longer used. |
-| `OPENAQ_API_TOKEN` | Optional (legacy) | None | Still supported by `python_jobs/common/config.py` and `python_jobs/config/job_config.yaml`. |
-| `RATE_LIMIT_OPENAQ` | Optional | `0.8` | Overrides `JobConfig.rate_limit_openaq`. |
 | `RATE_LIMIT_AQICN` | Optional | `1.0` | Overrides `JobConfig.rate_limit_aqicn`. |
 | `BATCH_SIZE` | Optional | `1000` | Overrides Python job batch size. Must remain positive. |
 | `MAX_WORKERS` | Optional | `4` | Overrides Python job worker count. Must remain positive. |
@@ -156,7 +153,7 @@ dbt_tranform:
 clickhouse:
   host: "clickhouse"
   port: 8123
-  database: "airquality"
+  database: "air_quality"
   user: "admin"
 
 job:
@@ -195,7 +192,7 @@ The repository does not have a single central settings validator, so requirednes
 
 Optional settings with repo-defined defaults include `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_USER`, `OPENMETADATA_URL`, `OM_ADMIN_USER`, `OM_ADMIN_PASSWORD`, `GROQ_MODEL`, `TEXT_TO_SQL_URL`, `TEXT_TO_SQL_TIMEOUT_SECONDS`, `TEXT_TO_SQL_VANNA_CLIENT`, `TEXT_TO_SQL_VANNA_COLLECTION`, `TEXT_TO_SQL_VANNA_REBUILD`, `DBT_PACKAGES_INSTALL_PATH`, `DBT_TARGET_PATH`, `CSV_OUTPUT_DIR`, `MAX_SYNC_WORKERS`, and the Python job tuning variables.
 
-Settings that are currently documented or legacy rather than strongly wired into the runtime include `CLICKHOUSE_DATABASE`, `CLICKHOUSE_SECURE`, `MAPBOX_ACCESS_TOKEN`, `AQICN_API_TOKEN`, `OPENAQ_API_TOKEN`, `CLICKHOUSE_OM_READER_USER`, and `CLICKHOUSE_OM_READER_PASSWORD`.
+Settings that are currently documented or legacy rather than strongly wired into the runtime include `CLICKHOUSE_DATABASE`, `CLICKHOUSE_SECURE`, `MAPBOX_ACCESS_TOKEN`, `AQICN_API_TOKEN`, `CLICKHOUSE_OM_READER_USER`, and `CLICKHOUSE_OM_READER_PASSWORD`.
 
 ## Defaults
 
@@ -206,7 +203,7 @@ The most important defaults are split across several files and are not always co
 | `CLICKHOUSE_HOST` | `localhost` or `clickhouse` | `dbt/dbt_tranform/profiles.yml`, `python_jobs/dashboard/lib/clickhouse_client.py`, `python_jobs/text_to_sql/clickhouse_executor.py`, `python_jobs/common/config.py`, `airflow/config/setup_connections.py` |
 | `CLICKHOUSE_PORT` | `8123` | dbt profiles, Python helpers, and Compose fallbacks |
 | `CLICKHOUSE_USER` | `admin` | dbt profiles, Python helpers, and Compose fallbacks |
-| `CLICKHOUSE_DB` | `air_quality` or `airquality` | `docker-compose.yml`, dbt profiles, OpenMetadata/Airflow helpers, and `python_jobs/config/job_config.yaml` |
+| `CLICKHOUSE_DB` | `air_quality` | `docker-compose.yml`, dbt profiles, OpenMetadata/Airflow helpers, and `python_jobs/config/job_config.yaml` |
 | `GROQ_MODEL` | `qwen/qwen3-32b` | `.env.example`, `docker-compose.yml`, and `python_jobs/text_to_sql/vanna_runtime.py` |
 | `TEXT_TO_SQL_URL` | `http://localhost:8000` or `http://text-to-sql:8000` | `python_jobs/dashboard/lib/text_to_sql_client.py` and `docker-compose.yml` |
 | `TEXT_TO_SQL_TIMEOUT_SECONDS` | `90` | `python_jobs/dashboard/lib/text_to_sql_client.py`, `.env.example`, and `docker-compose.yml` |
@@ -220,14 +217,14 @@ The most important defaults are split across several files and are not always co
 | `MIGRATION_LIMIT_PARAM` | `1200` | `docker-compose.yml` |
 | `POSTGRES_OM_DB` / `POSTGRES_OM_USER` / `POSTGRES_OM_PASSWORD` | `openmetadata_db` / `openmetadata_user` / `openmetadata_password` | `.env.example` and Compose fallbacks |
 | `POSTGRES_OM_AIRFLOW_DB` | `airflow_db` | `docker-compose.yml` |
-| `RATE_LIMIT_OPENAQ` / `RATE_LIMIT_AQICN` | `0.8` / `1.0` | `python_jobs/common/config.py` |
+| `RATE_LIMIT_AQICN` | `1.0` | `python_jobs/common/config.py` |
 | `BATCH_SIZE` / `MAX_WORKERS` / `MAX_RETRIES` | `1000` / `4` / `3` | `python_jobs/common/config.py` |
 | `CSV_OUTPUT_DIR` | `landing_zone` | `scripts/gdrive_uploader.py` and `python_jobs/common/writer_factory.py` |
 | `MAX_SYNC_WORKERS` | `5` | `python_jobs/jobs/sync/gdrive_sync.py` |
 | `DBT_PACKAGES_INSTALL_PATH` / `DBT_TARGET_PATH` | `dbt_packages` / `target` | `dbt/dbt_tranform/dbt_project.yml` |
 | `CLICKHOUSE_SERVICE` / `CLICKHOUSE_SCHEMA` | `ClickHouse` / `air_quality` | `openmetadata/custom_connectors/streamlit.py` |
 
-Set the core ClickHouse variables explicitly in `.env` instead of relying on file-local defaults. That avoids the `air_quality` versus `airquality` drift already present in the checked-in configuration.
+Set the core ClickHouse variables explicitly in `.env` instead of relying on file-local defaults.
 
 ## Per-environment Overrides
 

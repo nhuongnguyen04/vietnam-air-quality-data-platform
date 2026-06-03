@@ -17,8 +17,8 @@ def test_dag_ingest_hourly_contains_expected_job_tasks() -> None:
     assert "def run_aqiin_measurements_ingestion()" in content
     assert "def run_openweather_unified_ingestion()" in content
     assert "def run_traffic_processing(**context)" in content
-    assert "python jobs/aqiin/ingest_measurements.py --mode incremental" in content
-    assert "python jobs/openweather/ingest_openweather_unified.py" in content
+    assert "jobs/aqiin/ingest_measurements.py" in content
+    assert "jobs/openweather/ingest_openweather_unified.py" in content
 
 
 @pytest.mark.integration

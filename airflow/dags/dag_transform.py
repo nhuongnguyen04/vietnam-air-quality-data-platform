@@ -9,11 +9,20 @@ It can also be triggered manually for ad hoc rebuilds.
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from airflow.sdk import dag, get_current_context, task
+
+# Add python_jobs to path for imports in container / local fallback
+PYTHON_JOBS_DIR = os.environ.get('PYTHON_JOBS_DIR', '/opt/python/jobs')
+if not os.path.exists(PYTHON_JOBS_DIR):
+    PYTHON_JOBS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../python_jobs'))
+sys.path.insert(0, PYTHON_JOBS_DIR)
+
+from common.config import require_env, get_clickhouse_env_vars
 
 default_args = {
     'owner': 'air-quality-team',
@@ -75,35 +84,26 @@ def _write_json_atomic(filepath: str, data: dict) -> None:
             os.unlink(temp_path)
 
 
-def _require_env(name: str) -> str:
-    value = os.environ.get(name)
-    if value in (None, ''):
-        raise RuntimeError(f"{name} environment variable is required")
-    return value
-
-
 def get_dbt_env_vars() -> dict[str, str]:
-    return {
-        'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
-        'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
-        'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-        'CLICKHOUSE_PASSWORD': _require_env('CLICKHOUSE_PASSWORD'),
-        'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
+    env = get_clickhouse_env_vars()
+    env.update({
         'DBT_LOG_PATH': os.path.join(DBT_PROJECT_DIR, 'logs'),
         'DBT_TARGET_PATH': os.path.join(DBT_PROJECT_DIR, 'target'),
         'DBT_PACKAGES_INSTALL_PATH': os.environ.get(
             'DBT_PACKAGES_INSTALL_PATH', '/opt/dbt/.cache/dbt_packages'
         ),
-    }
+    })
+    return env
 
 
 def get_clickhouse_settings() -> tuple[str, int, str, str, str]:
+    env = get_clickhouse_env_vars()
     return (
-        os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
-        int(os.environ.get('CLICKHOUSE_PORT', '8123')),
-        os.environ.get('CLICKHOUSE_USER', 'admin'),
-        _require_env('CLICKHOUSE_PASSWORD'),
-        os.environ.get('CLICKHOUSE_DB', 'air_quality'),
+        env['CLICKHOUSE_HOST'],
+        int(env['CLICKHOUSE_PORT']),
+        env['CLICKHOUSE_USER'],
+        env['CLICKHOUSE_PASSWORD'],
+        env['CLICKHOUSE_DB'],
     )
 
 

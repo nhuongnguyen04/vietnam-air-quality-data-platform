@@ -60,7 +60,7 @@ class JobContextFilter(logging.Filter):
     Logging filter to add job context to all log records.
 
     Usage:
-        logger.addFilter(JobContextFilter(job_id="job123", source="openaq"))
+        logger.addFilter(JobContextFilter(job_id="job123", source="openweather"))
     """
 
     def __init__(self, job_id: str | None = None, source: str | None = None):
@@ -101,7 +101,7 @@ def setup_logging(
         log_to_file: Whether to log to file
         log_dir: Directory for log files (defaults to env-aware path)
         job_name: Name of the job (used for log file name)
-        source: Data source (openaq, aqicn)
+        source: Data source (openweather, aqicn)
 
     Returns:
         Configured logger
@@ -175,7 +175,7 @@ class JobLogger:
     Context manager for job-level logging.
 
     Usage:
-        with JobLogger("ingest_openaq_measurements", source="openaq") as logger:
+        with JobLogger("ingest_openweather_measurements", source="openweather") as logger:
             logger.info("Starting job", extra={"records_processed": 0})
     """
 

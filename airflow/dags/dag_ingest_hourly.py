@@ -11,10 +11,20 @@ Schedule: None (manual fallback only)
 """
 
 import os
+import sys
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import dag, task
+
+# Add python_jobs to path for imports in container / local fallback
+PYTHON_JOBS_DIR = os.environ.get('PYTHON_JOBS_DIR', '/opt/python/jobs')
+if not os.path.exists(PYTHON_JOBS_DIR):
+    PYTHON_JOBS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../python_jobs'))
+sys.path.insert(0, PYTHON_JOBS_DIR)
+
+from common.config import get_clickhouse_env_vars
+from common.subprocess_runner import run_python_job
 
 # Default arguments
 default_args = {
@@ -31,24 +41,14 @@ PYTHON_JOBS_DIR = os.environ.get('PYTHON_JOBS_DIR', '/opt/python/jobs')
 PYTHON_PATH = PYTHON_JOBS_DIR
 
 
-def _require_env(name: str) -> str:
-    value = os.environ.get(name)
-    if value in (None, ''):
-        raise RuntimeError(f"{name} environment variable is required")
-    return value
-
-
 def get_job_env_vars() -> dict:
     """Get environment variables at execution time (not parse time)."""
-    return {
-        'CLICKHOUSE_HOST': os.environ.get('CLICKHOUSE_HOST', 'clickhouse'),
-        'CLICKHOUSE_PORT': os.environ.get('CLICKHOUSE_PORT', '8123'),
-        'CLICKHOUSE_USER': os.environ.get('CLICKHOUSE_USER', 'admin'),
-        'CLICKHOUSE_PASSWORD': _require_env('CLICKHOUSE_PASSWORD'),
-        'CLICKHOUSE_DB': os.environ.get('CLICKHOUSE_DB', 'air_quality'),
+    env = get_clickhouse_env_vars()
+    env.update({
         'OPENWEATHER_API_TOKENS': os.environ.get('OPENWEATHER_API_TOKENS', os.environ.get('OPENWEATHER_API_TOKEN', '')),
         'TOMTOM_API_KEY': os.environ.get('TOMTOM_API_KEY', ''),
-    }
+    })
+    return env
 
 
 @dag(
@@ -86,51 +86,43 @@ def dag_ingest_hourly():
     @task
     def run_aqiin_measurements_ingestion():
         """Run AQI.in or WAQI measurements ingestion based on token availability."""
-        import subprocess
-
         env = os.environ.copy()
         env.update(get_job_env_vars())
 
         # Select ingest script based on WAQI_TOKEN environment variable
         waqi_token = env.get("WAQI_TOKEN")
         if waqi_token:
-            cmd = f"cd {PYTHON_PATH} && python jobs/waqi/ingest_measurements.py --mode incremental"
+            script = "jobs/waqi/ingest_measurements.py"
             source_name = "WAQI API"
         else:
-            cmd = f"cd {PYTHON_PATH} && python jobs/aqiin/ingest_measurements.py --mode incremental"
+            script = "jobs/aqiin/ingest_measurements.py"
             source_name = "AQI.in Scraper"
 
-        print(f"Running {source_name} ingestion via command: {cmd}")
-
-        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
+        print(f"Running {source_name} ingestion...")
+        run_python_job(
+            script_path=script,
+            args=["--mode", "incremental"],
+            env_overrides=env,
+            cwd=PYTHON_PATH
+        )
         print(f"{source_name} measurements ingestion completed")
-
-
 
     @task
     def run_openweather_unified_ingestion():
         """Run Unified OpenWeather ingestion (AQI + Weather) for 653 points."""
-        import subprocess
-
         env = os.environ.copy()
         env.update(get_job_env_vars())
 
-        cmd = f"cd {PYTHON_PATH} && python jobs/openweather/ingest_openweather_unified.py"
-
-        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
+        run_python_job(
+            script_path="jobs/openweather/ingest_openweather_unified.py",
+            env_overrides=env,
+            cwd=PYTHON_PATH
+        )
         print("OpenWeather Unified ingestion completed (AQI + Weather)")
 
     @task
     def run_traffic_processing(**context):
         """Run TomTom Traffic Ingestion (Peak) or Off-peak Generation."""
-        import os
-        import subprocess
         from datetime import datetime
 
         # Get Vietnam Hour
@@ -143,15 +135,16 @@ def dag_ingest_hourly():
 
         if 7 <= hour <= 20:
             print(f"Peak Hour ({hour}:00 VN): Running TomTom Ingestion...")
-            cmd = f"cd {PYTHON_PATH} && python jobs/traffic/ingest_tomtom.py"
+            script = "jobs/traffic/ingest_tomtom.py"
         else:
             print(f"Off-Peak Hour ({hour}:00 VN): Running Simulated Traffic Generation...")
-            cmd = f"cd {PYTHON_PATH} && python jobs/traffic/generate_offpeak_traffic.py"
+            script = "jobs/traffic/generate_offpeak_traffic.py"
 
-        result = subprocess.run(cmd, shell=True, env=env, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Error: {result.stderr}")
-            raise Exception(f"Command failed: {cmd}")
+        run_python_job(
+            script_path=script,
+            env_overrides=env,
+            cwd=PYTHON_PATH
+        )
 
         print(f"Traffic processing completed for hour {hour}")
         return True

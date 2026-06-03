@@ -5,7 +5,7 @@
 
 A comprehensive data engineering platform that ingests, transforms, and visualizes air quality data for Vietnam from multiple external sources (AQI.in ~540 monitoring stations, OpenWeather Air Pollution API 62 provinces, and government/MONRE data), stores it in ClickHouse, and exposes it through Streamlit dashboards (Phase 3.2), Grafana monitoring (Phase 3.3), and automated reports with alerting.
 
-**This is a brownfield project.** The existing codebase already has OpenAQ ingestion, ClickHouse storage, dbt transformations, and Airflow orchestration. This refactor replaces the data source layer, modernizes the entire pipeline, and adds visualization + metadata management.
+**This is a brownfield project.** The existing codebase had OpenAQ ingestion (fully removed), ClickHouse storage, dbt transformations, and Airflow orchestration. This refactor replaces the data source layer, modernizes the entire pipeline, and adds visualization + metadata management.
 
 **Core Value:** Reliable, near-real-time air quality monitoring for Vietnam — trusted data from multiple sources, cleaned and unified, available to analysts and the public via Streamlit dashboards and alerts.
 
@@ -118,7 +118,6 @@ A comprehensive data engineering platform that ingests, transforms, and visualiz
 | `CLICKHOUSE_USER` | `admin` | ClickHouse user |
 | `CLICKHOUSE_PASSWORD` | `admin123456` | ClickHouse password |
 | `CLICKHOUSE_DB` | `air_quality` | ClickHouse database name |
-| `OPENAQ_API_TOKEN` | (from `.env`) | OpenAQ API key (deprecated; OpenAQ ingestion removed; `X-API-KEY` header) |
 | `OPENWEATHER_API_TOKEN` | (from `.env`) | OpenWeather Air Pollution API token |
 | `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` | `postgresql+psycopg2://airflow:airflow@postgres/airflow` | PostgreSQL Airflow backend |
 | `AIRFLOW_CONN_CLICKHOUSE_DEFAULT` | auto-assembled | Airflow connection string for ClickHouse sensor |
