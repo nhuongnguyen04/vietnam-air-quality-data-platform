@@ -15,10 +15,14 @@ def test_app_registers_ask_data_page():
 
 
 def test_i18n_contains_nav_ask_data_in_both_languages():
-    i18n_source = _read("python_jobs/dashboard/lib/i18n.py")
+    import json
+    vi_trans = json.loads(Path("python_jobs/dashboard/lib/locale/vi.json").read_text(encoding="utf-8"))
+    en_trans = json.loads(Path("python_jobs/dashboard/lib/locale/en.json").read_text(encoding="utf-8"))
 
-    assert "nav_ask_data" in i18n_source
-    assert "\"Ask Data\"" in i18n_source
+    assert "nav_ask_data" in vi_trans
+    assert "nav_ask_data" in en_trans
+    assert en_trans["nav_ask_data"] == "Ask AI"
+
 
 
 def test_page_shows_preview_before_execute_and_uses_service_client():
