@@ -15,7 +15,7 @@ from lib.data_service import escape_value
 from lib.filters import render_top_filters
 from lib.i18n import t
 from lib.page_helpers import page_wrapper, render_section_divider
-from lib.style import render_metric_card
+from lib.ui_components import render_kpi_card
 
 COMPLIANCE_COLORS = {
     "Good/Safe": "#10B981",
@@ -149,18 +149,43 @@ def main(lang: str):
         rate = ((total_days - total_breach) * 100.0 / total_days) if total_days > 0 else 100.0
 
         with c_alert[0]:
-            render_metric_card("Tỷ lệ tuân thủ", f"{rate:.1f}%", icon="star")
+            render_kpi_card(
+                "Tỷ lệ tuân thủ" if lang == "vi" else "Compliance Rate",
+                f"{rate:.1f}%",
+                "đạt chuẩn quy chuẩn" if lang == "vi" else "meeting standards",
+                icon="⭐"
+            )
         with c_alert[1]:
-            render_metric_card("Số ngày vi phạm", f"{int(total_breach)} ngày", icon="error")
+            render_kpi_card(
+                "Số ngày vi phạm" if lang == "vi" else "Breach Days",
+                f"{int(total_breach)} ngày" if lang == "vi" else f"{int(total_breach)} days",
+                "vượt ngưỡng an toàn" if lang == "vi" else "exceeding safety limits",
+                icon="🚨"
+            )
         with c_alert[2]:
             worst_p = breach.iloc[0].province if not breach.empty else "N/A"
-            render_metric_card("Điểm nóng vi phạm", worst_p, icon="location")
+            render_kpi_card(
+                "Điểm nóng vi phạm" if lang == "vi" else "Breach Hotspot",
+                worst_p,
+                "tỉnh ô nhiễm nhất" if lang == "vi" else "most polluted province",
+                icon="📍"
+            )
         with c_alert[3]:
-            render_metric_card("Tổng ngày phân tích", f"{int(total_days)} ngày", icon="schedule")
+            render_kpi_card(
+                "Tổng ngày phân tích" if lang == "vi" else "Total Days Analyzed",
+                f"{int(total_days)} ngày" if lang == "vi" else f"{int(total_days)} days",
+                "trong khoảng thời gian" if lang == "vi" else "within selected range",
+                icon="⏱️"
+            )
     else:
         for idx in range(4):
             with c_alert[idx]:
-                render_metric_card("Hệ thống", "N/A", icon="star")
+                render_kpi_card(
+                    "Hệ thống" if lang == "vi" else "System",
+                    "N/A",
+                    "không có dữ liệu" if lang == "vi" else "no data available",
+                    icon="⭐"
+                )
 
     render_section_divider()
 

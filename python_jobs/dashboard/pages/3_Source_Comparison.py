@@ -18,7 +18,7 @@ from lib.filters import render_top_filters
 from lib.i18n import t
 from lib.page_helpers import page_wrapper, render_section_divider, render_info_banner
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
-from lib.style import render_metric_card
+from lib.ui_components import render_kpi_card
 
 SOURCE_LABELS = {"aqiin": "📡 Quan trắc mặt đất", "openweather": "🛰️ Mô hình vệ tinh"}
 SOURCE_COLORS = {"aqiin": "#0891B2", "openweather": "#F59E0B"}
@@ -144,13 +144,33 @@ def main(lang: str):
             agree_pct = (len(agree_rows) * 100.0 / len(both_sources_df)) if not both_sources_df.empty else 0
 
             with c_corr[0]:
-                render_metric_card("Tương quan Pearson (r)", f"{r_val:.2f}" if not pd.isna(r_val) else "N/A", icon="insights")
+                render_kpi_card(
+                    "Tương quan Pearson (r)",
+                    f"{r_val:.2f}" if not pd.isna(r_val) else "N/A",
+                    "chỉ số tương quan" if lang == "vi" else "correlation coefficient",
+                    icon="📈"
+                )
             with c_corr[1]:
-                render_metric_card("Độ lệch AQI TB (Bias)", f"{avg_bias:+.1f} AQI" if not pd.isna(avg_bias) else "N/A", icon="star")
+                render_kpi_card(
+                    "Độ lệch AQI TB (Bias)",
+                    f"{avg_bias:+.1f} AQI" if not pd.isna(avg_bias) else "N/A",
+                    "độ lệch mặt đất - vệ tinh" if lang == "vi" else "ground - satellite bias",
+                    icon="⭐"
+                )
             with c_corr[2]:
-                render_metric_card("Sai số MAE", f"{avg_mae:.1f} AQI" if not pd.isna(avg_mae) else "N/A", icon="error")
+                render_kpi_card(
+                    "Sai số MAE",
+                    f"{avg_mae:.1f} AQI" if not pd.isna(avg_mae) else "N/A",
+                    "sai số tuyệt đối trung bình" if lang == "vi" else "mean absolute error",
+                    icon="⚠️"
+                )
             with c_corr[3]:
-                render_metric_card("Đồng thuận Category", f"{agree_pct:.0f}%" if len(both_sources_df) > 0 else "N/A", icon="schedule")
+                render_kpi_card(
+                    "Đồng thuận Category",
+                    f"{agree_pct:.0f}%" if len(both_sources_df) > 0 else "N/A",
+                    "khớp phân loại chất lượng" if lang == "vi" else "category agreement",
+                    icon="⏱️"
+                )
 
             render_section_divider()
 
@@ -285,13 +305,33 @@ def main(lang: str):
                 # Metric columns
                 mc1, mc2, mc3, mc4 = st.columns(4)
                 with mc1:
-                    render_metric_card("Độ trễ API" if lang == "vi" else "API Lag", f"{row.latest_lag_hours:.1f}h", icon="schedule")
+                    render_kpi_card(
+                        "Độ trễ API" if lang == "vi" else "API Lag",
+                        f"{row.latest_lag_hours:.1f}h",
+                        "thời gian trễ nhận tin" if lang == "vi" else "time since last API response",
+                        icon="⏱️"
+                    )
                 with mc2:
-                    render_metric_card("Độ trễ nạp (DB)" if lang == "vi" else "Ingestion Lag", f"{row.latest_ingest_lag_hours:.1f}h", icon="upload")
+                    render_kpi_card(
+                        "Độ trễ nạp (DB)" if lang == "vi" else "Ingestion Lag",
+                        f"{row.latest_ingest_lag_hours:.1f}h",
+                        "thời gian trễ nạp DB" if lang == "vi" else "time since last DB write",
+                        icon="⚡"
+                    )
                 with mc3:
-                    render_metric_card("Số phường trễ" if lang == "vi" else "Stale Wards", f"{int(row.stale_count)}", icon="biotech")
+                    render_kpi_card(
+                        "Số phường trễ" if lang == "vi" else "Stale Wards",
+                        f"{int(row.stale_count)}",
+                        "dữ liệu cập nhật trễ" if lang == "vi" else "delayed data update",
+                        icon="📡"
+                    )
                 with mc4:
-                    render_metric_card("Số phường ngoại tuyến" if lang == "vi" else "Offline Wards", f"{int(row.offline_count)}", icon="error")
+                    render_kpi_card(
+                        "Số phường ngoại tuyến" if lang == "vi" else "Offline Wards",
+                        f"{int(row.offline_count)}",
+                        "không hoạt động" if lang == "vi" else "no data reported",
+                        icon="🚨"
+                    )
 
 if __name__ == "__main__":
     main()

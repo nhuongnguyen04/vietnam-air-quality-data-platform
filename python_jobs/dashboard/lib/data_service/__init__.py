@@ -3,8 +3,6 @@ from .core import (
     build_where_clause,
     get_source_mix,
     get_source_table,
-    get_hierarchy_metadata,
-    get_ward_list,
     get_pollutant_col,
     get_pollutant_cols,
     build_date_comparison_ranges,
@@ -15,6 +13,8 @@ from .core import (
     POLLUTANT_LABELS,
 )
 from .air_quality import (
+    get_hierarchy_metadata,
+    get_ward_list,
     get_source_coverage,
     get_source_correlation,
     get_current_aqi_status,
