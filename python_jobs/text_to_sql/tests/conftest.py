@@ -44,24 +44,6 @@ def temp_semantic_dir(tmp_path: Path) -> Path:
         yaml.safe_dump({"version": 1, "tables": ["dm_aqi_current_status"]}, sort_keys=False),
         encoding="utf-8",
     )
-    (semantic_dir / "table_docs.yml").write_text(
-        yaml.safe_dump(
-            {
-                "version": 1,
-                "tables": {
-                    "dm_aqi_current_status": {
-                        "business_purpose": "Current AQI status",
-                        "grain": "province, ward_code",
-                        "key_dimensions": ["province", "ward_code"],
-                        "safe_filters": ["province"],
-                        "lineage_summary": "Approved current-state mart",
-                    }
-                },
-            },
-            sort_keys=False,
-        ),
-        encoding="utf-8",
-    )
     (semantic_dir / "example_questions.yml").write_text(
         yaml.safe_dump(
             {
@@ -84,22 +66,6 @@ def temp_semantic_dir(tmp_path: Path) -> Path:
                 ],
             },
             sort_keys=False,
-        ),
-        encoding="utf-8",
-    )
-    (semantic_dir / "generated_schema_snapshot.json").write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "tables": [
-                    {
-                        "name": "dm_aqi_current_status",
-                        "grain": "province, ward_code",
-                        "columns": ["province", "ward_code", "current_aqi_vn"],
-                    }
-                ],
-            },
-            indent=2,
         ),
         encoding="utf-8",
     )

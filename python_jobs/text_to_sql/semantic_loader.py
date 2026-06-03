@@ -5,10 +5,6 @@ Sources of truth (new architecture):
   - dbt schema YAMLs       : business descriptions for models + columns
   - ClickHouse system.columns : actual DDL types at runtime
   - example_questions.yml  : Q+SQL training pairs (unchanged)
-
-Deprecated (kept for backward compatibility only, not used by catalog_builder):
-  - table_docs.yml
-  - generated_schema_snapshot.json
 """
 from __future__ import annotations
 

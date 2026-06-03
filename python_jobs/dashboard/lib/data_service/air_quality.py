@@ -1,49 +1,19 @@
-"""Data service for hierarchical filtering and optimal source selection.
-Redirected to Analytics-First Layer (dm_* tables).
-"""
 import streamlit as st
+import pandas as pd
+from lib.clickhouse_client import query_df
+from lib.i18n import t
+from lib.aqi_utils import AQI_VN_SQL_EXPR
 
-from .aqi_utils import AQI_VN_SQL_EXPR
-from .clickhouse_client import query_df
-from .i18n import t
-
-
-def escape_value(val) -> str:
-    """Safely escape backslashes and single quotes in string values to prevent SQL injection.
-    
-    Args:
-        val: Any value to be escaped for a SQL single-quoted literal.
-        
-    Returns:
-        The safely escaped string value.
-    """
-    if val is None:
-        return ""
-    if not isinstance(val, str):
-        val = str(val)
-    # Escape backslash first, then single quotes
-    return val.replace("\\", "\\\\").replace("'", "\\'")
-
-
-
-# Mapping of temporal grains to dbt ANALYTICS models (dm_*)
-TIME_GRAIN_TABLE = {
-    "Giờ": "dm_air_quality_overview_hourly",
-    "Ngày": "dm_air_quality_overview_daily",
-    "Tháng": "dm_air_quality_overview_monthly",
-}
-
-def get_source_mix(source: str) -> str:
-    """Map source dropdown value to the unified source_mix database value."""
-    if source == "openweather":
-        return "modeled"
-    return "observed"
-
-def get_source_table(spatial_grain: str, time_grain: str, source: str = "blended") -> str:
-    """Return the analytical table name for the given selection and source."""
-    return TIME_GRAIN_TABLE.get(time_grain, "dm_air_quality_overview_daily")
-
-
+from .core import (
+    escape_value,
+    build_where_clause,
+    get_source_mix,
+    get_pollutant_cols,
+    build_date_comparison_ranges,
+    SOURCE_MIX_LABELS,
+    CONFIDENCE_LABELS,
+    POLLUTANT_LABELS,
+)
 
 @st.cache_data(ttl=3600)
 def get_hierarchy_metadata():
@@ -64,65 +34,11 @@ def get_ward_list(province: str):
     q = f"SELECT DISTINCT ward_code, ward_name FROM air_quality.dim_administrative_units WHERE province = '{escaped_province}' ORDER BY ward_name"
     return query_df(q)
 
-def get_pollutant_col(pollutant: str, standard: str = "VN_AQI") -> str:
-    """Map pollutant filter to database column name."""
-    if pollutant == "aqi":
-        # Handle "WHO 2021" or other non-VN_AQI labels from app.py
-        return "avg_aqi_vn" if standard == "VN_AQI" else "avg_aqi_us"
-
-    # For now, return the _avg concentrations.
-    # In future, we might want _aqi versions for each pollutant.
-    mapping = {
-        "pm25": "pm25_avg",
-        "pm10": "pm10_avg",
-        "co": "co_avg",
-        "no2": "no2_avg",
-        "so2": "so2_avg",
-        "o3": "o3_avg"
-    }
-    return mapping.get(pollutant, "avg_aqi_vn")
-
-def get_pollutant_cols(pollutant: str, standard: str = "VN_AQI") -> tuple[str, str]:
-    """Map pollutant filter to (avg_col, max_col) names.
-    Safely handles the fact that dm_* tables only store max columns for AQI.
-    """
-    avg_col = get_pollutant_col(pollutant, standard)
-
-    if pollutant == "aqi":
-        # AQI has both avg and max columns in dm_* tables
-        max_col = avg_col.replace("avg", "max")
-    else:
-        # Specific pollutants (PM25, etc) only have averages in dm_* summary tables
-        max_col = avg_col
-
-    return avg_col, max_col
-
-
-SOURCE_MIX_LABELS = {
-    "observed": {"vi": "Quan trắc", "en": "Observed"},
-    "mixed": {"vi": "Kết hợp", "en": "Mixed"},
-    "modeled": {"vi": "Mô hình", "en": "Modeled"},
-}
-
-CONFIDENCE_LABELS = {
-    "high": {"vi": "Tin cậy cao", "en": "High confidence"},
-    "medium": {"vi": "Tin cậy vừa", "en": "Medium confidence"},
-    "low": {"vi": "Ước tính mô hình", "en": "Modeled estimate"},
-}
-
-CONFIDENCE_COLORS = {
-    "high": "#16a34a",
-    "medium": "#f59e0b",
-    "low": "#ef4444",
-}
-
-
 def localize_source_mix(source_mix: str | None, lang: str = "vi") -> str:
     """Return a localized source-mix label for dashboard display."""
     if not source_mix:
         return "N/A"
     return SOURCE_MIX_LABELS.get(source_mix, {}).get(lang, source_mix)
-
 
 def localize_confidence_level(confidence_level: str | None, lang: str = "vi") -> str:
     """Return a localized confidence label for dashboard display."""
@@ -130,78 +46,10 @@ def localize_confidence_level(confidence_level: str | None, lang: str = "vi") ->
         return "N/A"
     return CONFIDENCE_LABELS.get(confidence_level, {}).get(lang, confidence_level)
 
-
-def build_where_clause(
-    spatial_scope: str,
-    spatial_value: str,
-    date_range=None,
-    date_col: str = "date",
-    time_unit: str = "day",
-    source_mix: str = None,
-    source: str = None,
-):
-    """Construct dynamic WHERE clause based on hierarchical filters.
-
-    Args:
-        spatial_scope: "Vùng", "Khu vực", "Tỉnh", "Phường", or None
-        spatial_value: the selected scope value
-        date_range: list/tuple of 2 date/datetime objects
-        date_col: override the date column name (ignored when time_unit="hour")
-        time_unit: "hour" uses datetime_hour + toDateTime(); "day" uses date column
-        source_mix: optionally filter by source_mix ("observed" or "modeled")
-        source: optionally filter by source ("aqiin", "openweather", etc.)
-    """
-    clauses = []
-    if source_mix:
-        clauses.append(f"source_mix = '{escape_value(source_mix)}'")
-    if source:
-        clauses.append(f"source = '{escape_value(source)}'")
-
-    if spatial_scope == "Vùng" and spatial_value:
-        clauses.append(f"region_3 = '{escape_value(spatial_value)}'")
-    elif spatial_scope == "Khu vực" and spatial_value:
-        clauses.append(f"region_8 = '{escape_value(spatial_value)}'")
-    elif spatial_scope in ["Tỉnh", "Phường"] and spatial_value:
-        clauses.append(f"province = '{escape_value(spatial_value)}'")
-
-    if date_range:
-        if time_unit == "hour":
-            # Use datetime_hour column with toDateTime() for precise hourly filtering
-            formatted = []
-            for d in date_range:
-                if hasattr(d, "strftime"):
-                    formatted.append(d.strftime("%Y-%m-%d %H:%M:%S"))
-                else:
-                    formatted.append(escape_value(d))
-            if len(formatted) == 2:
-                clauses.append(
-                    f"datetime_hour BETWEEN toDateTime('{formatted[0]}') "
-                    f"AND toDateTime('{formatted[1]}')"
-                )
-            elif len(formatted) == 1:
-                clauses.append(f"datetime_hour = toDateTime('{formatted[0]}')")
-        else:
-            # Day-level filtering — use whichever date_col is appropriate
-            formatted = []
-            for d in date_range:
-                if hasattr(d, "strftime"):
-                    formatted.append(d.strftime("%Y-%m-%d"))
-                else:
-                    formatted.append(escape_value(d)[:10])  # truncate to YYYY-MM-DD
-            if len(formatted) == 2:
-                start_date, end_date = formatted
-                clauses.append(f"{date_col} BETWEEN '{start_date}' AND '{end_date}'")
-            elif len(formatted) == 1:
-                clauses.append(f"{date_col} = '{formatted[0]}'")
-
-    return " AND ".join(clauses) if clauses else "1=1"
-
-
 @st.cache_data(ttl=600)
 def get_source_coverage(province: str = None) -> list:
     """Fetch ground station coverage per province or nation-wide from dm_source_coverage."""
-    escaped_province = escape_value(province)
-    where_clause = f"WHERE province = '{escaped_province}'" if province else ""
+    where_clause = f"WHERE province = '{escape_value(province)}'" if province else ""
     q = f"""
     SELECT
         province,
@@ -217,7 +65,6 @@ def get_source_coverage(province: str = None) -> list:
     """
     return query_df(q)
 
-
 @st.cache_data(ttl=600)
 def get_source_correlation(province: str = None, start_date=None, end_date=None) -> list:
     """Fetch correlation, bias and MAE metrics from dm_source_correlation_daily."""
@@ -225,7 +72,6 @@ def get_source_correlation(province: str = None, start_date=None, end_date=None)
     if province:
         clauses.append(f"province = '{escape_value(province)}'")
     if start_date:
-        # start_date might be string or date object
         if hasattr(start_date, "strftime"):
             start_str = start_date.strftime("%Y-%m-%d")
         else:
@@ -261,7 +107,6 @@ def get_source_correlation(province: str = None, start_date=None, end_date=None)
     """
     return query_df(q)
 
-
 @st.cache_data(ttl=120)
 def get_current_aqi_status():
     """Fetch current AQI per province — same table as Grafana alert rules."""
@@ -296,8 +141,6 @@ def get_current_aqi_status():
     """
     return query_df(q)
 
-
-# Caching bypassed to ensure instant, 100% reactive KPI card updating across filter changes
 def get_national_summary(table, col, m_col, grain, scope, dates, tunit, source_name="blended"):
     """KPI summary — follows the active filter (time_unit aware)."""
     source_mix = get_source_mix(source_name)
@@ -316,21 +159,18 @@ def get_national_summary(table, col, m_col, grain, scope, dates, tunit, source_n
     """
     return query_df(q)
 
-
 @st.cache_data(ttl=300)
 def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"):
     """Map & bar chart data — ward-level for Tỉnh/Phường, province-level otherwise."""
     if source_name == "aqiin":
-        # Raw / Staging level query for un-aggregated stations
         is_aqi = "aqi" in col
         if is_aqi:
             pollutant_name = "aqi"
             standard_name = "VN_AQI" if "vn" in col else "US_AQI"
         else:
-            pollutant_name = col.split("_")[0]  # e.g., "pm25" from "pm25_avg"
+            pollutant_name = col.split("_")[0]
             standard_name = "VN_AQI"
 
-        # Construct date filter
         if dates and len(dates) == 2:
             start_val = dates[0].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[0], "hour") else f"{dates[0]} 00:00:00"
             end_val = dates[1].strftime("%Y-%m-%d %H:%M:%S") if hasattr(dates[1], "hour") else f"{dates[1]} 23:59:59"
@@ -341,7 +181,6 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
         else:
             date_filter = "1=1"
 
-        # Construct spatial filter
         spatial_filters = []
         if grain == "Vùng" and scope:
             spatial_filters.append(f"d.region_3 = '{escape_value(scope)}'")
@@ -354,12 +193,10 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
 
         if pollutant_name == "aqi":
             if standard_name == "VN_AQI":
-                # Compute VN AQI on the fly using standard formulas from calculate_aqi_vn macro
                 aqi_vn_expr = AQI_VN_SQL_EXPR
                 overall_aqi_expr = f"max({aqi_vn_expr})"
                 main_poll_expr = f"argMax(parameter, {aqi_vn_expr})"
             else:
-                # US AQI
                 overall_aqi_expr = "any(aqi_reported)"
                 main_poll_expr = "argMax(parameter, value)"
 
@@ -428,7 +265,6 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
         where_clause = build_where_clause(grain, scope, dates, time_unit=tunit, source_mix=source_mix)
 
         if grain in ["Tỉnh", "Phường"]:
-            # Ward-level: show individual ward dots on the map
             q = f"""
             SELECT
                 ward_code,
@@ -469,7 +305,6 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
             )
             """
         else:
-            # National / Region: aggregate to province centroids
             q = f"""
             SELECT
                 province,
@@ -504,11 +339,9 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
             )
             """
     df = query_df(q)
-    # Restore expected column names for downstream map rendering
     if not df.empty and "lat" in df.columns:
         df = df.rename(columns={"lat": "latitude", "lon": "longitude"})
     return df
-
 
 @st.cache_data(ttl=300)
 def get_aqi_distribution(table, col, grain, scope, dates, tunit, source_name="blended", lang="vi"):
@@ -538,73 +371,8 @@ def get_aqi_distribution(table, col, grain, scope, dates, tunit, source_name="bl
         df["aqi_category"] = df["aqi_category_key"].apply(lambda x: t(x, lang))
     return df
 
-
-POLLUTANT_LABELS = {
-    "aqi": "AQI",
-    "pm25": "PM2.5",
-    "pm10": "PM10",
-    "no2": "NO2",
-    "so2": "SO2",
-    "o3": "O3",
-    "co": "CO",
-}
-
-def build_date_comparison_ranges(date_range, time_grain: str = "Ngày"):
-    """Calculate date ranges for comparison (current vs previous period).
-    Returns a dict with curr_start, curr_end, prev_start, prev_end, between_expr_curr, between_expr_prev.
-    """
-    from datetime import datetime, timedelta
-    import pandas as pd
-    
-    if not date_range or len(date_range) < 1:
-        latest_date = datetime.now().date()
-        date_range = [latest_date - timedelta(days=7), latest_date]
-        
-    d1 = date_range[0]
-    d2 = date_range[1] if len(date_range) > 1 else date_range[0]
-    
-    # Extract actual date if they are datetime/Timestamp
-    if hasattr(d1, "date"):
-        d1 = d1.date()
-    if hasattr(d2, "date"):
-        d2 = d2.date()
-        
-    days_diff = (d2 - d1).days + 1
-    days_cap = min(days_diff, 30)
-    
-    curr_start = d2 - timedelta(days=days_cap - 1)
-    curr_end = d2
-    prev_start = curr_start - timedelta(days=days_cap)
-    prev_end = curr_start - timedelta(days=1)
-    
-    if time_grain == "Giờ":
-        curr_start_str = curr_start.strftime("%Y-%m-%d 00:00:00")
-        curr_end_str = curr_end.strftime("%Y-%m-%d 23:59:59")
-        prev_start_str = prev_start.strftime("%Y-%m-%d 00:00:00")
-        prev_end_str = prev_end.strftime("%Y-%m-%d 23:59:59")
-        between_expr_curr = f"datetime_hour BETWEEN toDateTime('{curr_start_str}') AND toDateTime('{curr_end_str}')"
-        between_expr_prev = f"datetime_hour BETWEEN toDateTime('{prev_start_str}') AND toDateTime('{prev_end_str}')"
-    else:
-        curr_start_str = curr_start.strftime("%Y-%m-%d")
-        curr_end_str = curr_end.strftime("%Y-%m-%d")
-        prev_start_str = prev_start.strftime("%Y-%m-%d")
-        prev_end_str = prev_end.strftime("%Y-%m-%d")
-        between_expr_curr = f"date BETWEEN '{curr_start_str}' AND '{curr_end_str}'"
-        between_expr_prev = f"date BETWEEN '{prev_start_str}' AND '{prev_end_str}'"
-        
-    return {
-        "curr_start": curr_start,
-        "curr_end": curr_end,
-        "prev_start": prev_start,
-        "prev_end": prev_end,
-        "between_expr_curr": between_expr_curr,
-        "between_expr_prev": between_expr_prev,
-    }
-
 def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> list:
     """Generate dynamic insights based on active filters and ClickHouse data."""
-    from datetime import datetime, timedelta
-
     date_range = filters.get("date_range")
     time_grain = filters.get("time_grain", "Ngày")
     pollutant = filters.get("pollutant", "aqi")
@@ -626,7 +394,7 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
     table_name = "dm_air_quality_overview_hourly" if time_grain == "Giờ" else "dm_air_quality_overview_daily"
     p_label = POLLUTANT_LABELS.get(pollutant, pollutant.upper())
 
-    # --- INSIGHT 1: Worst Trend (Xu hướng xấu) ---
+    # --- INSIGHT 1: Worst Trend ---
     insight1 = {
         "type": "worst_trend",
         "title": "XU HƯỚNG XẤU" if lang == "vi" else "WORST TREND",
@@ -665,7 +433,7 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
     except Exception:
         pass
 
-    # --- INSIGHT 2: Weather stagnant / dispersal risk (Thời tiết/Tích tụ) ---
+    # --- INSIGHT 2: Weather stagnant ---
     insight2 = {
         "type": "weather",
         "title": "THỜI TIẾT" if lang == "vi" else "WEATHER",
@@ -687,7 +455,7 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
             avg(stagnant_hours) as avg_stagnant_hours,
             avg(pm25_daily_avg) as avg_pm25
         FROM air_quality.dm_weather_pollution_correlation_daily
-        WHERE date BETWEEN '{curr_start_str}' AND '{curr_end_str}' AND province != ''
+        WHERE date BETWEEN '{escape_value(ranges["curr_start"].strftime("%Y-%m-%d"))}' AND '{escape_value(ranges["curr_end"].strftime("%Y-%m-%d"))}' AND province != ''
         GROUP BY province
         ORDER BY avg_stagnant_hours DESC, avg_pm25 DESC
         LIMIT 1
@@ -700,13 +468,13 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
             hours = row.avg_stagnant_hours
             if hours > 1.0:
                 if lang == "vi":
-                    insight2["message"] = f"Gió yếu (TB {wind:.1f} m/s) tại {prov} góp phần tích tụ {hours:.1f} giờ lặng gió gần đây, làm tăng nồng độ bụi."
+                    insight2["message"] = f"Gió yếu (TB {wind:.1f} m/s) tại {prov} Góp phần tích tụ {hours:.1f} giờ lặng gió gần đây, làm tăng nồng độ bụi."
                 else:
                     insight2["message"] = f"Light winds (avg {wind:.1f} m/s) in {prov} contributed to {hours:.1f} hours of stagnant air recently, building up dust."
     except Exception:
         pass
 
-    # --- INSIGHT 3: Best performing (Tốt nhất) ---
+    # --- INSIGHT 3: Best performing ---
     insight3 = {
         "type": "best",
         "title": "TỐT NHẤT" if lang == "vi" else "BEST PERFORMING",
@@ -743,5 +511,3 @@ def generate_insights(filters: dict, lang: str = "vi", theme: str = "light") -> 
         pass
 
     return [insight1, insight2, insight3]
-
-

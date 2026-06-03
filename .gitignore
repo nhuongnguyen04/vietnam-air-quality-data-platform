@@ -25,7 +25,8 @@ airflow/*.pid
 .mcp.json
 .env
 credentials.json
-*.json
+scripts/*.json
+skills-lock.json
 !monitoring/grafana/provisioning/dashboard-files/
 !monitoring/grafana/provisioning/dashboard-files/*/
 !monitoring/grafana/provisioning/dashboard-files/*/*.json
