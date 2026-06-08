@@ -23,6 +23,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: admin:admin,${AIRFLOW_ADMIN_USERNAME:-admin}:admin
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/simple_auth_manager_passwords.json
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    MAX_SYNC_WORKERS: "10"
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
     AIRFLOW__CORE__ENABLE_AIRFLOW_TASKS_STDOUT: "true"
@@ -186,8 +187,8 @@ services:
     <<: *airflow-common
     container_name: airflow-scheduler1
     command: scheduler
-    mem_limit: 1.5g
-    cpus: '1'
+    mem_limit: 2g
+    cpus: '4'
 
   airflow-dag-processor:
     <<: *airflow-common

@@ -5,7 +5,8 @@ from lib.chart_config import get_plotly_layout, create_empty_state
 from lib.i18n import t
 
 def render_map_component(map_df, map_view, spatial_grain, source_name, scope_val, pollutant, standard, theme, val_label, lang, height=480):
-    """Renders the Plotly map component for the dashboard."""
+    with open("debug.log", "a") as f:
+        f.write(f"DEBUG MAP COMPONENT: map_df_len={len(map_df) if map_df is not None else 'None'} map_df_type={type(map_df)}\n")
     label_col = "ward_name" if (spatial_grain in ["Tỉnh", "Phường"] or source_name == "aqiin") else "province"
 
     if pollutant == "aqi":
@@ -206,7 +207,7 @@ def render_kpi_card(title: str, value: str, subtext: str, val_color: str = None,
         transition: all 0.25s ease;
         margin-bottom: 0.5rem;
         width: 100%;
-    " class="glass-card" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+    " class="glass-card">
         {icon_html}
         <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 70px;">
             <div style="font-size: 0.8rem; font-weight: 700; color: {label}; text-transform: uppercase; letter-spacing: 0.03em;">{title}</div>

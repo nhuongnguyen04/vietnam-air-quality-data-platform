@@ -210,21 +210,30 @@ def list_files_recursive(service, folder_id, current_rel_path=""):
 
     # List both files and folders
     query = f"'{folder_id}' in parents and trashed = false"
-    response = service.files().list(
-        q=query,
-        fields="files(id, name, mimeType)"
-    ).execute()
+    
+    page_token = None
+    while True:
+        response = service.files().list(
+            q=query,
+            pageSize=1000,
+            pageToken=page_token,
+            fields="nextPageToken, files(id, name, mimeType)"
+        ).execute()
 
-    items = response.get('files', [])
-    for item in items:
-        if item['mimeType'] == 'application/vnd.google-apps.folder':
-            # Recursive call for subfolder
-            sub_path = f"{current_rel_path}/{item['name']}" if current_rel_path else item['name']
-            results.extend(list_files_recursive(service, item['id'], sub_path))
-        else:
-            # It's a file
-            item['rel_path'] = current_rel_path
-            results.append(item)
+        items = response.get('files', [])
+        for item in items:
+            if item['mimeType'] == 'application/vnd.google-apps.folder':
+                # Recursive call for subfolder
+                sub_path = f"{current_rel_path}/{item['name']}" if current_rel_path else item['name']
+                results.extend(list_files_recursive(service, item['id'], sub_path))
+            else:
+                # It's a file
+                item['rel_path'] = current_rel_path
+                results.append(item)
+                
+        page_token = response.get('nextPageToken')
+        if not page_token:
+            break
 
     return results
 
