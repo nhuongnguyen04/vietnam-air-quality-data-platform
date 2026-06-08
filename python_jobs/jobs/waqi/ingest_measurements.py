@@ -13,11 +13,13 @@ import argparse
 import csv
 import logging
 import os
+import random
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -30,17 +32,18 @@ from common import JobLogger, get_data_writer
 WORKERS = 8
 REQUEST_TIMEOUT = 10.0
 WAQI_API_URL = "https://api.waqi.info/feed"
+VIETNAM_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 def get_metadata_path() -> Path:
     """Locate unified_stations_metadata.csv locally or inside Airflow container."""
     local_path = Path(__file__).resolve().parent.parent.parent.parent / "dbt" / "dbt_tranform" / "seeds" / "unified_stations_metadata.csv"
     if local_path.exists():
         return local_path
-    
+
     container_path = Path("/opt/dbt/dbt_tranform/seeds/unified_stations_metadata.csv")
     if container_path.exists():
         return container_path
-        
+
     raise FileNotFoundError("Could not locate unified_stations_metadata.csv")
 
 def load_stations(limit: int = None) -> list[dict]:
@@ -62,10 +65,10 @@ def fetch_waqi_station(station: dict, token: str, client: httpx.Client) -> dict 
     lat = station["latitude"]
     lon = station["longitude"]
     url = f"{WAQI_API_URL}/geo:{lat};{lon}/?token={token}"
-    
+
     # Tiny sleep to avoid aggressive bursts
     time.sleep(random.uniform(0.02, 0.08))
-    
+
     try:
         r = client.get(url, timeout=REQUEST_TIMEOUT)
         if r.status_code == 200:
@@ -96,27 +99,53 @@ def fetch_waqi_station(station: dict, token: str, client: httpx.Client) -> dict 
             "error": str(e)
         }
 
+def parse_waqi_timestamp(time_data: dict | None) -> datetime:
+    """Return WAQI observation time as a timezone-aware UTC datetime.
+
+    WAQI's `time.s` is local station time. Prefer `time.iso` or `time.tz`
+    so a value like 2026-06-08T15:00:00+07:00 becomes 08:00 UTC.
+    """
+    if not isinstance(time_data, dict):
+        return datetime.now(timezone.utc)
+
+    iso_value = time_data.get("iso")
+    if iso_value:
+        try:
+            parsed = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=VIETNAM_TZ)
+            return parsed.astimezone(timezone.utc)
+        except Exception:
+            pass
+
+    time_str = time_data.get("s")
+    tz_value = time_data.get("tz")
+    if time_str:
+        try:
+            if tz_value:
+                parsed = datetime.fromisoformat(f"{time_str}{tz_value}")
+            else:
+                parsed = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=VIETNAM_TZ)
+            return parsed.astimezone(timezone.utc)
+        except Exception:
+            pass
+
+    return datetime.now(timezone.utc)
+
 def process_results(results: list[dict], batch_id: str) -> list[dict]:
     """Parse WAQI JSON responses into ClickHouse compatible rows."""
     measurement_records = []
-    
+
     for res in results:
         if not res or not res.get("success"):
             continue
-            
+
         station_name = res["station_name"]
         data = res["data"]
         aqi = data.get("aqi", 0)
         iaqi = data.get("iaqi", {})
-        
-        # Parse timestamp from WAQI (default to now if parse fails)
-        time_str = data.get("time", {}).get("s")
-        timestamp = datetime.now(timezone.utc)
-        if time_str:
-            try:
-                timestamp = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-            except Exception:
-                pass
+
+        timestamp = parse_waqi_timestamp(data.get("time"))
 
         def get_unit(param: str) -> str:
             if param in ('pm25', 'pm10'):
@@ -165,7 +194,7 @@ def process_results(results: list[dict], batch_id: str) -> list[dict]:
                 "quality_flag": "valid",
                 "raw_payload": str(data)
             })
-            
+
         if "h" in iaqi and iaqi["h"].get("v") is not None:
             measurement_records.append({
                 "source": "aqiin",
@@ -182,38 +211,35 @@ def process_results(results: list[dict], batch_id: str) -> list[dict]:
             })
 
     return measurement_records
-
-import random
-
 async def run(limit: int, min_success_ratio: float):
     token = os.environ.get("WAQI_TOKEN")
     if not token:
         raise RuntimeError("WAQI_TOKEN environment variable is required")
-        
+
     batch_id = f"waqi_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     stations = load_stations(limit=limit)
     logger = logging.getLogger("ingest_waqi")
-    
+
     logger.info(f"Loaded {len(stations)} stations from metadata. Scraping via WAQI API...")
-    
+
     results = []
     with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
         with ThreadPoolExecutor(max_workers=WORKERS) as executor:
             futures = {
-                executor.submit(fetch_waqi_station, station, token, client): station 
+                executor.submit(fetch_waqi_station, station, token, client): station
                 for station in stations
             }
-            
+
             for idx, future in enumerate(as_completed(futures)):
                 res = future.result()
                 results.append(res)
                 status = "✅" if res["success"] else "❌"
                 logger.info(f"[{idx+1}/{len(stations)}] {status} {res['station_name']}")
-                
+
     successful = sum(1 for r in results if r["success"])
     failed = len(results) - successful
     success_ratio = successful / len(results) if results else 0
-    
+
     # Process & write records
     records = process_results(results, batch_id)
     n_m = 0
@@ -221,7 +247,7 @@ async def run(limit: int, min_success_ratio: float):
         writer = get_data_writer()
         writer.write_batch("raw_aqiin_measurements", records, source="aqiin")
         n_m = len(records)
-        
+
     if os.environ.get('GITHUB_ACTIONS') == 'true':
         status_msg = "✅ Success" if failed == 0 else f"⚠️ {failed} failed"
         print(f"::notice::WAQI API Ingestion: {status_msg} ({successful}/{len(results)} stations), {n_m} records added")
