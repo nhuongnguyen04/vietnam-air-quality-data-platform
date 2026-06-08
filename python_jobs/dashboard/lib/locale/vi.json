@@ -216,5 +216,16 @@
     "ask_data_full_label": "Đầy đủ",
     "ask_data_empty_title": "Hỏi dữ liệu bằng ngôn ngữ tự nhiên",
     "ask_data_empty_body": "Text-to-SQL · 25 bảng analytics · Xem SQL trước khi thực thi",
-    "ask_data_empty_results": "Truy vấn không trả về dòng nào."
+    "ask_data_empty_results": "Truy vấn không trả về dòng nào.",
+    "nav_ai_assistant": "Trợ lý AI",
+    "ai_assistant_title": "Trợ lý AI phân tích & Hỏi dữ liệu",
+    "ai_assistant_caption": "Hợp nhất Trợ lý Phân tích tự động và Công cụ Hỏi dữ liệu tự nhiên (Text-to-SQL)",
+    "ai_assistant_tab_analysis": "🧠 Trợ lý phân tích",
+    "ai_assistant_tab_ask_data": "💬 Hỏi dữ liệu",
+    "ai_assistant_scope_label": "Phạm vi phân tích",
+    "ai_assistant_scope_overview": "Tổng quan",
+    "ai_assistant_scope_pollutants": "Chất ô nhiễm",
+    "ai_assistant_scope_weather": "Thời tiết",
+    "ai_assistant_scope_traffic": "Giao thông",
+    "ai_assistant_scope_health": "Sức khỏe"
 }

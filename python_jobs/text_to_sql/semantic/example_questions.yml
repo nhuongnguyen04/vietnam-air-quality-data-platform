@@ -285,3 +285,190 @@ questions:
       WHERE date >= today() - toIntervalDay(30)
       GROUP BY province
       ORDER BY avg_pm25 DESC
+
+  - id: vi-province-comparison-pm25-max
+    lang: vi
+    topic: pm25
+    question: "Chênh lệch giữa Hà Nội và Hải Phòng khi ô nhiễm nhất là bao nhiêu?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT
+        (h.max_pm25 - hp.max_pm25) AS difference
+      FROM (
+        SELECT MAX(pm25_avg) AS max_pm25
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hà Nội'
+      ) AS h
+      CROSS JOIN (
+        SELECT MAX(pm25_avg) AS max_pm25
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hải Phòng'
+      ) AS hp
+
+  - id: vi-province-comparison-aqi-max-yesterday
+    lang: vi
+    topic: aqi_status
+    question: "So sánh AQI cao nhất ngày hôm qua giữa Hà Nội và TP. Hồ Chí Minh?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT
+        (h.max_aqi - sg.max_aqi) AS difference
+      FROM (
+        SELECT MAX(max_aqi_vn) AS max_aqi
+        FROM fct_air_quality_province_level_daily
+        WHERE date = yesterday() AND province = 'Hà Nội'
+      ) AS h
+      CROSS JOIN (
+        SELECT MAX(max_aqi_vn) AS max_aqi
+        FROM fct_air_quality_province_level_daily
+        WHERE date = yesterday() AND province = 'Thành phố Hồ Chí Minh'
+      ) AS sg
+
+  - id: en-province-comparison-pm25-max
+    lang: en
+    topic: pm25
+    question: "What is the difference in PM2.5 between Hanoi and Hai Phong at their highest pollution levels?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT
+        (h.max_pm25 - hp.max_pm25) AS difference
+      FROM (
+        SELECT MAX(pm25_avg) AS max_pm25
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hà Nội'
+      ) AS h
+      CROSS JOIN (
+        SELECT MAX(pm25_avg) AS max_pm25
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hải Phòng'
+      ) AS hp
+
+  - id: vi-province-comparison-aqi-max-with-names
+    lang: vi
+    topic: aqi_status
+    question: "Khi ô nhiễm nhất Hà Nội và Hải Phòng chênh lệch bao nhiêu?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT
+        h.province AS province_1,
+        h.max_aqi AS max_aqi_1,
+        hp.province AS province_2,
+        hp.max_aqi AS max_aqi_2,
+        (h.max_aqi - hp.max_aqi) AS difference
+      FROM (
+        SELECT province, MAX(max_aqi_vn) AS max_aqi
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hà Nội'
+        GROUP BY province
+      ) AS h
+      CROSS JOIN (
+        SELECT province, MAX(max_aqi_vn) AS max_aqi
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hải Phòng'
+        GROUP BY province
+      ) AS hp
+
+  - id: en-province-comparison-aqi-max-with-names
+    lang: en
+    topic: aqi_status
+    question: "What is the difference in AQI between Hanoi and Hai Phong at their highest pollution levels?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT
+        h.province AS province_1,
+        h.max_aqi AS max_aqi_1,
+        hp.province AS province_2,
+        hp.max_aqi AS max_aqi_2,
+        (h.max_aqi - hp.max_aqi) AS difference
+      FROM (
+        SELECT province, MAX(max_aqi_vn) AS max_aqi
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hà Nội'
+        GROUP BY province
+      ) AS h
+      CROSS JOIN (
+        SELECT province, MAX(max_aqi_vn) AS max_aqi
+        FROM fct_air_quality_province_level_daily
+        WHERE province = 'Hải Phòng'
+        GROUP BY province
+      ) AS hp
+
+  - id: vi-province-pollution-northern-weekly
+    lang: vi
+    topic: pm25
+    question: "Tỉnh nào ô nhiễm nhất miền Bắc trong 7 ngày qua?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT province, AVG(pm25_avg) AS avg_pm25
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+        AND region_3 = 'Northern'
+      GROUP BY province
+      ORDER BY avg_pm25 DESC
+      LIMIT 1
+
+  - id: en-province-pollution-northern-weekly
+    lang: en
+    topic: pm25
+    question: "Which province is the most polluted in the North over the last 7 days?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT province, AVG(pm25_avg) AS avg_pm25
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+        AND region_3 = 'Northern'
+      GROUP BY province
+      ORDER BY avg_pm25 DESC
+      LIMIT 1
+
+  - id: vi-region-pollution-top
+    lang: vi
+    topic: aqi_status
+    question: "Miền nào ô nhiễm nhất?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT region_3, AVG(pm25_avg) AS avg_pm25
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+      GROUP BY region_3
+      ORDER BY avg_pm25 DESC
+      LIMIT 1
+
+  - id: en-region-pollution-top
+    lang: en
+    topic: aqi_status
+    question: "Which region is the most polluted?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT region_3, AVG(pm25_avg) AS avg_pm25
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+      GROUP BY region_3
+      ORDER BY avg_pm25 DESC
+      LIMIT 1
+
+  - id: vi-region-aqi-weekly
+    lang: vi
+    topic: aqi_status
+    question: "AQI trung bình theo vùng miền trong 7 ngày qua là bao nhiêu?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT region_3, AVG(avg_aqi_vn) AS avg_aqi
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+      GROUP BY region_3
+      ORDER BY avg_aqi DESC
+
+  - id: en-region-aqi-weekly
+    lang: en
+    topic: aqi_status
+    question: "What is the average AQI by region over the last 7 days?"
+    tables: ["fct_air_quality_province_level_daily"]
+    sql: |
+      SELECT region_3, AVG(avg_aqi_vn) AS avg_aqi
+      FROM fct_air_quality_province_level_daily
+      WHERE date >= today() - toIntervalDay(7)
+      GROUP BY region_3
+      ORDER BY avg_aqi DESC
+
+

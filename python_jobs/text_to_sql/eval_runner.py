@@ -156,6 +156,10 @@ def _matches_shape(shape: str, sql: str, referenced_tables: list[str]) -> bool:
         )
     if shape == "aqi_metric":
         return "aqi" in lowered_sql
+    if shape == "difference_comparison":
+        return "-" in lowered_sql or "minus" in lowered_sql
+    if shape == "cross_join_or_subquery":
+        return "join" in lowered_sql or "with" in lowered_sql or lowered_sql.count("select") > 1
     return True
 
 

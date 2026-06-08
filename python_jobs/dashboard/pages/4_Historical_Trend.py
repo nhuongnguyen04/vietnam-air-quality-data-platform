@@ -742,5 +742,7 @@ def main(lang):
     else:
         render_comparison_historical_tab()
 
+
+
 if __name__ == "__main__":
     main()

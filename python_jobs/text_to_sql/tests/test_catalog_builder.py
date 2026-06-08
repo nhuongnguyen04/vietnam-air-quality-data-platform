@@ -40,7 +40,7 @@ def test_catalog_builder_includes_dashboard_and_example_context(
     languages = {question["lang"] for question in current_status["example_questions"]}
 
     assert "5_Alerts.py" in filenames
-    assert "10_Ask_Data.py" in filenames
+    assert "11_AI_Assistant.py" in filenames
     assert languages == {"en", "vi"}
     assert current_status["description"].strip()
     assert "province" in current_status["column_docs"]

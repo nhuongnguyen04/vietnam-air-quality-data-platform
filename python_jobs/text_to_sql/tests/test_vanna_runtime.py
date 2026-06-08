@@ -202,6 +202,7 @@ def test_runtime_extracts_sql_from_reasoning_response(monkeypatch, semantic_dir,
 
             SELECT province, MAX(current_aqi_vn) AS max_aqi
             FROM dm_aqi_current_status
+            GROUP BY province
             ORDER BY max_aqi DESC
             LIMIT 1;
             """
@@ -355,3 +356,38 @@ def test_runtime_wraps_vanna_generation_errors(monkeypatch, semantic_dir, tmp_pa
             standard="TCVN",
             session_id="session-3",
         )
+
+
+@pytest.mark.unit
+def test_runtime_applies_policy_with_limit_on_newline(monkeypatch, semantic_dir, tmp_path):
+    class NewlineLimitVanna(FakeVanna):
+        def generate_sql(self, *, question):
+            self.questions.append(question)
+            return """
+            SELECT province, MAX(avg_aqi_vn) AS max_aqi_vn
+            FROM dm_air_quality_overview_hourly
+            WHERE datetime_hour >= now() - toIntervalHour(24)
+            GROUP BY province
+            ORDER BY max_aqi_vn DESC
+            LIMIT 1
+            """
+
+    fake_vanna = NewlineLimitVanna()
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("TEXT_TO_SQL_VANNA_PERSIST_DIRECTORY", str(tmp_path / "vanna"))
+    monkeypatch.setattr(
+        VannaRuntime,
+        "_create_vanna_client",
+        lambda self: fake_vanna,
+    )
+
+    runtime = VannaRuntime(str(semantic_dir))
+    result = runtime.generate_sql(
+        question="Tinh nao co AQI cao nhat trong 24 gio qua?",
+        lang="vi",
+        standard="TCVN",
+        session_id="session-limit-newline",
+    )
+
+    assert "LIMIT 1" in result.sql
+    assert "LIMIT 10" not in result.sql

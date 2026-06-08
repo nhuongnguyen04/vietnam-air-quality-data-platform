@@ -5,3 +5,6 @@ psycopg2-binary==2.9.11
 statsmodels>=0.14.0
 plotly>=5.18.0
 pandas>=2.0.0
+openai>=1.30.0
+duckduckgo-search>=7.0.0
+

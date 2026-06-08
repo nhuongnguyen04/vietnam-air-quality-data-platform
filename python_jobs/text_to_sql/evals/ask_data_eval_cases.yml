@@ -78,3 +78,13 @@ cases:
       - "correlation_or_join"
     forbidden_targets: ["raw_openweather_measurements", "int_weather__hourly", "system.columns"]
     expected_business_intent: "Describe weather-to-pollution relationships over the recent month."
+
+  - id: vi-province-comparison
+    lang: vi
+    question: "Chenh lech giua Ha Noi va Hai Phong khi o nhiem nhat la bao nhieu?"
+    expected_tables: ["fct_air_quality_province_level_daily"]
+    expected_sql_shape:
+      - "difference_comparison"
+      - "cross_join_or_subquery"
+    forbidden_targets: ["raw_aqiin_measurements", "system.tables"]
+    expected_business_intent: "Calculate the difference between the maximum PM2.5 levels of Hanoi and Hai Phong."

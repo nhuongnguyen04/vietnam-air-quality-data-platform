@@ -33,6 +33,19 @@ GOOD_SQL_BY_CASE_ID = {
         WHERE date = yesterday()
           AND province = 'Hà Nội'
     """,
+    "vi-province-comparison": """
+        SELECT (h.max_pm25 - hp.max_pm25) AS difference
+        FROM (
+          SELECT MAX(pm25_avg) AS max_pm25
+          FROM fct_air_quality_province_level_daily
+          WHERE province = 'Hà Nội'
+        ) AS h
+        CROSS JOIN (
+          SELECT MAX(pm25_avg) AS max_pm25
+          FROM fct_air_quality_province_level_daily
+          WHERE province = 'Hải Phòng'
+        ) AS hp
+    """,
     "vi-traffic": """
         SELECT province, AVG(congestion_daily_avg) AS avg_congestion, AVG(pm25_daily_avg) AS avg_pm25
         FROM dm_traffic_pollution_correlation_daily

@@ -71,9 +71,16 @@ def train_vanna_client(client: Any, bundle: dict[str, Any]) -> None:
     - month columns       : "month"  (Date type, first day of each month)
     - daily PM2.5 average : "pm25_avg"
     - hourly/current PM2.5: "pm25"
-    - AQI Vietnam scale   : "avg_aqi_vn" (daily/hourly) or "current_aqi_vn" (status mart)
+    - region columns      : "region_3" (3 main regions: Northern, Central, Southern) or "region_8" (8 economic/ecological regions)
+      IMPORTANT: region_3 and region_8 values must always be in English.
+      For "Miền Bắc", use region_3 = 'Northern'.
+      For "Miền Trung", use region_3 = 'Central'.
+      For "Miền Nam", use region_3 = 'Southern'.
 
     CRITICAL RULES:
+    - You are writing SQL queries specifically for ClickHouse database.
+    - STRICT CLICKHOUSE AGGREGATION RULE: Selecting any non-aggregated column alongside aggregate functions (e.g. SELECT province, MAX(pm25_avg) ...) requires a GROUP BY clause containing all non-aggregated columns. NEVER omit GROUP BY when selecting non-aggregate columns and aggregate functions together. If no grouping is needed, omit the non-aggregate column from the SELECT list (e.g. SELECT MAX(pm25_avg) ...).
+    - PROVINCE/REGION COMPARISON RULE: When comparing values between two provinces or regions (e.g., calculating differences), use subqueries/CTEs or cross joins, and make sure any subquery containing aggregate functions does not select non-aggregated columns without a GROUP BY. If a subquery selects a non-aggregate column (like `province`) alongside `MAX(...)` or `AVG(...)`, it MUST have a `GROUP BY province` clause. Refer to the examples for how to structure CROSS JOINs for comparisons.
     - NEVER use CURRENT_TIMESTAMP, CURRENT_DATE, NOW() -- use now(), today(), yesterday() instead.
     - NEVER hardcode dates like '2023-11-13'. Always use dynamic date functions.
     - For "hom qua" (yesterday): WHERE date = yesterday()

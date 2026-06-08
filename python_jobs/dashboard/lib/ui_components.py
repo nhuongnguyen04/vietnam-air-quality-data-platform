@@ -302,3 +302,79 @@ def render_status_dot(color: str, label: str, subtext: str = ""):
     </div>
     """
     st.markdown(clean_html(html), unsafe_allow_html=True)
+
+def render_ai_analysis_panel(analysis: dict, page_name: str, lang: str = "vi"):
+    """Render khung phân tích AI tích hợp DuckDuckGo search với hiệu ứng Glassmorphism."""
+    from lib.design_tokens import get_theme_tokens
+    from lib.page_helpers import clean_html
+    from datetime import datetime
+    import streamlit as st
+    
+    tokens = get_theme_tokens()
+    bg = tokens.get("card_bg", "rgba(255, 255, 255, 0.05)")
+    border = tokens.get("border", "rgba(255, 255, 255, 0.1)")
+    shadow = tokens.get("shadow", "none")
+    text_color = tokens.get("text", "#ffffff")
+    
+    status = analysis.get("status", "success")
+    if status == "success":
+        badge = "🟢 Đã xác thực thực tế" if lang == "vi" else "🟢 Search-Verified"
+        border_left_color = "#0ea5e9"
+    elif status == "fallback":
+        badge = "⚠️ Tự động" if lang == "vi" else "⚠️ System Insights"
+        border_left_color = "#eab308"
+    else:
+        badge = "⚡ Cached"
+        border_left_color = "#a855f7"
+
+    title_text = "🧠 Trợ Lý Phân Tích AI" if lang == "vi" else "🧠 AI Analytical Assistant"
+    st.markdown(clean_html(f"""
+    <div class="glass-card" style="
+        background: {bg};
+        border: 1px solid {border};
+        border-left: 5px solid {border_left_color};
+        border-radius: 12px;
+        padding: 1.2rem 1.5rem;
+        box-shadow: {shadow};
+        margin-bottom: 1.25rem;
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid {border}; padding-bottom: 0.5rem; width: 100%;">
+            <span style="font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 700; color: {text_color};">
+                {title_text}
+            </span>
+            <span style="font-size: 0.76rem; background: rgba(255, 255, 255, 0.1); padding: 3px 8px; border-radius: 99px; font-weight: 600; opacity: 0.85; color: {text_color};">
+                {badge}
+            </span>
+        </div>
+    </div>
+    """), unsafe_allow_html=True)
+
+    # Hiển thị nội dung Markdown chính do LLM sinh ra
+    st.markdown(analysis.get("content", ""))
+
+    # Danh mục nguồn tham khảo thực tế (DuckDuckGo search)
+    sources = analysis.get("sources", [])
+    if sources:
+        expander_title = "📌 Xem nguồn báo chí đối chiếu" if lang == "vi" else "📌 View verified sources"
+        with st.expander(expander_title):
+            html_sources = "<ol style='font-size: 0.82rem; line-height: 1.5; margin-left: 15px; margin-top: 5px; margin-bottom: 5px;'>"
+            for src in sources:
+                html_sources += f"<li style='margin-bottom: 6px;'><a href='{src['url']}' target='_blank' style='color:#0ea5e9; font-weight:600; text-decoration: none;'>{src['title']}</a><br/><span style='opacity: 0.7;'>Query: {src['query']}</span></li>"
+            html_sources += "</ol>"
+            st.markdown(clean_html(html_sources), unsafe_allow_html=True)
+
+    model_name = analysis.get("model", "unknown")
+    time_str = analysis.get("timestamp", "")
+    try:
+        dt = datetime.fromisoformat(time_str)
+        time_formatted = dt.strftime("%H:%M %d/%m/%Y")
+    except Exception:
+        time_formatted = time_str
+        
+    author_text = f"Phân tích bởi {model_name} • Cập nhật: {time_formatted}" if lang == "vi" else f"Analyzed by {model_name} • Updated: {time_formatted}"
+    st.markdown(f"""
+    <div style="font-size: 0.72rem; opacity: 0.5; margin-top: -0.5rem; margin-bottom: 1.5rem; text-align: right;">
+        {author_text}
+    </div>
+    """, unsafe_allow_html=True)
+

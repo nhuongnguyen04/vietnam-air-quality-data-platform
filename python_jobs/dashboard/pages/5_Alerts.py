@@ -324,5 +324,7 @@ def main(lang: str):
         st.plotly_chart(create_empty_state("Không có dữ liệu giờ rủi ro cao."), use_container_width=True)
 
 
+
 if __name__ == "__main__":
     main()
+

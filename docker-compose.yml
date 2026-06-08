@@ -136,7 +136,8 @@ services:
     cpus: '4'
     volumes:
     - ./clickhouse-data:/var/lib/clickhouse
-    - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql
+    - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql.template
+    - ./scripts/init-clickhouse.sh:/docker-entrypoint-initdb.d/init.sh
     - ./monitoring/clickhouse/config.d/prometheus_exporter.xml:/etc/clickhouse-server/config.d/prometheus_exporter.xml:ro
     - ./monitoring/clickhouse/config.d/logger.xml:/etc/clickhouse-server/config.d/logger.xml:ro
     - ./monitoring/clickhouse/config.d/system_logs_retention.xml:/etc/clickhouse-server/config.d/system_logs_retention.xml:ro
@@ -147,6 +148,8 @@ services:
     - CLICKHOUSE_USER=${CLICKHOUSE_USER}
     - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    - CLICKHOUSE_OM_READER_PASSWORD=${CLICKHOUSE_OM_READER_PASSWORD}
+    - TEXT_TO_SQL_CLICKHOUSE_PASSWORD=${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8123/ping || exit 1"]
       interval: 10s
@@ -281,6 +284,9 @@ services:
     - TEXT_TO_SQL_URL=http://text-to-sql:8000
     - TEXT_TO_SQL_TIMEOUT_SECONDS=${TEXT_TO_SQL_TIMEOUT_SECONDS:-90}
     - STREAMLIT_SERVER_PORT=8501
+    - CKEY_API_KEY=${CKEY_API_KEY}
+    - CKEY_BASE_URL=${CKEY_BASE_URL:-https://ckey.vn/v1}
+    - CKEY_MODEL_ANALYSIS=${CKEY_MODEL_ANALYSIS:-claude-haiku-4.5}
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -313,11 +319,16 @@ services:
     container_name: text-to-sql
     restart: unless-stopped
     environment:
+    - PYTHONUNBUFFERED=1
     - GROQ_API_KEY=${GROQ_API_KEY}
     - GROQ_MODEL=${GROQ_MODEL:-qwen/qwen3-32b}
     - OPENAI_API_KEY=${OPENAI_API_KEY}
     - VANNA_API_KEY=${VANNA_API_KEY}
     - TEXT_TO_SQL_URL=http://text-to-sql:8000
+    - CKEY_API_KEY=${CKEY_API_KEY}
+    - CKEY_BASE_URL=${CKEY_BASE_URL:-https://ckey.vn/v1}
+    - CKEY_MODEL_TEXT_TO_SQL=${CKEY_MODEL_TEXT_TO_SQL:-claude-haiku-4.5}
+
     - TEXT_TO_SQL_CLICKHOUSE_USER=${TEXT_TO_SQL_CLICKHOUSE_USER}
     - TEXT_TO_SQL_CLICKHOUSE_PASSWORD=${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}
     - TEXT_TO_SQL_PREVIEW_SECRET=${TEXT_TO_SQL_PREVIEW_SECRET}
@@ -333,8 +344,8 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
-    mem_limit: 512m
-    cpus: '0.25'
+    mem_limit: 1g
+    cpus: '1.0'
     healthcheck:
       test:
       - CMD

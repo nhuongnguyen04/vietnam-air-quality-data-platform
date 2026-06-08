@@ -658,6 +658,9 @@ def main(lang):
                     st.session_state.show_ai_chat = False
                     st.rerun()
 
+
+
+
     else:
         st.plotly_chart(create_empty_state("Không có dữ liệu thời tiết cho lựa chọn này."), use_container_width=True)
 

@@ -173,6 +173,24 @@ def create_app(
     def get_preview_store() -> PreviewStore:
         return app.state.preview_store
 
+    async def warmup_loop() -> None:
+        runtime: VannaRuntime = app.state.runtime
+        max_attempts = 12
+        attempt = 0
+        while not app.state.vanna_ready and attempt < max_attempts:
+            attempt += 1
+            try:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, runtime._get_vanna_client)
+                app.state.vanna_ready = True
+                print("Vanna warm-up complete — first /ask request will be fast.")
+                return
+            except Exception as exc:
+                print(f"Vanna warm-up attempt {attempt}/{max_attempts} failed (non-fatal): {exc.__class__.__name__}: {exc}")
+                if attempt < max_attempts:
+                    await asyncio.sleep(5)
+        print("Vanna warm-up failed permanently after max retries.")
+
     @app.on_event("startup")
     async def warmup_vanna() -> None:
         """Pre-initialise the Vanna client so the first /ask request is fast.
@@ -181,16 +199,7 @@ def create_app(
         happens here at boot time rather than on the first user request.
         Flips app.state.vanna_ready to True so /health/ready can gate traffic.
         """
-        runtime: VannaRuntime = app.state.runtime
-        try:
-            loop = asyncio.get_running_loop()
-            # Run blocking init in a thread pool so we don't block the event loop.
-            await loop.run_in_executor(None, runtime._get_vanna_client)
-            app.state.vanna_ready = True
-            print("Vanna warm-up complete — first /ask request will be fast.")
-        except Exception as exc:  # pragma: no cover
-            # Do NOT crash the app; /ask will surface the error with HTTP 503.
-            print(f"Vanna warm-up failed (non-fatal): {exc.__class__.__name__}: {exc}")
+        asyncio.create_task(warmup_loop())
 
     @app.get("/health")
     def health() -> dict[str, str]:

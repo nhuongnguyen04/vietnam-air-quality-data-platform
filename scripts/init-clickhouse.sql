@@ -87,14 +87,15 @@ ORDER BY (station_name, timestamp_utc, parameter)
 SETTINGS index_granularity = 8192;
 
 -- 5. OpenMetadata Access (Read-only)
-CREATE USER IF NOT EXISTS om_reader IDENTIFIED WITH sha256_password BY 'om_reader_secure_pass';
+CREATE USER IF NOT EXISTS om_reader IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_OM_READER_PASSWORD}';
 GRANT SELECT ON ${CLICKHOUSE_DB}.* TO om_reader;
 GRANT SELECT ON system.* TO om_reader;
 GRANT SELECT ON system.query_log TO om_reader;
 
 -- 5b. Text-to-SQL Runtime Access (Read-only, mart/fact surface only)
-CREATE USER IF NOT EXISTS aqi_reader IDENTIFIED WITH sha256_password BY 'change-me';
+CREATE USER IF NOT EXISTS aqi_reader IDENTIFIED WITH sha256_password BY '${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}';
 GRANT SELECT ON ${CLICKHOUSE_DB}.* TO aqi_reader;
+GRANT SELECT ON system.* TO aqi_reader;
 
 -- 6. Pre-aggregated Materialized Views
 -- Hourly aggregation for dashboarding

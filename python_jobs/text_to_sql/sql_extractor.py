@@ -46,7 +46,7 @@ def extract_sql_statement(response: object) -> str:
         flags=re.IGNORECASE | re.DOTALL,
     )
     lines = without_thinking.splitlines()
-    for index in range(len(lines) - 1, -1, -1):
+    for index in range(len(lines)):
         if _starts_like_sql(lines[index]):
             candidate = _trim_sql_candidate("\n".join(lines[index:]))
             if candidate:

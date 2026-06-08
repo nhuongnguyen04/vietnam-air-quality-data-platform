@@ -216,5 +216,16 @@
     "ask_data_full_label": "Full result",
     "ask_data_empty_title": "Ask data with natural language",
     "ask_data_empty_body": "Text-to-SQL · 25 analytics tables · Review SQL before executing",
-    "ask_data_empty_results": "The query returned no rows."
+    "ask_data_empty_results": "The query returned no rows.",
+    "nav_ai_assistant": "AI Assistant",
+    "ai_assistant_title": "AI Analytics & Ask Data",
+    "ai_assistant_caption": "Unified Automated AI Analyst and Natural Language Data Querying (Text-to-SQL)",
+    "ai_assistant_tab_analysis": "🧠 AI Analyst",
+    "ai_assistant_tab_ask_data": "💬 Ask Data",
+    "ai_assistant_scope_label": "Analysis Scope",
+    "ai_assistant_scope_overview": "Overview",
+    "ai_assistant_scope_pollutants": "Pollutants",
+    "ai_assistant_scope_weather": "Weather",
+    "ai_assistant_scope_traffic": "Traffic",
+    "ai_assistant_scope_health": "Health"
 }

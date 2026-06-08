@@ -277,5 +277,8 @@ def main(lang):
     else:
         st.plotly_chart(create_empty_state("Không có dữ liệu rủi ro sức khỏe cho vùng này."), use_container_width=True)
 
+
+
+
 if __name__ == "__main__":
     main()

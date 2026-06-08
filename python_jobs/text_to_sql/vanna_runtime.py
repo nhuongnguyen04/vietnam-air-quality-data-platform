@@ -84,10 +84,20 @@ class VannaRuntime:
         self._client_lock = threading.Lock()
 
     def _resolve_vanna_config(self) -> VannaRuntimeConfig:
+        ckey_key = os.environ.get("CKEY_API_KEY")
         groq_api_key = os.environ.get("GROQ_API_KEY")
-        if not groq_api_key:
+        
+        if ckey_key:
+            api_key = ckey_key
+            model = os.environ.get("CKEY_MODEL_TEXT_TO_SQL", "claude-haiku-4.5")
+            base_url = os.environ.get("CKEY_BASE_URL", "https://ckey.vn/v1")
+        elif groq_api_key:
+            api_key = groq_api_key
+            model = os.environ.get("GROQ_MODEL", "qwen/qwen3-32b")
+            base_url = "https://api.groq.com/openai/v1"
+        else:
             raise RuntimeNotConfiguredError(
-                "GROQ_API_KEY is required for the Vanna runtime. Set GROQ_API_KEY and optionally GROQ_MODEL."
+                "Vui lòng thiết lập CKEY_API_KEY (ưu tiên) hoặc GROQ_API_KEY."
             )
 
         client = os.environ.get("TEXT_TO_SQL_VANNA_CLIENT", "chromadb").strip() or "chromadb"
@@ -104,9 +114,9 @@ class VannaRuntime:
             )
 
         return VannaRuntimeConfig(
-            api_key=groq_api_key,
-            model=os.environ.get("GROQ_MODEL", "qwen/qwen3-32b"),
-            base_url="https://api.groq.com/openai/v1",
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
             client=client,
             base_collection_name=os.environ.get(
                 "TEXT_TO_SQL_VANNA_COLLECTION", "air_quality_ask_data"
@@ -115,6 +125,7 @@ class VannaRuntime:
             persist_directory=persist_directory,
             rebuild=_is_truthy(os.environ.get("TEXT_TO_SQL_VANNA_REBUILD")),
         )
+
 
     def _load_vanna_dependencies(self):
         try:
@@ -351,7 +362,7 @@ class VannaRuntime:
     def _apply_runtime_sql_policy(self, sql: str, *, eval_case: Any | None) -> str:
         normalized = sql.strip()
         if eval_case is not None and "top_n" in eval_case.expected_sql_shape:
-            if " limit " not in f" {normalized.lower()} ":
+            if not re.search(r"\blimit\b", normalized, re.IGNORECASE):
                 normalized = f"{normalized}\nLIMIT 10"
         return normalized
 
@@ -383,14 +394,7 @@ class VannaRuntime:
         client = self._get_vanna_client()
         manifest = self._get_training_manifest()
 
-        # Monkey-patch Vanna retrieval to avoid hitting Groq's 6000 TPM limit
-        # The new dbt-yaml driven context is highly detailed; top 10 exceeds the limit.
-        original_get_ddl = client.get_related_ddl
-        original_get_docs = client.get_related_documentation
-
         try:
-            client.get_related_ddl = lambda q, **k: original_get_ddl(q, **k)[:3]
-            client.get_related_documentation = lambda q, **k: original_get_docs(q, **k)[:3]
             raw_response = client.generate_sql(question=question)
             sql = extract_sql_statement(raw_response)
             if not sql:
@@ -408,9 +412,6 @@ class VannaRuntime:
         except Exception as exc:
             print(f"Vanna generation failed: {exc.__class__.__name__}: {exc}")
             raise RuntimeGenerationError("Vanna SQL generation failed") from exc
-        finally:
-            client.get_related_ddl = original_get_ddl
-            client.get_related_documentation = original_get_docs
 
         return GeneratedSql(
             sql=validation.sql,

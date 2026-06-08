@@ -898,5 +898,8 @@ def main(lang):
     else:
         render_pollutants_comparison_dashboard(filters, lang, theme)
 
+
+
+
 if __name__ == "__main__":
     main()
