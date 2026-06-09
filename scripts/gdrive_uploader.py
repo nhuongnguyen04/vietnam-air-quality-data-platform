@@ -95,6 +95,15 @@ def get_target_folder_id(service, filename):
             return find_or_create_folder(service, "traffic", tomtom_id)
         return tomtom_id
 
+    # Mapping for WAQI
+    elif source_prefix == "waqi":
+        waqi_id = find_or_create_folder(service, "waqi", landing_zone_id)
+        if "meas" in type_prefix:
+            return find_or_create_folder(service, "measurements", waqi_id)
+        elif "stat" in type_prefix:
+            return find_or_create_folder(service, "stations", waqi_id)
+        return waqi_id
+
     return landing_zone_id
 
 def upload_file(service, local_path):
