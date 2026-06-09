@@ -42,6 +42,7 @@ USER_AGENTS = [
 # ─── State ─────────────────────────────────────────────────────────────
 _TOKEN_CACHE = None
 _ENV_TOKEN_CHECKED = False
+_DYNAMIC_FETCH_FAILED = False
 _TOKEN_LOCK = threading.Lock()
 
 def is_token_expired(token: str, margin_seconds: int = 3600) -> bool:
@@ -144,7 +145,7 @@ async def fetch_token_with_nodriver() -> str | None:
 
 def get_session_token() -> str:
     """Return a valid token. Checks cache, env, and falls back to dynamic nodriver fetching."""
-    global _TOKEN_CACHE, _ENV_TOKEN_CHECKED
+    global _TOKEN_CACHE, _ENV_TOKEN_CHECKED, _DYNAMIC_FETCH_FAILED
     with _TOKEN_LOCK:
         # 1. Check if we have a valid cached token
         if _TOKEN_CACHE and not is_token_expired(_TOKEN_CACHE):
@@ -160,16 +161,22 @@ def get_session_token() -> str:
                     _TOKEN_CACHE = env_token
                     return _TOKEN_CACHE
 
-        # 3. Dynamic fetch via nodriver
-        logger.info("Current token is missing or expired. Fetching fresh token via nodriver...")
-        try:
-            import asyncio
-            fresh = asyncio.run(fetch_token_with_nodriver())
-            if fresh:
-                _TOKEN_CACHE = fresh
-                return _TOKEN_CACHE
-        except Exception as e:
-            logger.error(f"Failed to fetch token dynamically: {e}")
+        # 3. Dynamic fetch via nodriver (only if it has not failed in this run)
+        if not _DYNAMIC_FETCH_FAILED:
+            logger.info("Current token is missing or expired. Fetching fresh token via nodriver...")
+            try:
+                import asyncio
+                # Wrapped in asyncio.wait_for to prevent infinite hanging
+                fresh = asyncio.run(asyncio.wait_for(fetch_token_with_nodriver(), timeout=30.0))
+                if fresh:
+                    _TOKEN_CACHE = fresh
+                    return _TOKEN_CACHE
+                else:
+                    logger.warning("Dynamic token fetch returned None. Disabling dynamic fetch for this run.")
+                    _DYNAMIC_FETCH_FAILED = True
+            except Exception as e:
+                logger.error(f"Failed to fetch token dynamically: {e}")
+                _DYNAMIC_FETCH_FAILED = True
 
         # 4. Fallback to hardcoded AQIIN_TOKEN (e.g. DEFAULT_TOKEN)
         logger.warning("Using fallback AQIIN_TOKEN.")
