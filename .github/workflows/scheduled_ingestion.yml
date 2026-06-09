@@ -47,6 +47,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
           python -m pip install --upgrade pip
           pip install -r requirements-ingest.txt
 
@@ -72,7 +73,7 @@ jobs:
             WAQI_PID=$!
             
             # Start AQI.in Ingestion in background
-            python python_jobs/jobs/aqiin/ingest_measurements.py &
+            xvfb-run --auto-servernum python python_jobs/jobs/aqiin/ingest_measurements.py &
             AQIIN_PID=$!
             
             # Start OpenWeather Ingestion in background

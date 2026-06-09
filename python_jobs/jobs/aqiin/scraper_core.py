@@ -40,16 +40,142 @@ USER_AGENTS = [
 ]
 
 # ─── State ─────────────────────────────────────────────────────────────
-# Token cache or other runtime state if needed
 _TOKEN_CACHE = None
-
+_ENV_TOKEN_CHECKED = False
 _TOKEN_LOCK = threading.Lock()
 
+def is_token_expired(token: str, margin_seconds: int = 3600) -> bool:
+    """Decode JWT and check if it is expired or close to expiration."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return True
+        payload_b64 = parts[1]
+        payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
+        import base64
+        import json
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode("utf-8"))
+        exp = payload.get("exp")
+        if not exp:
+            return False  # No expiration claim, assume valid
+        
+        now_ts = datetime.now(timezone.utc).timestamp()
+        if now_ts + margin_seconds > exp:
+            logger.info(f"Token is expired or expiring soon (exp: {datetime.fromtimestamp(exp, tz=timezone.utc)})")
+            return True
+        return False
+    except Exception as e:
+        logger.warning(f"Error checking token expiration: {e}")
+        return True
+
+async def fetch_token_with_nodriver() -> str | None:
+    """Fetch a fresh AQI.in user token using nodriver to bypass Cloudflare."""
+    try:
+        import nodriver as uc
+    except ImportError:
+        logger.warning("nodriver package not found. Cannot fetch token dynamically.")
+        return None
+
+    import asyncio
+    
+    url = "https://www.aqi.in/vi/dashboard/vietnam/ha-noi/hanoi/hanoi-us-embassy"
+    logger.info("Initializing nodriver browser to fetch fresh token...")
+    
+    browser = None
+    try:
+        browser_args = ["--no-sandbox", "--disable-setuid-sandbox"]
+        
+        # Try launching headed first (allows bypassing Cloudflare under xvfb-run or on local desktop).
+        # Fall back to headless if headed launch fails.
+        try:
+            browser = await uc.start(browser_args=browser_args)
+        except Exception as e:
+            logger.warning(f"Failed to start headed browser: {e}. Trying headless mode...")
+            browser_args.append("--headless=new")
+            browser = await uc.start(browser_args=browser_args)
+            
+        logger.info(f"Navigating to {url}...")
+        page = await browser.get(url)
+        
+        # Wait up to 10 seconds for Cloudflare/NextJS loading
+        logger.info("Waiting for Cloudflare check and page initialization...")
+        for i in range(10):
+            await asyncio.sleep(1.0)
+            html = await page.get_content()
+            if "Just a moment" not in html:
+                logger.info(f"Cloudflare check bypassed at second {i+1}!")
+                break
+        else:
+            logger.warning("Page loading still stuck on Cloudflare challenge after 10s.")
+            
+        html = await page.get_content()
+        
+        # Search for JWT matching aqi.in structure
+        pattern = r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+'
+        matches = re.findall(pattern, html)
+        
+        if matches:
+            import base64
+            import json
+            for tok in set(matches):
+                parts = tok.split(".")
+                if len(parts) == 3:
+                    try:
+                        p_b64 = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+                        p_data = json.loads(base64.urlsafe_b64decode(p_b64).decode("utf-8"))
+                        if p_data.get("userID") == 1:
+                            logger.info(f"Found valid User Token: {tok[:30]}... (userID: 1)")
+                            return tok
+                    except:
+                        continue
+            # Fallback to first matched JWT if no userID:1 matches specifically
+            return matches[0]
+            
+    except Exception as e:
+        logger.exception(f"Error while fetching token via nodriver: {e}")
+    finally:
+        if browser:
+            try:
+                browser.stop()
+            except Exception as e:
+                logger.warning(f"Error stopping nodriver browser: {e}")
+                
+    return None
+
 def get_session_token() -> str:
-    """Return token from environment variable."""
-    if not AQIIN_TOKEN:
-        logger.warning("AQIIN_TOKEN is NOT set. Current requests will likely fail with 401.")
-    return AQIIN_TOKEN
+    """Return a valid token. Checks cache, env, and falls back to dynamic nodriver fetching."""
+    global _TOKEN_CACHE, _ENV_TOKEN_CHECKED
+    with _TOKEN_LOCK:
+        # 1. Check if we have a valid cached token
+        if _TOKEN_CACHE and not is_token_expired(_TOKEN_CACHE):
+            return _TOKEN_CACHE
+
+        # 2. Check token from environment variable (only once at startup)
+        if not _ENV_TOKEN_CHECKED:
+            _ENV_TOKEN_CHECKED = True
+            env_token = os.environ.get("AQIIN_TOKEN")
+            if env_token and env_token != DEFAULT_TOKEN:
+                if not is_token_expired(env_token):
+                    logger.info("Using AQIIN_TOKEN from environment.")
+                    _TOKEN_CACHE = env_token
+                    return _TOKEN_CACHE
+
+        # 3. Dynamic fetch via nodriver
+        logger.info("Current token is missing or expired. Fetching fresh token via nodriver...")
+        try:
+            import asyncio
+            fresh = asyncio.run(fetch_token_with_nodriver())
+            if fresh:
+                _TOKEN_CACHE = fresh
+                return _TOKEN_CACHE
+        except Exception as e:
+            logger.error(f"Failed to fetch token dynamically: {e}")
+
+        # 4. Fallback to hardcoded AQIIN_TOKEN (e.g. DEFAULT_TOKEN)
+        logger.warning("Using fallback AQIIN_TOKEN.")
+        _TOKEN_CACHE = AQIIN_TOKEN
+        return _TOKEN_CACHE
+
 
 def get_headers():
     token = get_session_token()
@@ -281,7 +407,12 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
                     continue
 
                 if r.status_code == 401:
-                    logger.error("401 Unauthorized: The Bearer Token has likely expired or is invalid.")
+                    logger.error("401 Unauthorized: The Bearer Token has likely expired or is invalid. Clearing token cache...")
+                    with _TOKEN_LOCK:
+                        global _TOKEN_CACHE
+                        _TOKEN_CACHE = None
+                    last_error = "Token invalid or expired (401)"
+                    continue
                 elif r.status_code == 403:
                     logger.error("403 Forbidden: IP blocked or Cloudflare challenge triggered.")
                 elif r.status_code == 429:
