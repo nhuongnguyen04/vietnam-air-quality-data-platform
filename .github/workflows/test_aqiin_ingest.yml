@@ -1,0 +1,37 @@
+name: Test AQI.in Proxy Token Bypass
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test_aqiin:
+    runs-on: ubuntu-latest
+    
+    env:
+      INGEST_MODE: csv
+      CSV_OUTPUT_DIR: landing_zone
+      AQIIN_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoxNzAwMDAwMDAwfQ.invalid" # Force expired token to trigger dynamic fetch
+      PYTHONPATH: .
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ingest.txt
+
+      - name: Create local landing zone
+        run: mkdir -p landing_zone
+
+      - name: Run AQI.in Ingestion Test
+        run: |
+          # Run with limit 5 to check if token retrieval and API calls work
+          python python_jobs/jobs/aqiin/ingest_measurements.py --limit 5
