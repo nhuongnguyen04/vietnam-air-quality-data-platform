@@ -16,4 +16,6 @@ scipy
 
 # Auto token retrieval dependency
 nodriver>=0.5.0
+curl-cffi>=0.15.0
+
 

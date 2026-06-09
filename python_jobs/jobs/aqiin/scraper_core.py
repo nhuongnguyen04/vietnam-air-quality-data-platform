@@ -69,6 +69,102 @@ def is_token_expired(token: str, margin_seconds: int = 3600) -> bool:
         logger.warning(f"Error checking token expiration: {e}")
         return True
 
+def fetch_token_with_curl_cffi(use_proxy: bool = False) -> str | None:
+    """Fetch a fresh AQI.in user token using curl_cffi, optionally with proxies."""
+    try:
+        from curl_cffi import requests as curl_requests
+    except ImportError:
+        logger.warning("curl_cffi package not found. Cannot fetch token via curl_cffi.")
+        return None
+
+    import random
+    import re
+
+    url = "https://www.aqi.in/vi/dashboard/vietnam/ha-noi/hanoi/hanoi-us-embassy"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
+
+    if not use_proxy:
+        logger.info("Fetching fresh token via direct curl_cffi...")
+        try:
+            r = curl_requests.get(url, headers=headers, impersonate="chrome120", timeout=15)
+            if r.status_code == 200 and "Just a moment" not in r.text:
+                pattern = r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+'
+                matches = re.findall(pattern, r.text)
+                if matches:
+                    logger.info(f"Successfully fetched token directly: {matches[0][:30]}...")
+                    return matches[0]
+            logger.warning(f"Direct curl_cffi fetch failed. Status: {r.status_code}, Stuck on Cloudflare: {'Just a moment' in r.text}")
+        except Exception as e:
+            logger.warning(f"Direct curl_cffi fetch failed with exception: {e}")
+        return None
+
+    # Using proxy
+    logger.info("Fetching free proxy list from proxyscrape for token retrieval...")
+    proxy_url = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=5000&country=all&ssl=yes&anonymity=all"
+    proxies = []
+    try:
+        # Use simple httpx request to get proxies
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(proxy_url)
+            if resp.status_code == 200:
+                proxies = [line.strip() for line in resp.text.split("\n") if line.strip()]
+                logger.info(f"Fetched {len(proxies)} proxies from proxyscrape.")
+    except Exception as e:
+        logger.warning(f"Failed to fetch proxies from proxyscrape: {e}")
+
+    if not proxies:
+        return None
+
+    random.shuffle(proxies)
+    max_attempts = min(30, len(proxies))
+    for i in range(max_attempts):
+        proxy_ip = proxies[i]
+        logger.info(f"[{i+1}/{max_attempts}] Trying proxy: {proxy_ip}...")
+        proxy_dict = {
+            "http": f"http://{proxy_ip}",
+            "https": f"http://{proxy_ip}"
+        }
+        try:
+            r = curl_requests.get(url, headers=headers, impersonate="chrome120", proxies=proxy_dict, timeout=10)
+            if r.status_code == 200:
+                html = r.text
+                if "Just a moment" in html:
+                    logger.debug("   ❌ Stuck on Cloudflare Challenge page.")
+                else:
+                    pattern = r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+'
+                    matches = re.findall(pattern, html)
+                    if matches:
+                        import base64
+                        import json
+                        for tok in set(matches):
+                            parts = tok.split(".")
+                            if len(parts) == 3:
+                                try:
+                                    p_b64 = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+                                    p_data = json.loads(base64.urlsafe_b64decode(p_b64).decode("utf-8"))
+                                    if p_data.get("userID") == 1:
+                                        logger.info(f"   ✅ SUCCESS! Found User Token: {tok[:30]}... (userID: 1)")
+                                        return tok
+                                except:
+                                    continue
+                        logger.info(f"   ✅ SUCCESS! Found Token: {matches[0][:30]}...")
+                        return matches[0]
+                    else:
+                        logger.debug("   ❌ No token found in HTML.")
+            else:
+                logger.debug(f"   ❌ HTTP Error {r.status_code}")
+        except Exception as e:
+            logger.debug(f"   ❌ Proxy failed: {e}")
+
+    logger.warning("❌ All proxy attempts failed.")
+    return None
+
 async def fetch_token_with_nodriver() -> str | None:
     """Fetch a fresh AQI.in user token using nodriver to bypass Cloudflare."""
     try:
@@ -144,7 +240,7 @@ async def fetch_token_with_nodriver() -> str | None:
     return None
 
 def get_session_token() -> str:
-    """Return a valid token. Checks cache, env, and falls back to dynamic nodriver fetching."""
+    """Return a valid token. Checks cache, env, and falls back to dynamic fetching (curl_cffi/nodriver)."""
     global _TOKEN_CACHE, _ENV_TOKEN_CHECKED, _DYNAMIC_FETCH_FAILED
     with _TOKEN_LOCK:
         # 1. Check if we have a valid cached token
@@ -161,9 +257,26 @@ def get_session_token() -> str:
                     _TOKEN_CACHE = env_token
                     return _TOKEN_CACHE
 
-        # 3. Dynamic fetch via nodriver (only if it has not failed in this run)
+        # 3. Dynamic fetch (only if it has not failed in this run)
         if not _DYNAMIC_FETCH_FAILED:
-            logger.info("Current token is missing or expired. Fetching fresh token via nodriver...")
+            logger.info("Current token is missing or expired. Fetching fresh token...")
+            try:
+                # 3a. Direct curl_cffi (Works on residential IPs, very fast)
+                fresh = fetch_token_with_curl_cffi(use_proxy=False)
+                if fresh:
+                    _TOKEN_CACHE = fresh
+                    return _TOKEN_CACHE
+                
+                # 3b. Proxy-based curl_cffi (Works on GHA/datacenter IPs)
+                fresh = fetch_token_with_curl_cffi(use_proxy=True)
+                if fresh:
+                    _TOKEN_CACHE = fresh
+                    return _TOKEN_CACHE
+            except Exception as e:
+                logger.error(f"Failed to fetch token via curl_cffi: {e}")
+
+            # 3c. Fallback to nodriver browser (headless/headed Chrome)
+            logger.info("Trying fallback to nodriver browser...")
             try:
                 import asyncio
                 # Wrapped in asyncio.wait_for to prevent infinite hanging
@@ -172,16 +285,19 @@ def get_session_token() -> str:
                     _TOKEN_CACHE = fresh
                     return _TOKEN_CACHE
                 else:
-                    logger.warning("Dynamic token fetch returned None. Disabling dynamic fetch for this run.")
-                    _DYNAMIC_FETCH_FAILED = True
+                    logger.warning("Dynamic token fetch via nodriver returned None.")
             except Exception as e:
-                logger.error(f"Failed to fetch token dynamically: {e}")
-                _DYNAMIC_FETCH_FAILED = True
+                logger.error(f"Failed to fetch token dynamically via nodriver: {e}")
+            
+            # Since all dynamic fetches failed, disable for this run to avoid repeated hangs
+            logger.warning("All dynamic token fetch attempts failed. Disabling dynamic fetch for this run.")
+            _DYNAMIC_FETCH_FAILED = True
 
         # 4. Fallback to hardcoded AQIIN_TOKEN (e.g. DEFAULT_TOKEN)
         logger.warning("Using fallback AQIIN_TOKEN.")
         _TOKEN_CACHE = AQIIN_TOKEN
         return _TOKEN_CACHE
+
 
 
 def get_headers():
