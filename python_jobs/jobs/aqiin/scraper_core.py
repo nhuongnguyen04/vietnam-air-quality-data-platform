@@ -11,9 +11,12 @@ Usage:
     from scraper_core import scrape_urls_sync, scrape_urls_async, scrape_in_batches
 """
 
+import base64
+import json
 import logging
 import os
 import random
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -26,7 +29,7 @@ import httpx
 PROXY_URL = os.environ.get("PROXY_URL", "")
 API_ENDPOINT = "https://apiserver.aqi.in/aqi/v3/getLocationDetailsBySlug"
 # Token provided by user (valid until 2026-04-20)
-DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc3NjcxMTU3OSwiZXhwIjoxNzc3MzE2Mzc5fQ.P0RqVT7tdVvEjxAJUCMDxuzXX3SbsvXc7c_Ovpzj67g"
+DEFAULT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOjEsImlhdCI6MTc4MDkwMjcyMCwiZXhwIjoxNzgxNTA3NTIwfQ.fweb-jpVdGkgWuw0Wns6ibuFW6kfaY5C3cSZD-b0WRw"
 AQIIN_TOKEN = os.environ.get("AQIIN_TOKEN") or DEFAULT_TOKEN
 
 USER_AGENTS = [
@@ -152,11 +155,101 @@ def parse_api_json(data: dict, slug: str) -> LocationData:
 
 # ─── Fetcher ───────────────────────────────────────────────────────────
 
+def parse_widget_html(html: str, slug: str) -> LocationData:
+    """Parse aqi.in Widget SSR HTML page."""
+    try:
+        cleaned = html.replace('\\"', '"').replace('\\\\', '\\')
+        
+        # 1. Parse AQI
+        aqi_match = re.search(r'text-\[3\.5em\] font-bold truncate max-w-full","children":(\d+)', cleaned)
+        if not aqi_match:
+            return LocationData(station_name="Unknown", aqi=0, success=False, error="AQI value not found in widget HTML")
+        aqi = int(aqi_match.group(1))
+        
+        # 2. Parse Station Name
+        name_match = re.search(r'children":"([^"]+)"\}\],\["\$","div",null,\{"className":"credit', cleaned)
+        station_name = name_match.group(1) if name_match else "Unknown"
+        
+        # 3. Parse Temperature
+        temp_match = re.search(r'Temp\."\}\],\["\$","span",null,\{"className":"font-bold","children":"(-?\d+)°C"\}', cleaned)
+        temperature = float(temp_match.group(1)) if temp_match else None
+        
+        # 4. Parse Humidity
+        humi_match = re.search(r'Humi\."\}\],\["\$","span",null,\{"className":"font-bold","children":"(\d+)%"\}', cleaned)
+        humidity = float(humi_match.group(1)) if humi_match else None
+        
+        # 5. Parse Pollutants
+        pollutant_names = {
+            "pm25": ["PM₂.₅", "PM2.5"],
+            "pm10": ["PM₁₀", "PM10"],
+            "co": ["CO"],
+            "no2": ["NO₂", "NO2"],
+            "so2": ["SO₂", "SO2"],
+            "o3": ["O₃", "O3"]
+        }
+        
+        pollutants = []
+        for param, labels in pollutant_names.items():
+            for label in labels:
+                pattern = re.escape(label) + r'[^}]+?\}\],\["\$","span",null,\{"className":"[^"]*text-\[1\.4rem\][^"]*","children":\[([0-9.]+)," ","([^"]+)"\]\}'
+                p_match = re.search(pattern, cleaned)
+                if p_match:
+                    pollutants.append(PollutantReading(
+                        parameter=param,
+                        value=float(p_match.group(1)),
+                        unit=p_match.group(2)
+                    ))
+                    break
+                    
+        return LocationData(
+            station_name=station_name,
+            aqi=aqi,
+            latitude=None,
+            longitude=None,
+            temperature=temperature,
+            humidity=humidity,
+            pollutants=pollutants,
+            raw_payload=html,
+            success=True
+        )
+    except Exception as e:
+        logger.error(f"Error parsing widget HTML for {slug}: {e}")
+        return LocationData(station_name="Unknown", aqi=0, success=False, error=f"Widget Parse error: {e}")
+
+
 def fetch_one(location_id: str, client: httpx.Client) -> tuple:
-    """Fetch AQI data for one location using JSON API."""
+    """Fetch AQI data for one location. Tries public widget scraper first, then falls back to JSON API."""
     # Polite delay
     time.sleep(random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX))
 
+    # --- 1. TRY PUBLIC WIDGET SCRAPER FIRST ---
+    try:
+        payload_dict = {
+            "o_w": 1,
+            "o_w_t_u": "c",
+            "o_t": "l",
+            "o_a_s": "us",
+            "w_t_i": 2,
+            "ls": [{"s": location_id}]
+        }
+        payload_json = json.dumps(payload_dict, separators=(',', ':'))
+        payload_b64 = base64.b64encode(payload_json.encode('utf-8')).decode('utf-8')
+        widget_url = f"https://www.aqi.in/widget?p={payload_b64}"
+
+        r = client.get(widget_url, timeout=REQUEST_TIMEOUT)
+        if r.status_code == 200:
+            parsed = parse_widget_html(r.text, location_id)
+            if parsed.success:
+                logger.info(f"[{location_id}] Widget scrape successful: AQI={parsed.aqi}")
+                return location_id, parsed
+            else:
+                logger.warning(f"[{location_id}] Widget parse failed: {parsed.error}. Falling back to API...")
+        else:
+            logger.warning(f"[{location_id}] Widget fetch returned HTTP {r.status_code}. Falling back to API...")
+    except Exception as e:
+        logger.warning(f"[{location_id}] Widget scrape failed with exception: {e}. Falling back to API...")
+
+    # --- 2. FALLBACK TO JSON API ---
     # Manually construct URL to prevent encoding of / to %2F in the slug
     # We try type=3 first (City level), then fallback to type=4 (Station level) if 404
     for current_type in (3, 4):
@@ -171,7 +264,7 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
                     data = r.json()
                     # If success is false in the JSON even with HTTP 200, it might be a 'No data found' message
                     if isinstance(data, dict) and data.get("status") == "failed" and current_type == 3:
-                        logger.debug(f"[{location_id}] Type 3 failed (failed status), will try Type 4")
+                        logger.debug(f"[{location_id}] Type 3 API failed (failed status), will try Type 4")
                         break # Break retry loop to try next type
 
                     return location_id, parse_api_json(data, location_id)
@@ -182,7 +275,7 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
 
                 elif r.status_code in (403, 429):
                     cool_down = 30 + random.uniform(0, 30) if attempt > 0 else (5 + random.uniform(0, 5))
-                    logger.warning(f"[{location_id}] HTTP {r.status_code} on attempt {attempt + 1}. Cooling down {cool_down:.1f}s")
+                    logger.warning(f"[{location_id}] HTTP {r.status_code} on API attempt {attempt + 1}. Cooling down {cool_down:.1f}s")
                     time.sleep(cool_down)
                     last_error = f"Rate limited: {r.status_code}"
                     continue
@@ -201,12 +294,9 @@ def fetch_one(location_id: str, client: httpx.Client) -> tuple:
                 last_error = str(e)
                 time.sleep(2)
 
-        # If we reached here because of a 404 or a 'failed' status in Type 3, the outer loop continues to Type 4
-        # If Type 4 also fails or we have a hard error, the inside return or finally the loop exit handles it.
-
     return location_id, LocationData(
         station_name="Unknown", aqi=0, success=False,
-        error=f"Failed after {MAX_RETRIES} retries: {last_error}"
+        error=f"Failed after widget and API retries: {last_error}"
     )
 
 

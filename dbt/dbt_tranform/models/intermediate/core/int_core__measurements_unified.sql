@@ -27,7 +27,28 @@ with aqiin as (
         m.raw_sync_run_id,
         m.raw_sync_started_at
     from {{ ref('stg_aqiin__measurements') }} m
-    join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name
+    join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name and s.station_source = 'aqiin'
+    where {{ downstream_incremental_predicate('m.raw_sync_run_id', 'm.raw_loaded_at') }}
+),
+
+waqi as (
+    select
+        m.source,
+        s.ward_code,
+        s.province,
+        s.latitude,
+        s.longitude,
+        m.timestamp_utc,
+        m.parameter,
+        m.value,
+        m.aqi_reported,
+        m.quality_flag,
+        m.ingest_time,
+        m.raw_loaded_at,
+        m.raw_sync_run_id,
+        m.raw_sync_started_at
+    from {{ ref('stg_waqi__measurements') }} m
+    join {{ ref('stg_core__stations') }} s on m.station_name = s.station_name and s.station_source = 'waqi'
     where {{ downstream_incremental_predicate('m.raw_sync_run_id', 'm.raw_loaded_at') }}
 ),
 
@@ -54,6 +75,8 @@ openweather as (
 unified as (
     select * from aqiin
     union all
+    select * from waqi
+    union all
     select * from openweather
 ),
 
@@ -74,7 +97,7 @@ ward_station_flags as (
         min(greatCircleDistance(s.longitude, s.latitude, a.ward_lon, a.ward_lat)) <= 2000 as has_nearby_aqiin_station
     from {{ ref('stg_core__stations') }} s
     join admin_units a on s.ward_code = a.ward_code
-    where s.station_source = 'aqiin'
+    where s.station_source in ('aqiin', 'waqi')
     group by s.ward_code
 ),
 

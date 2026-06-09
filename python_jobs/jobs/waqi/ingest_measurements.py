@@ -76,6 +76,8 @@ def fetch_waqi_station(station: dict, token: str, client: httpx.Client) -> dict 
             if res_json.get("status") == "ok":
                 return {
                     "station_name": station["station_name"],
+                    "station_lat": lat,
+                    "station_lon": lon,
                     "data": res_json.get("data", {}),
                     "success": True,
                     "error": None
@@ -83,18 +85,24 @@ def fetch_waqi_station(station: dict, token: str, client: httpx.Client) -> dict 
             else:
                 return {
                     "station_name": station["station_name"],
+                    "station_lat": lat,
+                    "station_lon": lon,
                     "success": False,
                     "error": res_json.get("data", "WAQI API error status")
                 }
         else:
             return {
                 "station_name": station["station_name"],
+                "station_lat": lat,
+                "station_lon": lon,
                 "success": False,
                 "error": f"HTTP Error {r.status_code}"
             }
     except Exception as e:
         return {
             "station_name": station["station_name"],
+            "station_lat": lat,
+            "station_lon": lon,
             "success": False,
             "error": str(e)
         }
@@ -132,19 +140,45 @@ def parse_waqi_timestamp(time_data: dict | None) -> datetime:
 
     return datetime.now(timezone.utc)
 
-def process_results(results: list[dict], batch_id: str) -> list[dict]:
-    """Parse WAQI JSON responses into ClickHouse compatible rows."""
+def process_results(results: list[dict], batch_id: str) -> tuple[list[dict], list[dict]]:
+    """Parse WAQI JSON responses into measurements and station dimensions."""
     measurement_records = []
+    station_records_dict = {}
+    seen_station_ids = set()
 
     for res in results:
         if not res or not res.get("success"):
             continue
 
-        station_name = res["station_name"]
         data = res["data"]
+        idx = data.get("idx")
+        if idx is None:
+            continue
+
+        city = data.get("city", {})
+        geo = city.get("geo", [])
+        city_url = city.get("url", "")
+        waqi_station_name = city.get("name", res["station_name"])
+
+        # Populate station dimension record (deduped by station_id)
+        station_id = int(idx)
+        if station_id not in station_records_dict:
+            station_records_dict[station_id] = {
+                "station_id": station_id,
+                "station_name": waqi_station_name,
+                "latitude": float(geo[0]) if len(geo) > 0 else float(res["station_lat"]),
+                "longitude": float(geo[1]) if len(geo) > 1 else float(res["station_lon"]),
+                "city_url": str(city_url),
+                "updated_at": datetime.now(timezone.utc)
+            }
+
+        # Deduplicate measurements by physical station_id (eliminate 18.7x coordinate redundancy)
+        if station_id in seen_station_ids:
+            continue
+        seen_station_ids.add(station_id)
+
         aqi = data.get("aqi", 0)
         iaqi = data.get("iaqi", {})
-
         timestamp = parse_waqi_timestamp(data.get("time"))
 
         def get_unit(param: str) -> str:
@@ -166,10 +200,10 @@ def process_results(results: list[dict], batch_id: str) -> list[dict]:
                 val = iaqi[api_key].get("v")
                 if val is not None:
                     measurement_records.append({
-                        "source": "aqiin",  # Stored as 'aqiin' to keep dbt compatibility
+                        "source": "waqi",
                         "ingest_time": datetime.now(timezone.utc),
                         "ingest_batch_id": batch_id,
-                        "station_name": station_name,
+                        "station_name": waqi_station_name,
                         "timestamp_utc": timestamp,
                         "parameter": db_param,
                         "value": float(val),
@@ -182,10 +216,10 @@ def process_results(results: list[dict], batch_id: str) -> list[dict]:
         # 2. Map Weather
         if "t" in iaqi and iaqi["t"].get("v") is not None:
             measurement_records.append({
-                "source": "aqiin",
+                "source": "waqi",
                 "ingest_time": datetime.now(timezone.utc),
                 "ingest_batch_id": batch_id,
-                "station_name": station_name,
+                "station_name": waqi_station_name,
                 "timestamp_utc": timestamp,
                 "parameter": "temp",
                 "value": float(iaqi["t"].get("v")),
@@ -197,10 +231,10 @@ def process_results(results: list[dict], batch_id: str) -> list[dict]:
 
         if "h" in iaqi and iaqi["h"].get("v") is not None:
             measurement_records.append({
-                "source": "aqiin",
+                "source": "waqi",
                 "ingest_time": datetime.now(timezone.utc),
                 "ingest_batch_id": batch_id,
-                "station_name": station_name,
+                "station_name": waqi_station_name,
                 "timestamp_utc": timestamp,
                 "parameter": "hum",
                 "value": float(iaqi["h"].get("v")),
@@ -210,7 +244,8 @@ def process_results(results: list[dict], batch_id: str) -> list[dict]:
                 "raw_payload": str(data)
             })
 
-    return measurement_records
+    return measurement_records, list(station_records_dict.values())
+
 async def run(limit: int, min_success_ratio: float):
     token = os.environ.get("WAQI_TOKEN")
     if not token:
@@ -240,17 +275,24 @@ async def run(limit: int, min_success_ratio: float):
     failed = len(results) - successful
     success_ratio = successful / len(results) if results else 0
 
-    # Process & write records
-    records = process_results(results, batch_id)
+    # Process results into dynamic measurements and station dimensions
+    measurement_records, station_records = process_results(results, batch_id)
+    
+    writer = get_data_writer()
+    
+    n_s = 0
+    if station_records:
+        writer.write_batch("dim_waqi_stations", station_records, source="waqi")
+        n_s = len(station_records)
+        
     n_m = 0
-    if records:
-        writer = get_data_writer()
-        writer.write_batch("raw_aqiin_measurements", records, source="aqiin")
-        n_m = len(records)
+    if measurement_records:
+        writer.write_batch("raw_waqi_measurements", measurement_records, source="waqi")
+        n_m = len(measurement_records)
 
     if os.environ.get('GITHUB_ACTIONS') == 'true':
         status_msg = "✅ Success" if failed == 0 else f"⚠️ {failed} failed"
-        print(f"::notice::WAQI API Ingestion: {status_msg} ({successful}/{len(results)} stations), {n_m} records added")
+        print(f"::notice::WAQI API Ingestion: {status_msg} ({successful}/{len(results)} stations), {n_s} stations updated, {n_m} measurements added")
 
     if success_ratio < min_success_ratio:
         raise RuntimeError(
@@ -264,6 +306,7 @@ async def run(limit: int, min_success_ratio: float):
         "failed": failed,
         "total": len(results),
         "success_ratio": round(success_ratio, 4),
+        "stations": n_s,
         "records": n_m,
     }
 

@@ -67,6 +67,26 @@ unified_aqiin as (
     select * from mapped_by_name where coalesce(ward_code, '') != ''
     union all
     select * from mapped_by_distance
+),
+
+unified_all as (
+    select
+        station_name,
+        latitude,
+        longitude,
+        station_source,
+        ward_code,
+        province
+    from unified_aqiin
+    union all
+    select
+        station_name,
+        latitude,
+        longitude,
+        station_source,
+        ward_code,
+        province
+    from {{ ref('stg_waqi__stations') }}
 )
 
 select
@@ -76,4 +96,4 @@ select
     station_source,
     assumeNotNull(ward_code) as ward_code,
     assumeNotNull(province) as province
-from unified_aqiin
+from unified_all

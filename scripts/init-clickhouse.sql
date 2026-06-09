@@ -86,6 +86,50 @@ PARTITION BY toYYYYMM(ingest_date)
 ORDER BY (station_name, timestamp_utc, parameter)
 SETTINGS index_granularity = 8192;
 
+-- 4b. WAQI Measurements (Vietnam Monitoring Stations)
+CREATE TABLE IF NOT EXISTS raw_waqi_measurements
+(
+    source              LowCardinality(String) DEFAULT 'waqi',
+    ingest_time         DateTime DEFAULT now(),
+    raw_loaded_at       DateTime DEFAULT now(),
+    raw_sync_run_id     String DEFAULT '',
+    raw_sync_started_at DateTime DEFAULT raw_loaded_at,
+    raw_source_file_name String DEFAULT '',
+    raw_source_file_id  String DEFAULT '',
+    ingest_batch_id     String,
+    ingest_date         Date MATERIALIZED toDate(ingest_time),
+
+    station_name        String,
+
+    timestamp_utc      DateTime,
+    parameter          LowCardinality(String),    -- pm25, pm10, o3, no2, so2, co, temp, hum
+    value              Float32,
+    aqi_reported       UInt16,
+
+    unit              LowCardinality(String) DEFAULT 'µg/m³',
+    quality_flag      LowCardinality(String) DEFAULT 'valid',
+
+    raw_payload        String CODEC(ZSTD(1))
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(ingest_date)
+ORDER BY (station_name, timestamp_utc, parameter)
+SETTINGS index_granularity = 8192;
+
+-- 4c. WAQI Stations Dimension Table
+CREATE TABLE IF NOT EXISTS dim_waqi_stations
+(
+    station_id          UInt32,
+    station_name        String,
+    latitude            Float64,
+    longitude           Float64,
+    city_url            String,
+    updated_at          DateTime DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY station_id
+SETTINGS index_granularity = 8192;
+
 -- 5. OpenMetadata Access (Read-only)
 CREATE USER IF NOT EXISTS om_reader IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_OM_READER_PASSWORD}';
 GRANT SELECT ON ${CLICKHOUSE_DB}.* TO om_reader;
@@ -117,6 +161,8 @@ SELECT
 FROM (
     -- Unified source selection
     SELECT station_name AS station_id, timestamp_utc, source, parameter, value FROM raw_aqiin_measurements
+    UNION ALL
+    SELECT station_name AS station_id, timestamp_utc, source, parameter, value FROM raw_waqi_measurements
     UNION ALL
     SELECT ward_code AS station_id, timestamp_utc, source, parameter, value FROM raw_openweather_measurements
 )

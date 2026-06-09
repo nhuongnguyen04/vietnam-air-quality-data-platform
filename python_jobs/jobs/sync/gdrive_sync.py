@@ -38,6 +38,8 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 # Table Mapping (Folder path relative to landing_zone -> Table name)
 PATH_TO_TABLE = {
     "aqi_in": "raw_aqiin_measurements",
+    "waqi/measurements": "raw_waqi_measurements",
+    "waqi/stations": "dim_waqi_stations",
     "openweather/measurements": "raw_openweather_measurements",
     "openweather/weather": "raw_openweather_meteorology",
     "tomtom/traffic": "raw_tomtom_traffic"
@@ -47,6 +49,8 @@ PATH_TO_TABLE = {
 TABLE_MAPPING = {
     "aqiin_raw": "raw_aqiin_measurements",
     "aqiin_meas": "raw_aqiin_measurements",
+    "waqi_meas": "raw_waqi_measurements",
+    "waqi_stat": "dim_waqi_stations",
     "openweather_meas": "raw_openweather_measurements",
     "openweather_weat": "raw_openweather_meteorology",
     "ow_meas": "raw_openweather_measurements",

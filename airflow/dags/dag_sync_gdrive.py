@@ -34,7 +34,7 @@ if not os.path.exists(SCRIPTS_DIR):
 @dag(
     default_args=default_args,
     description='Syncs ingested CSV data from Google Drive to ClickHouse',
-    schedule='*/5 * * * *',
+    schedule='*/15 * * * *',
     start_date=datetime(2026, 4, 1),
     catchup=False,
     max_active_runs=1,

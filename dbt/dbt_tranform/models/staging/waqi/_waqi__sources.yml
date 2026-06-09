@@ -1,0 +1,75 @@
+version: 2
+
+sources:
+  - name: waqi
+    description: |
+      World Air Quality Index (WAQI / aqicn.org) Vietnam ground monitoring network.
+
+      **Data Source:** Official WAQI JSON API (https://api.waqi.info)
+      **Coverage:** Active ground monitoring stations in Vietnam (e.g. US Embassy, local government centers)
+      **Ingestion:** Python job `python_jobs/jobs/waqi/ingest_measurements.py`
+      **Update Frequency:** Every 15 minutes
+    database: air_quality
+    schema: air_quality
+    tables:
+      - name: raw_waqi_measurements
+        description: |
+          Real-time air quality measurements fetched from WAQI API.
+          Deduplicated at the physical station level in ingestion job.
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
+        loaded_at_field: raw_loaded_at
+        columns:
+          - name: station_name
+            description: "Station name returned by WAQI API."
+            tests:
+              - not_null
+          - name: timestamp_utc
+            description: "UTC timestamp of the measurement."
+            tests:
+              - not_null
+          - name: parameter
+            description: "Pollutant or weather parameter (pm25, pm10, co, no2, o3, so2, temp, hum)."
+            tests:
+              - not_null
+          - name: value
+            description: "Measurement value (numeric)."
+            tests:
+              - not_null
+          - name: unit
+            description: "Measurement unit (e.g., µg/m³, ppb, ppm, °C, %)."
+          - name: aqi_reported
+            description: "AQI reported by the station."
+          - name: quality_flag
+            description: "Data quality flag."
+          - name: ingest_time
+            description: "Timestamp when the WAQI script fetched the row."
+          - name: raw_loaded_at
+            description: "Warehouse load timestamp set by ClickHouse."
+
+      - name: dim_waqi_stations
+        description: |
+          Dynamic dimension table for WAQI monitoring stations.
+        columns:
+          - name: station_id
+            description: "Unique station integer UID returned by WAQI API."
+            tests:
+              - not_null
+              - unique
+          - name: station_name
+            description: "Official station name from WAQI API."
+            tests:
+              - not_null
+          - name: latitude
+            description: "Official station latitude coordinate."
+            tests:
+              - not_null
+          - name: longitude
+            description: "Official station longitude coordinate."
+            tests:
+              - not_null
+          - name: city_url
+            description: "WAQI web portal URL for the station."
+          - name: updated_at
+            description: "Timestamp when station metadata was last refreshed."

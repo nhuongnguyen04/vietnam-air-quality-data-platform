@@ -3,6 +3,15 @@ name: Triggered Data Ingestion
 
 on:
   workflow_dispatch:
+    inputs:
+      ingest_scope:
+        description: 'Scope of data ingestion (waqi_15m or hourly_full)'
+        required: true
+        default: 'hourly_full'
+        type: choice
+        options:
+          - waqi_15m
+          - hourly_full
 
 jobs:
   ingest:
@@ -46,41 +55,56 @@ jobs:
 
       - name: Parallel Data Ingestion
         run: |
-          echo "Starting parallel ingestion..."
-          if [ -n "${{ secrets.WAQI_TOKEN }}" ]; then
-            echo "WAQI_TOKEN is set. Running WAQI Ingestion..."
+          SCOPE="${{ github.event.inputs.ingest_scope }}"
+          if [ -z "$SCOPE" ]; then
+            SCOPE="hourly_full"
+          fi
+          echo "Ingestion Scope: $SCOPE"
+
+          if [ "$SCOPE" = "waqi_15m" ]; then
+            echo "Running WAQI 15-minute Ingestion..."
+            python python_jobs/jobs/waqi/ingest_measurements.py
+          else
+            echo "Running Full Hourly Ingestion..."
+            
+            # Start WAQI Ingestion in background
             python python_jobs/jobs/waqi/ingest_measurements.py &
-          else
-            echo "WAQI_TOKEN is not set. Running legacy AQI.in Ingestion..."
+            WAQI_PID=$!
+            
+            # Start AQI.in Ingestion in background
             python python_jobs/jobs/aqiin/ingest_measurements.py &
+            AQIIN_PID=$!
+            
+            # Start OpenWeather Ingestion in background
+            python python_jobs/jobs/openweather/ingest_openweather_unified.py &
+            OPENWEATHER_PID=$!
+            
+            # Start Traffic Ingestion in background
+            HOUR=$(date +%H)
+            VietnamHour=$(( (10#$HOUR + 7) % 24 ))
+            
+            if [ $VietnamHour -ge 7 ] && [ $VietnamHour -le 20 ]; then
+              echo "Peak Hour ($VietnamHour:00 VN): Running TomTom V2 Ingestion..."
+              python python_jobs/jobs/traffic/ingest_tomtom.py &
+              TRAFFIC_PID=$!
+            else
+              echo "Off-Peak Hour ($VietnamHour:00 VN): Generating Simulated Traffic..."
+              python python_jobs/jobs/traffic/generate_offpeak_traffic.py &
+              TRAFFIC_PID=$!
+            fi
+            
+            status=0
+            wait "$WAQI_PID" || { echo "WAQI ingestion failed"; status=1; }
+            wait "$AQIIN_PID" || { echo "AQI.in ingestion failed"; status=1; }
+            wait "$OPENWEATHER_PID" || { echo "OpenWeather ingestion failed"; status=1; }
+            wait "$TRAFFIC_PID" || { echo "Traffic ingestion failed"; status=1; }
+            
+            if [ "$status" -ne 0 ]; then
+              echo "One or more ingestion jobs failed; skipping upload."
+              exit "$status"
+            fi
           fi
-          AQIIN_PID=$!
-          python python_jobs/jobs/openweather/ingest_openweather_unified.py &
-          OPENWEATHER_PID=$!
-          
-          HOUR=$(date +%H)
-          # Convert UTC hour to Vietnam time (UTC+7) before comparing
-          VietnamHour=$(( (10#$HOUR + 7) % 24 ))
-          
-          if [ $VietnamHour -ge 7 ] && [ $VietnamHour -le 20 ]; then
-            echo "Peak Hour ($VietnamHour:00 VN): Running TomTom V2 Ingestion..."
-            python python_jobs/jobs/traffic/ingest_tomtom.py &
-            TRAFFIC_PID=$!
-          else
-            echo "Off-Peak Hour ($VietnamHour:00 VN): Generating Simulated Traffic..."
-            python python_jobs/jobs/traffic/generate_offpeak_traffic.py &
-            TRAFFIC_PID=$!
-          fi
-          
-          status=0
-          wait "$AQIIN_PID" || { echo "AQI.in ingestion failed"; status=1; }
-          wait "$OPENWEATHER_PID" || { echo "OpenWeather ingestion failed"; status=1; }
-          wait "$TRAFFIC_PID" || { echo "Traffic ingestion failed"; status=1; }
-          if [ "$status" -ne 0 ]; then
-            echo "One or more ingestion jobs failed; skipping upload."
-            exit "$status"
-          fi
-          echo "All parallel ingestion jobs finished."
+          echo "Data ingestion finished."
 
       - name: Upload to Google Drive
         run: python scripts/gdrive_uploader.py
