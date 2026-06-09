@@ -1,0 +1,111 @@
+name: Hourly Full Ingestion
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    
+    env:
+      INGEST_MODE: csv
+      CSV_OUTPUT_DIR: landing_zone
+      OPENWEATHER_API_TOKENS: ${{ secrets.OPENWEATHER_API_TOKENS }}
+      OPENWEATHER_API_TOKEN: ${{ secrets.OPENWEATHER_API_TOKEN }}
+      TOMTOM_API_KEYS: ${{ secrets.TOMTOM_API_KEYS }}
+      GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+      GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+      GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+      GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
+      CLICKHOUSE_HOST: ${{ secrets.CLICKHOUSE_HOST }}
+      CLICKHOUSE_USER: ${{ secrets.CLICKHOUSE_USER }}
+      CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
+      AQIIN_TOKEN: ${{ secrets.AQIIN_TOKEN }}
+      PYTHONPATH: .
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          python -m pip install --upgrade pip
+          pip install -r requirements-ingest.txt
+
+      - name: Create local landing zone
+        run: mkdir -p landing_zone
+
+      - name: Parallel Data Ingestion
+        run: |
+          echo "Running Full Hourly Ingestion (AQI.in, OpenWeather, Traffic)..."
+          
+          # Start AQI.in Ingestion in background
+          xvfb-run --auto-servernum python python_jobs/jobs/aqiin/ingest_measurements.py &
+          AQIIN_PID=$!
+          
+          # Start OpenWeather Ingestion in background
+          python python_jobs/jobs/openweather/ingest_openweather_unified.py &
+          OPENWEATHER_PID=$!
+          
+          # Start Traffic Ingestion in background
+          HOUR=$(date +%H)
+          VietnamHour=$(( (10#$HOUR + 7) % 24 ))
+          
+          if [ $VietnamHour -ge 7 ] && [ $VietnamHour -le 20 ]; then
+            echo "Peak Hour ($VietnamHour:00 VN): Running TomTom V2 Ingestion..."
+            python python_jobs/jobs/traffic/ingest_tomtom.py &
+            TRAFFIC_PID=$!
+          else
+            echo "Off-Peak Hour ($VietnamHour:00 VN): Generating Simulated Traffic..."
+            python python_jobs/jobs/traffic/generate_offpeak_traffic.py &
+            TRAFFIC_PID=$!
+          fi
+          
+          status=0
+          wait "$AQIIN_PID" || { echo "AQI.in ingestion failed"; status=1; }
+          wait "$OPENWEATHER_PID" || { echo "OpenWeather ingestion failed"; status=1; }
+          wait "$TRAFFIC_PID" || { echo "Traffic ingestion failed"; status=1; }
+          
+          if [ "$status" -ne 0 ]; then
+            echo "One or more ingestion jobs failed; skipping upload."
+            exit "$status"
+          fi
+          echo "Data ingestion finished."
+
+      - name: Upload to Google Drive
+        run: python scripts/gdrive_uploader.py
+
+      - name: Notify Telegram on failure
+        if: ${{ failure() }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_SYS_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_SYS_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram credentials are missing; cannot send failure notification."
+            exit 1
+          fi
+
+          SHORT_SHA="${GITHUB_SHA::7}"
+          MESSAGE="$(printf '%s\n' \
+            "GitHub Actions failed (Hourly Full Ingestion)" \
+            "" \
+            "Workflow: ${GITHUB_WORKFLOW}" \
+            "Repository: ${GITHUB_REPOSITORY}" \
+            "Branch: ${GITHUB_REF_NAME}" \
+            "Commit: ${SHORT_SHA}" \
+            "Actor: ${GITHUB_ACTOR}" \
+            "Run: ${RUN_URL}")"
+
+          curl --fail --silent --show-error --request POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"
