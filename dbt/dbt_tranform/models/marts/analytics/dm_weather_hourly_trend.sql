@@ -8,6 +8,20 @@
 ) }}
 
 with
+{% if is_incremental() %}
+affected_hours as (
+    select distinct datetime_hour as affected_hour
+    from {{ ref('fct_air_quality_ward_level_hourly') }}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+    
+    union distinct
+    
+    select distinct datetime_hour as affected_hour
+    from {{ ref('fct_weather_ward_hourly') }}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+),
+{% endif %}
+
 aqi as (
     select
         datetime_hour,
@@ -25,7 +39,10 @@ aqi as (
         raw_sync_run_id,
         raw_sync_started_at
     from {{ ref('fct_air_quality_ward_level_hourly') }}
-    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+    where 1 = 1
+    {% if is_incremental() %}
+      and datetime_hour in (select affected_hour from affected_hours)
+    {% endif %}
 ),
 
 weather as (
@@ -41,7 +58,10 @@ weather as (
         raw_sync_run_id,
         raw_sync_started_at
     from {{ ref('fct_weather_ward_hourly') }}
-    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+    where 1 = 1
+    {% if is_incremental() %}
+      and datetime_hour in (select affected_hour from affected_hours)
+    {% endif %}
 )
 
 select

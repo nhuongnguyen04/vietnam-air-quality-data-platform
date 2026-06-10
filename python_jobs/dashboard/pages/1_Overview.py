@@ -73,15 +73,22 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
         if not map_df.empty:
             exceeding_count = len(map_df[map_df["display_val"] > 150])
 
-        # Find the actual province with worst AQI value
-        worst_province = "Hà Nội"
-        worst_cat_text = "Xấu"
-        if not map_df.empty:
-            worst_row = map_df.loc[map_df["display_val"].idxmax()]
-            worst_province = worst_row.get("province", "Hà Nội")
-            worst_val = worst_row["display_val"]
-            worst_cat = get_aqi_category(worst_val)
-            worst_cat_text = "Tốt" if worst_cat == "Good" else ("Trung bình" if worst_cat == "Moderate" else ("Kém" if worst_cat == "Unhealthy for Sensitive Groups" else "Xấu"))
+        # Get the province associated with the maximum AQI or concentration
+        worst_province = row.get("max_val_province", "Hà Nội")
+        if pollutant == "aqi":
+            worst_cat = get_aqi_category(max_val)
+            category_key_map = {
+                "Good": "aqi_good",
+                "Moderate": "aqi_moderate",
+                "Unhealthy for Sensitive Groups": "aqi_unhealthy_sg",
+                "Unhealthy": "aqi_unhealthy",
+                "Very Unhealthy": "aqi_very_unhealthy",
+                "Hazardous": "aqi_hazardous"
+            }
+            worst_cat_text = t(category_key_map.get(worst_cat, "aqi_unhealthy"), lang)
+            worst_subtext = f"{worst_province} · {worst_cat_text}"
+        else:
+            worst_subtext = worst_province
 
         # Render each dynamic KPI card matching design colors
         with kpi_cols[0]:
@@ -114,7 +121,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
                 title_text = f"Nồng độ cao nhất ({val_label})" if lang == "vi" else f"Max Recorded ({val_label})"
             
             val_color = get_aqi_color(max_val) if pollutant == "aqi" else "#ef4444"
-            render_kpi_card(title_text, worst_display, f"{worst_province} · {worst_cat_text}", val_color=val_color)
+            render_kpi_card(title_text, worst_display, worst_subtext, val_color=val_color)
 
         with kpi_cols[3]:
             title_text = "Tỉnh theo dõi" if lang == "vi" else "Monitored Provinces"

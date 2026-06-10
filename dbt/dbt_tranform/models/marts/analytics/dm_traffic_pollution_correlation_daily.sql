@@ -3,8 +3,8 @@
     on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(dbt_updated_at)',
-    unique_key=['province', 'date'],
-    order_by='(province, date)',
+    unique_key=['province', 'date', 'source_mix'],
+    order_by='(province, date, source_mix)',
     partition_by='toYYYYMM(date)',
     query_settings={
         'max_threads': 1,
@@ -46,6 +46,7 @@ daily_stats AS (
     SELECT
         date,
         province,
+        source_mix,
         any(region_3) as region_3,
         any(region_8) as region_8,
         -- Location classification logic
@@ -62,28 +63,29 @@ daily_stats AS (
         count(*) as total_hours,
         avg(confidence_score) as confidence_score,
         topK(1)(confidence_level)[1] as confidence_level,
-        topK(1)(source_mix)[1] as source_mix,
         avg(traffic_ward_count) as avg_traffic_ward_count,
         avg(positive_traffic_ward_count) as avg_positive_traffic_ward_count,
         avg(traffic_coverage_ratio) as avg_traffic_coverage_ratio
     FROM source_data
-    GROUP BY date, province
+    GROUP BY date, province, source_mix
 ),
 
 congestion_thresholds AS (
     SELECT
         date,
         province,
+        source_mix,
         quantileExact(0.25)(avg_congestion) as low_congestion_threshold,
         quantileExact(0.75)(avg_congestion) as high_congestion_threshold
     FROM source_data
-    GROUP BY 1, 2
+    GROUP BY date, province, source_mix
 ),
 
 congestion_band_stats AS (
     SELECT
         s.date,
         s.province,
+        s.source_mix,
         avgIf(s.pm25, s.avg_congestion <= t.low_congestion_threshold) as pm25_low_congestion_avg,
         avgIf(s.pm25, s.avg_congestion >= t.high_congestion_threshold) as pm25_high_congestion_avg,
         countIf(s.avg_congestion <= t.low_congestion_threshold) as low_congestion_hours,
@@ -94,7 +96,8 @@ congestion_band_stats AS (
     INNER JOIN congestion_thresholds t
         ON s.date = t.date
         AND s.province = t.province
-    GROUP BY 1, 2
+        AND s.source_mix = t.source_mix
+    GROUP BY s.date, s.province, s.source_mix
 ),
 
 final_metrics AS (
@@ -144,6 +147,7 @@ final_metrics AS (
     LEFT JOIN congestion_band_stats c
         ON d.date = c.date
         AND d.province = c.province
+        AND d.source_mix = c.source_mix
 )
 
 SELECT

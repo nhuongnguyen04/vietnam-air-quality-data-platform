@@ -412,11 +412,14 @@ def main(lang):
         )
 
     # ── Data Fetching ────────────────────────────────────────────────────────
+    overview_source = st.session_state.get("overview_source", "ground")
+    source_mix = "modeled" if overview_source == "satellite" else "observed"
+
     with st.spinner(t("loading", lang) if lang == "en" else "Đang tải dữ liệu khí tượng..."):
-        df_summary = get_weather_summary_stats(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col)
-        df_trend = get_weather_trend_data(spatial_grain, scope_val, date_range, col=target_poll, time_grain=time_grain)
-        df_corr = get_weather_correlation_data(spatial_grain, scope_val, date_range, col=target_poll, time_grain=time_grain)
-        df_rank = get_weather_ranking_data(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col, p_col=p_col)
+        df_summary = get_weather_summary_stats(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col, source_mix=source_mix)
+        df_trend = get_weather_trend_data(spatial_grain, scope_val, date_range, col=target_poll, time_grain=time_grain, source_mix=source_mix)
+        df_corr = get_weather_correlation_data(spatial_grain, scope_val, date_range, col=target_poll, time_grain=time_grain, source_mix=source_mix)
+        df_rank = get_weather_ranking_data(spatial_grain, scope_val, date_range, p_stag=stagnant_sum_col, p_disp=dispersive_sum_col, p_col=p_col, source_mix=source_mix)
 
     if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_stag):
         stats = df_summary.iloc[0]

@@ -4,8 +4,8 @@
     on_schema_change='sync_all_columns',
     incremental_strategy='delete_insert',
     engine='ReplacingMergeTree(dbt_updated_at)',
-    unique_key=['province', 'ward_code', 'date'],
-    order_by='(province, date, ward_code)',
+    unique_key=['province', 'ward_code', 'date', 'source_mix'],
+    order_by='(province, date, source_mix, ward_code)',
     partition_by='toYYYYMM(date)',
     query_settings={
         'max_threads': 1,
@@ -43,6 +43,7 @@ daily_stats AS (
         date,
         province,
         ward_code,
+        source_mix,
         any(region_3) as region_3,
         any(region_8) as region_8,
         avg(pm25) as avg_pm25,
@@ -54,10 +55,9 @@ daily_stats AS (
         sum(pm10) as sum_pm10,
         avg(confidence_score) as confidence_score,
         topK(1)(confidence_level)[1] as confidence_level,
-        topK(1)(source_mix)[1] as source_mix,
         count(*) as total_hours
     FROM source_data
-    GROUP BY date, province, ward_code
+    GROUP BY date, province, ward_code, source_mix
 ),
 
 weather_modes AS (
@@ -65,6 +65,7 @@ weather_modes AS (
         date,
         province,
         ward_code,
+        source_mix,
         sumIf(pm25, wind_speed < 1.0) as stagnant_pm25_sum,
         countIf(wind_speed < 1.0) as stagnant_hours,
         sumIf(pm25, wind_speed >= 2.0) as dispersive_pm25_sum,
@@ -73,7 +74,7 @@ weather_modes AS (
         sumIf(pm10, wind_speed >= 2.0) as dispersive_pm10_sum,
         countIf(wind_speed < 1.0) / count(*) as stagnant_air_probability
     FROM source_data
-    GROUP BY 1, 2, 3
+    GROUP BY date, province, ward_code, source_mix
 ),
 
 final_metrics AS (
@@ -124,6 +125,7 @@ final_metrics AS (
         ON d.date = m.date 
         AND d.province = m.province 
         AND d.ward_code = m.ward_code
+        AND d.source_mix = m.source_mix
 )
 
 SELECT

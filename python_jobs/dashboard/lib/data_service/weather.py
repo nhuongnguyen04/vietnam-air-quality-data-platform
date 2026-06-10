@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 from lib.clickhouse_client import query_df
-from .core import build_where_clause
+from .core import build_where_clause, escape_value
 
 @st.cache_data(ttl=300)
-def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp"):
+def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp", source_mix: str = 'observed'):
     where_clause = build_where_clause(grain, scope, dates)
     q = f"""
     WITH stats_cte AS (
@@ -14,7 +14,7 @@ def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, 
             avg(stagnant_air_probability) as stagnant_prob,
             avg(wind_daily_avg) as avg_wind
         FROM air_quality.dm_weather_pollution_correlation_daily
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
     )
     SELECT
         *,
@@ -24,7 +24,7 @@ def get_weather_summary_stats(grain: str, scope: str | None = None, dates=None, 
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp", p_col="pm25_daily_avg"):
+def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p_stag="p_stag", p_disp="p_disp", p_col="pm25_daily_avg", source_mix: str = 'observed'):
     where_clause = build_where_clause(grain, scope, dates)
 
     if grain == "Phường":
@@ -38,7 +38,7 @@ def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p
                 sum({p_disp}) / nullif(sum(dispersive_hours), 0) as avg_disp
             FROM air_quality.dm_weather_pollution_correlation_daily w
             LEFT JOIN air_quality.dim_administrative_units d ON w.ward_code = d.ward_code
-            WHERE {where_clause} AND w.ward_code != ''
+            WHERE {where_clause} AND w.ward_code != '' AND w.source_mix = '{escape_value(source_mix)}'
             GROUP BY label_key
         )
         SELECT
@@ -57,7 +57,7 @@ def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p
                 sum({p_stag}) / nullif(sum(stagnant_hours), 0) as avg_stag,
                 sum({p_disp}) / nullif(sum(dispersive_hours), 0) as avg_disp
             FROM air_quality.dm_weather_pollution_correlation_daily
-            WHERE {where_clause} AND province != ''
+            WHERE {where_clause} AND province != '' AND source_mix = '{escape_value(source_mix)}'
             GROUP BY label_col
         )
         SELECT
@@ -70,7 +70,7 @@ def get_weather_ranking_data(grain: str, scope: str | None = None, dates=None, p
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_weather_trend_data(grain: str, scope: str | None = None, dates=None, col="pm25", time_grain="Ngày"):
+def get_weather_trend_data(grain: str, scope: str | None = None, dates=None, col="pm25", time_grain="Ngày", source_mix: str = 'observed'):
     target_col = col if col in ["pm25", "pm10", "aqi_vn", "aqi_us"] else "pm25"
 
     if time_grain == "Giờ":
@@ -83,7 +83,7 @@ def get_weather_trend_data(grain: str, scope: str | None = None, dates=None, col
             avg(humidity) as avg_hum,
             avg(temperature) as avg_temp
         FROM air_quality.dm_weather_hourly_trend
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
         GROUP BY time_key
         HAVING avg_temp IS NOT NULL
         ORDER BY time_key
@@ -99,7 +99,7 @@ def get_weather_trend_data(grain: str, scope: str | None = None, dates=None, col
             avg(humidity_daily_avg) as avg_hum,
             avg(temp_daily_avg) as avg_temp
         FROM air_quality.dm_weather_pollution_correlation_daily
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
         GROUP BY time_key
         HAVING avg_temp IS NOT NULL
         ORDER BY time_key
@@ -115,7 +115,7 @@ def get_weather_trend_data(grain: str, scope: str | None = None, dates=None, col
             avg(humidity_daily_avg) as avg_hum,
             avg(temp_daily_avg) as avg_temp
         FROM air_quality.dm_weather_pollution_correlation_daily
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
         GROUP BY time_key
         HAVING avg_temp IS NOT NULL
         ORDER BY time_key
@@ -123,7 +123,7 @@ def get_weather_trend_data(grain: str, scope: str | None = None, dates=None, col
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_weather_correlation_data(grain: str, scope: str | None = None, dates=None, col="pm25", time_grain="Ngày"):
+def get_weather_correlation_data(grain: str, scope: str | None = None, dates=None, col="pm25", time_grain="Ngày", source_mix: str = 'observed'):
     target_col = col if col in ["pm25", "pm10", "aqi_vn", "aqi_us"] else "pm25"
 
     if time_grain == "Giờ":
@@ -137,7 +137,7 @@ def get_weather_correlation_data(grain: str, scope: str | None = None, dates=Non
             avg(wind_speed) as avg_wind,
             avg(stagnant_air_probability) as stagnant_prob
         FROM air_quality.dm_weather_hourly_trend
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
         GROUP BY time_key
         HAVING avg_temp IS NOT NULL
         ORDER BY time_key
@@ -154,7 +154,7 @@ def get_weather_correlation_data(grain: str, scope: str | None = None, dates=Non
             avg(wind_daily_avg) as avg_wind,
             avg(stagnant_air_probability) as stagnant_prob
         FROM air_quality.dm_weather_pollution_correlation_daily
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
         GROUP BY time_key
         HAVING avg_temp IS NOT NULL
         ORDER BY time_key
@@ -171,7 +171,7 @@ def get_weather_correlation_data(grain: str, scope: str | None = None, dates=Non
             avg(wind_daily_avg) as avg_wind,
             avg(stagnant_air_probability) as stagnant_prob
         FROM air_quality.dm_weather_pollution_correlation_daily
-        WHERE {where_clause}
+        WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
         GROUP BY time_key
         HAVING avg_temp IS NOT NULL
         ORDER BY time_key

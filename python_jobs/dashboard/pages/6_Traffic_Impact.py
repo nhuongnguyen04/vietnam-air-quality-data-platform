@@ -77,10 +77,13 @@ def main(lang):
         )
 
     # ── Data Fetching ─────────────────────────────────────────────────────────────
+    overview_source = st.session_state.get("overview_source", "ground")
+    source_mix = "modeled" if overview_source == "satellite" else "observed"
+
     with st.spinner(t("loading", lang) if lang == "en" else "Đang phân tích dữ liệu giao thông..."):
-        df_hourly = get_traffic_correlation_hourly(date_range, spatial_grain, scope_val, col=target_poll)
-        df_summary = get_traffic_summary_stats(spatial_grain, scope_val, date_range)
-        df_rank = get_traffic_ranking_data(spatial_grain, scope_val, date_range, col=target_poll)
+        df_hourly = get_traffic_correlation_hourly(date_range, spatial_grain, scope_val, col=target_poll, source_mix=source_mix)
+        df_summary = get_traffic_summary_stats(spatial_grain, scope_val, date_range, source_mix=source_mix)
+        df_rank = get_traffic_ranking_data(spatial_grain, scope_val, date_range, col=target_poll, source_mix=source_mix)
 
     if not df_summary.empty and not pd.isna(df_summary.iloc[0].avg_pm25):
         stats = df_summary.iloc[0]
@@ -283,7 +286,7 @@ def main(lang):
                 shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.2)" if theme == "dark" else "0 4px 6px -1px rgba(0, 0, 0, 0.05)"
                 glass_blur = "blur(12px)" if theme == "dark" else "blur(8px)"
                 
-                note = "Chỉ số = PM2.5 avg × congestion avg" if lang == "vi" else "Score = PM2.5 avg × congestion avg"
+                note = "Chỉ số = avg(PM2.5 × congestion)" if lang == "vi" else "Score = avg(PM2.5 × congestion)"
                 
                 # Sort and clean data
                 df_sorted = df_rank.sort_values(by="impact_score", ascending=False).head(6)

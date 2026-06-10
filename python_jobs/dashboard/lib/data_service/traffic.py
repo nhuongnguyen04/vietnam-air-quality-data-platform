@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 from lib.clickhouse_client import query_df
-from .core import build_where_clause
+from .core import build_where_clause, escape_value
 
 @st.cache_data(ttl=300)
-def get_traffic_correlation_hourly(dates, grain, scope, col="pm25"):
+def get_traffic_correlation_hourly(dates, grain, scope, col="pm25", source_mix: str = 'observed'):
     where_clause = build_where_clause(grain, scope, dates)
     target_col = col if col in ["pm25", "pm10", "co"] else "pm25"
 
@@ -14,14 +14,14 @@ def get_traffic_correlation_hourly(dates, grain, scope, col="pm25"):
         avg(avg_congestion) as avg_congestion,
         avg({target_col}) as avg_p
     FROM air_quality.dm_traffic_hourly_trend
-    WHERE {where_clause}
+    WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
     GROUP BY hour_val
     ORDER BY hour_val
     """
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_traffic_summary_stats(grain: str, scope: str | None = None, dates=None):
+def get_traffic_summary_stats(grain: str, scope: str | None = None, dates=None, source_mix: str = 'observed'):
     where_clause = build_where_clause(grain, scope, dates)
     q = f"""
     SELECT
@@ -35,12 +35,12 @@ def get_traffic_summary_stats(grain: str, scope: str | None = None, dates=None):
         sum(high_congestion_hours) as high_congestion_hours,
         countIf(pm25_congestion_uplift IS NOT NULL) as uplift_sample_days
     FROM air_quality.dm_traffic_pollution_correlation_daily
-    WHERE {where_clause}
+    WHERE {where_clause} AND source_mix = '{escape_value(source_mix)}'
     """
     return query_df(q)
 
 @st.cache_data(ttl=300)
-def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, col="pm25"):
+def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, col="pm25", source_mix: str = 'observed'):
     where_clause = build_where_clause(grain, scope, dates)
     target_col = col if col in ["pm25", "pm10", "co"] else "pm25"
 
@@ -76,6 +76,7 @@ def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, c
             AND h.{target_col} IS NOT NULL
             AND t.avg_congestion IS NOT NULL
             AND t.avg_congestion > 0
+            AND h.source_mix = '{escape_value(source_mix)}'
         GROUP BY a.ward_code
         ORDER BY impact_score DESC
         LIMIT 12
@@ -88,7 +89,7 @@ def get_traffic_ranking_data(grain: str, scope: str | None = None, dates=None, c
         any(location_type) as location_type,
         avg({target_col}_daily_avg * congestion_daily_avg) as impact_score
     FROM air_quality.dm_traffic_pollution_correlation_daily
-    WHERE {where_clause} AND province != ''
+    WHERE {where_clause} AND province != '' AND source_mix = '{escape_value(source_mix)}'
     GROUP BY label_col
     ORDER BY impact_score DESC
     LIMIT 12

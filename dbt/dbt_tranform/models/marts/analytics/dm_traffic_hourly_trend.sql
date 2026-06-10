@@ -2,12 +2,26 @@
     materialized='incremental',
     on_schema_change='sync_all_columns',
     engine='ReplacingMergeTree',
-    unique_key='(province, datetime_hour)',
-    order_by='(province, date, datetime_hour)',
+    unique_key='(province, datetime_hour, source_mix)',
+    order_by='(province, date, source_mix, datetime_hour)',
     partition_by='toYYYYMM(date)'
 ) }}
 
 with
+{% if is_incremental() %}
+affected_hours as (
+    select distinct timestamp_utc as affected_hour
+    from {{ ref('stg_tomtom__flow') }}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+    
+    union distinct
+    
+    select distinct datetime_hour as affected_hour
+    from {{ ref('fct_air_quality_province_level_hourly') }}
+    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+),
+{% endif %}
+
 province_coverage as (
     select
         province,
@@ -31,7 +45,10 @@ traffic_by_province_hour as (
     from {{ ref('stg_tomtom__flow') }} t
     left join {{ ref('dim_administrative_units') }} a
         on t.ward_code = a.ward_code
-    where {{ downstream_incremental_predicate('t.raw_sync_run_id', 't.raw_loaded_at') }}
+    where 1 = 1
+    {% if is_incremental() %}
+      and t.timestamp_utc in (select affected_hour from affected_hours)
+    {% endif %}
     group by
         datetime_hour,
         date,
@@ -53,7 +70,10 @@ aqi_by_province_hour as (
         confidence_level,
         last_ingested_at
     from {{ ref('fct_air_quality_province_level_hourly') }}
-    where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
+    where 1 = 1
+    {% if is_incremental() %}
+      and datetime_hour in (select affected_hour from affected_hours)
+    {% endif %}
 ),
 
 joined as (

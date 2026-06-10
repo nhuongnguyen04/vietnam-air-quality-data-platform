@@ -33,7 +33,10 @@ def test_process_results_writes_real_utc_timestamp():
             {
                 "station_name": "Ba Dinh, Hanoi, Hanoi, Vietnam",
                 "success": True,
+                "station_lat": 21.02,
+                "station_lon": 105.84,
                 "data": {
+                    "idx": 1234,
                     "aqi": 229,
                     "iaqi": {"pm25": {"v": 229}},
                     "time": {"iso": "2026-06-08T15:00:00+07:00"},
@@ -43,4 +46,4 @@ def test_process_results_writes_real_utc_timestamp():
         batch_id="test_batch",
     )
 
-    assert records[0]["timestamp_utc"] == datetime(2026, 6, 8, 8, 0, tzinfo=timezone.utc)
+    assert records[0][0]["timestamp_utc"] == datetime(2026, 6, 8, 8, 0, tzinfo=timezone.utc)

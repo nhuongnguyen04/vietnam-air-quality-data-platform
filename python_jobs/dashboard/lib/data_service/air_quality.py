@@ -149,6 +149,7 @@ def get_national_summary(table, col, m_col, grain, scope, dates, tunit, source_n
     SELECT
         avg({col}) as avg_val,
         max(if({m_col} is not null, {m_col}, {col})) as max_val,
+        argMax(province, if({m_col} is not null, {m_col}, {col})) as max_val_province,
         count(distinct if({col} is not null, province, null)) as province_count,
         topK(1)(main_pollutant)[1] as dominant_pollutant
     FROM air_quality.{table}

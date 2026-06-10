@@ -5,16 +5,16 @@ station_name,latitude,longitude,province,source,ward
 "Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
 "Bac Ninh Binh Dinh, Bac Ninh, Bac Ninh, Vietnam",20.42843246459961,106.1776351928711,Ninh Bình,tomtom_fix,Xã Nhân Hà
 "Bac Ninh Chau Khe, Hanoi, Ha Noi, Vietnam",21.214853286743164,105.93156433105467,TP.Hà Nội,tomtom_geocoding,Xã Phù Lỗ
-"Bac Ninh KCN Tien Son, Bac Ninh, Bac Ninh, Vietnam",21.132301330566406,105.99640655517578,TP.Hà Nội,tomtom_fix,Xã Thư Lâm
+"Bac Ninh KCN Tien Son, Bac Ninh, Bac Ninh, Vietnam",21.132301330566406,105.99640655517578,Bắc Ninh,tomtom_fix,phường Tam Sơn
 "Bac Ninh Kcn Qua, Bac Ninh, Bac Ninh, Vietnam",21.1639,106.1261,Bắc Ninh,tomtom_fix,Phường Vân Dương
-"Bac Ninh Monitoring Center Suoi Hoa Ward Bac Ninh City, Bac Ninh, Bac Ninh, Vietnam",21.189428329467773,106.07684326171876,TP.Hà Nội,tomtom_fix,Xã Thư Lâm
-"Bac Ninh Peoples Committee Of Yen Phong, Bac Ninh, Bac Ninh, Vietnam",21.187593460083008,105.96450805664062,TP.Hà Nội,tomtom_fix,Xã Phù Lỗ
+"Bac Ninh Monitoring Center Suoi Hoa Ward Bac Ninh City, Bac Ninh, Bac Ninh, Vietnam",21.189428329467773,106.07684326171876,Bắc Ninh,tomtom_fix,phường Vũ Ninh
+"Bac Ninh Peoples Committee Of Yen Phong, Bac Ninh, Bac Ninh, Vietnam",21.187593460083008,105.96450805664062,Bắc Ninh,tomtom_fix,xã Yên Phong
 "Bac Ninh Phong Coc, Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
 "Bac Ninh Phu Lang, Bac Giang, Bac Giang, Vietnam",21.273399353027344,106.32230377197266,Bắc Ninh,original,Xã Cẩm Lý
-"Bac Ninh Phu Xa Van Mon, Bac Ninh, Bac Ninh, Vietnam",21.170520782470703,105.93175506591795,TP.Hà Nội,tomtom_fix,Xã Phù Lỗ
+"Bac Ninh Phu Xa Van Mon, Bac Ninh, Bac Ninh, Vietnam",21.170520782470703,105.93175506591795,Bắc Ninh,tomtom_fix,xã Văn Môn
 "Bac Ninh Thuan Thanh Inter Area, Bac Ninh, Bac Ninh, Vietnam",21.063514709472656,106.08988189697266,Bắc Ninh,tomtom_fix,Phường Phù Chẩn
 "Bac Ninh Tieu Hoc Dai Bai, Bac Ninh, Bac Ninh, Vietnam",21.03772735595703,106.14680480957033,Bắc Ninh,aqicn_fuzzy,Phường Phù Chẩn
-"Bac Ninh UBND xa Xuan Lam, Hanoi, Ha Noi, Vietnam",21.07156753540039,105.79717254638672,TP.Hà Nội,tomtom_geocoding,Phường Phú Thượng
+"Bac Ninh UBND xa Xuan Lam, Hanoi, Ha Noi, Vietnam",21.0233,106.0158,Bắc Ninh,tomtom_geocoding,phường Song Liễu
 "Bac Ninh Ubnd Aai Aang, Bac Ninh, Bac Ninh, Vietnam",21.367172241210938,106.26187133789062,Bắc Ninh,tomtom_fix,Xã Lạng Giang
 "Bac Ninh Ubnd Que Vu, Bac Ninh, Bac Ninh, Vietnam",21.189218521118164,106.08056640625,Bắc Ninh,tomtom_fix,Xã Tam Giang
 "Bac Ninh gan KCN Yen Phong, Hanoi, Ha Noi, Vietnam",21.12773895263672,105.88954162597656,TP.Hà Nội,aqicn_fuzzy,Xã Thư Lâm
@@ -58,7 +58,7 @@ station_name,latitude,longitude,province,source,ward
 "Ha Noi TT giao luu van hoa pho co Hoan Kiem, Hanoi, Ha Noi, Vietnam",21.00989151000977,105.83892059326172,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Ha Noi Truong THCS Van Yen Ha dong, Hanoi, Ha Noi, Vietnam",21.00618934631348,105.8057861328125,TP.Hà Nội,tomtom_geocoding,Phường Khương Đình
 "Ha Noi UBND TT Lien Quan Thach That, Son Tay, Ha Noi, Vietnam",21.056293487548828,105.57390594482422,TP.Hà Nội,tomtom_geocoding,Xã Ô Diên
-"Ha Noi UBND TT Soc Son, Bac Ninh, Bac Ninh, Vietnam",21.086824417114254,105.9429931640625,TP.Hà Nội,tomtom_fix,Xã Phù Đổng
+"Ha Noi UBND TT Soc Son, Bac Ninh, Bac Ninh, Vietnam",21.257696,105.849159,TP.Hà Nội,tomtom_fix,xã Sóc Sơn
 "Ha Noi UBND Xa An Khanh Hoai Duc, Hanoi, Ha Noi, Vietnam",21.006038665771484,105.71795654296876,TP.Hà Nội,tomtom_geocoding,Xã An Khánh
 "Ha Noi UBND xa Thanh Xuan Soc Son, Vinh Yen, Vinh Phuc, Vietnam",21.36090087890625,105.59729766845705,Phú Thọ,original,Xã Tam Dương
 "Ha Noi UNBD TT Van Dinh ung Hoa, Phu Ly, Ha Nam, Vietnam",20.735729217529297,105.77264404296876,Ninh Bình,tomtom_fix,Xã Tam Hưng
