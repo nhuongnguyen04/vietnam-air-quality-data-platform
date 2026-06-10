@@ -39,7 +39,7 @@ select
     raw_sync_run_id,
     raw_sync_started_at,
     main_pollutant
-from {{ ref('int_aqiin__province_hourly') }}
+from {{ ref('int_observed__province_hourly') }}
 
 union all
 

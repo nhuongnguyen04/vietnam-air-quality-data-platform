@@ -154,27 +154,37 @@ def main(lang: str):
     with col1:
         # Extract source data dynamically
         aqiin_rel = 95.0
+        waqi_rel = 92.0
         ow_rel = 91.0
         aqiin_lag = 0.8
+        waqi_lag = 1.0
         ow_lag = 1.2
         
         if not source_summary.empty:
             aqiin_row = source_summary[source_summary["source"] == "aqiin"]
+            waqi_row = source_summary[source_summary["source"] == "waqi"]
             ow_row = source_summary[source_summary["source"] == "openweather"]
             
             if not aqiin_row.empty:
                 aqiin_rel = float(aqiin_row["reliable_pct"].values[0])
                 aqiin_lag = float(aqiin_row["latest_lag_hours"].values[0])
+            if not waqi_row.empty:
+                waqi_rel = float(waqi_row["reliable_pct"].values[0])
+                waqi_lag = float(waqi_row["latest_lag_hours"].values[0])
             if not ow_row.empty:
                 ow_rel = float(ow_row["reliable_pct"].values[0])
                 ow_lag = float(ow_row["latest_lag_hours"].values[0])
                 
         # Tag content based on lag hours
         aqiin_tag = t("lag_good", lang) if aqiin_lag <= 1.5 else (t("lag_fair", lang) if aqiin_lag <= 4 else t("lag_poor", lang))
+        waqi_tag = t("lag_good", lang) if waqi_lag <= 1.5 else (t("lag_fair", lang) if waqi_lag <= 4 else t("lag_poor", lang))
         ow_tag = t("lag_good", lang) if ow_lag <= 1.5 else (t("lag_fair", lang) if ow_lag <= 4 else t("lag_poor", lang))
         
         aqiin_tag_color = "#10b981" if aqiin_lag <= 1.5 else ("#f59e0b" if aqiin_lag <= 4 else "#ef4444")
         aqiin_tag_bg = "rgba(16,185,129,0.12)" if aqiin_lag <= 1.5 else ("rgba(245,158,11,0.12)" if aqiin_lag <= 4 else "rgba(239,68,68,0.12)")
+        
+        waqi_tag_color = "#10b981" if waqi_lag <= 1.5 else ("#f59e0b" if waqi_lag <= 4 else "#ef4444")
+        waqi_tag_bg = "rgba(16,185,129,0.12)" if waqi_lag <= 1.5 else ("rgba(245,158,11,0.12)" if waqi_lag <= 4 else "rgba(239,68,68,0.12)")
         
         ow_tag_color = "#10b981" if ow_lag <= 1.5 else ("#f59e0b" if ow_lag <= 4 else "#ef4444")
         ow_tag_bg = "rgba(16,185,129,0.12)" if ow_lag <= 1.5 else ("rgba(245,158,11,0.12)" if ow_lag <= 4 else "rgba(239,68,68,0.12)")
@@ -191,6 +201,14 @@ def main(lang: str):
                 </div>
                 <div style="background: rgba(255,255,255,0.06); border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 1.2rem;">
                     <div style="background: linear-gradient(90deg, #10b981, #0891b2); width: {aqiin_rel}%; height: 100%; border-radius: 4px;"></div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; font-weight: 600;">
+                    <span>WAQI</span>
+                    <span>{waqi_rel:.1f}%</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.06); border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 1.2rem;">
+                    <div style="background: linear-gradient(90deg, #10b981, #0891b2); width: {waqi_rel}%; height: 100%; border-radius: 4px;"></div>
                 </div>
                 
                 <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; font-weight: 600;">
@@ -214,6 +232,17 @@ def main(lang: str):
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 0.85rem; opacity: 0.8; font-weight: 500;">{format_hours(aqiin_lag)} lag</span>
                         <span style="font-size: 0.75rem; font-weight: 700; color: {aqiin_tag_color}; background: {aqiin_tag_bg}; padding: 2px 6px; border-radius: 4px;">{aqiin_tag}</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
+                        <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block;"></span>
+                        <span style="font-weight: 600;">WAQI</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.85rem; opacity: 0.8; font-weight: 500;">{format_hours(waqi_lag)} lag</span>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: {waqi_tag_color}; background: {waqi_tag_bg}; padding: 2px 6px; border-radius: 4px;">{waqi_tag}</span>
                     </div>
                 </div>
                 
@@ -314,6 +343,7 @@ def main(lang: str):
         now_ts = int(time.time())
         model_timestamps = {
             "stg_aqiin": now_ts - 1800,       # 30 mins ago
+            "stg_waqi": now_ts - 1800,        # 30 mins ago
             "fct_hourly": now_ts - 2100,      # 35 mins ago
             "dm_overview": now_ts - 2400,     # 40 mins ago
             "dm_health_risk": now_ts - 7560,   # 2.1h ago
@@ -324,6 +354,7 @@ def main(lang: str):
             q_times = """
             SELECT
                 (SELECT toUnixTimestamp(max(timestamp_utc)) FROM air_quality.stg_aqiin__measurements) as stg_aqiin,
+                (SELECT toUnixTimestamp(max(timestamp_utc)) FROM air_quality.stg_waqi__measurements) as stg_waqi,
                 (SELECT toUnixTimestamp(max(datetime_hour)) FROM air_quality.fct_air_quality_summary_hourly) as fct_hourly,
                 (SELECT toUnixTimestamp(max(last_ingested_at)) FROM air_quality.dm_air_quality_overview_daily) as dm_overview,
                 (SELECT toUnixTimestamp(max(ingest_time)) FROM air_quality.dm_aqi_health_impact_summary) as dm_health_risk,
@@ -385,6 +416,15 @@ def main(lang: str):
                             <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">stg_aqiin</span>
                         </div>
                         <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['stg_aqiin']['text']}</span>
+                    </div>
+
+                    <!-- stg_waqi -->
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="height: 8px; width: 8px; background-color: {rendered_models['stg_waqi']['color']}; border-radius: 50%; display: inline-block; box-shadow: {rendered_models['stg_waqi']['shadow']};"></span>
+                            <span style="font-family: monospace; font-weight: 700; font-size: 0.95rem;">stg_waqi</span>
+                        </div>
+                        <span style="font-size: 0.82rem; opacity: 0.7; font-weight: 500;">{rendered_models['stg_waqi']['text']}</span>
                     </div>
                     
                     <!-- fct_hourly -->

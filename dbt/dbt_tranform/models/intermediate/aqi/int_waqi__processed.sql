@@ -11,7 +11,7 @@
     }
 ) }}
 
-with aqiin_raw as (
+with waqi_raw as (
     select 
         m.source as source,
         s.station_name as station_name,
@@ -28,10 +28,10 @@ with aqiin_raw as (
         m.raw_loaded_at as raw_loaded_at,
         m.raw_sync_run_id as raw_sync_run_id,
         m.raw_sync_started_at as raw_sync_started_at
-    from {{ ref('stg_aqiin__measurements') }} m
+    from {{ ref('stg_waqi__measurements') }} m
     join {{ ref('stg_core__stations') }} s 
       on m.station_name = s.station_name 
-     and s.station_source = 'aqiin'
+     and s.station_source = 'waqi'
     where {{ downstream_incremental_predicate('m.raw_sync_run_id', 'm.raw_loaded_at') }}
 ),
 
@@ -61,7 +61,7 @@ normalized_for_us as (
             when parameter = 'o3' then value * 0.510
             else value
         end as value_us_standard
-    from aqiin_raw
+    from waqi_raw
 ),
 
 with_aqi as (

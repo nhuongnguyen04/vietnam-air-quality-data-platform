@@ -37,7 +37,7 @@ select
     raw_sync_run_id,
     raw_sync_started_at,
     main_pollutant
-from {{ ref('int_aqiin__ward_hourly') }}
+from {{ ref('int_observed__ward_hourly') }}
 
 union all
 

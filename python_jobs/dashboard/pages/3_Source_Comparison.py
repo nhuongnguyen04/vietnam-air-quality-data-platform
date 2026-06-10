@@ -20,8 +20,8 @@ from lib.page_helpers import page_wrapper, render_section_divider, render_info_b
 from lib.chart_config import get_plotly_layout, create_empty_state, SOURCE_PALETTE
 from lib.ui_components import render_kpi_card
 
-SOURCE_LABELS = {"aqiin": "📡 Quan trắc mặt đất", "openweather": "🛰️ Mô hình vệ tinh"}
-SOURCE_COLORS = {"aqiin": "#0891B2", "openweather": "#F59E0B"}
+SOURCE_LABELS = {"aqiin": "📡 Quan trắc mặt đất", "waqi": "📡 Quan trắc mặt đất", "openweather": "🛰️ Mô hình vệ tinh"}
+SOURCE_COLORS = {"aqiin": "#0891B2", "waqi": "#0891B2", "openweather": "#F59E0B"}
 
 @st.cache_data(ttl=300)
 def get_source_trend(dates, province: str | None):
@@ -33,7 +33,7 @@ def get_source_trend(dates, province: str | None):
         round(avg(daily_avg_aqi_us), 1) AS avg_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE {where_clause}
-      AND source IN ('aqiin', 'openweather')
+      AND source IN ('aqiin', 'waqi', 'openweather')
     GROUP BY date, source
     ORDER BY date
     """
@@ -48,7 +48,7 @@ def get_source_distribution(dates, province: str | None):
         daily_avg_aqi_us AS avg_aqi
     FROM air_quality.fct_air_quality_summary_daily
     WHERE {where_clause}
-      AND source IN ('aqiin', 'openweather')
+      AND source IN ('aqiin', 'waqi', 'openweather')
     """
     return query_df(q)
 
@@ -65,7 +65,7 @@ def get_source_stats(dates):
         sum(if(daily_avg_aqi_us <= 50, 1, 0))       AS good_days
     FROM air_quality.fct_air_quality_summary_daily
     WHERE {where_clause}
-      AND source IN ('aqiin', 'openweather')
+      AND source IN ('aqiin', 'waqi', 'openweather')
     GROUP BY source
     """
     return query_df(q)
@@ -81,7 +81,7 @@ def get_data_freshness():
         stale_count,
         offline_count
     FROM air_quality.dm_platform_source_health
-    WHERE source IN ('aqiin', 'openweather')
+    WHERE source IN ('aqiin', 'waqi', 'openweather')
     ORDER BY source
     """
     return query_df(q)

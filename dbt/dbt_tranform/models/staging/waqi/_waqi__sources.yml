@@ -51,12 +51,14 @@ sources:
       - name: dim_waqi_stations
         description: |
           Dynamic dimension table for WAQI monitoring stations.
+        tests:
+          - unique_combination_of_columns_final:
+              combination_of_columns: [station_id]
         columns:
           - name: station_id
             description: "Unique station integer UID returned by WAQI API."
             tests:
               - not_null
-              - unique
           - name: station_name
             description: "Official station name from WAQI API."
             tests:

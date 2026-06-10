@@ -222,7 +222,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
                     {overall_aqi_expr} AS overall_aqi,
                     {main_poll_expr} AS main_pollutant,
                     count() AS obs_count
-                FROM air_quality.stg_aqiin__measurements
+                FROM air_quality.int_observed__processed
                 WHERE parameter IN ('pm25', 'pm10', 'co', 'no2', 'so2', 'o3')
                   AND {date_filter}
                 GROUP BY station_name, timestamp_utc
@@ -250,7 +250,7 @@ def get_chart_data(table, col, grain, scope, dates, tunit, source_name="blended"
                 'observed' AS source_mix,
                 count(distinct m.timestamp_utc) AS aqiin_observation_count,
                 0 AS openweather_observation_count
-            FROM air_quality.stg_aqiin__measurements m
+            FROM air_quality.int_observed__processed m
             JOIN air_quality.stg_core__stations s ON m.station_name = s.station_name
             LEFT JOIN air_quality.dim_administrative_units d ON s.ward_code = d.ward_code
             WHERE m.parameter = '{escape_value(pollutant_name)}'

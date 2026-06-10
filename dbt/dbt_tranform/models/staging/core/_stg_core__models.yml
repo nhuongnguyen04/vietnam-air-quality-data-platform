@@ -38,16 +38,18 @@ models:
     description: |
       Enriched station metadata with automated mapping to ward_code.
 
-      **Grain:** One row per station_name.
+      **Grain:** One row per (station_name, station_source).
 
       **Business Rules:**
       - Stations are mapped to the nearest ward centroid from `stg_core__administrative_units` using spatial distance.
+    tests:
+      - unique_combination_of_columns_final:
+          combination_of_columns: [station_name, station_source]
     columns:
       - name: station_name
         description: Primary key for station identification.
         tests:
           - not_null
-          - unique
       - name: ward_code
         description: Mapped administrative ward code.
       - name: province
