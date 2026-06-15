@@ -1,5 +1,8 @@
 {{ config(
-    materialized='view',
+    materialized='table',
+    engine='MergeTree()',
+    order_by='(province, date, assumeNotNull(ward_code), datetime_hour)',
+    partition_by='toYYYYMM(date)',
     query_settings={
         'join_use_nulls': 1
     }

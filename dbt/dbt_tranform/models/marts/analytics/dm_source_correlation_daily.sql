@@ -10,7 +10,8 @@ with aqiin_prov as (
         avg(avg_aqi_vn) as aqiin_aqi,
         avg(pm25_avg) as aqiin_pm25,
         count(distinct ward_code) as aqiin_wards
-    from {{ ref('int_aqiin__ward_daily') }}
+    from {{ ref('fct_air_quality_ward_level_daily') }}
+    where source_mix = 'observed'
     group by date, province
 ),
 
@@ -21,7 +22,8 @@ ow_prov as (
         avg(avg_aqi_vn) as ow_aqi,
         avg(pm25_avg) as ow_pm25,
         count(distinct ward_code) as ow_wards
-    from {{ ref('int_ow__ward_daily') }}
+    from {{ ref('fct_air_quality_ward_level_daily') }}
+    where source_mix = 'modeled'
     group by date, province
 ),
 

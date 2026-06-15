@@ -1047,7 +1047,7 @@ models:
 
       **Downstream consumers:** Streamlit dashboard (all pages), real-time alerts, Grafana panels
     tests:
-      - unique_combination_of_columns_final:
+      - unique_combination_of_columns:
           combination_of_columns:
             - ward_code
             - datetime_hour
