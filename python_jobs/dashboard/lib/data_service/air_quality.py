@@ -144,13 +144,15 @@ def get_current_aqi_status():
 def get_national_summary(table, col, m_col, grain, scope, dates, tunit, source_name="blended"):
     """KPI summary — follows the active filter (time_unit aware)."""
     source_mix = get_source_mix(source_name)
-    where_clause = build_where_clause(None, scope, dates, time_unit=tunit, source_mix=source_mix)
+    where_clause = build_where_clause(grain, scope, dates, time_unit=tunit, source_mix=source_mix)
     q = f"""
     SELECT
         avg({col}) as avg_val,
         max(if({m_col} is not null, {m_col}, {col})) as max_val,
         argMax(province, if({m_col} is not null, {m_col}, {col})) as max_val_province,
+        argMax(ward_name, if({m_col} is not null, {m_col}, {col})) as max_val_ward,
         count(distinct if({col} is not null, province, null)) as province_count,
+        count(distinct if({col} is not null, ward_code, null)) as ward_count,
         topK(1)(main_pollutant)[1] as dominant_pollutant
     FROM air_quality.{table}
     WHERE {where_clause}

@@ -1,9 +1,9 @@
 {{ config(
     materialized='incremental',
-    engine='ReplacingMergeTree(raw_loaded_at)',
+    engine='ReplacingMergeTree(version)',
     incremental_strategy='append',
-    unique_key='(station_name, timestamp_utc, parameter)',
-    order_by='(province, timestamp_utc, ward_code, station_name, parameter)',
+    unique_key='(timestamp_utc, latitude_rounded, longitude_rounded, parameter)',
+    order_by='(timestamp_utc, latitude_rounded, longitude_rounded, parameter)',
     partition_by='toYYYYMM(timestamp_utc)',
     tags=['pipeline_v2'],
     query_settings={
@@ -16,6 +16,8 @@ with observed_stations as (
         station_name,
         latitude,
         longitude,
+        round(latitude, 4) as latitude_rounded,
+        round(longitude, 4) as longitude_rounded,
         ward_code,
         province,
         timestamp_utc,
@@ -32,7 +34,8 @@ with observed_stations as (
         raw_sync_started_at,
         region_3,
         region_8,
-        if(source = 'waqi', 1, 2) as priority -- WAQI (1) ưu tiên hơn AQI.in (2)
+        if(source = 'waqi', 2, 1) as priority_score,
+        priority_score * 3000000000 + toUnixTimestamp(raw_loaded_at) as version
     from (
         select 'aqiin' as source, * from {{ ref('int_aqiin__processed') }}
         where {{ downstream_incremental_predicate('raw_sync_run_id', 'raw_loaded_at') }}
@@ -43,18 +46,16 @@ with observed_stations as (
 ),
 
 deduped as (
-    -- Khử trùng lặp cấp trạm theo Tọa độ làm tròn:
-    -- Nếu trùng (round(lat, 4), round(lon, 4)) + giờ + chỉ số, chỉ giữ lại WAQI
-    select * except (priority, rn)
+    select * except (priority_score, rn)
     from (
         select *,
             row_number() over (
                 partition by 
-                    round(latitude, 4), 
-                    round(longitude, 4), 
+                    latitude_rounded, 
+                    longitude_rounded, 
                     timestamp_utc, 
                     parameter 
-                order by priority asc, raw_loaded_at desc
+                order by version desc
             ) as rn
         from observed_stations
     )
@@ -62,3 +63,4 @@ deduped as (
 )
 
 select * from deduped
+

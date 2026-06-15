@@ -70,6 +70,8 @@ class SyncResult:
     table: str | None = None
     error: str | None = None
     reason: str | None = None
+    records_count: int = 0
+
 
 
 @dataclass(frozen=True)
@@ -251,6 +253,7 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
     rel_path = file_info.get('rel_path', '')
 
     try:
+        records_count = 0
         # 1. Determine Target Table
         table = resolve_table_for_file(rel_path, filename)
 
@@ -309,6 +312,7 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
             try:
                 ch_client.command(sql)
                 logger.info(f"Inserted {len(records)} rows from {filename} into {table}")
+                records_count = len(records)
             except Exception as e:
                 logger.error(f"Failed to insert into {table} from {filename}: {e}")
                 # Log a snippet of the SQL for debugging (careful with sensitive data)
@@ -337,7 +341,7 @@ def process_file_task(file_info, archive_source_mapping, sync_batch: SyncBatchMe
             fields='id, parents'
         ).execute()
 
-        return SyncResult(True, filename, rel_path, table)
+        return SyncResult(True, filename, rel_path, table, records_count=records_count)
     except Exception as e:
         logger.error(f"Error processing {filename}: {e}", exc_info=True)
         return SyncResult(False, filename, rel_path, locals().get("table"), str(e), "EXCEPTION")
@@ -379,6 +383,7 @@ def main():
 
     # 2. Parallel Processing
     success_count = 0
+    total_records_synced = 0
     failed_results: list[SyncResult] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
@@ -393,6 +398,7 @@ def main():
                 result = future.result()
                 if result.success:
                     success_count += 1
+                    total_records_synced += result.records_count
                 else:
                     failed_results.append(result)
             except Exception as e:
@@ -439,6 +445,7 @@ def main():
     print(f"FILES_FOUND={len(all_files)}")
     print(f"FILES_SYNCED={success_count}")
     print(f"FILES_FAILED={failed_count}")
+    print(f"RECORDS_SYNCED={total_records_synced}")
 
 if __name__ == "__main__":
     main()

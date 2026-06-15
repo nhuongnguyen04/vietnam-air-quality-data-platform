@@ -12,7 +12,6 @@ import subprocess
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import BranchPythonOperator
-from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import dag, get_current_context, task
 
 # Default arguments
@@ -77,6 +76,7 @@ def dag_sync_gdrive():
             "FILES_FOUND": 0,
             "FILES_SYNCED": 0,
             "FILES_FAILED": 0,
+            "RECORDS_SYNCED": 0,
             "SYNC_RUN_ID": "",
             "SYNC_STARTED_AT": "",
         }
@@ -84,7 +84,7 @@ def dag_sync_gdrive():
             for key in counters:
                 if line.startswith(f"{key}="):
                     value = line.split("=", 1)[1]
-                    counters[key] = int(value) if key.startswith("FILES_") else value
+                    counters[key] = int(value) if (key.startswith("FILES_") or key == "RECORDS_SYNCED") else value
 
         if counters["FILES_FAILED"] > 0:
             print(
@@ -130,6 +130,7 @@ def dag_sync_gdrive():
         counters = counters or {}
         files_synced = int(counters.get('FILES_SYNCED', 0) or 0)
         files_failed = int(counters.get('FILES_FAILED', 0) or 0)
+        records_synced = int(counters.get('RECORDS_SYNCED', 0) or 0)
 
         error_message = ''
         if not sync_succeeded:
@@ -139,24 +140,14 @@ def dag_sync_gdrive():
 
         _update(
             source='dag_sync_gdrive',
-            records_ingested=files_synced,
+            records_ingested=records_synced,
             success=sync_succeeded,
             error_message=error_message,
         )
         print(
             "Updated ingestion_control for dag_sync_gdrive with "
-            f"records_ingested={files_synced}, files_failed={files_failed}, success={sync_succeeded}"
+            f"records_ingested={records_synced}, files_failed={files_failed}, success={sync_succeeded}"
         )
-
-    trigger_transform = TriggerDagRunOperator(
-        task_id='trigger_transform',
-        trigger_dag_id='dag_transform',
-        wait_for_completion=False,
-        conf={
-            'raw_sync_run_id': "{{ ti.xcom_pull(task_ids='sync_data')['SYNC_RUN_ID'] }}",
-            'raw_sync_started_at': "{{ ti.xcom_pull(task_ids='sync_data')['SYNC_STARTED_AT'] }}",
-        },
-    )
 
     # Dependencies
     sync_counters = sync_data()
@@ -172,7 +163,7 @@ def dag_sync_gdrive():
 
     # Branch: proceed only if data was synced
     sync_counters >> update_control
-    route_after_sync >> completion >> trigger_transform
+    route_after_sync >> completion
     route_after_sync >> no_data
 
 dag_sync_gdrive = dag_sync_gdrive()

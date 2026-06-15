@@ -475,6 +475,71 @@ def main(lang: str):
         """
         st.markdown(clean_html(col3_html), unsafe_allow_html=True)
 
+    # ── Pipeline Run History ───────────────────────────────────────────────
+    st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
+    st.subheader("Pipeline Run History" if lang == "en" else "Lịch sử Pipeline")
+    
+    try:
+        # Fetch last 20 runs from ingestion_control
+        q_history = """
+        SELECT 
+            source,
+            last_run,
+            last_success,
+            records_ingested,
+            lag_seconds,
+            error_message
+        FROM air_quality.ingestion_control
+        ORDER BY last_run DESC
+        LIMIT 20
+        """
+        df_history = query_df(q_history)
+        if not df_history.empty:
+            # Format columns for display safely
+            df_display = df_history.copy()
+            
+            def to_local_str(series):
+                dt_series = pd.to_datetime(series)
+                if dt_series.dt.tz is None:
+                    dt_series = dt_series.dt.tz_localize('UTC')
+                return dt_series.dt.tz_convert('Asia/Ho_Chi_Minh').dt.strftime('%d/%m/%Y %H:%M:%S')
+
+            df_display["last_run"] = to_local_str(df_display["last_run"])
+            df_display["last_success"] = to_local_str(df_display["last_success"])
+            
+            # Format status
+            status_col = []
+            for _, r in df_history.iterrows():
+                if r["error_message"]:
+                    status_col.append("❌ Error" if lang == "en" else "❌ Lỗi")
+                else:
+                    status_col.append("✅ Success" if lang == "en" else "✅ Thành công")
+            df_display.insert(1, "Status" if lang == "en" else "Trạng thái", status_col)
+            
+            # Rename columns nicely
+            renames = {
+                "source": "Source DAG" if lang == "en" else "DAG Nguồn",
+                "last_run": "Run Time (ICT)" if lang == "en" else "Thời gian chạy (ICT)",
+                "last_success": "Last Success Time" if lang == "en" else "Lần thành công trước",
+                "records_ingested": "Records" if lang == "en" else "Số dòng xử lý",
+                "lag_seconds": "Lag (seconds)" if lang == "en" else "Độ trễ (giây)",
+                "error_message": "Message / Error" if lang == "en" else "Thông báo / Lỗi"
+            }
+            df_display = df_display.rename(columns=renames)
+            
+            st.dataframe(
+                df_display, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "Message / Error": st.column_config.TextColumn(width="medium"),
+                    "Thông báo / Lỗi": st.column_config.TextColumn(width="medium")
+                }
+            )
+        else:
+            st.info("Chưa có lịch sử chạy pipeline được ghi nhận." if lang == "vi" else "No pipeline run history found.")
+    except Exception as e:
+        st.error(f"Error fetching pipeline history: {e}" if lang == "en" else f"Lỗi tải lịch sử pipeline: {e}")
 
 
 if __name__ == "__main__":

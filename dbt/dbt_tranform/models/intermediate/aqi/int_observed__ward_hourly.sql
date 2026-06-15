@@ -3,4 +3,4 @@
     tags=['pipeline_v2']
 ) }}
 
-{{ process_source_to_hourly(ref('int_observed__processed')) }}
+{{ process_source_to_hourly(ref('int_observed__processed') ~ ' FINAL') }}

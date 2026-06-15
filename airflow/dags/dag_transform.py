@@ -147,8 +147,8 @@ def print_dbt_result(
 
 @dag(
     default_args=default_args,
-    description='dbt transformation DAG — primarily triggered by dag_sync_gdrive after new landing-zone data arrives',
-    schedule=None,
+    description='dbt transformation DAG — runs hourly to build the warehouse',
+    schedule='0 * * * *',
     start_date=datetime(2026, 4, 1),
     catchup=False,
     max_active_runs=1,
@@ -231,6 +231,12 @@ def dag_transform():
     @task
     def dbt_docs_generate():
         """Generate docs artifacts without blocking the rest of the DAG on failure."""
+        context = get_current_context()
+        dag_run = context.get('dag_run')
+        if dag_run and getattr(dag_run, 'run_type', None) == 'scheduled':
+            print("Skipping dbt docs generate for scheduled runs to save resources.")
+            return False
+
         result = run_dbt_command(
             ['dbt', 'docs', 'generate', '--profiles-dir', DBT_PROFILES_DIR, '--target', DBT_TARGET],
             timeout=1800,
@@ -307,6 +313,32 @@ def dag_transform():
                 + stats['mart_tables']
                 + stats['fact_tables']
             )
+
+            # Query previous last_success for dag_transform to compute processed raw records count
+            try:
+                last_success_query = f"SELECT max(last_success) FROM {clickhouse_db}.ingestion_control WHERE source = 'dag_transform'"
+                last_success_res = client.query(last_success_query)
+                last_success = last_success_res.result_rows[0][0] if last_success_res.result_rows else None
+                last_success_str = last_success.strftime('%Y-%m-%d %H:%M:%S') if (last_success and hasattr(last_success, 'year') and last_success.year > 1970) else '1970-01-01 00:00:00'
+
+                raw_tables = [
+                    'raw_aqiin_measurements',
+                    'raw_waqi_measurements',
+                    'raw_openweather_measurements',
+                    'raw_tomtom_traffic',
+                    'raw_openweather_meteorology'
+                ]
+                processed_records = 0
+                for tbl in raw_tables:
+                    check_tbl = client.query(f"SELECT count() FROM system.tables WHERE database = '{clickhouse_db}' AND name = '{tbl}'")
+                    if check_tbl.result_rows[0][0] > 0:
+                        cnt_res = client.query(f"SELECT count() FROM {clickhouse_db}.{tbl} WHERE raw_loaded_at > '{last_success_str}'")
+                        processed_records += int(cnt_res.result_rows[0][0])
+                stats['processed_records'] = processed_records
+            except Exception as e:
+                print(f"Error calculating processed raw records: {e}")
+                stats['processed_records'] = 0
+
             print(f"dbt transformation statistics: {stats}")
         finally:
             client.close()
@@ -326,7 +358,7 @@ def dag_transform():
         stats = ti.xcom_pull(task_ids='log_dbt_stats') or {}
         transformed_units = 0
         if isinstance(stats, dict):
-            transformed_units = int(stats.get('warehouse_tables_built', 0) or 0)
+            transformed_units = int(stats.get('processed_records', 0) or 0)
 
         critical_task_ids = [
             'check_clickhouse_connection',

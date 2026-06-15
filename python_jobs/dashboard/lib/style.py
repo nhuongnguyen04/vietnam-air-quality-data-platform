@@ -79,7 +79,25 @@ def inject_style():
             letter-spacing: -0.02em;
         }}
 
-        header[data-testid="stHeader"] {{ visibility: hidden; height: 0; }}
+        /* Make header transparent and let clicks pass through, but keep collapse button clickable */
+        header[data-testid="stHeader"] {{
+            background-color: transparent !important;
+            background: transparent !important;
+            border-bottom: none !important;
+            z-index: 999 !important;
+            pointer-events: none !important;
+        }}
+        
+        [data-testid="collapsedControl"] {{
+            pointer-events: auto !important;
+            visibility: visible !important;
+        }}
+        
+        /* Hide Deploy and MainMenu default buttons to keep clean layout */
+        header[data-testid="stHeader"] [data-testid="stDeployButton"],
+        header[data-testid="stHeader"] [data-testid="stMainMenu"] {{
+            display: none !important;
+        }}
         footer {{ visibility: hidden; }}
         .block-container {{ padding-top: 0.25rem !important; padding-bottom: 0.35rem !important; }}
 

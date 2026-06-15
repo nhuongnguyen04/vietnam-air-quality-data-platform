@@ -1,16 +1,14 @@
 {% macro downstream_incremental_predicate(
     sync_run_column='raw_sync_run_id',
-    fallback_column='raw_loaded_at',
-    lookback_hours=var('staging_incremental_lookback_hours', 6)
+    fallback_column='raw_loaded_at'
 ) %}
-    {% set sync_run_id = var('staging_sync_run_id', '') %}
     {% if is_incremental() %}
-        {% if sync_run_id %}
-{{ sync_run_column }} = '{{ sync_run_id | replace("'", "''") }}'
-        {% else %}
-{{ fallback_column }} >= now() - interval {{ lookback_hours }} hour
-        {% endif %}
+        {{ fallback_column }} > (
+            select coalesce(max(last_success), toDateTime('1970-01-01 00:00:00')) 
+            from {{ source('core_external', 'ingestion_control') }}
+            where source = 'dag_transform'
+        )
     {% else %}
-1 = 1
+        1 = 1
     {% endif %}
 {% endmacro %}

@@ -1,10 +1,9 @@
 {% macro staging_incremental_where(sync_run_column='raw_sync_run_id', fallback_column='raw_loaded_at') %}
     {% if is_incremental() %}
-        {% set sync_run_id = var('staging_sync_run_id', '') %}
-        {% if sync_run_id %}
-    where {{ sync_run_column }} = '{{ sync_run_id | replace("'", "''") }}'
-        {% else %}
-    where {{ fallback_column }} >= now() - interval {{ var('staging_incremental_lookback_hours', 6) }} hour
-        {% endif %}
+        where {{ fallback_column }} > (
+            select coalesce(max(last_success), toDateTime('1970-01-01 00:00:00')) 
+            from {{ source('core_external', 'ingestion_control') }}
+            where source = 'dag_transform'
+        )
     {% endif %}
 {% endmacro %}

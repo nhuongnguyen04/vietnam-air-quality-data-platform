@@ -6,6 +6,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from lib.clickhouse_client import query_df
+
 from lib.aqi_utils import get_aqi_category, get_aqi_color
 from lib.data_service import (
     get_aqi_distribution,
@@ -53,6 +55,7 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
         avg_val = row.avg_val or 0
         max_val = row.max_val or 0
         province_count = row.province_count or 0
+        ward_count = row.get("ward_count", 0) or 0
         dominant_poll = (row.dominant_pollutant or "PM2.5").upper()
 
         # Format average displays
@@ -68,13 +71,16 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
             avg_cat = get_aqi_category(avg_val)
             avg_cat_text = "Tốt" if avg_cat == "Good" else ("Trung bình" if avg_cat == "Moderate" else ("Kém" if avg_cat == "Unhealthy for Sensitive Groups" else "Xấu"))
         
-        # Calculate dynamic exceeding count (provinces exceeding 150 AQI threshold)
+        # Calculate dynamic exceeding count (provinces or stations exceeding 150 AQI threshold)
         exceeding_count = 0
         if not map_df.empty:
             exceeding_count = len(map_df[map_df["display_val"] > 150])
 
-        # Get the province associated with the maximum AQI or concentration
+        # Get the location associated with the maximum AQI or concentration
         worst_province = row.get("max_val_province", "Hà Nội")
+        worst_ward = row.get("max_val_ward", "")
+        worst_location = worst_ward if (spatial_grain in ["Tỉnh", "Phường"] and worst_ward) else worst_province
+
         if pollutant == "aqi":
             worst_cat = get_aqi_category(max_val)
             category_key_map = {
@@ -86,15 +92,20 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
                 "Hazardous": "aqi_hazardous"
             }
             worst_cat_text = t(category_key_map.get(worst_cat, "aqi_unhealthy"), lang)
-            worst_subtext = f"{worst_province} · {worst_cat_text}"
+            worst_subtext = f"{worst_location} · {worst_cat_text}"
         else:
-            worst_subtext = worst_province
+            worst_subtext = worst_location
 
         # Render each dynamic KPI card matching design colors
         with kpi_cols[0]:
-            title_text = "AQI TB Quốc gia" if lang == "vi" else "National Avg AQI"
-            if pollutant != "aqi":
-                title_text = f"Nồng độ TB Quốc gia ({val_label})" if lang == "vi" else f"National Avg ({val_label})"
+            if spatial_grain == "Toàn quốc" or not scope_val:
+                title_text = "AQI TB Quốc gia" if lang == "vi" else "National Avg AQI"
+                if pollutant != "aqi":
+                    title_text = f"Nồng độ TB Quốc gia ({val_label})" if lang == "vi" else f"National Avg ({val_label})"
+            else:
+                title_text = f"AQI TB {scope_val}" if lang == "vi" else f"{scope_val} Avg AQI"
+                if pollutant != "aqi":
+                    title_text = f"Nồng độ TB {scope_val} ({val_label})" if lang == "vi" else f"{scope_val} Avg ({val_label})"
             
             val_color = get_aqi_color(avg_val) if pollutant == "aqi" else None
             render_kpi_card(title_text, avg_display, avg_cat_text, val_color=val_color)
@@ -124,18 +135,27 @@ def render_source_dashboard(source_name: str, filters: dict, lang: str, theme: s
             render_kpi_card(title_text, worst_display, worst_subtext, val_color=val_color)
 
         with kpi_cols[3]:
-            title_text = "Tỉnh theo dõi" if lang == "vi" else "Monitored Provinces"
+            if spatial_grain in ["Tỉnh", "Phường"] and scope_val:
+                title_text = "Khu vực theo dõi" if lang == "vi" else "Monitored Areas"
+                count_val = ward_count
+                exceeding_sub = f"<span style='color:#ef4444; font-weight:700;'>{exceeding_count} vượt ngưỡng</span>" if exceeding_count > 0 else ("0 vượt ngưỡng" if lang == "vi" else "0 exceeding")
+            else:
+                title_text = "Tỉnh theo dõi" if lang == "vi" else "Monitored Provinces"
+                count_val = province_count
+                badge_color = "#ef4444" if exceeding_count > 0 else None
+                exceeding_sub = f"<span style='color:{badge_color}; font-weight:700;'>{exceeding_count} vượt ngưỡng</span>" if exceeding_count > 0 else ("0 vượt ngưỡng" if lang == "vi" else "0 exceeding")
             
-            badge_color = "#ef4444" if exceeding_count > 0 else None
-            exceeding_sub = f"<span style='color:{badge_color}; font-weight:700;'>{exceeding_count} vượt ngưỡng</span>" if exceeding_count > 0 else ("0 vượt ngưỡng" if lang == "vi" else "0 exceeding")
-            
-            render_kpi_card(title_text, f"{int(province_count)}", exceeding_sub)
+            render_kpi_card(title_text, f"{int(count_val)}", exceeding_sub)
     else:
         # Fallbacks if database has no entries
-        with kpi_cols[0]: render_kpi_card("AQI TB Quốc gia", "87", "Trung bình", val_color="#f59e0b")
+        with kpi_cols[0]:
+            title_text = f"AQI TB {scope_val}" if (scope_val and spatial_grain != "Toàn quốc") else "AQI TB Quốc gia"
+            render_kpi_card(title_text, "87", "Trung bình", val_color="#f59e0b")
         with kpi_cols[1]: render_kpi_card("Chất ô nhiễm chính", "PM2.5", "63% ngày vi phạm WHO")
-        with kpi_cols[2]: render_kpi_card("AQI cao nhất", "194", "Hà Nội · Xấu", val_color="#ef4444")
-        with kpi_cols[3]: render_kpi_card("Tỉnh theo dõi", "63", "<span style='color:#ef4444; font-weight:700;'>3 vượt ngưỡng</span>")
+        with kpi_cols[2]: render_kpi_card("AQI cao nhất", "194", f"{scope_val or 'Hà Nội'} · Xấu", val_color="#ef4444")
+        with kpi_cols[3]:
+            title_text = "Khu vực theo dõi" if (scope_val and spatial_grain in ["Tỉnh", "Phường"]) else "Tỉnh theo dõi"
+            render_kpi_card(title_text, "1", "<span style='color:#ef4444; font-weight:700;'>0 vượt ngưỡng</span>")
 
     # 2. Map & Widgets Section (2 Columns)
     st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
@@ -416,7 +436,23 @@ def main(lang):
     
     with c_title:
         st.markdown("<h2 style='margin:0; padding:0; font-family:\"Outfit\",sans-serif; font-size:1.65rem; font-weight:700; opacity: 0.95;'>Tổng quan chất lượng không khí</h2>" if lang == "vi" else "<h2 style='margin:0; padding:0; font-family:\"Outfit\",sans-serif; font-size:1.65rem; font-weight:700; opacity: 0.95;'>Air Quality Overview</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='margin:0.25rem 0 0 0; font-size:0.8rem; opacity:0.6; font-weight: 500;'>Cập nhật lần cuối 14:00 · 01/06/2026</p>", unsafe_allow_html=True)
+        
+        # Fetch dynamic last success time for dag_transform
+        try:
+            q = "SELECT max(last_success) as last_update FROM air_quality.ingestion_control WHERE source = 'dag_transform'"
+            df = query_df(q)
+            if not df.empty and df.iloc[0]["last_update"] and not pd.isna(df.iloc[0]["last_update"]):
+                dt = pd.to_datetime(df.iloc[0]["last_update"])
+                if dt.tzinfo is None:
+                    dt = dt.tz_localize('UTC')
+                last_update = dt.tz_convert('Asia/Ho_Chi_Minh')
+            else:
+                last_update = pd.to_datetime("2026-06-01 14:00:00").tz_localize('UTC').tz_convert('Asia/Ho_Chi_Minh')
+        except Exception:
+            last_update = pd.to_datetime("2026-06-01 14:00:00").tz_localize('UTC').tz_convert('Asia/Ho_Chi_Minh')
+            
+        last_update_str = last_update.strftime("%H:%M · %d/%m/%Y")
+        st.markdown(f"<p style='margin:0.25rem 0 0 0; font-size:0.8rem; opacity:0.6; font-weight: 500;'>Cập nhật lần cuối {last_update_str}</p>" if lang == "vi" else f"<p style='margin:0.25rem 0 0 0; font-size:0.8rem; opacity:0.6; font-weight: 500;'>Last updated {last_update_str}</p>", unsafe_allow_html=True)
 
     # Align segmented selector inline under Nguồn label
     source_labels = {

@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS ingestion_control
     error_message      String DEFAULT '',
     updated_at         DateTime DEFAULT now()
 )
-ENGINE = ReplacingMergeTree(updated_at)
-ORDER BY source
+ENGINE = MergeTree()
+ORDER BY (source, last_run)
 SETTINGS index_granularity = 8192;
 
 -- 3. OpenWeather Air Pollution (Vietnam ward-level ingestion points)
