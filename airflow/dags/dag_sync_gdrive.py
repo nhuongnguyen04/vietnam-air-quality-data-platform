@@ -12,6 +12,7 @@ import subprocess
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import BranchPythonOperator
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import dag, get_current_context, task
 
 # Default arguments
@@ -33,7 +34,7 @@ if not os.path.exists(SCRIPTS_DIR):
 @dag(
     default_args=default_args,
     description='Syncs ingested CSV data from Google Drive to ClickHouse',
-    schedule='*/15 * * * *',
+    schedule='55 * * * *',
     start_date=datetime(2026, 4, 1),
     catchup=False,
     max_active_runs=1,
@@ -155,15 +156,21 @@ def dag_sync_gdrive():
     no_data = log_no_data(sync_counters)
     update_control = update_sync_control()
 
+    trigger_transform = TriggerDagRunOperator(
+        task_id='trigger_transform',
+        trigger_dag_id='dag_transform',
+        wait_for_completion=False,
+    )
+
     route_after_sync = BranchPythonOperator(
         task_id='route_after_sync',
-        python_callable=lambda counters: 'log_completion' if counters["FILES_SYNCED"] > 0 else 'log_no_data',
+        python_callable=lambda counters: 'trigger_transform' if counters["FILES_SYNCED"] > 0 else 'log_no_data',
         op_args=[sync_counters],
     )
 
     # Branch: proceed only if data was synced
     sync_counters >> update_control
-    route_after_sync >> completion
+    route_after_sync >> trigger_transform >> completion
     route_after_sync >> no_data
 
 dag_sync_gdrive = dag_sync_gdrive()

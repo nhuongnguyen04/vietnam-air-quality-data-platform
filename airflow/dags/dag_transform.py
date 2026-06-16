@@ -148,7 +148,7 @@ def print_dbt_result(
 @dag(
     default_args=default_args,
     description='dbt transformation DAG — runs hourly to build the warehouse',
-    schedule='0 * * * *',
+    schedule=None,
     start_date=datetime(2026, 4, 1),
     catchup=False,
     max_active_runs=1,
