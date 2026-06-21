@@ -1,5 +1,7 @@
 {{ config(
-    materialized='view',
+    materialized='table',
+    engine='MergeTree()',
+    order_by='(province, month, assumeNotNull(ward_code), source)',
     tags=['pipeline_v2']
 ) }}
 
