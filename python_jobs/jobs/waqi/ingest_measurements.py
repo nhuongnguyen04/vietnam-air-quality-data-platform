@@ -140,6 +140,99 @@ def parse_waqi_timestamp(time_data: dict | None) -> datetime:
 
     return datetime.now(timezone.utc)
 
+def aqi_to_concentration(pollutant: str, aqi: float) -> float:
+    """Convert US AQI sub-index to raw concentration based on US EPA breakpoints.
+    
+    Breakpoints match those in calculate_aqi.sql.
+    """
+    pollutant = pollutant.lower()
+    if aqi <= 0:
+        return 0.0
+
+    # Breakpoints structure: (I_low, I_high, C_low, C_high)
+    breakpoints = []
+    
+    if pollutant == "pm25":
+        breakpoints = [
+            (0, 50, 0.0, 12.0),
+            (51, 100, 12.1, 35.4),
+            (101, 150, 35.5, 55.4),
+            (151, 200, 55.5, 150.4),
+            (201, 300, 150.5, 250.4),
+            (301, 400, 250.5, 350.4),
+            (401, 500, 350.5, 500.4),
+        ]
+    elif pollutant == "pm10":
+        breakpoints = [
+            (0, 50, 0, 54),
+            (51, 100, 55, 154),
+            (101, 150, 155, 254),
+            (151, 200, 255, 354),
+            (201, 300, 355, 424),
+            (301, 400, 425, 504),
+            (401, 500, 505, 604),
+        ]
+    elif pollutant == "co":
+        # Concentration in ppm
+        breakpoints = [
+            (0, 50, 0.0, 4.4),
+            (51, 100, 4.5, 9.4),
+            (101, 150, 9.5, 12.4),
+            (151, 200, 12.5, 15.4),
+            (201, 300, 15.5, 30.4),
+            (301, 400, 30.5, 40.4),
+            (401, 500, 40.5, 50.4),
+        ]
+    elif pollutant == "no2":
+        # Concentration in ppb
+        breakpoints = [
+            (0, 50, 0, 53),
+            (51, 100, 54, 100),
+            (101, 150, 101, 360),
+            (151, 200, 361, 649),
+            (201, 300, 650, 1249),
+            (301, 400, 1250, 1649),
+            (401, 500, 1650, 2049),
+        ]
+    elif pollutant == "so2":
+        # Concentration in ppb
+        breakpoints = [
+            (0, 50, 0, 35),
+            (51, 100, 36, 75),
+            (101, 150, 76, 185),
+            (151, 200, 186, 304),
+            (201, 300, 305, 604),
+            (301, 400, 605, 804),
+            (401, 500, 805, 1004),
+        ]
+    elif pollutant == "o3":
+        # Concentration in ppb
+        breakpoints = [
+            (0, 50, 0, 54),
+            (51, 100, 55, 70),
+            (101, 150, 71, 85),
+            (151, 200, 86, 105),
+            (201, 300, 106, 200),
+        ]
+    else:
+        return aqi
+
+    for i_low, i_high, c_low, c_high in breakpoints:
+        if i_low <= aqi <= i_high:
+            if i_high == i_low:
+                return float(c_low)
+            val = c_low + (aqi - i_low) * (c_high - c_low) / (i_high - i_low)
+            return round(val, 2)
+
+    # Off-the-charts extrapolation
+    if breakpoints:
+        i_low, i_high, c_low, c_high = breakpoints[-1]
+        if aqi > i_high:
+            val = c_low + (aqi - i_low) * (c_high - c_low) / (i_high - i_low)
+            return round(val, 2)
+
+    return aqi
+
 def process_results(results: list[dict], batch_id: str) -> tuple[list[dict], list[dict]]:
     """Parse WAQI JSON responses into measurements and station dimensions."""
     measurement_records = []
@@ -206,7 +299,7 @@ def process_results(results: list[dict], batch_id: str) -> tuple[list[dict], lis
                         "station_name": waqi_station_name,
                         "timestamp_utc": timestamp,
                         "parameter": db_param,
-                        "value": float(val),
+                        "value": aqi_to_concentration(db_param, float(val)),
                         "aqi_reported": int(aqi) if aqi is not None else 0,
                         "unit": get_unit(db_param),
                         "quality_flag": "valid",

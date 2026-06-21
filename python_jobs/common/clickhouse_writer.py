@@ -60,11 +60,11 @@ class ClickHouseWriter:
                 elif "openweather" in table.lower():
                     prepared_record["source"] = "openweather"
 
-            if "ingest_time" not in prepared_record:
-                prepared_record["ingest_time"] = datetime.now()
-
-            if "ingest_batch_id" not in prepared_record:
-                prepared_record["ingest_batch_id"] = batch_id
+            if table.lower() not in ("dim_waqi_stations", "raw_tomtom_traffic_hourly"):
+                if "ingest_time" not in prepared_record:
+                    prepared_record["ingest_time"] = datetime.now()
+                if "ingest_batch_id" not in prepared_record:
+                    prepared_record["ingest_batch_id"] = batch_id
 
             prepared.append(prepared_record)
         return prepared
