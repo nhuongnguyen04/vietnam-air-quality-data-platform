@@ -286,8 +286,8 @@ services:
     - TEXT_TO_SQL_TIMEOUT_SECONDS=${TEXT_TO_SQL_TIMEOUT_SECONDS:-90}
     - STREAMLIT_SERVER_PORT=8501
     - CKEY_API_KEY=${CKEY_API_KEY}
-    - CKEY_BASE_URL=${CKEY_BASE_URL:-https://ckey.vn/v1}
-    - CKEY_MODEL_ANALYSIS=${CKEY_MODEL_ANALYSIS:-claude-haiku-4.5}
+    - CKEY_BASE_URL=${CKEY_BASE_URL:-https://api.xah.io/v1}
+    - CKEY_MODEL_ANALYSIS=${CKEY_MODEL_ANALYSIS:-gpt-5.5}
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -327,8 +327,8 @@ services:
     - VANNA_API_KEY=${VANNA_API_KEY}
     - TEXT_TO_SQL_URL=http://text-to-sql:8000
     - CKEY_API_KEY=${CKEY_API_KEY}
-    - CKEY_BASE_URL=${CKEY_BASE_URL:-https://ckey.vn/v1}
-    - CKEY_MODEL_TEXT_TO_SQL=${CKEY_MODEL_TEXT_TO_SQL:-claude-haiku-4.5}
+    - CKEY_BASE_URL=${CKEY_BASE_URL:-https://api.xah.io/v1}
+    - CKEY_MODEL_TEXT_TO_SQL=${CKEY_MODEL_TEXT_TO_SQL:-gpt-5.5}
 
     - TEXT_TO_SQL_CLICKHOUSE_USER=${TEXT_TO_SQL_CLICKHOUSE_USER}
     - TEXT_TO_SQL_CLICKHOUSE_PASSWORD=${TEXT_TO_SQL_CLICKHOUSE_PASSWORD}
