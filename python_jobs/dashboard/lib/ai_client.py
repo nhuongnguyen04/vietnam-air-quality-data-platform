@@ -17,9 +17,9 @@ def get_ai_client() -> OpenAI | None:
         return None
     _client = OpenAI(
         api_key=api_key,
-        base_url=os.environ.get("CKEY_BASE_URL", "https://ckey.vn/v1"),
+        base_url=os.environ.get("CKEY_BASE_URL", "https://api.xah.io/v1"),
     )
     return _client
 
 def get_analysis_model() -> str:
-    return os.environ.get("CKEY_MODEL_ANALYSIS", "claude-haiku-4.5")
+    return os.environ.get("CKEY_MODEL_ANALYSIS", "gpt-5.5")

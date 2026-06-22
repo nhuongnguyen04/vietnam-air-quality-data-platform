@@ -53,7 +53,7 @@ def _parse_json_robust(text: str) -> dict:
         else:
             raise
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=1800, show_spinner=False)
 def generate_ai_analysis(_context_hash: str, context_json: str, lang: str = "vi") -> dict:
     """Run direct single-call LLM analysis on the ClickHouse database context."""
     context = json.loads(context_json)
@@ -156,3 +156,66 @@ def _fallback_rule_based(context_json: str, lang: str) -> dict:
         "model": "rule-based",
         "timestamp": datetime.now().isoformat(),
     }
+
+
+# --- In-Memory Caching & Streaming Support for AI Assistant ---
+_ANALYSIS_CACHE = {}
+CACHE_TTL = 1800  # 30 minutes
+
+def get_cached_analysis(context_hash: str) -> dict | None:
+    import time
+    if context_hash in _ANALYSIS_CACHE:
+        ts, val = _ANALYSIS_CACHE[context_hash]
+        if time.time() - ts < CACHE_TTL:
+            return val
+        else:
+            del _ANALYSIS_CACHE[context_hash]
+    return None
+
+def set_cached_analysis(context_hash: str, val: dict):
+    import time
+    _ANALYSIS_CACHE[context_hash] = (time.time(), val)
+
+def stream_ai_analysis(context_json: str, lang: str = "vi"):
+    """Yield chunks of analysis text in real time."""
+    context = json.loads(context_json)
+    page_name = context.get("page_name", "overview")
+    
+    prompts = _load_prompts()
+    role = prompts["page_roles"].get(page_name, prompts["page_roles"].get("overview", ""))
+    
+    client = get_ai_client()
+    model = get_analysis_model()
+    
+    if not client:
+        fallback = _fallback_rule_based(context_json, lang)
+        yield fallback.get("content", "")
+        return
+        
+    try:
+        system_prompt = prompts["system_prompts"]["analysis_template"].format(role_description=role)
+        user_content = (
+            f"{system_prompt}\n\n"
+            f"--- BẮT ĐẦU DỮ LIỆU CONTEXT ---\n"
+            f"Dữ liệu context trang {page_name}:\n{context_json}\n"
+            f"--- KẾT THÚC DỮ LIỆU CONTEXT ---\n\n"
+            f"YÊU CẦU: Hãy phân tích dữ liệu context trên theo các hướng dẫn ở trên."
+        )
+        stream = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a professional air quality data analyst."},
+                {"role": "user", "content": user_content},
+            ],
+            max_tokens=1500,
+            temperature=0.2,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                yield delta
+    except Exception as e:
+        logger.error(f"LLM streaming analysis failed: {e}")
+        fallback = _fallback_rule_based(context_json, lang)
+        yield fallback.get("content", "")

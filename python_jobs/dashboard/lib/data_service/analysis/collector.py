@@ -2,11 +2,13 @@
 from datetime import datetime
 import pandas as pd
 import logging
+import streamlit as st
 from lib.clickhouse_client import query_df
 from lib.data_service.core import get_source_table, get_pollutant_cols
 
 logger = logging.getLogger(__name__)
 
+@st.cache_data(ttl=300, show_spinner=False)
 def collect_analysis_context(page_name: str, filters: dict, lang: str = "vi") -> dict:
     """Gather page-specific structured context datasets from ClickHouse."""
     spatial_grain = filters.get("spatial_grain", "Toàn quốc")

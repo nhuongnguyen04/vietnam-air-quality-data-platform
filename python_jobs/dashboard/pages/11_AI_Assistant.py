@@ -130,14 +130,61 @@ def main(lang: str):
             context = collect_analysis_context(page_name=selected_scope, filters=filters, lang=lang)
             context_hash = hashlib.md5(json.dumps(context, default=str).encode()).hexdigest()
             
-            with st.spinner("Trợ lý AI đang phân tích dữ liệu..." if lang == "vi" else "AI is analyzing data..."):
+            from lib.data_service.analysis.pipeline import get_cached_analysis, set_cached_analysis, stream_ai_analysis
+            analysis = get_cached_analysis(context_hash)
+            
+            if analysis:
+                render_ai_analysis_panel(analysis, page_name=selected_scope, lang=lang)
+            else:
+                from lib.design_tokens import get_theme_tokens
+                from lib.page_helpers import clean_html
+                from datetime import datetime
+                
+                tokens = get_theme_tokens()
+                bg = tokens.get("card_bg", "rgba(255, 255, 255, 0.05)")
+                border = tokens.get("border", "rgba(255, 255, 255, 0.1)")
+                text_color = tokens.get("text", "#ffffff")
+                
+                title_text = "🧠 Trợ Lý Phân Tích AI" if lang == "vi" else "🧠 AI Analytical Assistant"
+                badge = "⚡ Đang phân tích..." if lang == "vi" else "⚡ Analyzing..."
+                border_left_color = "#a855f7"
+                
+                st.markdown(clean_html(f"""
+                <div class="glass-card" style="
+                    background: {bg};
+                    border: 1px solid {border};
+                    border-left: 5px solid {border_left_color};
+                    border-radius: 12px;
+                    padding: 1.2rem 1.5rem;
+                    margin-bottom: 1rem;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid {border}; padding-bottom: 0.5rem; width: 100%;">
+                        <span style="font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 700; color: {text_color};">
+                            {title_text}
+                        </span>
+                        <span style="font-size: 0.76rem; background: rgba(255, 255, 255, 0.1); padding: 3px 8px; border-radius: 99px; font-weight: 600; opacity: 0.85; color: {text_color};">
+                            {badge}
+                        </span>
+                    </div>
+                </div>
+                """), unsafe_allow_html=True)
+                
                 try:
-                    analysis = generate_ai_analysis(
-                        _context_hash=context_hash,
+                    stream_generator = stream_ai_analysis(
                         context_json=json.dumps(context, default=str, ensure_ascii=False),
-                        lang=lang,
+                        lang=lang
                     )
-                    render_ai_analysis_panel(analysis, page_name=selected_scope, lang=lang)
+                    full_text = st.write_stream(stream_generator)
+                    
+                    analysis = {
+                        "status": "success",
+                        "content": full_text,
+                        "sources": [],
+                        "model": os.environ.get("CKEY_MODEL_ANALYSIS", "gpt-5.5"),
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    set_cached_analysis(context_hash, analysis)
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Lỗi khi chạy phân tích AI: {e}" if lang == "vi" else f"AI Analysis error: {e}")
                 

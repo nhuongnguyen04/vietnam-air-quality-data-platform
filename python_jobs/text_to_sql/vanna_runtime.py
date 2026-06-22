@@ -89,8 +89,8 @@ class VannaRuntime:
         
         if ckey_key:
             api_key = ckey_key
-            model = os.environ.get("CKEY_MODEL_TEXT_TO_SQL", "claude-haiku-4.5")
-            base_url = os.environ.get("CKEY_BASE_URL", "https://ckey.vn/v1")
+            model = os.environ.get("CKEY_MODEL_TEXT_TO_SQL", "gpt-5.5")
+            base_url = os.environ.get("CKEY_BASE_URL", "https://api.xah.io/v1")
         elif groq_api_key:
             api_key = groq_api_key
             model = os.environ.get("GROQ_MODEL", "qwen/qwen3-32b")
